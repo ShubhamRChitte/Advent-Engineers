@@ -1,0 +1,29 @@
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background: #f5f7fb;
+  overflow: hidden;
+}
+
+/* right side */
+.main-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden; /* VERY IMPORTANT */
+  height: 100vh;
+}
+
+/* content area */
+.page-content {
+  padding: 24px;
+  width: 100%;
+  box-sizing: border-box;
+  
+}
+.sidebar {
+  width: 240px;
+  height: 100vh;
+  flex-shrink: 0;
+}
