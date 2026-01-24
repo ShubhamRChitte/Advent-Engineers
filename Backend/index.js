@@ -3,6 +3,7 @@ require("dotenv").config();
 
 const express = require('express');
 const mongoose = require('mongoose');
+const cors = require('cors');
 
 
 
@@ -28,6 +29,14 @@ mongoose
   .connect(uri)
   .then(() => console.log("MongoDB is  connected successfully"))
   .catch((err) => console.error(err));
+
+app.use(cors({
+  origin: "http://localhost:3000",
+  credentials: true
+}));
+
+app.use(express.json());
+
 
 
  //add the dummy data of the customers 
@@ -106,120 +115,79 @@ app.get('/addOrders', async (req, res) => {
   try {
     let tempOrders = [
   {
-    "clientName": "Shubham Industries",
-    "clientContactNo": "9876543210",
-    "quantity": 5,
-    "isStandard": "IS 2705",
-    "transformerType": "CT",
-    "noOfCores": 3,
-    "coreDetails": [
-      { "coreType": "Metering" },
-      { "coreType": "Protection" },
-      { "coreType": "PS" }
+    clientName: "MSEB Power Distribution Ltd.",
+    clientContactNo: "9876543210",
+    transformerName: "Outdoor Epoxy Resin Cast CT",
+    transformerType: "CT",
+    quantity: 150,
+    noOfCores: 3,
+    coreDetails: [
+      { coreType: "Metering" },
+      { coreType: "Protection" },
+      { coreType: "PS" }
     ],
-    "nominalSystemVoltage": 33,
-    "burden": 15,
-    "ratedPrimaryCurrent": 200,
-    "ratedSecondaryCurrent": 5,
-    "accuracyClass": "0.5",
-    "mountingDetails": "Wall mounted with clamp",
-    "overallDimension": "300x200x150 mm"
+    nominalSystemVoltage: 11000,
+    burden: 15,
+    ratedPrimaryCurrent: 400,
+    ratedSecondaryCurrent: 5,
+    accuracyClass: "0.5 / 5P10",
+    mountingDetails: "Outdoor pole mounting",
+    overallDimension: "620 x 480 x 520 mm",
+    deadline: new Date("2024-12-28"),
+    instructions: "Priority order. Complete testing within 3 days.",
+    status: "Pending",
+    priority: "High",
+    isStandard: "Yes"
   },
   {
-    "clientName": "ABC Power Station",
-    "clientContactNo": "9123456780",
-    "quantity": 2,
-    "isStandard": "IS 3156",
-    "transformerType": "PT",
-    "noOfCores": 1,
-    "coreDetails": [
-      { "coreType": "Metering" }
+    clientName: "Tata Power Company Ltd.",
+    clientContactNo: "9123456789",
+    transformerName: "Dead Tank Type CT",
+    transformerType: "CT",
+    quantity: 80,
+    noOfCores: 2,
+    coreDetails: [
+      { coreType: "Metering" },
+      { coreType: "PS" }
     ],
-    "nominalSystemVoltage": 11,
-    "burden": 5,
-    "ratedPrimaryCurrent": 1,
-    "ratedSecondaryCurrent": 1,
-    "accuracyClass": "0.2",
-    "mountingDetails": "Panel mounted",
-    "overallDimension": "250x150x100 mm"
+    nominalSystemVoltage: 33000,
+    burden: 10,
+    ratedPrimaryCurrent: 200,
+    ratedSecondaryCurrent: 5,
+    accuracyClass: "0.2S / PX",
+    mountingDetails: "Indoor panel mounting",
+    overallDimension: "540 x 420 x 480 mm",
+    deadline: new Date("2024-12-30"),
+    instructions: "Standard testing procedure.",
+    status: "In Progress",
+    priority: "Medium",
+    isStandard: "Yes"
   },
   {
-    "clientName": "XYZ Substation",
-    "clientContactNo": "9988776655",
-    "quantity": 3,
-    "isStandard": "IS 2705",
-    "transformerType": "CT",
-    "noOfCores": 2,
-    "coreDetails": [
-      { "coreType": "Metering" },
-      { "coreType": "Protection" }
+    clientName: "Gujarat Energy Transmission Corporation Ltd.",
+    clientContactNo: "9988776655",
+    transformerName: "Live Tank Type CT",
+    transformerType: "CT",
+    quantity: 120,
+    noOfCores: 1,
+    coreDetails: [
+      { coreType: "PS" }
     ],
-    "nominalSystemVoltage": 66,
-    "burden": 10,
-    "ratedPrimaryCurrent": 400,
-    "ratedSecondaryCurrent": 5,
-    "accuracyClass": "1",
-    "mountingDetails": "Outdoor pole mounted",
-    "overallDimension": "320x220x170 mm"
-  },
-  {
-    "clientName": "PowerGrid Ltd.",
-    "clientContactNo": "9001234567",
-    "quantity": 1,
-    "isStandard": "IS 2705",
-    "transformerType": "CT",
-    "noOfCores": 4,
-    "coreDetails": [
-      { "coreType": "Metering" },
-      { "coreType": "Protection" },
-      { "coreType": "Protection" },
-      { "coreType": "PS" }
-    ],
-    "nominalSystemVoltage": 132,
-    "burden": 20,
-    "ratedPrimaryCurrent": 800,
-    "ratedSecondaryCurrent": 5,
-    "accuracyClass": "0.5",
-    "mountingDetails": "Indoor panel mounted",
-    "overallDimension": "400x250x200 mm"
-  },
-  {
-    "clientName": "Rural Distribution Co.",
-    "clientContactNo": "9556677889",
-    "quantity": 4,
-    "isStandard": "IS 2705",
-    "transformerType": "CT",
-    "noOfCores": 1,
-    "coreDetails": [
-      { "coreType": "Metering" }
-    ],
-    "nominalSystemVoltage": 11,
-    "burden": 5,
-    "ratedPrimaryCurrent": 100,
-    "ratedSecondaryCurrent": 5,
-    "accuracyClass": "0.2",
-    "mountingDetails": "Pole mounted",
-    "overallDimension": "220x140x120 mm"
-  },
-  {
-    "clientName": "Metro Rail Energy",
-    "clientContactNo": "9988001122",
-    "quantity": 2,
-    "isStandard": "IS 3156",
-    "transformerType": "PT",
-    "noOfCores": 1,
-    "coreDetails": [
-      { "coreType": "Metering" }
-    ],
-    "nominalSystemVoltage": 33,
-    "burden": 10,
-    "ratedPrimaryCurrent": 1,
-    "ratedSecondaryCurrent": 1,
-    "accuracyClass": "0.5",
-    "mountingDetails": "Panel mounted",
-    "overallDimension": "270x160x130 mm"
+    nominalSystemVoltage: 66000,
+    burden: 20,
+    ratedPrimaryCurrent: 800,
+    ratedSecondaryCurrent: 1,
+    accuracyClass: "PX",
+    mountingDetails: "Outdoor structure mounting",
+    overallDimension: "750 x 600 x 680 mm",
+    deadline: new Date("2024-12-27"),
+    instructions: "Urgent order. Client requires fast delivery.",
+    status: "Pending",
+    priority: "High",
+    isStandard: "No"
   }
 ];
+
 
 
     for (const item of tempOrders) {
@@ -846,6 +814,41 @@ let tempProtectionReading = [
   }
 });
 
+app.get("/", (req, res) => {
+  res.send("Backend running successfully");
+});
+
+
+
+// get allholdings
+app.get("/allorders",async(req,res)=>{
+    let orders = await OrderModel.find({});
+    res.json(orders);
+})
+
+
+// routes/meteringTest.js
+app.post('/metering-tests', async (req, res) => {
+  try {
+    const testRecord = new MeteringCoreTestModel(req.body);
+    await testRecord.save();
+    res.status(201).send({ message: "Record Created", id: testRecord._id });
+  } catch (err) {
+    res.status(400).send({ message: "Validation Failed", error: err.message });
+  }
+});
+
+
+// routes/protectionTest.js
+app.post("/protection-tests", async (req, res) => {
+  try {
+    const testRecord = new ProtectionCoreTestModel(req.body);
+    await testRecord.save();
+    res.status(201).send({ message: "Record Created", id: testRecord._id });
+  } catch (err) {
+    res.status(400).send({ message: "Validation Failed", error: err.message });
+  }
+});
 
 
   app.listen(PORT,()=>{

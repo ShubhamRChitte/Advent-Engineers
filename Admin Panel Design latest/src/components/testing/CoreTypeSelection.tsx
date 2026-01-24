@@ -92,17 +92,17 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
           </div>
           <div>
             <p className="text-xs text-gray-500">Quantity</p>
-            <p className="text-gray-900 mt-0.5">{order.transformerQuantity} units</p>
+            <p className="text-gray-900 mt-0.5">{order.quantity} units</p>
           </div>
           <div>
             <p className="text-xs text-gray-500">Deadline</p>
-            <p className="text-gray-900 mt-0.5">{order.deadline}</p>
+            <p className="text-gray-900 mt-0.5">{new Date(order.deadline).toLocaleDateString()}</p>
           </div>
         </div>
       </Card>
 
       {/* Core Type Selection */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {order.coreConfiguration.map((config, idx) => {
           const colors = getCoreTypeColor(config.type);
           return (
@@ -136,7 +136,47 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
             </Card>
           );
         })}
-      </div>
+      </div> */}
+<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+  {order.coreDetails?.map((core, idx) => {
+    const colors = getCoreTypeColor(core.coreType);
+
+    return (
+      <Card
+        key={idx}
+        className={`p-4 ${colors.bg} ${colors.border} border hover:shadow-md transition-shadow`}
+      >
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className={colors.text}>
+              {getCoreTypeIcon(core.coreType)}
+            </div>
+            <h3 className={`text-base font-medium ${colors.text}`}>
+              {core.coreType}
+            </h3>
+          </div>
+
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Cores to Test</span>
+              <span className="font-medium text-gray-900">
+                {order.quantity} cores
+              </span>
+            </div>
+          </div>
+
+          <Button
+            className={`w-full ${colors.button} text-white`}
+            size="sm"
+            onClick={() => onSelectCoreType(core.coreType)}
+          >
+            Start Testing
+          </Button>
+        </div>
+      </Card>
+    );
+  })}
+</div>
 
       {/* Instructions */}
       {order.instructions && (

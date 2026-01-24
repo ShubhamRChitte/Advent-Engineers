@@ -1,4 +1,4 @@
-const {Schema} = require("mongoose");
+const { Schema } = require("mongoose");
 
 const CoreDetailSchema = new Schema({
   coreType: {
@@ -8,95 +8,135 @@ const CoreDetailSchema = new Schema({
   }
 });
 
-const OrderSchema = new Schema({
-  clientName: {
-    type: String,
-    required: true,
-    trim: true
-  },
+const OrderSchema = new Schema(
+  {
+    // -------- CLIENT DETAILS --------
+    clientName: {
+      type: String,
+      required: true,
+      trim: true
+    },
 
-  clientContactNo: {
-    type: String,
-    required: true,
-    trim: true
-  },
+    clientContactNo: {
+      type: String,
+      required: true,
+      trim: true
+    },
 
-  quantity: {
-    type: Number,
-    required: true,
-    min: 1
-  },
+    // -------- TRANSFORMER DETAILS --------
+    transformerName: {
+      type: String,
+      required: true,
+      trim: true
+    },
 
-  isStandard: {
-    type: String,
-    required: true,
-    trim: true
-  },
+    transformerType: {
+      type: String,
+      required: true,
+      enum: ["CT", "PT"]
+    },
 
-  transformerType: {
-    type: String,
-    required: true,
-    enum: ["CT", "PT"]
-  },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1
+    },
 
-  noOfCores: {
-    type: Number,
-    required: true,
-    min: 1
-  },
+    // -------- CORE CONFIGURATION --------
+    noOfCores: {
+      type: Number,
+      required: true,
+      min: 1
+    },
 
-  coreDetails: {
-    type: [CoreDetailSchema],
-    required: true,
-    validate: {
-      validator: function (value) {
-        return value.length === this.noOfCores;
-      },
-      message: "Core details count must match number of cores"
+    coreDetails: {
+      type: [CoreDetailSchema],
+      required: true,
+      validate: {
+        validator: function (value) {
+          return value.length === this.noOfCores;
+        },
+        message: "Core details count must match number of cores"
+      }
+    },
+
+    // -------- ELECTRICAL PARAMETERS --------
+    nominalSystemVoltage: {
+      type: Number,
+      required: true
+    },
+
+    burden: {
+      type: Number,
+      required: true
+    },
+
+    ratedPrimaryCurrent: {
+      type: Number,
+      required: true
+    },
+
+    ratedSecondaryCurrent: {
+      type: Number,
+      required: true
+    },
+
+    accuracyClass: {
+      type: String,
+      required: true,
+      trim: true
+    },
+
+    // -------- MECHANICAL DETAILS --------
+    mountingDetails: {
+      type: String,
+      required: true,
+      trim: true
+    },
+
+    overallDimension: {
+      type: String,
+      required: true,
+      trim: true
+    },
+
+    // -------- WORKFLOW / ORDER MANAGEMENT --------
+    deadline: {
+      type: Date,
+      required: true
+    },
+
+    instructions: {
+      type: String,
+      trim: true
+    },
+
+    status: {
+      type: String,
+      enum: ["Pending", "In Progress", "Completed"],
+      default: "Pending"
+    },
+
+    priority: {
+      type: String,
+      enum: ["High", "Medium", "Low"],
+      default: "Medium"
+    },
+
+    // -------- STANDARD / NON-STANDARD --------
+    isStandard: {
+      type: String,
+      required: true,
+      trim: true
     }
   },
-
-  nominalSystemVoltage: {
-    type: Number,
-    required: true
-  },
-
-  burden: {
-    type: Number,
-    required: true
-  },
-
-  ratedPrimaryCurrent: {
-    type: Number,
-    required: true
-  },
-
-  ratedSecondaryCurrent: {
-    type: Number,
-    required: true
-  },
-
-  accuracyClass: {
-    type: String,
-    required: true,
-    trim: true
-  },
-
-  mountingDetails: {
-    type: String,
-    required: true,
-    trim: true
-  },
-
-  overallDimension: {
-    type: String,
-    required: true,
-    trim: true
+  {
+    timestamps: true
   }
-}, {
-  timestamps: true
-});
+);
+
+module.exports = { OrderSchema };
 
 
-module.exports = {OrderSchema};
+
 

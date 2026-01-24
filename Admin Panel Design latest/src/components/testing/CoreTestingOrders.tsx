@@ -1,7 +1,9 @@
+import React, {useEffect} from 'react';
 import { useState } from 'react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
+import axios from 'axios';
 import { 
   Package, 
   Clock,
@@ -9,6 +11,10 @@ import {
   Zap,
   Shield
 } from 'lucide-react';
+
+
+// const backendURL = process.env.REACT_APP_BACKEND_URL;
+
 
 export interface CoreTypeConfig {
   type: 'Metering' | 'PS' | 'Protection';
@@ -37,66 +43,84 @@ interface CoreTestingOrdersProps {
 
 export function CoreTestingOrders({ onStartTesting }: CoreTestingOrdersProps) {
   // Sample data - would come from backend in real app
-  const [orders] = useState<CoreTestingOrder[]>([
-    {
-      id: '1',
-      orderId: 'ORD-2024-007',
-      jobId: 'JOB-2025-015',
-      clientName: 'MSEB Power Distribution Ltd.',
-      transformerName: 'Outdoor Epoxy Resin Cast CT',
-      transformerType: 'Current Transformer',
-      transformerQuantity: 150,
-      coreConfiguration: [
-        { type: 'Metering' },
-        { type: 'Protection' },
-        { type: 'PS' },
-      ],
-      deadline: '2024-12-28',
-      assignedDate: '2024-11-24',
-      assignedBy: 'Admin - Ramesh Sharma',
-      priority: 'High',
-      status: 'Pending',
-      instructions: 'Priority order - Please complete testing within 3 days. Each transformer has 3 cores.',
-    },
-    {
-      id: '2',
-      orderId: 'ORD-2024-008',
-      jobId: 'JOB-2025-016',
-      clientName: 'Tata Power Company',
-      transformerName: 'Dead Tank Type-3',
-      transformerType: 'Current Transformer',
-      transformerQuantity: 80,
-      coreConfiguration: [
-        { type: 'Metering' },
-        { type: 'PS' },
-      ],
-      deadline: '2024-12-30',
-      assignedDate: '2024-11-24',
-      assignedBy: 'Admin - Suresh Kumar',
-      priority: 'Medium',
-      status: 'In Progress',
-      instructions: 'Standard testing procedure. Each transformer has 2 cores.',
-    },
-    {
-      id: '3',
-      orderId: 'ORD-2024-006',
-      jobId: 'JOB-2025-014',
-      clientName: 'Gujarat Energy Transmission Corp.',
-      transformerName: 'Live Tank Type CT',
-      transformerType: 'Current Transformer',
-      transformerQuantity: 120,
-      coreConfiguration: [
-        { type: 'PS' },
-      ],
-      deadline: '2024-12-27',
-      assignedDate: '2024-11-23',
-      assignedBy: 'Admin - Ramesh Sharma',
-      priority: 'High',
-      status: 'Pending',
-      instructions: 'Urgent - Client requires quick turnaround. Single core per transformer.',
-    },
-  ]);
+  // const [orders] = useState<CoreTestingOrder[]>([
+  //   {
+  //     id: '1',
+  //     orderId: 'ORD-2024-007',
+  //     jobId: 'JOB-2025-015',
+  //     clientName: 'MSEB Power Distribution Ltd.',
+  //     transformerName: 'Outdoor Epoxy Resin Cast CT',
+  //     transformerType: 'Current Transformer',
+  //     transformerQuantity: 150,
+  //     coreConfiguration: [
+  //       { type: 'Metering' },
+  //       { type: 'Protection' },
+  //       { type: 'PS' },
+  //     ],
+  //     deadline: '2024-12-28',
+  //     assignedDate: '2024-11-24',
+  //     assignedBy: 'Admin - Ramesh Sharma',
+  //     priority: 'High',
+  //     status: 'Pending',
+  //     instructions: 'Priority order - Please complete testing within 3 days. Each transformer has 3 cores.',
+  //   },
+  //   {
+  //     id: '2',
+  //     orderId: 'ORD-2024-008',
+  //     jobId: 'JOB-2025-016',
+  //     clientName: 'Tata Power Company',
+  //     transformerName: 'Dead Tank Type-3',
+  //     transformerType: 'Current Transformer',
+  //     transformerQuantity: 80,
+  //     coreConfiguration: [
+  //       { type: 'Metering' },
+  //       { type: 'PS' },
+  //     ],
+  //     deadline: '2024-12-30',
+  //     assignedDate: '2024-11-24',
+  //     assignedBy: 'Admin - Suresh Kumar',
+  //     priority: 'Medium',
+  //     status: 'In Progress',
+  //     instructions: 'Standard testing procedure. Each transformer has 2 cores.',
+  //   },
+  //   {
+  //     id: '3',
+  //     orderId: 'ORD-2024-006',
+  //     jobId: 'JOB-2025-014',
+  //     clientName: 'Gujarat Energy Transmission Corp.',
+  //     transformerName: 'Live Tank Type CT',
+  //     transformerType: 'Current Transformer',
+  //     transformerQuantity: 120,
+  //     coreConfiguration: [
+  //       { type: 'PS' },
+  //     ],
+  //     deadline: '2024-12-27',
+  //     assignedDate: '2024-11-23',
+  //     assignedBy: 'Admin - Ramesh Sharma',
+  //     priority: 'High',
+  //     status: 'Pending',
+  //     instructions: 'Urgent - Client requires quick turnaround. Single core per transformer.',
+  //   },
+  // ]);
 
+  
+ 
+ 
+  const [orders, setOrders] = useState<CoreTestingOrder[]>([]);
+
+  useEffect(() => {
+    axios
+      .get("http://localhost:3002/allorders")
+      .then((res) => {
+        setOrders(res.data);
+      })
+      .catch((err) => {
+        console.error("API ERROR:", err);
+      });
+  }, []);
+
+
+  
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'High':
@@ -160,13 +184,13 @@ export function CoreTestingOrders({ onStartTesting }: CoreTestingOrdersProps) {
       {/* Orders List */}
       <div className="space-y-3">
         {orders.map((order) => (
-          <Card key={order.id} className="p-4 hover:shadow-md transition-shadow">
+          <Card key={order._id} className="p-4 hover:shadow-md transition-shadow">
             <div className="space-y-3">
               {/* Header Row */}
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-base font-medium text-gray-900 truncate">{order.jobId}</h3>
+                    {/* <h3 className="text-base font-medium text-gray-900 truncate">{order.jobId}</h3> */}
                     <Badge className={`${getPriorityColor(order.priority)} text-xs px-2 py-0`}>
                       {order.priority}
                     </Badge>
@@ -195,24 +219,46 @@ export function CoreTestingOrders({ onStartTesting }: CoreTestingOrdersProps) {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Quantity</p>
-                  <p className="text-gray-900 mt-0.5">{order.transformerQuantity} units</p>
+                  <p className="text-gray-900 mt-0.5">{order.quantity} units</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Cores</p>
                   <div className="flex gap-1 mt-0.5 flex-wrap">
-                    {order.coreConfiguration.map((config, idx) => (
+                    {/* {order.coreConfiguration.map((config, idx) => (
                       <Badge key={idx} className={`${getCoreTypeColor(config.type)} text-xs px-1.5 py-0 gap-1`}>
                         {getCoreTypeIcon(config.type)}
                         {config.type}
                       </Badge>
-                    ))}
+                    ))} */}
+
+
+
+                    {order.coreDetails?.map((core, idx) => (
+  <Badge
+    key={idx}
+    className={`${getCoreTypeColor(core.coreType)} text-xs px-1.5 py-0 gap-1`}
+  >
+    {getCoreTypeIcon(core.coreType)}
+    {core.coreType}
+  </Badge>
+))}
+
+
+
+
                   </div>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Deadline</p>
                   <div className="flex items-center gap-1 mt-0.5">
                     <Clock className="w-3 h-3 text-gray-400" />
-                    <span className="text-gray-900 text-xs">{order.deadline}</span>
+                    {/* <span className="text-gray-900 text-xs">{order.deadline}</span> */}
+
+
+                    <span>{new Date(order.deadline).toLocaleDateString()}</span>
+
+
+
                   </div>
                 </div>
               </div>

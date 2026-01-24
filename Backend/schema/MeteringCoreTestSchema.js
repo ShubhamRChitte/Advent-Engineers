@@ -3,14 +3,14 @@ const {Schema} = require("mongoose");
 const MeteringCoreTestSchema = new Schema({
   orderId: {
     type: Schema.Types.ObjectId,
-    ref: "order",
+    ref: "Order",
     required: true
   },
 
-  transformerSerialNo: {
-    type: String,
-    required: true
-  },
+  // transformerSerialNo: {
+  //   type: String,
+  //   required: true
+  // },
 
   // coreIndex: {
   //   type: Number,
