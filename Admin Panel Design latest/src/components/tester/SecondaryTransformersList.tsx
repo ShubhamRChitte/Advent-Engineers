@@ -41,7 +41,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack }: Second
       id: 'T1',
       name: '33 KV CT',
       rating: '800-400-200/1-1-1A, 30VA',
-      uniqueId: 'TR-2025-001',
+      uniqueId: 'TR-2026-001',
       voltageClass: '33kV',
       cores: [
         { coreNumber: 1, coreType: 'metering' },
@@ -54,7 +54,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack }: Second
       id: 'T2',
       name: '33 KV CT',
       rating: '800-400-200/1-1-1A, 30VA',
-      uniqueId: 'TR-2025-002',
+      uniqueId: 'TR-2026-002',
       voltageClass: '33kV',
       cores: [
         { coreNumber: 1, coreType: 'ps' },
@@ -67,7 +67,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack }: Second
       id: 'T3',
       name: '33 KV CT',
       rating: '800-400-200/1-1-1A, 30VA',
-      uniqueId: 'TR-2025-003',
+      uniqueId: 'TR-2026-003',
       voltageClass: '33kV',
       cores: [
         { coreNumber: 1, coreType: 'protection' },
@@ -80,7 +80,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack }: Second
       id: 'T4',
       name: '33 KV CT',
       rating: '800-400-200/1-1-1A, 30VA',
-      uniqueId: 'TR-2025-004',
+      uniqueId: 'TR-2026-004',
       voltageClass: '33kV',
       cores: [
         { coreNumber: 1, coreType: 'metering' },
@@ -93,7 +93,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack }: Second
       id: 'T5',
       name: '33 KV CT',
       rating: '800-400-200/1-1-1A, 30VA',
-      uniqueId: 'TR-2025-005',
+      uniqueId: 'TR-2026-005',
       voltageClass: '33kV',
       cores: [
         { coreNumber: 1, coreType: 'metering' },

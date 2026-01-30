@@ -47,7 +47,7 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
       id: 'T1',
       name: '33 KV CT',
       rating: '800-400-200/1-1-1A',
-      uniqueId: 'TR-2025-001',
+      uniqueId: 'TR-2026-001',
       voltageClass: '33kV',
       bsat: '800-400-200/1-1-1',
       vaRating: '00/30/30',
@@ -64,7 +64,7 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
       id: 'T2',
       name: '33 KV CT',
       rating: '800-400-200/1-1-1A',
-      uniqueId: 'TR-2025-002',
+      uniqueId: 'TR-2026-002',
       voltageClass: '33kV',
       bsat: '800-400-200/1-1-1',
       vaRating: '00/30/30',
@@ -81,7 +81,7 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
       id: 'T3',
       name: '33 KV CT',
       rating: '800-400-200/1-1-1A',
-      uniqueId: 'TR-2025-003',
+      uniqueId: 'TR-2026-003',
       voltageClass: '33kV',
       bsat: '800-400-200/1-1-1',
       vaRating: '00/30/30',
@@ -98,7 +98,7 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
       id: 'T4',
       name: '33 KV CT',
       rating: '800-400-200/1-1-1A',
-      uniqueId: 'TR-2025-004',
+      uniqueId: 'TR-2026-004',
       voltageClass: '33kV',
       bsat: '800-400-200/1-1-1',
       vaRating: '00/30/30',
@@ -115,7 +115,7 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
       id: 'T5',
       name: '33 KV CT',
       rating: '800-400-200/1-1-1A',
-      uniqueId: 'TR-2025-005',
+      uniqueId: 'TR-2026-005',
       voltageClass: '33kV',
       bsat: '800-400-200/1-1-1',
       vaRating: '00/30/30',
@@ -244,9 +244,9 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                         disabled={transformer.status === 'completed'}
                       >
                         <PlayCircle className="w-4 h-4 mr-2" />
-                        {transformer.status === 'pending' ? 'Start Test' : 
-                         transformer.status === 'in-progress' ? 'Continue Test' : 
-                         'View Report'}
+                        {transformer.status === 'pending' ? 'Start Test' :
+                          transformer.status === 'in-progress' ? 'Continue Test' :
+                            'View Report'}
                       </Button>
                     </div>
                   </td>
@@ -266,8 +266,8 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
           <div>
             <h4 className="mb-1">Auto-Loaded Core Information</h4>
             <p className="text-sm text-gray-700">
-              All core configurations and core numbers shown above were automatically loaded from the Secondary Test data. 
-              When you start testing, the report will open with this information pre-filled. You only need to enter the 
+              All core configurations and core numbers shown above were automatically loaded from the Secondary Test data.
+              When you start testing, the report will open with this information pre-filled. You only need to enter the
               actual test measurement values.
             </p>
           </div>

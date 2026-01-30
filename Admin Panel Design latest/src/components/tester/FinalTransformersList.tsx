@@ -41,7 +41,7 @@ export function FinalTransformersList({ order, onStartTest, onBack }: FinalTrans
       id: 'T1',
       name: '33 KV CT',
       rating: '800-400-200/1-1-1A',
-      uniqueId: 'TR-2025-001',
+      uniqueId: 'TR-2026-001',
       voltageClass: '33kV',
       status: 'pending',
       cores: [
@@ -54,7 +54,7 @@ export function FinalTransformersList({ order, onStartTest, onBack }: FinalTrans
       id: 'T2',
       name: '33 KV CT',
       rating: '800-400-200/1-1-1A',
-      uniqueId: 'TR-2025-002',
+      uniqueId: 'TR-2026-002',
       voltageClass: '33kV',
       status: 'pending',
       cores: [
@@ -67,7 +67,7 @@ export function FinalTransformersList({ order, onStartTest, onBack }: FinalTrans
       id: 'T3',
       name: '33 KV CT',
       rating: '800-400-200/1-1-1A',
-      uniqueId: 'TR-2025-003',
+      uniqueId: 'TR-2026-003',
       voltageClass: '33kV',
       status: 'in-progress',
       cores: [
@@ -80,7 +80,7 @@ export function FinalTransformersList({ order, onStartTest, onBack }: FinalTrans
       id: 'T4',
       name: '33 KV CT',
       rating: '800-400-200/1-1-1A',
-      uniqueId: 'TR-2025-004',
+      uniqueId: 'TR-2026-004',
       voltageClass: '33kV',
       status: 'pending',
       cores: [
@@ -93,7 +93,7 @@ export function FinalTransformersList({ order, onStartTest, onBack }: FinalTrans
       id: 'T5',
       name: '33 KV CT',
       rating: '800-400-200/1-1-1A',
-      uniqueId: 'TR-2025-005',
+      uniqueId: 'TR-2026-005',
       voltageClass: '33kV',
       status: 'completed',
       cores: [
@@ -190,9 +190,9 @@ export function FinalTransformersList({ order, onStartTest, onBack }: FinalTrans
                         disabled={transformer.status === 'completed'}
                       >
                         <PlayCircle className="w-4 h-4 mr-2" />
-                        {transformer.status === 'pending' ? 'Start Test' : 
-                         transformer.status === 'in-progress' ? 'Continue Test' : 
-                         'View Report'}
+                        {transformer.status === 'pending' ? 'Start Test' :
+                          transformer.status === 'in-progress' ? 'Continue Test' :
+                            'View Report'}
                       </Button>
                     </div>
                   </td>
@@ -212,8 +212,8 @@ export function FinalTransformersList({ order, onStartTest, onBack }: FinalTrans
           <div>
             <h4 className="mb-1">Final Testing Process</h4>
             <p className="text-sm text-gray-700">
-              When you start testing, a comprehensive final test report will open containing all required 
-              tests: Polarity Testing, Meggar Test, H.V. Tests (on Secondary Winding, Primary Winding, 
+              When you start testing, a comprehensive final test report will open containing all required
+              tests: Polarity Testing, Meggar Test, H.V. Tests (on Secondary Winding, Primary Winding,
               between Core), O.V.I.T. Test, and Accuracy Test.
             </p>
           </div>

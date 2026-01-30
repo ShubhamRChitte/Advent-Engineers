@@ -8,7 +8,7 @@ import { Transformer } from './SecondaryTransformersList';
 
 interface SecondaryCoreSelectionProps {
   transformer: Transformer;
-  onCoreSelect: (coreNumber: number, coreType: string, enteredCoreId: string) => void;
+  onCoreSelect: (coreNumber: number, coreType: string, enteredCoreId: string, uniqueId: string ) => void;
   onBack: () => void;
 }
 
@@ -42,7 +42,7 @@ export function SecondaryCoreSelection({ transformer, onCoreSelect, onBack }: Se
     if (selectedCore !== null && enteredCoreId.trim()) {
       const core = transformer.cores.find(c => c.coreNumber === selectedCore);
       if (core) {
-        onCoreSelect(selectedCore, core.coreType, enteredCoreId);
+        onCoreSelect(selectedCore, core.coreType, enteredCoreId,transformer.uniqueId );
       }
     }
   };
