@@ -14,7 +14,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
       return [
         { id: 'home', label: 'Home', icon: Home },
         { id: 'notifications', label: 'Notifications', icon: Bell },
-        { id: 'orders', label: 'Orders', icon: ClipboardCheck },
+        // { id: 'orders', label: 'Orders', icon: ClipboardCheck },
         { id: 'core-tracking', label: 'Core Tracking', icon: Zap },
       ];
     }

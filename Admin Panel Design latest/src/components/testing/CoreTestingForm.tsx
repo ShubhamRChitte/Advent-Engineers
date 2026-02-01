@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { 
+import {
   ArrowLeft,
   Save,
   Printer,
@@ -70,11 +70,30 @@ export interface FailedCore {
 }
 
 export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProps) {
+  // const generateCoreId = (transformerNum: number) => {
+  //   const prefix = coreType === 'Metering' ? 'M' : coreType === 'PS' ? 'PS' : 'P';
+  //   const orderPrefix = order.orderId.replace('ORD-', '').replace('-', '');
+  //   return `${prefix}-${orderPrefix}-${String(transformerNum).padStart(3, '0')}`;
+  // };
+
+
+  // ------------------------update-1
+
   const generateCoreId = (transformerNum: number) => {
+    // 1. Prefix based on core type
     const prefix = coreType === 'Metering' ? 'M' : coreType === 'PS' ? 'PS' : 'P';
-    const orderPrefix = order.orderId.replace('ORD-', '').replace('-', '');
-    return `${prefix}-${orderPrefix}-${String(transformerNum).padStart(3, '0')}`;
+
+    // 2. Safe Job ID logic: Takes "JOB-2025-015" and gets "015"
+    // The ?. ensures it doesn't crash if order or jobId is missing
+    const jobSuffix = order?.jobId?.split('-').pop() ?? '000';
+
+    // 3. Final Format: Prefix-JobSuffix-Sequence (e.g., M-015-001)
+    return `${prefix}-${jobSuffix}-${String(transformerNum).padStart(3, '0')}`;
   };
+
+
+
+  // ----------------------
 
   const isProtectionCore = coreType === 'Protection';
   const isPSCore = coreType === 'PS';
@@ -83,32 +102,48 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
 
 
 
-/** Helper to find the next logical sequence number in existing rows */
-const getNextSequenceNumber = (currentRows: CoreTestRow[]) => {
-  const existingIds = currentRows
-    .map(r => r.internalCoreNo)
-    .filter(id => id && id.includes('-'));
+  /** Helper to find the next logical sequence number in existing rows */
+  const getNextSequenceNumber = (currentRows: CoreTestRow[]) => {
+    const existingIds = currentRows
+      .map(r => r.internalCoreNo)
+      .filter(id => id && id.includes('-'));
 
-  if (existingIds.length === 0) return 1;
+    if (existingIds.length === 0) return 1;
 
-  const numbers = existingIds.map(id => {
-    const parts = id.split('-');
-    return parseInt(parts[parts.length - 1]) || 0;
-  });
+    const numbers = existingIds.map(id => {
+      const parts = id.split('-');
+      return parseInt(parts[parts.length - 1]) || 0;
+    });
 
-  return Math.max(...numbers) + 1;
-};
-
-
+    return Math.max(...numbers) + 1;
+  };
 
 
-const getSystemDate = () => new Date().toLocaleDateString('en-GB');
 
 
+  const getSystemDate = () => new Date().toLocaleDateString('en-GB');
+
+
+  ///-------------------------------update -4
   // Initialize rows
+  // const initializeRows = (): CoreTestRow[] => {
+  //   return Array.from({ length: 20 }, (_, i) => ({
+  //     date: '',
+  //     coreVendorNo: '',
+  //     internalCoreNo: i < order.transformerQuantity ? generateCoreId(i + 1) : '',
+  //     value1000: '',
+  //     value3000: '',
+  //     value5000: '',
+  //     value7000: '',
+  //     singleValue: '',
+  //     dynamicValues: {},
+  //     remark: '',
+  //   }));
+  // };
+  //----------------------------
   const initializeRows = (): CoreTestRow[] => {
     return Array.from({ length: 20 }, (_, i) => ({
-      date: '',
+      date: getSystemDate(),
       coreVendorNo: '',
       internalCoreNo: i < order.transformerQuantity ? generateCoreId(i + 1) : '',
       value1000: '',
@@ -121,12 +156,37 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
     }));
   };
 
+  //   const initializeRows = (): CoreTestRow[] => {
+  //   // Use the core type prefix
+  // const prefix = coreType === 'Metering' ? 'M' : coreType === 'PS' ? 'PS' : 'P';
+
+  // //   // Clean the JobID (e.g., "JOB-2025-015" -> "25015")
+  // const jobSuffix = order.jobId.split('-').pop();
+
+  // return Array.from({ length: 20 }, (_, i) => {
+  //   const isWithinQuantity = i < order.transformerQuantity;
+
+  //   return {
+  //     date: getSystemDate(),
+  //     coreVendorNo: '',
+  //     // Generate ID only if within the order quantity
+  //     internalCoreNo: isWithinQuantity
+  //       ? `${prefix}-${jobSuffix}-${String(i + 1).padStart(3, '0')}`
+  //       : '',
+  //     value1000: '', value3000: '', value5000: '', value7000: '',
+  //     singleValue: '',
+  //     dynamicValues: {},
+  //     remark: '',
+  //   };
+  // });
+  // };
 
 
 
 
 
-// ---------------------------------------
+
+  // ---------------------------------------
 
   const [rows, setRows] = useState<CoreTestRow[]>(initializeRows());
   const [failedCores, setFailedCores] = useState<FailedCore[]>([]);
@@ -136,7 +196,7 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
   const [testDate, setTestDate] = useState(new Date().toLocaleDateString('en-GB'));
   const [testBy, setTestBy] = useState('');
   const [authorizedSignatory, setAuthorizedSignatory] = useState('');
-  
+
   // Metering configuration state
   const [meteringConfigured, setMeteringConfigured] = useState(false);
   const [coreTypeNano, setCoreTypeNano] = useState<'TOROIDAL CORE NANO CRYSTALLINE' | 'M4CRGO'>('TOROIDAL CORE NANO CRYSTALLINE');
@@ -146,7 +206,7 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
     { id: '3', bsatValue: '5000', setMvValue: '465.964', leLimitValue: '42.861' },
     { id: '4', bsatValue: '7000', setMvValue: '652.349', leLimitValue: '56.7398' },
   ]);
-  
+
   // Protection configuration state
   const [protectionConfigured, setProtectionConfigured] = useState(false);
   const [protectionCoreTypeM4CRGO, setProtectionCoreTypeM4CRGO] = useState<'M4CRGO'>('M4CRGO');
@@ -195,6 +255,11 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
     }
   );
 
+  // Re-initialize rows when coreType or order changes to verify correct ID generation
+  useEffect(() => {
+    setRows(initializeRows());
+  }, [coreType, order]);
+
   // LE Limits - Only for Metering/PS
   const leLimits = {
     limit1000: 17.1444,
@@ -205,7 +270,7 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
 
   // Protection core limit (simpler - just one value)
   const protectionLimit = 600; // Example limit in mA
-  
+
   // PS core limit
   const psLimit = parseFloat(specs.iexLimit || '1150');
 
@@ -226,7 +291,7 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
       });
       return reasons.join('; ');
     }
-    
+
     if (isPSCore) {
       // PS core - check dynamic values like Protection core
       const reasons: string[] = [];
@@ -241,7 +306,7 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
     }
 
     const reasons: string[] = [];
-    
+
     // Check dynamic metering values
     bsatColumns.forEach(column => {
       const value = row.dynamicValues[column.id];
@@ -250,7 +315,7 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
         reasons.push(`${column.bsatValue}G: ${value}mA > ${limit}mA`);
       }
     });
-    
+
     return reasons.join('; ');
   };
 
@@ -258,7 +323,7 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
     if (isProtectionCore) {
       // Protection core - check all dynamic values
       if (Object.keys(row.dynamicValues).length === 0) return '';
-      
+
       for (const column of protectionBColumns) {
         const value = row.dynamicValues[column.id];
         if (!value) continue;
@@ -267,7 +332,7 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
         if (isNaN(numValue)) continue;
         if (numValue > limit) return 'F';
       }
-      
+
       // If we have at least one value and none failed, it's a pass
       const hasAnyValue = Object.values(row.dynamicValues).some(v => v !== '');
       return hasAnyValue ? 'P' : '';
@@ -276,7 +341,7 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
     if (isPSCore) {
       // PS core - check all dynamic values like Protection core
       if (Object.keys(row.dynamicValues).length === 0) return '';
-      
+
       for (const column of psBColumns) {
         const value = row.dynamicValues[column.id];
         if (!value) continue;
@@ -285,7 +350,7 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
         if (isNaN(numValue)) continue;
         if (numValue > limit) return 'F';
       }
-      
+
       // If we have at least one value and none failed, it's a pass
       const hasAnyValue = Object.values(row.dynamicValues).some(v => v !== '');
       return hasAnyValue ? 'P' : '';
@@ -293,7 +358,7 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
 
     // Metering - check dynamic values
     if (Object.keys(row.dynamicValues).length === 0) return '';
-    
+
     for (const column of bsatColumns) {
       const value = row.dynamicValues[column.id];
       if (!value) continue;
@@ -302,7 +367,7 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
       if (isNaN(numValue)) continue;
       if (numValue > limit) return 'F';
     }
-    
+
     // If we have at least one value and none failed, it's a pass
     const hasAnyValue = Object.values(row.dynamicValues).some(v => v !== '');
     return hasAnyValue ? 'P' : '';
@@ -311,18 +376,18 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
   const handleRowChange = (index: number, field: keyof CoreTestRow, value: string | any) => {
     const updatedRows = [...rows];
     updatedRows[index] = { ...updatedRows[index], [field]: value };
-    
+
     // Auto-calculate remark when values change
     if (field === 'dynamicValues' || field === 'singleValue') {
       updatedRows[index].remark = calculateRemark(updatedRows[index]);
     }
-    
+
     setRows(updatedRows);
   };
 
   // const handleReplaceCore = (index: number) => {
   //   const failedRow = rows[index];
-    
+
   //   // Add to failed cores list
   //   const failedCore: FailedCore = {
   //     orderId: order.orderId,
@@ -340,9 +405,9 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
   //     singleValue: failedRow.singleValue,
   //     dynamicValues: failedRow.dynamicValues,
   //   };
-    
+
   //   setFailedCores([...failedCores, failedCore]);
-    
+
   //   // Reset the row for replacement core
   //   const updatedRows = [...rows];
   //   updatedRows[index] = {
@@ -359,7 +424,7 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
   //     isReplacement: true,
   //     replacedCoreId: failedRow.internalCoreNo,
   //   };
-    
+
   //   setRows(updatedRows);
   // };
 
@@ -379,12 +444,54 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
   // };
 
 
-/** Handles core failure: archives the data and generates a NEW ID for the replacement */
+
+  //--------------------------------------------------------update-2
+  /** Handles core failure: archives the data and generates a NEW ID for the replacement */
+  // const handleReplaceCore = (index: number) => {
+  //   const failedRow = rows[index];
+  //   const systemDate = getSystemDate();
+
+  //   // Archive the failure
+  //   const failedCore: FailedCore = {
+  //     orderId: order.orderId,
+  //     jobId: order.jobId,
+  //     clientName: order.clientName,
+  //     coreType: coreType,
+  //     internalCoreNo: failedRow.internalCoreNo,
+  //     coreVendorNo: failedRow.coreVendorNo,
+  //     date: failedRow.date || systemDate,
+  //     failureReason: getFailureReason(failedRow),
+  //     dynamicValues: failedRow.dynamicValues,
+  //     // ... fill other fields as needed
+  //   };
+  //   setFailedCores([...failedCores, failedCore]);
+
+  //   // Update row with a fresh unique ID for the new physical core
+  //   const nextSeq = getNextSequenceNumber(rows);
+  //   const updatedRows = [...rows];
+  //   updatedRows[index] = {
+  //     date: systemDate,
+  //     coreVendorNo: '',
+  //     internalCoreNo: generateUniqueCoreId(nextSeq, coreType, order.orderId),
+  //     value1000: '', value3000: '', value5000: '', value7000: '',
+  //     singleValue: '',
+  //     dynamicValues: {},
+  //     remark: '',
+  //     isReplacement: true,
+  //     replacedCoreId: failedRow.internalCoreNo,
+  //   };
+  //   setRows(updatedRows);
+  // };
+
+  //---------------------------------------------
+
+
+
   const handleReplaceCore = (index: number) => {
     const failedRow = rows[index];
     const systemDate = getSystemDate();
 
-    // Archive the failure
+    // Archive the failure to the FailedCores state
     const failedCore: FailedCore = {
       orderId: order.orderId,
       jobId: order.jobId,
@@ -395,17 +502,17 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
       date: failedRow.date || systemDate,
       failureReason: getFailureReason(failedRow),
       dynamicValues: failedRow.dynamicValues,
-      // ... fill other fields as needed
     };
     setFailedCores([...failedCores, failedCore]);
 
-    // Update row with a fresh unique ID for the new physical core
+    // Generate a NEW ID based on the total count of cores existing in the table
     const nextSeq = getNextSequenceNumber(rows);
     const updatedRows = [...rows];
+
     updatedRows[index] = {
       date: systemDate,
       coreVendorNo: '',
-      internalCoreNo: generateUniqueCoreId(nextSeq, coreType, order.orderId),
+      internalCoreNo: generateCoreId(nextSeq), // Fixed naming here
       value1000: '', value3000: '', value5000: '', value7000: '',
       singleValue: '',
       dynamicValues: {},
@@ -413,112 +520,400 @@ const getSystemDate = () => new Date().toLocaleDateString('en-GB');
       isReplacement: true,
       replacedCoreId: failedRow.internalCoreNo,
     };
+
     setRows(updatedRows);
   };
 
 
-const addRow = () => {
+
+  // const handleReplaceCore = (index: number) => {
+  //   const failedRow = rows[index];
+
+  //   // Create the replacement ID by adding an 'R'
+  //   // Example: M-25015-001 becomes M-25015-001-R1
+  //   const currentId = failedRow.internalCoreNo;
+  //   const replacementId = `${currentId}-R`; 
+
+  //   const updatedRows = [...rows];
+  //   updatedRows[index] = {
+  //     ...initializeRows()[0], // Get a clean object structure
+  //     date: getSystemDate(),
+  //     internalCoreNo: replacementId,
+  //     isReplacement: true,
+  //     replacedCoreId: currentId,
+  //     remark: ''
+  //   };
+
+  //   setRows(updatedRows);
+  // };
+
+
+  //-------------------------------update -4
+  // const addRow = () => {
+  //   const nextSeq = getNextSequenceNumber(rows);
+  //   setRows([...rows, {
+  //     date: getSystemDate(),
+  //     coreVendorNo: '',
+  //     internalCoreNo: generateUniqueCoreId(nextSeq, coreType, order.orderId),
+  //     value1000: '', value3000: '', value5000: '', value7000: '',
+  //     singleValue: '',
+  //     dynamicValues: {},
+  //     remark: '',
+  //   }]);
+  // };
+
+  // -------------------------------------------
+
+  const addRow = () => {
     const nextSeq = getNextSequenceNumber(rows);
     setRows([...rows, {
       date: getSystemDate(),
       coreVendorNo: '',
-      internalCoreNo: generateUniqueCoreId(nextSeq, coreType, order.orderId),
-      value1000: '', value3000: '', value5000: '', value7000: '',
+      internalCoreNo: generateCoreId(nextSeq), // Fixed naming here
+      value1000: '',
+      value3000: '',
+      value5000: '',
+      value7000: '',
       singleValue: '',
       dynamicValues: {},
       remark: '',
     }]);
   };
 
-// -------------------------------------------
 
 
-const handleSave = async () => {
+  // const handleSave = async () => {
+  //   try {
+  //     // 1. Determine the path and type
+  //     const isMetering = coreType === 'Metering';
+  //     const isPS = coreType === 'PS';
+  //     const isProtection = coreType === 'Protection';
+
+  //     // Segregate Endpoint: Metering goes to its own, others go to protection-tests
+  //     const endpoint = isMetering ? '/metering-tests' : '/protection-tests';
+
+  //     let finalPayload = {
+  //       // orderId: order._id, // Ensure this is mapped for all types
+  //       coreType: coreType,  // Dynamically sets "Metering", "Protection", or "PS"
+  //       testedBy: testBy,
+  //       authorisedBy: authorizedSignatory,
+  //       testSetup: {
+  //         // Metering uses coreTypeNano, Protection/PS uses description/M4CRGO logic
+  //         [isMetering ? 'coreMaterial' : 'description']: isMetering
+  //           ? coreTypeNano
+  //           : (isProtection ? protectionCoreTypeM4CRGO : "PS Core Material"),
+  //         coreSizeMm: {
+  //           id: parseFloat(specs.coreSize1),
+  //           od: parseFloat(specs.coreSize2),
+  //           height: parseFloat(specs.coreSize3)
+  //         },
+  //         turnsUsed: parseInt(specs.turnUsed),
+  //         areaSqCm: parseFloat(specs.area),
+  //         mmp: parseFloat(specs.mmp)
+  //       }
+  //     };
+
+  //     // 2. Segregate Schema-Specific Data
+  //     if (isMetering) {
+  //       // --- METERING SPECIFIC FIELDS ---
+  //       finalPayload.testLimits = {
+  //         bsatGauss: bsatColumns.map(col => parseFloat(col.bsatValue)),
+  //         setMilliVolt: bsatColumns.map(col => parseFloat(col.setMvValue)),
+  //         leLimitMa: bsatColumns.map(col => parseFloat(col.leLimitValue))
+  //       };
+
+  //       finalPayload.readings = rows
+  //         .filter(row => row.internalCoreNo && row.remark)
+  //         .map(row => ({
+  //           date: row.date ? new Date(row.date) : new Date(),
+  //           vendorCoreNo: row.coreVendorNo,
+  //           internalCoreNo: row.internalCoreNo,
+  //           measuredMa: bsatColumns.map(col => parseFloat(row.dynamicValues[col.id] || 0)),
+  //           result: row.remark
+  //         }));
+  //     } else {
+  //       // --- PROTECTION & PS SPECIFIC FIELDS ---
+  //       finalPayload.testSpecification = {
+  //         fluxTesla: parseFloat(specs.bFlux || 0),
+  //         voltageV: parseFloat(specs.voltage || 0),
+  //         iexLimitMa: isPS ? parseFloat(specs.iexLimit) : parseFloat(protectionLimit)
+  //       };
+
+  //       finalPayload.readings = rows
+  //         .filter(row => row.internalCoreNo && row.remark)
+  //         .map(row => ({
+  //           date: row.date ? new Date(row.date) : new Date(),
+  //           vendorCoreNo: row.coreVendorNo,
+  //           internalCoreNo: row.internalCoreNo,
+  //           // Both PS and Protection save to a single 'value' field in the schema
+  //           value: parseFloat(row.singleValue || Object.values(row.dynamicValues)[0] || 0),
+  //           result: row.remark
+  //         }));
+  //     }
+
+  //     // 3. Send Request
+  //     const response = await axios.post(`http://localhost:3002${endpoint}`, finalPayload, {
+  //       withCredentials: true,
+  //       headers: { 'Content-Type': 'application/json' }
+  //     });
+
+  //     if (response.status === 201 || response.status === 200) {
+  //       alert(`${coreType} Data Saved Successfully!`);
+  //     }
+
+  //   } catch (error) {
+  //     console.error("Save Error:", error);
+  //     const errorMsg = error.response?.data?.message || error.message;
+  //     alert(`Error saving ${coreType} report: ${errorMsg}`);
+  //   }
+  // };
+
+
+
+
+  // const handleSave = async () => {
+  //   try {
+  //     const isMetering = coreType === 'Metering';
+  //     const isPS = coreType === 'PS';
+
+  //     // 1. AUTO-FILL MISSING IDs
+  //     // If the user didn't type the ID (because they saw the placeholder), we populate it now.
+  //     const processedRows = rows.map((row, index) => {
+  //       const hasValues = Object.values(row.dynamicValues || {}).some(v => v !== '' && v !== null && v !== undefined);
+  //       let currentId = row.internalCoreNo && String(row.internalCoreNo).trim() !== '' ? row.internalCoreNo : '';
+
+  //       // RELAXED CONDITION: If no ID but has values, generate the ID regardless of order quantity
+  //       if (!currentId && hasValues) {
+  //         currentId = generateCoreId(index + 1);
+  //       }
+
+  //       // Auto-calculate remark if missing but values exist (Fix for missing remarks)
+  //       let remark = row.remark;
+  //       if (hasValues && !remark) {
+  //         remark = calculateRemark({ ...row, internalCoreNo: currentId });
+  //       }
+
+  //       return { ...row, internalCoreNo: currentId, remark };
+  //     });
+
+  //     // Update state so the UI reflects the real values instead of placeholders
+  //     setRows(processedRows);
+
+  //     // 2. FILTER VALID READINGS
+  //     // Check for ID and verify that at least one test value has been entered
+  //     const validReadings = processedRows.filter((row) => {
+  //       const hasId = row.internalCoreNo && String(row.internalCoreNo).trim() !== '';
+  //       const hasValues = Object.values(row.dynamicValues || {}).some(v => v !== '' && v !== null && v !== undefined);
+  //       return hasId && hasValues;
+  //     });
+
+  //     if (validReadings.length === 0) {
+  //       alert("No data to save. Please enter Internal Core Nos and test readings.");
+  //       return;
+  //     }
+
+  //     const endpoint = isMetering ? '/metering-tests' : '/protection-tests';
+
+  //     // SAFE ORDER ID ACCESS
+  //     // Check _id (Mongo), id (string fallback), or orderId (string fallback)
+  //     const txnOrderId = (order as any)._id || order.id;
+
+  //     if (!txnOrderId) {
+  //       console.error("Missing Order ID:", order);
+  //       alert("Critical Error: Order ID is missing. Cannot save report.");
+  //       return;
+  //     }
+
+  //     let finalPayload: any = {
+  //       orderId: txnOrderId, // Sending the MongoDB ObjectID
+  //       coreType: coreType,
+  //       testedBy: testBy,
+  //       authorisedBy: authorizedSignatory,
+  //       testSetup: {
+  //         [isMetering ? 'coreMaterial' : 'description']: isMetering
+  //           ? coreTypeNano
+  //           : (coreType === 'Protection' ? protectionCoreTypeM4CRGO : "PS Core Material"),
+  //         coreSizeMm: {
+  //           id: parseFloat(specs.coreSize1) || 0,
+  //           od: parseFloat(specs.coreSize2) || 0,
+  //           height: parseFloat(specs.coreSize3) || 0
+  //         },
+  //         turnsUsed: parseInt(specs.turnUsed) || 0,
+  //         areaSqCm: parseFloat(specs.area) || 0,
+  //         mmp: parseFloat(specs.mmp) || 0
+  //       }
+  //     };
+
+  //     // Parse Date for Backend
+  //     const [day, month, year] = testDate.split('/');
+  //     const formattedDate = new Date(`${year}-${month}-${day}`);
+
+  //     if (isMetering) {
+  //       finalPayload.testLimits = {
+  //         bsatGauss: bsatColumns.map(col => parseFloat(col.bsatValue) || 0),
+  //         setMilliVolt: bsatColumns.map(col => parseFloat(col.setMvValue) || 0),
+  //         leLimitMa: bsatColumns.map(col => parseFloat(col.leLimitValue) || 0)
+  //       };
+
+  //       finalPayload.readings = validReadings.map(row => {
+  //         const remark = row.remark || calculateRemark(row);
+  //         return {
+  //           date: formattedDate, // Use parsed Date object
+  //           vendorCoreNo: row.coreVendorNo,
+  //           internalCoreNo: row.internalCoreNo,
+  //           // Map dynamic values using the actual BSAT column sequence
+  //           measuredMa: bsatColumns.map(col => parseFloat(row.dynamicValues[col.id]) || 0),
+  //           // Ensure result is strictly "P" or "F". Default to "F" if undetermined but data exists.
+  //           result: (remark === "P" || remark === "F") ? remark : "F"
+  //         };
+  //       });
+  //     } else {
+  //       finalPayload.testSpecification = {
+  //         fluxTesla: parseFloat(specs.bFlux) || 0,
+  //         voltageV: parseFloat(specs.voltage) || 0,
+  //         iexLimitMa: isPS ? parseFloat(specs.iexLimit) : 600 // using default protection limit
+  //       };
+
+  //       finalPayload.readings = validReadings.map(row => {
+  //         const remark = row.remark || calculateRemark(row);
+  //         return {
+  //           date: formattedDate, // Use parsed Date object
+  //           vendorCoreNo: row.coreVendorNo,
+  //           internalCoreNo: row.internalCoreNo,
+  //           value: parseFloat(row.singleValue || Object.values(row.dynamicValues)[0] || 0),
+  //           result: (remark === "P" || remark === "F") ? remark : "F"
+  //         };
+  //       });
+  //     }
+
+  //     // DEBUG: Log the payload to your browser console to verify it before sending
+  //     console.log("Saving Payload [DEBUG]:", JSON.stringify(finalPayload, null, 2));
+
+  //     const response = await axios.post(`http://localhost:3002${endpoint}`, finalPayload, {
+  //       withCredentials: true,
+  //       headers: { 'Content-Type': 'application/json' }
+  //     });
+
+  //     if (response.status === 201 || response.status === 200) {
+  //       alert(`${coreType} Data Saved Successfully!`);
+  //     }
+
+  //   } catch (error: any) {
+  //     console.error("Save Error:", error);
+  //     const errorMsg = error.response?.data?.message || error.message;
+  //     const validationErr = error.response?.data?.error || '';
+  //     alert(`Error saving report: ${errorMsg} ${validationErr ? `(${validationErr})` : ''}`);
+  //   }
+  // };
+
+
+
+  const handleSave = async () => {
   try {
-    // 1. Determine the path and type
     const isMetering = coreType === 'Metering';
     const isPS = coreType === 'PS';
-    const isProtection = coreType === 'Protection';
 
-    // Segregate Endpoint: Metering goes to its own, others go to protection-tests
+    // 1. AUTO-FILL IDs & CALCULATE REMARKS
+    const processedRows = rows.map((row, index) => {
+      // FIX: Check both dynamicValues AND singleValue
+      const hasDynValues = Object.values(row.dynamicValues || {}).some(v => v !== '' && v !== null);
+      const hasSingleValue = row.singleValue !== '' && row.singleValue !== null;
+      const hasAnyValue = hasDynValues || hasSingleValue;
+
+      let currentId = row.internalCoreNo && String(row.internalCoreNo).trim() !== '' ? row.internalCoreNo : '';
+
+      // Auto-fill ID if user saw placeholder but didn't type
+      if (!currentId && hasAnyValue) {
+        currentId = generateCoreId(index + 1);
+      }
+
+      let remark = row.remark;
+      if (hasAnyValue && !remark) {
+        remark = calculateRemark({ ...row, internalCoreNo: currentId });
+      }
+
+      return { ...row, internalCoreNo: currentId, remark };
+    });
+
+    setRows(processedRows);
+
+    // 2. FILTER VALID READINGS
+    const validReadings = processedRows.filter((row) => {
+      const hasId = row.internalCoreNo && String(row.internalCoreNo).trim() !== '';
+      const hasDynValues = Object.values(row.dynamicValues || {}).some(v => v !== '' && v !== null);
+      const hasSingleValue = row.singleValue !== '' && row.singleValue !== null;
+      return hasId && (hasDynValues || hasSingleValue); // Include row if it has any data
+    });
+
+    if (validReadings.length === 0) {
+      alert("No data to save. Please enter Internal Core Nos and test readings.");
+      return;
+    }
+
+    // 3. CONVERT DATE (Fixes the "Cast to date failed" error)
+    const [day, month, year] = testDate.split('/');
+    const formattedDate = new Date(`${year}-${month}-${day}`);
+
     const endpoint = isMetering ? '/metering-tests' : '/protection-tests';
-    
-    let finalPayload = {
-      orderId: order._id, // Ensure this is mapped for all types
-      coreType: coreType,  // Dynamically sets "Metering", "Protection", or "PS"
+    const txnOrderId = (order as any)._id || order.id;
+
+    let finalPayload: any = {
+      orderId: txnOrderId,
+      coreType: coreType,
       testedBy: testBy,
       authorisedBy: authorizedSignatory,
       testSetup: {
-        // Metering uses coreTypeNano, Protection/PS uses description/M4CRGO logic
-        [isMetering ? 'coreMaterial' : 'description']: isMetering 
-          ? coreTypeNano 
-          : (isProtection ? protectionCoreTypeM4CRGO : "PS Core Material"),
-        coreSizeMm: { 
-          id: parseFloat(specs.coreSize1), 
-          od: parseFloat(specs.coreSize2), 
-          height: parseFloat(specs.coreSize3) 
+        [isMetering ? 'coreMaterial' : 'description']: isMetering
+          ? coreTypeNano
+          : (coreType === 'Protection' ? protectionCoreTypeM4CRGO : "PS Core Material"),
+        coreSizeMm: {
+          id: parseFloat(specs.coreSize1) || 0,
+          od: parseFloat(specs.coreSize2) || 0,
+          height: parseFloat(specs.coreSize3) || 0
         },
-        turnsUsed: parseInt(specs.turnUsed),
-        areaSqCm: parseFloat(specs.area),
-        mmp: parseFloat(specs.mmp)
-      }
+        turnsUsed: parseInt(specs.turnUsed) || 0,
+        areaSqCm: parseFloat(specs.area) || 0,
+        mmp: parseFloat(specs.mmp) || 0
+      },
+      readings: validReadings.map(row => ({
+        date: formattedDate,
+        vendorCoreNo: row.coreVendorNo,
+        internalCoreNo: row.internalCoreNo,
+        // For Protection/PS, use value; for Metering, use measuredMa
+        ...(isMetering 
+            ? { measuredMa: bsatColumns.map(col => parseFloat(row.dynamicValues[col.id]) || 0) }
+            : { value: parseFloat(row.singleValue || Object.values(row.dynamicValues)[0] || 0) }
+        ),
+        result: row.remark || "F"
+      }))
     };
 
-    // 2. Segregate Schema-Specific Data
     if (isMetering) {
-      // --- METERING SPECIFIC FIELDS ---
       finalPayload.testLimits = {
-        bsatGauss: bsatColumns.map(col => parseFloat(col.bsatValue)),
-        setMilliVolt: bsatColumns.map(col => parseFloat(col.setMvValue)),
-        leLimitMa: bsatColumns.map(col => parseFloat(col.leLimitValue))
+        bsatGauss: bsatColumns.map(col => parseFloat(col.bsatValue) || 0),
+        setMilliVolt: bsatColumns.map(col => parseFloat(col.setMvValue) || 0),
+        leLimitMa: bsatColumns.map(col => parseFloat(col.leLimitValue) || 0)
       };
-      
-      finalPayload.readings = rows
-        .filter(row => row.internalCoreNo && row.remark)
-        .map(row => ({
-          date: row.date ? new Date(row.date) : new Date(),
-          vendorCoreNo: row.coreVendorNo,
-          internalCoreNo: row.internalCoreNo,
-          measuredMa: bsatColumns.map(col => parseFloat(row.dynamicValues[col.id] || 0)),
-          result: row.remark
-        }));
     } else {
-      // --- PROTECTION & PS SPECIFIC FIELDS ---
       finalPayload.testSpecification = {
-        fluxTesla: parseFloat(specs.bFlux || 0),
-        voltageV: parseFloat(specs.voltage || 0),
-        iexLimitMa: isPS ? parseFloat(specs.iexLimit) : parseFloat(protectionLimit)
+        fluxTesla: parseFloat(specs.bFlux) || 0,
+        voltageV: parseFloat(specs.voltage) || 0,
+        iexLimitMa: isPS ? parseFloat(specs.iexLimit) : 600
       };
-
-      finalPayload.readings = rows
-        .filter(row => row.internalCoreNo && row.remark)
-        .map(row => ({
-          date: row.date ? new Date(row.date) : new Date(),
-          vendorCoreNo: row.coreVendorNo,
-          internalCoreNo: row.internalCoreNo,
-          // Both PS and Protection save to a single 'value' field in the schema
-          value: parseFloat(row.singleValue || Object.values(row.dynamicValues)[0] || 0),
-          result: row.remark
-        }));
     }
 
-    // 3. Send Request
-    const response = await axios.post(`http://localhost:3002${endpoint}`, finalPayload, {
+    await axios.post(`http://localhost:3002${endpoint}`, finalPayload, {
       withCredentials: true,
       headers: { 'Content-Type': 'application/json' }
     });
 
-    if (response.status === 201 || response.status === 200) {
-      alert(`${coreType} Data Saved Successfully!`);
-    }
+    alert(`${coreType} Data Saved Successfully!`);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Save Error:", error);
-    const errorMsg = error.response?.data?.message || error.message;
-    alert(`Error saving ${coreType} report: ${errorMsg}`);
+    alert(`Error: ${error.response?.data?.message || error.message}`);
   }
 };
-
 
   const getFilledRowsCount = () => {
     // For Protection, PS, and Metering, check if any dynamic values are filled
@@ -590,17 +985,17 @@ const handleSave = async () => {
       };
 
       const updateBColumn = (id: string, field: keyof BSATColumn, value: string) => {
-        setProtectionBColumns(protectionBColumns.map(col => 
+        setProtectionBColumns(protectionBColumns.map(col =>
           col.id === id ? { ...col, [field]: value } : col
         ));
       };
 
       const handleProtectionConfigSave = () => {
         // Validate that all fields are filled
-        const allFilled = protectionBColumns.every(col => 
+        const allFilled = protectionBColumns.every(col =>
           col.bsatValue && col.setMvValue && col.leLimitValue
         ) && specs.coreSize1 && specs.coreSize2 && specs.coreSize3 && specs.turnUsed;
-        
+
         if (!allFilled) {
           alert('Please fill in all Protection configuration fields');
           return;
@@ -634,7 +1029,7 @@ const handleSave = async () => {
           {/* Configuration Form */}
           <Card className="p-6">
             <h3 className="text-lg mb-4 pb-3 border-b">Testing Configuration</h3>
-            
+
             {/* M4CRGO and Turns */}
             <div className="grid grid-cols-2 gap-6 mb-6">
               <div className="space-y-2">
@@ -829,9 +1224,9 @@ const handleSave = async () => {
               </Button>
             )}
             {failedCores.length > 0 && (
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="gap-1 border-red-300 text-red-600 hover:bg-red-50"
                 onClick={() => setShowFailedCores(true)}
               >
@@ -839,18 +1234,18 @@ const handleSave = async () => {
                 View Failed ({failedCores.length})
               </Button>
             )}
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               className="gap-1"
               onClick={handlePrintReport}
             >
               <Printer className="w-3 h-3" />
               Print Report
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               className="gap-1 border-green-300 text-green-600 hover:bg-green-50"
               onClick={handlePrintLabels}
               disabled={getPassedCores().length === 0}
@@ -1047,7 +1442,7 @@ const handleSave = async () => {
                     </td>
                     <td className="p-2 border border-gray-300">
                       <Input
-                        value={row.coreVendorNo}
+                        value={String(row.coreVendorNo || '')}
                         onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
                         className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
                         placeholder="16"
@@ -1056,11 +1451,11 @@ const handleSave = async () => {
                     <td colSpan={2} className="p-2 border border-gray-300">
                       <div className="flex items-center gap-1">
                         <Input
-                          value={row.internalCoreNo}
-                          onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
-                          className="flex-1 h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 font-mono"
-                          placeholder={index < order.transformerQuantity ? generateCoreId(index + 1) : ''}
-                        />
+          value={String(row.internalCoreNo || '')}
+          onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
+          className="flex-1 h-8 text-xs border-0 focus:ring-1 focus:ring-blue-500 font-mono font-bold text-gray-900"
+          placeholder={generateCoreId(index + 1)}
+        />
                         {row.isReplacement && (
                           <span className="text-xs text-blue-600 font-semibold whitespace-nowrap px-1 py-0.5 bg-blue-100 rounded">(R)</span>
                         )}
@@ -1069,21 +1464,19 @@ const handleSave = async () => {
                     {protectionBColumns.map(column => (
                       <td key={column.id} className="p-2 border border-gray-300 bg-white">
                         <Input
-                          value={row.dynamicValues[column.id] || ''}
+                          value={String(row.dynamicValues[column.id] || '')}
                           onChange={(e) => handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: e.target.value })}
-                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${
-                            row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id]) > parseFloat(column.leLimitValue) ? 'bg-red-50 text-red-700' : ''
-                          }`}
+                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id]) > parseFloat(column.leLimitValue) ? 'bg-red-50 text-red-700' : ''
+                            }`}
                           placeholder="9.5"
                         />
                       </td>
                     ))}
                     <td className="p-2 border border-gray-300">
                       <div className="flex items-center justify-center gap-2">
-                        <div className={`min-w-[2rem] h-8 flex items-center justify-center font-medium text-xs ${
-                          row.remark === 'P' ? 'text-green-700' : 
+                        <div className={`min-w-[2rem] h-8 flex items-center justify-center font-medium text-xs ${row.remark === 'P' ? 'text-green-700' :
                           row.remark === 'F' ? 'text-red-600' : 'text-gray-400'
-                        }`}>
+                          }`}>
                           {row.remark}
                         </div>
                         {row.remark === 'F' && !row.isReplacement && (
@@ -1186,17 +1579,17 @@ const handleSave = async () => {
       };
 
       const updateBColumn = (id: string, field: keyof BSATColumn, value: string) => {
-        setPsBColumns(psBColumns.map(col => 
+        setPsBColumns(psBColumns.map(col =>
           col.id === id ? { ...col, [field]: value } : col
         ));
       };
 
       const handlePSConfigSave = () => {
         // Validate that all fields are filled
-        const allFilled = psBColumns.every(col => 
+        const allFilled = psBColumns.every(col =>
           col.bsatValue && col.setMvValue && col.leLimitValue
         ) && specs.coreSize1 && specs.coreSize2 && specs.coreSize3 && specs.turnUsed;
-        
+
         if (!allFilled) {
           alert('Please fill in all PS configuration fields');
           return;
@@ -1230,7 +1623,7 @@ const handleSave = async () => {
           {/* Configuration Form */}
           <Card className="p-6">
             <h3 className="text-lg mb-4 pb-3 border-b">Testing Configuration</h3>
-            
+
             {/* M4CRGO and Turns */}
             <div className="grid grid-cols-2 gap-6 mb-6">
               <div className="space-y-2">
@@ -1425,9 +1818,9 @@ const handleSave = async () => {
               </Button>
             )}
             {failedCores.length > 0 && (
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="gap-1 border-red-300 text-red-600 hover:bg-red-50"
                 onClick={() => setShowFailedCores(true)}
               >
@@ -1435,18 +1828,18 @@ const handleSave = async () => {
                 View Failed ({failedCores.length})
               </Button>
             )}
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               className="gap-1"
               onClick={handlePrintReport}
             >
               <Printer className="w-3 h-3" />
               Print Report
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               className="gap-1 border-green-300 text-green-600 hover:bg-green-50"
               onClick={handlePrintLabels}
               disabled={getPassedCores().length === 0}
@@ -1643,7 +2036,7 @@ const handleSave = async () => {
                     </td>
                     <td className="p-2 border border-gray-300">
                       <Input
-                        value={row.coreVendorNo}
+                        value={String(row.coreVendorNo || '')}
                         onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
                         className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
                         placeholder="16"
@@ -1652,11 +2045,12 @@ const handleSave = async () => {
                     <td colSpan={2} className="p-2 border border-gray-300">
                       <div className="flex items-center gap-1">
                         <Input
-                          value={row.internalCoreNo}
-                          onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
-                          className="flex-1 h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 font-mono"
-                          placeholder={index < order.transformerQuantity ? generateCoreId(index + 1) : ''}
-                        />
+          value={String(row.internalCoreNo || '')}
+          onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
+          className="flex-1 h-8 text-xs border-0 focus:ring-1 focus:ring-blue-500 font-mono font-bold text-gray-900"
+          placeholder={generateCoreId(index + 1)}
+        />
+
                         {row.isReplacement && (
                           <span className="text-xs text-blue-600 font-semibold whitespace-nowrap px-1 py-0.5 bg-blue-100 rounded">(R)</span>
                         )}
@@ -1665,21 +2059,19 @@ const handleSave = async () => {
                     {psBColumns.map(column => (
                       <td key={column.id} className="p-2 border border-gray-300 bg-white">
                         <Input
-                          value={row.dynamicValues[column.id] || ''}
+                          value={String(row.dynamicValues[column.id] || '')}
                           onChange={(e) => handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: e.target.value })}
-                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${
-                            row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id]) > parseFloat(column.leLimitValue) ? 'bg-red-50 text-red-700' : ''
-                          }`}
+                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id]) > parseFloat(column.leLimitValue) ? 'bg-red-50 text-red-700' : ''
+                            }`}
                           placeholder="9.5"
                         />
                       </td>
                     ))}
                     <td className="p-2 border border-gray-300">
                       <div className="flex items-center justify-center gap-2">
-                        <div className={`min-w-[2rem] h-8 flex items-center justify-center font-medium text-xs ${
-                          row.remark === 'P' ? 'text-green-700' : 
+                        <div className={`min-w-[2rem] h-8 flex items-center justify-center font-medium text-xs ${row.remark === 'P' ? 'text-green-700' :
                           row.remark === 'F' ? 'text-red-600' : 'text-gray-400'
-                        }`}>
+                          }`}>
                           {row.remark}
                         </div>
                         {row.remark === 'F' && !row.isReplacement && (
@@ -1780,17 +2172,17 @@ const handleSave = async () => {
     };
 
     const updateBSATColumn = (id: string, field: keyof BSATColumn, value: string) => {
-      setBsatColumns(bsatColumns.map(col => 
+      setBsatColumns(bsatColumns.map(col =>
         col.id === id ? { ...col, [field]: value } : col
       ));
     };
 
     const handleConfigSave = () => {
       // Validate that all fields are filled
-      const allFilled = bsatColumns.every(col => 
+      const allFilled = bsatColumns.every(col =>
         col.bsatValue && col.setMvValue && col.leLimitValue
       );
-      
+
       if (!allFilled) {
         alert('Please fill in all BSAT configuration fields');
         return;
@@ -1824,7 +2216,7 @@ const handleSave = async () => {
         {/* Configuration Form */}
         <Card className="p-6">
           <h3 className="text-lg mb-4 pb-3 border-b">Testing Configuration</h3>
-          
+
           {/* Core Type and Turns */}
           <div className="grid grid-cols-2 gap-6 mb-6">
             <div className="space-y-2">
@@ -2019,9 +2411,9 @@ const handleSave = async () => {
             </Button>
           )}
           {failedCores.length > 0 && (
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               className="gap-1 border-red-300 text-red-600 hover:bg-red-50"
               onClick={() => setShowFailedCores(true)}
             >
@@ -2029,18 +2421,18 @@ const handleSave = async () => {
               View Failed ({failedCores.length})
             </Button>
           )}
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             className="gap-1"
             onClick={handlePrintReport}
           >
             <Printer className="w-3 h-3" />
             Print Report
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             className="gap-1 border-green-300 text-green-600 hover:bg-green-50"
             onClick={handlePrintLabels}
             disabled={getPassedCores().length === 0}
@@ -2109,7 +2501,7 @@ const handleSave = async () => {
                   Description
                 </td>
                 <td colSpan={3} className="bg-white p-2 border border-gray-400">
-                  
+
                 </td>
                 {/* <td className="bg-white p-2 border border-gray-400 text-center font-medium">
                   <Input
@@ -2133,14 +2525,14 @@ const handleSave = async () => {
                   />
                 </td> */}
                 <td className="bg-white p-3 border border-gray-400 text-center font-medium">
-                      {specs.coreSize1}
-                 </td>
+                  {specs.coreSize1}
+                </td>
                 <td className="bg-white p-3 border border-gray-400 text-center font-medium">
-                     {specs.coreSize2}
-                 </td>
+                  {specs.coreSize2}
+                </td>
                 <td className="bg-white p-3 border border-gray-400 text-center font-medium">
-                     {specs.coreSize3}
-                 </td>
+                  {specs.coreSize3}
+                </td>
                 <td colSpan={2} className="bg-white p-2 border border-gray-400 text-center font-medium text-gray-700">
                   ID-OD-HT
                 </td>
@@ -2152,7 +2544,7 @@ const handleSave = async () => {
                   CORE SIZE IN MM
                 </td>
                 <td colSpan={8} className="bg-white p-2 border border-gray-400">
-                  
+
                 </td>
               </tr>
 
@@ -2251,16 +2643,16 @@ const handleSave = async () => {
                 <tr key={index} className={`hover:bg-gray-50 transition-colors ${row.isReplacement ? 'bg-blue-50' : 'bg-white'}`}>
                   <td className="p-2 border border-gray-300">
                     <Input
-                      value={row.date}
+                      value={testDate}
                       onChange={(e) => handleRowChange(index, 'date', e.target.value)}
                       className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
                       placeholder="DD/MM/YY"
                     />
                   </td>
-                 
+
                   <td className="p-2 border border-gray-300">
                     <Input
-                      value={row.coreVendorNo}
+                      value={String(row.coreVendorNo || '')}
                       onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
                       className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
                       placeholder="16"
@@ -2280,40 +2672,51 @@ const handleSave = async () => {
                     </div>
                   </td> */}
                   <td colSpan={2} className="p-2 border border-gray-300">
-  <div className="flex items-center gap-1">
-    <Input
-      // Ensure this matches your state property exactly
-      value={row.internalCoreNo} 
-      onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
-      // Added 'text-gray-900' to ensure visibility
-      className="flex-1 h-8 text-xs border-0 focus:ring-1 font-mono font-bold text-gray-900" 
-      placeholder="Generating..."
-    />
-    {row.isReplacement && (
-      <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded font-bold border border-blue-200">
-        (R)
-      </span>
-    )}
-  </div>
-</td>
+                    <div className="flex items-center gap-1">
+                      {/* <Input
+                        // Ensure this matches your state property exactly
+                        value={String(row.internalCoreNo || '')}
+                        onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
+                        // Added 'text-gray-900' to ensure visibility
+                        className="flex-1 h-8 text-xs border-0 focus:ring-1 font-mono font-bold text-gray-900"
+                        placeholder=""
+                      /> */}
+                      <Input
+                        // 1. Ensure the value is always a string to avoid React warnings
+                        value={String(row.internalCoreNo || '')}
+
+                        // 2. Standard change handler
+                        onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
+
+                        // 3. UI Styling (Mono font is great for serial numbers)
+                        className="flex-1 h-8 text-xs border-0 focus:ring-1 font-mono font-bold text-gray-900"
+
+                        // 4. IMPROVEMENT: Show the expected ID as a hint
+                        placeholder={generateCoreId(index + 1)}
+                      />
+                      {row.isReplacement && (
+                        <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded font-bold border border-blue-200">
+                          (R)
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   {bsatColumns.map(column => (
                     <td key={column.id} className="p-2 border border-gray-300 bg-white">
                       <Input
-                        value={row.dynamicValues[column.id] || ''}
+                        value={String(row.dynamicValues[column.id] || '')}
                         onChange={(e) => handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: e.target.value })}
-                        className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${
-                          row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id]) > parseFloat(column.leLimitValue) ? 'bg-red-50 text-red-700' : ''
-                        }`}
+                        className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id]) > parseFloat(column.leLimitValue) ? 'bg-red-50 text-red-700' : ''
+                          }`}
                         placeholder="9.5"
                       />
                     </td>
                   ))}
                   <td className="p-2 border border-gray-300">
                     <div className="flex items-center justify-center gap-2">
-                      <div className={`min-w-[2rem] h-8 flex items-center justify-center font-medium text-xs ${
-                        row.remark === 'P' ? 'text-green-700' : 
+                      <div className={`min-w-[2rem] h-8 flex items-center justify-center font-medium text-xs ${row.remark === 'P' ? 'text-green-700' :
                         row.remark === 'F' ? 'text-red-600' : 'text-gray-400'
-                      }`}>
+                        }`}>
                         {row.remark}
                       </div>
                       {row.remark === 'F' && !row.isReplacement && (

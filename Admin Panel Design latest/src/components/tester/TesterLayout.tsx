@@ -36,7 +36,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setActiveView('orders')}>
+              <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setActiveView('core-tracking')}>
                 <ClipboardCheck className="w-12 h-12 text-[#003a70] mb-4" />
                 <h3 className="mb-2">Assigned Orders</h3>
                 <p className="text-gray-500 text-sm">View and perform testing on assigned core orders</p>

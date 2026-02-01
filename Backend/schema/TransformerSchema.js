@@ -109,7 +109,12 @@ const TransformerSchema = new Schema({
   uniqueId: { type: String, required: true, unique: true },
   ratings: [String], // Array of CT ratios: ["200/1", "400/1"]
   coreType: [String], // ["Metering", "Protection", "PS"]
-  
+  // orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true },
+  // currentStage: { 
+  //   type: String, 
+  //   enum: ["core", "secondary", "primary", "final", "shipped"], 
+  //   default: "core" 
+  // },
   // Storage for the 3 Login Stages as Objects, not Arrays
   testHistory: {
     secondary_login: { type: TestStageSchema, default: () => ({}) },

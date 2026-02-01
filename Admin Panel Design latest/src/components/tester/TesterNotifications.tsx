@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import React, {useEffect} from 'react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
+import axios from 'axios';
 import { 
   Bell, 
   Package, 
@@ -37,7 +39,13 @@ interface TesterNotificationsProps {
   userName: string;
 }
 
-export function TesterNotifications({ userRole, userName }: TesterNotificationsProps) {
+
+
+
+
+
+
+export function TesterNotifications({ userRole, userName}: TesterNotificationsProps) {
   const getTestingStageName = () => {
     switch (userRole) {
       case 'core-tester':
@@ -54,59 +62,84 @@ export function TesterNotifications({ userRole, userName }: TesterNotificationsP
   };
 
   // Sample notifications - would come from backend in real app
-  const [notifications, setNotifications] = useState<TaskNotification[]>([
-    {
-      id: '1',
-      orderId: 'ORD-2024-007',
-      jobId: 'JOB-2025-015',
-      message: 'You have a new testing task assigned',
-      clientName: 'MSEB Power Distribution Ltd.',
-      transformerName: 'Outdoor Epoxy Resin Cast CT',
-      transformerType: 'Current Transformer',
-      quantity: 45,
-      deadline: '2024-11-28',
-      instructions: 'Priority order - Please complete testing within 3 days. All cores have been tested and approved by Core Testing team.',
-      fromStage: 'Core Test',
-      fromEmployee: 'Rajesh Kumar',
-      timestamp: '2024-11-24 10:30 AM',
-      isRead: false,
-      priority: 'High',
-    },
-    {
-      id: '2',
-      orderId: 'ORD-2024-008',
-      jobId: 'JOB-2025-016',
-      message: 'You have a new testing task assigned',
-      clientName: 'Tata Power Company',
-      transformerName: 'Dead Tank Type-3',
-      transformerType: 'Current Transformer',
-      quantity: 30,
-      deadline: '2024-11-30',
-      instructions: 'Standard testing procedure. Previous stage completed successfully.',
-      fromStage: 'Core Test',
-      fromEmployee: 'Vikram Singh',
-      timestamp: '2024-11-24 02:15 PM',
-      isRead: false,
-      priority: 'Medium',
-    },
-    {
-      id: '3',
-      orderId: 'ORD-2024-006',
-      jobId: 'JOB-2025-014',
-      message: 'You have a new testing task assigned',
-      clientName: 'Gujarat Energy Transmission Corp.',
-      transformerName: 'Live Tank Type CT',
-      transformerType: 'Current Transformer',
-      quantity: 25,
-      deadline: '2024-11-27',
-      instructions: 'Urgent - Client requires quick turnaround. All previous tests passed.',
-      fromStage: 'Core Test',
-      fromEmployee: 'Rajesh Kumar',
-      timestamp: '2024-11-23 04:45 PM',
-      isRead: true,
-      priority: 'High',
-    },
-  ]);
+  // const [notifications, setNotifications] = useState<TaskNotification[]>([
+  //   {
+  //     id: '1',
+  //     orderId: 'ORD-2024-007',
+  //     jobId: 'JOB-2025-015',
+  //     message: 'You have a new testing task assigned',
+  //     clientName: 'MSEB Power Distribution Ltd.',
+  //     transformerName: 'Outdoor Epoxy Resin Cast CT',
+  //     transformerType: 'Current Transformer',
+  //     quantity: 45,
+  //     deadline: '2024-11-28',
+  //     instructions: 'Priority order - Please complete testing within 3 days. All cores have been tested and approved by Core Testing team.',
+  //     fromStage: 'Core Test',
+  //     fromEmployee: 'Rajesh Kumar',
+  //     timestamp: '2024-11-24 10:30 AM',
+  //     isRead: false,
+  //     priority: 'High',
+  //   },
+  //   {
+  //     id: '2',
+  //     orderId: 'ORD-2024-008',
+  //     jobId: 'JOB-2025-016',
+  //     message: 'You have a new testing task assigned',
+  //     clientName: 'Tata Power Company',
+  //     transformerName: 'Dead Tank Type-3',
+  //     transformerType: 'Current Transformer',
+  //     quantity: 30,
+  //     deadline: '2024-11-30',
+  //     instructions: 'Standard testing procedure. Previous stage completed successfully.',
+  //     fromStage: 'Core Test',
+  //     fromEmployee: 'Vikram Singh',
+  //     timestamp: '2024-11-24 02:15 PM',
+  //     isRead: false,
+  //     priority: 'Medium',
+  //   },
+  //   {
+  //     id: '3',
+  //     orderId: 'ORD-2024-006',
+  //     jobId: 'JOB-2025-014',
+  //     message: 'You have a new testing task assigned',
+  //     clientName: 'Gujarat Energy Transmission Corp.',
+  //     transformerName: 'Live Tank Type CT',
+  //     transformerType: 'Current Transformer',
+  //     quantity: 25,
+  //     deadline: '2024-11-27',
+  //     instructions: 'Urgent - Client requires quick turnaround. All previous tests passed.',
+  //     fromStage: 'Core Test',
+  //     fromEmployee: 'Rajesh Kumar',
+  //     timestamp: '2024-11-23 04:45 PM',
+  //     isRead: true,
+  //     priority: 'High',
+  //   },
+  // ]);
+
+
+
+
+
+
+
+ const [notifications, setNotifications] = useState<TaskNotification[]>([]);
+
+  useEffect(() => {
+    axios
+      .get("http://localhost:3002/allorders")
+      .then((res) => {
+        setNotifications(res.data);
+      })
+      .catch((err) => {
+        console.error("API ERROR:", err);
+      });
+  }, []);
+
+
+
+
+
+
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -228,7 +261,8 @@ export function TesterNotifications({ userRole, userName }: TesterNotificationsP
                   <div className="flex-1">
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <h3 className="text-gray-900 mb-1">{notification.message}</h3>
+                        {/* <h3 className="text-gray-900 mb-1">{notification.message}</h3> */}
+                        <h3 className="text-gray-900 mb-1">You have a new testing task assigned</h3>
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm text-gray-600">{notification.jobId}</p>
                           <span className="text-gray-400">•</span>
@@ -296,7 +330,7 @@ export function TesterNotifications({ userRole, userName }: TesterNotificationsP
                     <h4 className="text-sm font-medium text-gray-900 mb-1">Deadline</h4>
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm text-gray-900">{notification.deadline}</span>
+                      <span className="text-sm text-gray-900">{new Date(notification.deadline).toLocaleDateString()}</span>
                       <Badge className="bg-orange-100 text-orange-700 border-orange-300">
                         {Math.ceil((new Date(notification.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days remaining
                       </Badge>
@@ -320,7 +354,7 @@ export function TesterNotifications({ userRole, userName }: TesterNotificationsP
 
               {/* Action Buttons */}
               <div className="flex items-center gap-3 pt-2">
-                <Button className="bg-blue-600 hover:bg-blue-700 gap-2">
+                <Button className="bg-blue-600 hover:bg-blue-700 gap-2" >
                   <FileText className="w-4 h-4" />
                   Start Testing
                   <ChevronRight className="w-4 h-4" />

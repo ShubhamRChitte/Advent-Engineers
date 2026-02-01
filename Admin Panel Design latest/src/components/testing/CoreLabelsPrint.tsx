@@ -47,8 +47,8 @@ export function CoreLabelsPrint({ cores, order, coreType, onBack }: CoreLabelsPr
                 {order.jobId} - {order.clientName} - {coreType} - {cores.length} Passed Cores
               </p>
             </div>
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               className="gap-2 bg-green-600 hover:bg-green-700"
               onClick={handlePrint}
             >
@@ -121,26 +121,26 @@ export function CoreLabelsPrint({ cores, order, coreType, onBack }: CoreLabelsPr
                 <div className="text-xs font-bold text-[#003a70] mb-2 text-center border-b border-gray-300 pb-1 w-full">
                   ADVENT ENGINEERS
                 </div>
-                
+
                 {/* Core Type Badge */}
                 <div className="bg-[#003a70] text-white px-3 py-1 rounded text-xs font-bold mb-2">
                   {coreType}
                 </div>
-                
+
                 {/* Core ID - Large and Bold */}
                 <div className="font-mono text-lg font-bold text-center text-gray-900 mb-2 break-all">
-                  {core.internalCoreNo}
+                  {String(core.internalCoreNo || '')}
                 </div>
-                
+
                 {/* Additional Info */}
                 <div className="text-xs text-gray-600 text-center space-y-1 w-full">
                   <div className="flex justify-between px-2">
                     <span>Date:</span>
-                    <span className="font-medium">{core.date || 'N/A'}</span>
+                    <span className="font-medium">{String(core.date || 'N/A')}</span>
                   </div>
                   <div className="flex justify-between px-2">
                     <span>Vendor:</span>
-                    <span className="font-medium">{core.coreVendorNo || 'N/A'}</span>
+                    <span className="font-medium">{String(core.coreVendorNo || 'N/A')}</span>
                   </div>
                   <div className="mt-1 pt-1 border-t border-gray-200">
                     <span className="inline-block bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold text-xs">

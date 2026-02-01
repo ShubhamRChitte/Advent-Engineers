@@ -10,12 +10,20 @@ const CoreDetailSchema = new Schema({
 
 const OrderSchema = new Schema(
   {
+    jobId:{
+    type: String,
+    required: true,
+    unique: true,
+    trim: true
+    },
     // -------- CLIENT DETAILS --------
     clientName: {
       type: String,
       required: true,
       trim: true
     },
+
+    ratio: [String],
 
     clientContactNo: {
       type: String,
@@ -128,7 +136,13 @@ const OrderSchema = new Schema(
       type: String,
       required: true,
       trim: true
-    }
+    },
+  //   assignments: {
+  //   core_tester: { type: String, required: true },      // Worker ID or Name
+  //   secondary_tester: { type: String, required: true },
+  //   primary_tester: { type: String, required: true },
+  //   final_tester: { type: String, required: true }
+  // },
   },
   {
     timestamps: true

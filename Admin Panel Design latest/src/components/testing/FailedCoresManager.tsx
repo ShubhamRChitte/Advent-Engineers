@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { 
+import {
   ArrowLeft,
   AlertTriangle,
   Printer,
@@ -125,7 +125,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
           <span className="bg-red-100 text-red-700 px-3 py-1 rounded">Grouped by Vendor</span>
           <span className="text-sm text-gray-500">({Object.keys(vendorGroups).length} vendors)</span>
         </h3>
-        
+
         <div className="space-y-4">
           {Object.entries(vendorGroups).map(([vendorNo, cores]) => (
             <div key={vendorNo} className="border border-red-200 rounded-lg overflow-hidden">
@@ -138,7 +138,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                   Generate Return Form
                 </Button>
               </div>
-              
+
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
@@ -155,13 +155,13 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                   <tbody>
                     {cores.map((core, idx) => (
                       <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="p-2">{core.date}</td>
-                        <td className="p-2 font-mono text-xs">{core.orderId}</td>
-                        <td className="p-2 font-mono text-xs">{core.jobId}</td>
-                        <td className="p-2">{core.clientName}</td>
-                        <td className="p-2">{core.coreType}</td>
-                        <td className="p-2 font-mono font-medium text-red-700">{core.internalCoreNo}</td>
-                        <td className="p-2 text-xs text-red-600">{core.failureReason}</td>
+                        <td className="p-2">{String(core.date || '')}</td>
+                        <td className="p-2 font-mono text-xs">{String(core.orderId || '')}</td>
+                        <td className="p-2 font-mono text-xs">{String(core.jobId || '')}</td>
+                        <td className="p-2">{String(core.clientName || '')}</td>
+                        <td className="p-2">{String(core.coreType || '')}</td>
+                        <td className="p-2 font-mono font-medium text-red-700">{String(core.internalCoreNo || '')}</td>
+                        <td className="p-2 text-xs text-red-600">{String(core.failureReason || '')}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -178,7 +178,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
           <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded">Grouped by Order</span>
           <span className="text-sm text-gray-500">({Object.keys(orderGroups).length} orders)</span>
         </h3>
-        
+
         <div className="space-y-4">
           {Object.entries(orderGroups).map(([orderId, cores]) => (
             <div key={orderId} className="border border-blue-200 rounded-lg overflow-hidden">
@@ -188,7 +188,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                   {cores[0].jobId} - {cores[0].clientName} - Failed Cores: {cores.length}
                 </p>
               </div>
-              
+
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
@@ -204,14 +204,14 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                   <tbody>
                     {cores.map((core, idx) => (
                       <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="p-2">{core.date}</td>
-                        <td className="p-2">{core.coreType}</td>
-                        <td className="p-2 font-mono font-medium text-red-700">{core.internalCoreNo}</td>
-                        <td className="p-2">{core.coreVendorNo}</td>
-                        <td className="p-2 text-xs text-red-600">{core.failureReason}</td>
+                        <td className="p-2">{String(core.date || '')}</td>
+                        <td className="p-2">{String(core.coreType || '')}</td>
+                        <td className="p-2 font-mono font-medium text-red-700">{String(core.internalCoreNo || '')}</td>
+                        <td className="p-2">{String(core.coreVendorNo || '')}</td>
+                        <td className="p-2 text-xs text-red-600">{String(core.failureReason || '')}</td>
                         <td className="p-2 text-xs">
                           <span className="font-mono">
-                            1K:{core.value1000} | 3K:{core.value3000} | 5K:{core.value5000} | 7K:{core.value7000}
+                            1K:{String(core.value1000 || '')} | 3K:{String(core.value3000 || '')} | 5K:{String(core.value5000 || '')} | 7K:{String(core.value7000 || '')}
                           </span>
                         </td>
                       </tr>
@@ -222,12 +222,12 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
             </div>
           ))}
         </div>
-      </Card>
+      </Card >
 
       {/* All Failed Cores Table */}
-      <Card className="p-4">
+      < Card className="p-4" >
         <h3 className="text-lg font-bold mb-4">All Failed Cores ({filteredCores.length})</h3>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
@@ -245,23 +245,23 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
             <tbody>
               {filteredCores.map((core, index) => (
                 <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
-                  <td className="p-2">{core.date}</td>
-                  <td className="p-2 font-mono text-xs">{core.orderId}</td>
-                  <td className="p-2 font-mono text-xs">{core.jobId}</td>
-                  <td className="p-2">{core.clientName}</td>
-                  <td className="p-2">{core.coreType}</td>
-                  <td className="p-2 font-mono font-medium text-red-700">{core.internalCoreNo}</td>
-                  <td className="p-2">{core.coreVendorNo}</td>
-                  <td className="p-2 text-xs text-red-600">{core.failureReason}</td>
+                  <td className="p-2">{String(core.date || '')}</td>
+                  <td className="p-2 font-mono text-xs">{String(core.orderId || '')}</td>
+                  <td className="p-2 font-mono text-xs">{String(core.jobId || '')}</td>
+                  <td className="p-2">{String(core.clientName || '')}</td>
+                  <td className="p-2">{String(core.coreType || '')}</td>
+                  <td className="p-2 font-mono font-medium text-red-700">{String(core.internalCoreNo || '')}</td>
+                  <td className="p-2">{String(core.coreVendorNo || '')}</td>
+                  <td className="p-2 text-xs text-red-600">{String(core.failureReason || '')}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </Card>
+      </Card >
 
       {/* Notes */}
-      <Card className="p-4 bg-yellow-50 border-yellow-200">
+      < Card className="p-4 bg-yellow-50 border-yellow-200" >
         <h4 className="font-bold text-yellow-900 mb-2">📋 Vendor Return Instructions</h4>
         <ul className="text-sm text-yellow-800 space-y-1 list-disc list-inside">
           <li>All failed cores must be documented and returned to respective vendors for warranty/repair</li>
@@ -270,7 +270,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
           <li>Keep detailed records of failure reasons for quality control and vendor feedback</li>
           <li>Follow company policy for core handling and vendor communication</li>
         </ul>
-      </Card>
-    </div>
+      </Card >
+    </div >
   );
 }

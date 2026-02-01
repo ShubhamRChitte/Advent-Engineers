@@ -1,13 +1,15 @@
 import { useState } from 'react';
+import React, {useEffect} from 'react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Eye, PlayCircle } from 'lucide-react';
+import axios from 'axios';
 
 interface Order {
   jobId: string;
-  client: string;
-  transformerCount: number;
+  clientName: string;
+  quantity: number;
   assignedDate: string;
   status: 'assigned' | 'in-testing' | 'completed';
   priority: 'low' | 'medium' | 'high';
@@ -18,40 +20,58 @@ interface SecondaryOrdersListProps {
 }
 
 export function SecondaryOrdersList({ onStartTesting }: SecondaryOrdersListProps) {
-  const [orders] = useState<Order[]>([
-    {
-      jobId: 'JOB-2025-001',
-      client: 'PowerGrid Corporation',
-      transformerCount: 5,
-      assignedDate: '2025-11-15',
-      status: 'assigned',
-      priority: 'high',
-    },
-    {
-      jobId: 'JOB-2025-002',
-      client: 'City Electric Ltd',
-      transformerCount: 3,
-      assignedDate: '2025-11-16',
-      status: 'assigned',
-      priority: 'medium',
-    },
-    {
-      jobId: 'JOB-2025-003',
-      client: 'National Grid',
-      transformerCount: 4,
-      assignedDate: '2025-11-14',
-      status: 'in-testing',
-      priority: 'high',
-    },
-    {
-      jobId: 'JOB-2025-004',
-      client: 'Metro Power',
-      transformerCount: 2,
-      assignedDate: '2025-11-13',
-      status: 'completed',
-      priority: 'low',
-    },
-  ]);
+  // const [orders] = useState<Order[]>([
+  //   {
+  //     jobId: 'JOB-2025-001',
+  //     client: 'PowerGrid Corporation',
+  //     transformerCount: 5,
+  //     assignedDate: '2025-11-15',
+  //     status: 'assigned',
+  //     priority: 'high',
+  //   },
+  //   {
+  //     jobId: 'JOB-2025-002',
+  //     client: 'City Electric Ltd',
+  //     transformerCount: 3,
+  //     assignedDate: '2025-11-16',
+  //     status: 'assigned',
+  //     priority: 'medium',
+  //   },
+  //   {
+  //     jobId: 'JOB-2025-003',
+  //     client: 'National Grid',
+  //     transformerCount: 4,
+  //     assignedDate: '2025-11-14',
+  //     status: 'in-testing',
+  //     priority: 'high',
+  //   },
+  //   {
+  //     jobId: 'JOB-2025-004',
+  //     client: 'Metro Power',
+  //     transformerCount: 2,
+  //     assignedDate: '2025-11-13',
+  //     status: 'completed',
+  //     priority: 'low',
+  //   },
+  // ]);
+
+
+
+
+
+
+  const [orders, setOrders] = useState<CoreTestingOrder[]>([]);
+  
+    useEffect(() => {
+      axios
+        .get("http://localhost:3002/allorders")
+        .then((res) => {
+          setOrders(res.data);
+        })
+        .catch((err) => {
+          console.error("API ERROR:", err);
+        });
+    }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -119,9 +139,9 @@ export function SecondaryOrdersList({ onStartTesting }: SecondaryOrdersListProps
               {orders.map((order) => (
                 <tr key={order.jobId} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="p-4 font-medium">{order.jobId}</td>
-                  <td className="p-4">{order.client}</td>
-                  <td className="p-4 text-center">{order.transformerCount}</td>
-                  <td className="p-4">{new Date(order.assignedDate).toLocaleDateString()}</td>
+                  <td className="p-4">{order.clientName}</td>
+                  <td className="p-4 text-center">{order.quantity}</td>
+                  <td className="p-4">{new Date(order.deadline).toLocaleDateString()}</td>
                   <td className="p-4">
                     <Badge className={getStatusColor(order.status)}>
                       {order.status.replace('-', ' ')}
