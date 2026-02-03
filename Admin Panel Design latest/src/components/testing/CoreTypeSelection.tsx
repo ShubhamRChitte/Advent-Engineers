@@ -1,11 +1,16 @@
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { 
+import {
   ArrowLeft,
   Zap,
   Shield,
   AlertTriangle,
+  CheckCircle,
+  Check,
+  Loader2
 } from 'lucide-react';
 import { CoreTestingOrder } from './CoreTestingOrders';
 
@@ -16,16 +21,126 @@ interface CoreTypeSelectionProps {
 }
 
 export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeSelectionProps) {
+  const [completionStatus, setCompletionStatus] = useState<Record<string, boolean>>({});
+  const [loadingStatus, setLoadingStatus] = useState(true);
+  const [isApproving, setIsApproving] = useState(false);
+
+  // Helper to extract the safe ID
+  const getTxnOrderId = () => (order as any).mainOrderId || (order as any).orderId?._id || (order as any)._id;
+
+  // Helper to calculate required rows for a specific type
+  const getRequiredRows = (type: string) => {
+    const validQuantity = order.quantity || order.transformerQuantity || 0;
+    const details = order.coreDetails || order.coreConfiguration || [];
+
+    // Count occurrences of this specific core type in the configuration
+    // Note: We need to handle the PS detection logic here too to match strict counting
+    const coresPerTransformer = details.filter((c: any) => {
+      const cType = c.coreType || c.type;
+      const isPS = cType === 'Protection' && (c.iexLimit || c.leLimit || c.class === 'PS' || (c.description && c.description.includes('PS')));
+
+      if (type === 'PS') return isPS || cType === 'PS';
+      if (type === 'Protection') return cType === 'Protection' && !isPS;
+      return cType === type;
+    }).length;
+
+    return validQuantity * coresPerTransformer;
+  };
+
+  useEffect(() => {
+    const fetchCompletionStatus = async () => {
+      setLoadingStatus(true);
+      const statusUpdate: Record<string, boolean> = {};
+      const txnOrderId = getTxnOrderId();
+
+      if (!txnOrderId) {
+        console.error("No valid order ID found for status check");
+        setLoadingStatus(false);
+        return;
+      }
+
+      // Determine unique types present
+      const details = order.coreDetails || order.coreConfiguration || [];
+      const uniqueTypes = Array.from(new Set(details.map((c: any) => {
+        const type = c.coreType || c.type;
+        if (type === 'Protection' && (c.iexLimit || c.leLimit || c.class === 'PS' || (c.description && c.description.includes('PS')))) {
+          return 'PS';
+        }
+        return type;
+      })));
+
+      try {
+        await Promise.all(uniqueTypes.map(async (type) => {
+          const isMetering = type === 'Metering';
+          const endpoint = isMetering ? '/metering-tests' : '/protection-tests';
+          const typeParam = !isMetering ? `?type=${type}` : '';
+
+          try {
+            const res = await axios.get(`http://localhost:3002/api${endpoint}/${txnOrderId}${typeParam}`, {
+              withCredentials: true
+            });
+
+            const savedData = res.data;
+            let savedCount = 0;
+
+            if (savedData && savedData.readings) {
+              savedCount = savedData.readings.length;
+              // Basic check: Ensure all saved rows have a result/remark
+              // (Optional: You could filter by r.remark matches 'P' or 'F')
+              const completedRows = savedData.readings.filter((r: any) => r.result || r.remark).length;
+              savedCount = completedRows;
+            }
+
+            const required = getRequiredRows(type as string);
+            // Mark as complete if we have enough saved, completed rows
+            statusUpdate[type as string] = savedCount >= required && required > 0;
+
+          } catch (err) {
+            console.warn(`Failed to fetch status for ${type}`, err);
+            statusUpdate[type as string] = false;
+          }
+        }));
+
+        setCompletionStatus(statusUpdate);
+      } catch (error) {
+        console.error("Error checking core status:", error);
+      } finally {
+        setLoadingStatus(false);
+      }
+    };
+
+    fetchCompletionStatus();
+  }, [order]);
+
+  const handleGlobalApprove = async () => {
+    if (!window.confirm("Are you sure you want to approve this order? This will move it to the Secondary stage.")) {
+      return;
+    }
+
+    setIsApproving(true);
+    const txnOrderId = getTxnOrderId();
+
+    try {
+      const response = await axios.put(`http://localhost:3002/api/core-tests/approve/${txnOrderId}`, {}, { withCredentials: true });
+
+      if (response.status === 200) {
+        alert("Order approved successfully! Moving to Secondary stage.");
+        onBack(); // Return to dashboard
+      }
+    } catch (error: any) {
+      console.error("Approval failed:", error);
+      alert(error.response?.data?.message || "Failed to approve order.");
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
   const getCoreTypeIcon = (type: string) => {
     switch (type) {
-      case 'Metering':
-        return <Zap className="w-5 h-5" />;
-      case 'PS':
-        return <Shield className="w-5 h-5" />;
-      case 'Protection':
-        return <AlertTriangle className="w-5 h-5" />;
-      default:
-        return null;
+      case 'Metering': return <Zap className="w-5 h-5" />;
+      case 'PS': return <Shield className="w-5 h-5" />;
+      case 'Protection': return <AlertTriangle className="w-5 h-5" />;
+      default: return null;
     }
   };
 
@@ -62,6 +177,18 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
     }
   };
 
+  // Determine unique types for rendering
+  const details = order.coreDetails || order.coreConfiguration || [];
+  const uniqueTypes = Array.from(new Set(details.map((c: any) => {
+    const type = c.coreType || c.type;
+    if (type === 'Protection' && (c.iexLimit || c.leLimit || c.class === 'PS' || (c.description && c.description.includes('PS')))) {
+      return 'PS';
+    }
+    return type;
+  })));
+
+  const allTypesComplete = uniqueTypes.length > 0 && uniqueTypes.every(type => completionStatus[type as string]);
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -75,8 +202,13 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
           <ArrowLeft className="w-3 h-3" />
           Back
         </Button>
-        <h2 className="text-xl">Select Test Type</h2>
-        <p className="text-sm text-gray-600 mt-1">{order.jobId} - {order.clientName}</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h2 className="text-xl">Select Test Type</h2>
+            <p className="text-sm text-gray-600 mt-1">{order.jobId} - {order.clientName}</p>
+          </div>
+          {/* Global Approve Button - Top Right (Optional placement, but bottom is requested) */}
+        </div>
       </div>
 
       {/* Order Summary */}
@@ -101,82 +233,84 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
         </div>
       </Card>
 
-      {/* Core Type Selection */}
-      {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {order.coreConfiguration.map((config, idx) => {
-          const colors = getCoreTypeColor(config.type);
+      {/* Core Type Selection Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {uniqueTypes.map((type, idx) => {
+          const requiredCount = getRequiredRows(type as string);
+          const isComplete = completionStatus[type as string];
+          const colors = getCoreTypeColor(type as string);
+
           return (
             <Card
               key={idx}
-              className={`p-4 ${colors.bg} ${colors.border} border hover:shadow-md transition-shadow`}
+              className={`p-4 ${colors.bg} ${colors.border} border hover:shadow-md transition-shadow relative overflow-hidden`}
             >
+              {/* Completion Badge */}
+              {isComplete && (
+                <div className="absolute top-0 right-0 p-2">
+                  <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200 gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    Completed
+                  </Badge>
+                </div>
+              )}
+
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <div className={colors.text}>
-                    {getCoreTypeIcon(config.type)}
+                    {getCoreTypeIcon(type as string)}
                   </div>
-                  <h3 className={`text-base font-medium ${colors.text}`}>{config.type}</h3>
+                  <h3 className={`text-base font-medium ${colors.text}`}>
+                    {type}
+                  </h3>
                 </div>
-                
+
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Cores to Test</span>
-                    <span className="font-medium text-gray-900">{order.transformerQuantity} cores</span>
+                    <span className="text-gray-600">Total Cores</span>
+                    <span className="font-medium text-gray-900">
+                      {requiredCount} cores
+                    </span>
                   </div>
                 </div>
 
                 <Button
                   className={`w-full ${colors.button} text-white`}
                   size="sm"
-                  onClick={() => onSelectCoreType(config.type)}
+                  onClick={() => onSelectCoreType(type as any)}
                 >
-                  Start Testing
+                  {isComplete ? 'Review / Edit Testing' : 'Start Testing'}
                 </Button>
               </div>
             </Card>
           );
         })}
-      </div> */}
-<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-  {order.coreDetails?.map((core, idx) => {
-    const colors = getCoreTypeColor(core.coreType);
+      </div>
 
-    return (
-      <Card
-        key={idx}
-        className={`p-4 ${colors.bg} ${colors.border} border hover:shadow-md transition-shadow`}
-      >
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <div className={colors.text}>
-              {getCoreTypeIcon(core.coreType)}
-            </div>
-            <h3 className={`text-base font-medium ${colors.text}`}>
-              {core.coreType}
-            </h3>
-          </div>
-
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Cores to Test</span>
-              <span className="font-medium text-gray-900">
-                {order.quantity} cores
-              </span>
-            </div>
-          </div>
-
-          <Button
-            className={`w-full ${colors.button} text-white`}
-            size="sm"
-            onClick={() => onSelectCoreType(core.coreType)}
-          >
-            Start Testing
-          </Button>
+      {/* Global Action Footer */}
+      <Card className="p-4 bg-gray-50 flex flex-col md:flex-row items-center justify-between gap-4 border-t-2 border-gray-100">
+        <div className="text-sm text-gray-600">
+          {loadingStatus ? (
+            <span className="flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Checking completion status...</span>
+          ) : allTypesComplete ? (
+            <span className="text-green-600 font-medium flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" /> All core types tested. Ready for approval.
+            </span>
+          ) : (
+            <span>Complete testing for all core types to enable approval.</span>
+          )}
         </div>
+
+        <Button
+          size="lg"
+          className={`gap-2 ${allTypesComplete ? 'bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+          disabled={!allTypesComplete || isApproving}
+          onClick={handleGlobalApprove}
+        >
+          {isApproving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+          Approve & Move to Secondary
+        </Button>
       </Card>
-    );
-  })}
-</div>
 
       {/* Instructions */}
       {order.instructions && (

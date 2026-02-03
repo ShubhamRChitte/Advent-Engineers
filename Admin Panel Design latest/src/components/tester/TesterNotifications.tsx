@@ -124,9 +124,22 @@ export function TesterNotifications({ userRole, userName}: TesterNotificationsPr
 
  const [notifications, setNotifications] = useState<TaskNotification[]>([]);
 
+  // useEffect(() => {
+  //   axios
+  //     .get("http://localhost:3002/allorders")
+  //     .then((res) => {
+  //       setNotifications(res.data);
+  //     })
+  //     .catch((err) => {
+  //       console.error("API ERROR:", err);
+  //     });
+  // }, []);
+
+
+
   useEffect(() => {
     axios
-      .get("http://localhost:3002/allorders")
+      .get("http://localhost:3002/api/assigneed_orders", { withCredentials: true })
       .then((res) => {
         setNotifications(res.data);
       })
@@ -134,9 +147,6 @@ export function TesterNotifications({ userRole, userName}: TesterNotificationsPr
         console.error("API ERROR:", err);
       });
   }, []);
-
-
-
 
 
 

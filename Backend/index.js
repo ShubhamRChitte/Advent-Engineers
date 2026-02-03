@@ -21,6 +21,7 @@ const { ProtectionCoreTestModel } = require("./models/ProtectionCoreTestModel");
 const { TransformerModel } = require("./models/TransformerModel");
 // const VerifyUser = require('./middlewares/VeriifyUser');
 // const UsersModel = require("./model/UsersModel");
+const { CounterModel } = require("./models/CounterModel");
 
 
 const app = express();
@@ -31,14 +32,188 @@ mongoose
   .then(() => console.log("MongoDB is  connected successfully"))
   .catch((err) => console.error(err));
 
+// --- AUTHENTICATION SETUP ---
+const session = require('express-session');
+const passport = require('passport');
+const bcrypt = require('bcryptjs'); // Needed for seeding later
+require('./config/passportConfig')(passport);
+const authRoutes = require('./routes/authRoutes');
+const taskRoutes = require('./routes/taskRoutes');
+const meteringTestRoutes = require('./routes/meteringTestRoutes');
+const protectionTestRoutes = require('./routes/protectionTestRoutes');
+
+// 1. CORS (Must be first)
 app.use(cors({
-  origin: "http://localhost:3000",
+  origin: ["http://localhost:3000", "http://localhost:3001"],
   credentials: true
 }));
 
 app.use(express.json());
 
+// 2. Session Config
+app.use(session({
+  secret: 'advent_engineers_secret_key', // Change this in production
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false, // Set to true if using https
+    httpOnly: true,
+    maxAge: 1000 * 60 * 60 * 24 // 1 day
+  }
+}));
 
+// 3. Passport Config
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Debug Middleware: Log Session info for every request
+app.use((req, res, next) => {
+  console.log(`[${req.method}] ${req.url} - SessionID: ${req.sessionID} - User: ${req.user ? req.user.employeeId : 'Guest'}`);
+  next();
+});
+
+// Enable Pre-Flight for all routes
+// app.options('*', cors()); // Removed to fix PathError crash
+
+// Routes
+app.use('/auth', authRoutes);
+app.use('/api', taskRoutes); // Mounted at /api
+app.use('/api', meteringTestRoutes); // Mounted at /api/metering-tests
+app.use('/api', protectionTestRoutes); // Mounted at /api/protection-tests
+app.use('/api/core-tests', require('./routes/coreTestRoutes')); // New Generic Route for Approval
+// ----------------------------
+
+
+
+
+// 1. Helper: Atomic Sequence Generator
+async function getNextSequenceValue(sequenceName) {
+  const sequenceDocument = await CounterModel.findOneAndUpdate(
+    { id: sequenceName },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+  return sequenceDocument.seq;
+}
+
+
+
+// 2. Method: Create Order (Operator Level)
+const createOrder = async (req, res) => {
+  try {
+    // 1. Generate the Job ID
+    const jobSeq = await getNextSequenceValue("job_sequence");
+    const currentYear = new Date().getFullYear();
+    const jobId = `JOB-${currentYear}-${jobSeq.toString().padStart(3, '0')}`;
+
+    // 2. Create Order with "Pending Approval" status
+    const newOrder = new OrderModel({
+      ...req.body,
+      jobId: jobId,
+      isApproved: false,
+      isRead: false,
+      status: "Pending Approval"
+    });
+
+    const savedOrder = await newOrder.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Order submitted to Admin for approval.",
+      jobId: savedOrder.jobId
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+
+// 3. Method: Admin Approval & Auto-Generation
+const approveOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const order = await OrderModel.findById(orderId);
+
+    if (!order) return res.status(404).json({ message: "Order not found" });
+    if (order.isApproved) return res.status(400).json({ message: "Already approved" });
+
+    // 1. Update Order Status
+    order.isApproved = true;
+    order.status = "In Progress";
+    await order.save();
+
+    // 2. Generate Transformers with Combined IDs
+    const transformerRecords = [];
+
+    for (let i = 1; i <= order.quantity; i++) {
+      // Build ID: jobId + "/" + index (e.g., JOB-2026-001/01)
+      const unitId = `${order.jobId}/${i.toString().padStart(2, '0')}`;
+
+      transformerRecords.push({
+        orderId: order._id,
+        jobId: order.jobId,
+        uniqueId: unitId, // THE COMBINATION ID
+        currentStage: "core",
+        testHistory: {
+          core_test: { status: "Pending" },
+          secondary_test: { status: "Pending" },
+          primary_test: { status: "Pending" },
+          final_test: { status: "Pending" }
+        }
+      });
+    }
+
+    await TransformerModel.insertMany(transformerRecords);
+
+    res.status(200).json({
+      success: true,
+      message: `Approved. ${order.quantity} units generated for ${order.jobId}.`
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 4. Method: Get Pending Notifications (Admin View)
+const getAdminNotifications = async (req, res) => {
+  try {
+    const pendingOrders = await OrderModel.find({ isApproved: false })
+      .select("jobId clientName quantity createdAt")
+      .sort({ createdAt: -1 });
+
+    const unreadCount = await OrderModel.countDocuments({ isRead: false });
+
+    res.status(200).json({
+      success: true,
+      unreadCount,
+      pendingOrders
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 5. This is how you fetch the list for a specific worker. It joins (populates) the Order data so you can check the assignment.
+const getWorkerTasks = async (req, res) => {
+  try {
+    const { workerName, role } = req.query; // e.g., "Rahul Sharma", "core"
+
+    // 1. Find transformers where the current stage matches the worker's role
+    // 2. Populate 'orderId' to check if THIS specific worker is assigned
+    const tasks = await TransformerModel.find({ currentStage: role })
+      .populate({
+        path: 'orderId',
+        match: { [`assignments.${role}_tester`]: workerName } // Dynamic key check
+      });
+
+    // 3. Filter out transformers where the worker isn't the assigned one for this job
+    const assignedTasks = tasks.filter(t => t.orderId !== null);
+
+    res.status(200).json(assignedTasks);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
 //add the dummy data of the customers 
 app.get('/addCustomers', async (req, res) => {
@@ -116,76 +291,320 @@ app.get('/addOrders', async (req, res) => {
   try {
     let tempOrders = [
       {
-        clientName: "MSEB Power Distribution Ltd.",
-        clientContactNo: "9876543210",
-        transformerName: "Outdoor Epoxy Resin Cast CT",
-        transformerType: "CT",
-        quantity: 150,
-        noOfCores: 3,
-        coreDetails: [
-          { coreType: "Metering" },
-          { coreType: "Protection" },
-          { coreType: "PS" }
-        ],
-        nominalSystemVoltage: 11000,
-        burden: 15,
-        ratedPrimaryCurrent: 400,
-        ratedSecondaryCurrent: 5,
-        accuracyClass: "0.5 / 5P10",
-        mountingDetails: "Outdoor pole mounting",
-        overallDimension: "620 x 480 x 520 mm",
-        deadline: new Date("2024-12-28"),
-        instructions: "Priority order. Complete testing within 3 days.",
-        status: "Pending",
-        priority: "High",
-        isStandard: "Yes"
+        "jobId": "JOB-2026-021",
+        "clientName": "Reliance Infrastructure",
+        "clientContactNo": "+91-9876543210",
+        "transformerName": "Outdoor CT 33kV",
+        "transformerType": "CT",
+        "quantity": 3,
+        "ratio": ["400/1", "800/1"],
+        "noOfCores": 2,
+        "coreDetails": [{ "coreType": "Metering" }, { "coreType": "Protection" }],
+        "nominalSystemVoltage": 33,
+        "burden": 30,
+        "accuracyClass": "0.5S/5P20",
+        "deadline": "2026-03-10T00:00:00.000Z",
+        "assignments": {
+          "core_tester": "John Doe",
+          "secondary_tester": "Alice Smith",
+          "primary_tester": "Bob Johnson",
+          "final_tester": "Charlie Brown"
+        },
+        "currentStage": "core",
+        "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
+        "isApproved": true,
+        "status": "Core Testing In Progress",
+        "priority": "High",
+        "ratedPrimaryCurrent": 800,
+        "ratedSecondaryCurrent": 1,
+        "mountingDetails": "Structure Mounted",
+        "overallDimension": "800x600x1200mm",
+        "isStandard": "Standard"
       },
       {
-        clientName: "Tata Power Company Ltd.",
-        clientContactNo: "9123456789",
-        transformerName: "Dead Tank Type CT",
-        transformerType: "CT",
-        quantity: 80,
-        noOfCores: 2,
-        coreDetails: [
-          { coreType: "Metering" },
-          { coreType: "PS" }
-        ],
-        nominalSystemVoltage: 33000,
-        burden: 10,
-        ratedPrimaryCurrent: 200,
-        ratedSecondaryCurrent: 5,
-        accuracyClass: "0.2S / PX",
-        mountingDetails: "Indoor panel mounting",
-        overallDimension: "540 x 420 x 480 mm",
-        deadline: new Date("2024-12-30"),
-        instructions: "Standard testing procedure.",
-        status: "In Progress",
-        priority: "Medium",
-        isStandard: "Yes"
+        "jobId": "JOB-2026-022",
+        "clientName": "Tata Power",
+        "clientContactNo": "+91-9922334455",
+        "transformerName": "Indoor PT 11kV",
+        "transformerType": "PT",
+        "quantity": 2,
+        "ratio": ["11000/110"],
+        "noOfCores": 1,
+        "coreDetails": [{ "coreType": "Metering" }],
+        "nominalSystemVoltage": 11,
+        "burden": 100,
+        "accuracyClass": "1.0",
+        "deadline": "2026-04-15T00:00:00.000Z",
+        "assignments": {
+          "core_tester": "Jane Wilson",
+          "secondary_tester": "Alice Smith",
+          "primary_tester": "David Miller",
+          "final_tester": "Charlie Brown"
+        },
+        "currentStage": "core",
+        "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
+        "isApproved": false,
+        "status": "Pending Approval",
+        "priority": "Medium",
+        "ratedPrimaryCurrent": 0,
+        "ratedSecondaryCurrent": 0,
+        "mountingDetails": "Panel Mounted",
+        "overallDimension": "400x400x500mm",
+        "isStandard": "Standard"
       },
       {
-        clientName: "Gujarat Energy Transmission Corporation Ltd.",
-        clientContactNo: "9988776655",
-        transformerName: "Live Tank Type CT",
-        transformerType: "CT",
-        quantity: 120,
-        noOfCores: 1,
-        coreDetails: [
-          { coreType: "PS" }
+        "jobId": "JOB-2026-023",
+        "clientName": "Adani Electricity",
+        "clientContactNo": "+91-8877665544",
+        "transformerName": "PS Class CT",
+        "transformerType": "CT",
+        "quantity": 5,
+        "ratio": ["2000/1"],
+        "noOfCores": 3,
+        "coreDetails": [{ "coreType": "Metering" }, { "coreType": "Protection" }, { "coreType": "PS" }],
+        "nominalSystemVoltage": 0.66,
+        "burden": 15,
+        "accuracyClass": "0.5/5P10/PX",
+        "deadline": "2026-02-28T00:00:00.000Z",
+        "assignments": {
+          "core_tester": "John Doe",
+          "secondary_tester": "Sam Adams",
+          "primary_tester": "Bob Johnson",
+          "final_tester": "Charlie Brown"
+        },
+        "currentStage": "secondary",
+        "completionStages": { "core": true, "secondary": false, "primary": false, "final": false },
+        "isApproved": true,
+        "status": "Core Testing Completed",
+        "priority": "High",
+        "ratedPrimaryCurrent": 2000,
+        "ratedSecondaryCurrent": 1,
+        "mountingDetails": "Busbar Mounted",
+        "overallDimension": "300x300x200mm",
+        "isStandard": "Non-Standard"
+      },
+      {
+        "jobId": "JOB-2026-014",
+        "clientName": "L&T Construction",
+        "clientContactNo": "+91-7788990011",
+        "transformerName": "Ring Type CT",
+        "transformerType": "CT",
+        "quantity": 10,
+        "ratio": ["1000/5"],
+        "noOfCores": 1,
+        "coreDetails": [{ "coreType": "Protection" }],
+        "nominalSystemVoltage": 0.66,
+        "burden": 20,
+        "accuracyClass": "5P20",
+        "deadline": "2026-05-20T00:00:00.000Z",
+        "assignments": {
+          "core_tester": "Jane Wilson",
+          "secondary_tester": "Alice Smith",
+          "primary_tester": "David Miller",
+          "final_tester": "Charlie Brown"
+        },
+        "currentStage": "core",
+        "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
+        "isApproved": true,
+        "status": "Core Testing In Progress",
+        "priority": "Low",
+        "ratedPrimaryCurrent": 1000,
+        "ratedSecondaryCurrent": 5,
+        "mountingDetails": "Indoor Case",
+        "overallDimension": "200x200x150mm",
+        "isStandard": "Standard"
+      },
+      {
+        "jobId": "JOB-2026-015",
+        "clientName": "Siemens India",
+        "clientContactNo": "+91-6655443322",
+        "transformerName": "Differential CT (PS)",
+        "transformerType": "CT",
+        "quantity": 6,
+        "ratio": ["1200/1"],
+        "noOfCores": 1,
+        "coreDetails": [{ "coreType": "PS" }],
+        "nominalSystemVoltage": 11,
+        "burden": 0,
+        "accuracyClass": "PX",
+        "deadline": "2026-03-05T00:00:00.000Z",
+        "assignments": {
+          "core_tester": "John Doe",
+          "secondary_tester": "Sam Adams",
+          "primary_tester": "Bob Johnson",
+          "final_tester": "Charlie Brown"
+        },
+        "currentStage": "primary",
+        "completionStages": { "core": true, "secondary": true, "primary": false, "final": false },
+        "isApproved": true,
+        "status": "In Progress",
+        "priority": "High",
+        "ratedPrimaryCurrent": 1200,
+        "ratedSecondaryCurrent": 1,
+        "mountingDetails": "Bushing Mounted",
+        "overallDimension": "450x450x300mm",
+        "isStandard": "Non-Standard"
+      },
+      {
+        "jobId": "JOB-2026-016",
+        "clientName": "ABB Limited",
+        "clientContactNo": "+91-5544332211",
+        "transformerName": "Cast Resin PT",
+        "transformerType": "PT",
+        "quantity": 4,
+        "ratio": ["33000/110/110"],
+        "noOfCores": 2,
+        "coreDetails": [{ "coreType": "Metering" }, { "coreType": "Metering" }],
+        "nominalSystemVoltage": 33,
+        "burden": 150,
+        "accuracyClass": "0.2/0.5",
+        "deadline": "2026-06-12T00:00:00.000Z",
+        "assignments": {
+          "core_tester": "Jane Wilson",
+          "secondary_tester": "Alice Smith",
+          "primary_tester": "David Miller",
+          "final_tester": "Charlie Brown"
+        },
+        "currentStage": "core",
+        "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
+        "isApproved": true,
+        "status": "Pending Approval",
+        "priority": "Medium",
+        "ratedPrimaryCurrent": 0,
+        "ratedSecondaryCurrent": 0,
+        "mountingDetails": "Outdoor Post",
+        "overallDimension": "900x700x1100mm",
+        "isStandard": "Standard"
+      },
+      {
+        "jobId": "JOB-2026-017",
+        "clientName": "BHEL",
+        "clientContactNo": "+91-4433221100",
+        "transformerName": "Multi-Ratio CT",
+        "transformerType": "CT",
+        "quantity": 8,
+        "ratio": ["500-1000/5"],
+        "noOfCores": 2,
+        "coreDetails": [{ "coreType": "Metering" }, { "coreType": "Protection" }],
+        "nominalSystemVoltage": 0.66,
+        "burden": 15,
+        "accuracyClass": "0.5S/5P15",
+        "deadline": "2026-03-25T00:00:00.000Z",
+        "assignments": {
+          "core_tester": "John Doe",
+          "secondary_tester": "Sam Adams",
+          "primary_tester": "Bob Johnson",
+          "final_tester": "Charlie Brown"
+        },
+        "currentStage": "final",
+        "completionStages": { "core": true, "secondary": true, "primary": true, "final": false },
+        "isApproved": true,
+        "status": "In Progress",
+        "priority": "High",
+        "ratedPrimaryCurrent": 1000,
+        "ratedSecondaryCurrent": 5,
+        "mountingDetails": "Vertical Busbar",
+        "overallDimension": "250x250x180mm",
+        "isStandard": "Standard"
+      },
+      {
+        "jobId": "JOB-2026-018",
+        "clientName": "Schneider Electric",
+        "clientContactNo": "+91-3322110099",
+        "transformerName": "Control PT",
+        "transformerType": "PT",
+        "quantity": 15,
+        "ratio": ["415/110"],
+        "noOfCores": 1,
+        "coreDetails": [{ "coreType": "Metering" }],
+        "nominalSystemVoltage": 0.415,
+        "burden": 25,
+        "accuracyClass": "1.0",
+        "deadline": "2026-04-01T00:00:00.000Z",
+        "assignments": {
+          "core_tester": "Jane Wilson",
+          "secondary_tester": "Alice Smith",
+          "primary_tester": "David Miller",
+          "final_tester": "Charlie Brown"
+        },
+        "currentStage": "completed",
+        "completionStages": { "core": true, "secondary": true, "primary": true, "final": true },
+        "isApproved": true,
+        "status": "Completed",
+        "priority": "Low",
+        "ratedPrimaryCurrent": 0,
+        "ratedSecondaryCurrent": 0,
+        "mountingDetails": "DIN Rail",
+        "overallDimension": "150x150x120mm",
+        "isStandard": "Standard"
+      },
+      {
+        "jobId": "JOB-2026-019",
+        "clientName": "KEC International",
+        "clientContactNo": "+91-2211009988",
+        "transformerName": "Summation CT",
+        "transformerType": "CT",
+        "quantity": 3,
+        "ratio": ["5+5/5"],
+        "noOfCores": 1,
+        "coreDetails": [{ "coreType": "Metering" }],
+        "nominalSystemVoltage": 0.66,
+        "burden": 10,
+        "accuracyClass": "0.5",
+        "deadline": "2026-03-15T00:00:00.000Z",
+        "assignments": {
+          "core_tester": "John Doe",
+          "secondary_tester": "Sam Adams",
+          "primary_tester": "Bob Johnson",
+          "final_tester": "Charlie Brown"
+        },
+        "currentStage": "core",
+        "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
+        "isApproved": true,
+        "status": "Core Testing In Progress",
+        "priority": "Medium",
+        "ratedPrimaryCurrent": 5,
+        "ratedSecondaryCurrent": 5,
+        "mountingDetails": "Panel Internal",
+        "overallDimension": "180x180x100mm",
+        "isStandard": "Non-Standard"
+      },
+      {
+        "jobId": "JOB-2026-020",
+        "clientName": "MSETCL",
+        "clientContactNo": "+91-1100998877",
+        "transformerName": "Dead Tank CT",
+        "transformerType": "CT",
+        "quantity": 1,
+        "ratio": ["1200/1"],
+        "noOfCores": 5,
+        "coreDetails": [
+          { "coreType": "Metering" },
+          { "coreType": "Protection" },
+          { "coreType": "Protection" },
+          { "coreType": "PS" },
+          { "coreType": "PS" }
         ],
-        nominalSystemVoltage: 66000,
-        burden: 20,
-        ratedPrimaryCurrent: 800,
-        ratedSecondaryCurrent: 1,
-        accuracyClass: "PX",
-        mountingDetails: "Outdoor structure mounting",
-        overallDimension: "750 x 600 x 680 mm",
-        deadline: new Date("2024-12-27"),
-        instructions: "Urgent order. Client requires fast delivery.",
-        status: "Pending",
-        priority: "High",
-        isStandard: "No"
+        "nominalSystemVoltage": 132,
+        "burden": 30,
+        "accuracyClass": "0.2S/5P20/PX",
+        "deadline": "2026-05-30T00:00:00.000Z",
+        "assignments": {
+          "core_tester": "Jane Wilson",
+          "secondary_tester": "Alice Smith",
+          "primary_tester": "David Miller",
+          "final_tester": "Charlie Brown"
+        },
+        "currentStage": "core",
+        "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
+        "isApproved": true,
+        "status": "Pending Approval",
+        "priority": "High",
+        "ratedPrimaryCurrent": 1200,
+        "ratedSecondaryCurrent": 1,
+        "mountingDetails": "Outdoor Foundation",
+        "overallDimension": "1200x1200x2500mm",
+        "isStandard": "Non-Standard"
       }
     ];
 
@@ -202,7 +621,6 @@ app.get('/addOrders', async (req, res) => {
     res.status(500).send("Error adding orders");
   }
 });
-
 
 
 // add the dummy data of the users
@@ -233,7 +651,8 @@ app.get('/addUsers', async (req, res) => {
         },
         "voltageExperience": [11, 33, 66, 132],
         "assignedLab": "Core Testing Lab",
-        "activeStatus": true
+        "activeStatus": true,
+        "password": "password123"
       },
       {
         "employeeId": "EMP-1002",
@@ -258,7 +677,8 @@ app.get('/addUsers', async (req, res) => {
         },
         "voltageExperience": [11, 33],
         "assignedLab": "Secondary Testing Lab",
-        "activeStatus": true
+        "activeStatus": true,
+        "password": "password123"
       },
       {
         "employeeId": "EMP-1003",
@@ -283,7 +703,8 @@ app.get('/addUsers', async (req, res) => {
         },
         "voltageExperience": [11],
         "assignedLab": "Primary Testing Lab",
-        "activeStatus": true
+        "activeStatus": true,
+        "password": "password123"
       },
       {
         "employeeId": "EMP-1004",
@@ -309,7 +730,8 @@ app.get('/addUsers', async (req, res) => {
         },
         "voltageExperience": [11, 33, 66],
         "assignedLab": "Final Testing Lab",
-        "activeStatus": true
+        "activeStatus": true,
+        "password": "password123"
       },
       {
         "employeeId": "EMP-1005",
@@ -334,7 +756,8 @@ app.get('/addUsers', async (req, res) => {
         },
         "voltageExperience": [],
         "assignedLab": "Core Assembly Area",
-        "activeStatus": true
+        "activeStatus": true,
+        "password": "password123"
       },
       {
         "employeeId": "EMP-1006",
@@ -360,11 +783,15 @@ app.get('/addUsers', async (req, res) => {
         },
         "voltageExperience": [11, 33, 66, 132],
         "assignedLab": "Quality & Final Approval",
-        "activeStatus": true
+        "activeStatus": true,
+        "password": "password123"
       }
     ];
 
     for (const item of tempUsers) {
+      // Hash password before saving
+      const salt = await bcrypt.genSalt(10);
+      item.password = await bcrypt.hash(item.password, salt);
       let newUser = new UserModel(item);
       await newUser.save();
     }
@@ -820,320 +1247,134 @@ app.get("/", (req, res) => {
 });
 
 
-
-// get allholdings
+// get allorders
 app.get("/allorders", async (req, res) => {
   let orders = await OrderModel.find({});
   res.json(orders);
 })
 
 
-
-
 // routes/meteringTest.js
-app.post('/metering-tests', async (req, res) => {
-  try {
-    const testRecord = new MeteringCoreTestModel(req.body);
-    await testRecord.save();
-    res.status(201).send({ message: "Record Created", id: testRecord._id });
-  } catch (err) {
-    res.status(400).send({ message: "Validation Failed", error: err.message });
-  }
-});
+// app.post('/metering-tests', async (req, res) => {
+//   try {
+//     const testRecord = new MeteringCoreTestModel(req.body);
+//     await testRecord.save();
+//     res.status(201).send({ message: "Record Created", id: testRecord._id });
+//   } catch (err) {
+//     res.status(400).send({ message: "Validation Failed", error: err.message });
+//   }
+// });
 
 
 // routes/protectionTest.js
-app.post("/protection-tests", async (req, res) => {
-  try {
-    const testRecord = new ProtectionCoreTestModel(req.body);
-    await testRecord.save();
-    res.status(201).send({ message: "Record Created", id: testRecord._id });
-  } catch (err) {
-    res.status(400).send({ message: "Validation Failed", error: err.message });
-  }
-});
-
-
-
+// app.post("/protection-tests", async (req, res) => {
+//   try {
+//     const testRecord = new ProtectionCoreTestModel(req.body);
+//     await testRecord.save();
+//     res.status(201).send({ message: "Record Created", id: testRecord._id });
+//   } catch (err) {
+//     res.status(400).send({ message: "Validation Failed", error: err.message });
+//   }
+// });
 
 
 //add dummy data of the transformer 
 app.get('/addTransformerReadingData', async (req, res) => {
   try {
     let TransformerReading = [
-      // =========================
-      // TRANSFORMER 1
-      // =========================
+      // --- JOB-2026-011 (Quantity 3 | Stage: Core) ---
       {
-        uniqueId: "TR-2026-001",
-        ratings: ["200/1", "400/1", "800/1"],
-        coreType: ["Metering", "Protection", "PS"],
+        "uniqueId": "TR-2026-021-001",
+        "jobId": "JOB-2026-021",
+        "orderId": "65bc5555a1b2c3d4e5f61111",
+        "currentStage": "core",
+        "testHistory": { "core_test": { "status": "Pending" } }
+      },
+      {
+        "uniqueId": "TR-2026-021-002",
+        "jobId": "JOB-2026-021",
+        "orderId": "65bc5555a1b2c3d4e5f61111",
+        "currentStage": "core",
+        "testHistory": { "core_test": { "status": "Pending" } }
+      },
+      {
+        "uniqueId": "TR-2026-021-003",
+        "jobId": "JOB-2026-021",
+        "orderId": "65bc5555a1b2c3d4e5f61111",
+        "currentStage": "core",
+        "testHistory": { "core_test": { "status": "Pending" } }
+      },
 
-        testHistory: {
-          secondary_login: {
-            tester: "R. Sharma",
-            status: "Completed",
-
-            metering_results: [
-              {
-                ratioValue: "200/1",
-                rows: [
-                  { current: "120%", r100: "-0.12", p100: "2.1", r25: "-0.10", p25: "1.9" },
-                  { current: "100%", r100: "-0.10", p100: "2.0", r25: "-0.08", p25: "1.8" }
-                ]
-              },
-              {
-                ratioValue: "400/1",
-                rows: [
-                  { current: "100%", r100: "-0.05", p100: "1.4", r25: "-0.04", p25: "1.2" }
-                ]
-              }
-            ],
-
-            protection_results: [
-              {
-                ratioValue: "200/1",
-                burden100: "15 VA",
-                resistance: "2.2 Ω",
-                secondaryLimitingVtg: "620 V",
-                excitationCurrent: "48 mA",
-                compositeError: "4.1 %"
-              }
-            ],
-
-            ps_results: [
-              {
-                ratioValue: "200/1",
-                turnRatioError: "0.11 %",
-                resistance: "1.4 Ω",
-                vk: "380",
-                vkVal: "418",
-                iexVk: "26 mA",
-                iex11Vk: "33 mA"
-              }
-            ]
-          },
-
-          primary_login: {
-            tester: "R. Sharma",
-            status: "Completed",
-
-            metering_results: [
-              {
-                ratioValue: "800/1",
-                rows: [
-                  { current: "100%", r100: "-0.03", p100: "1.0", r25: "-0.02", p25: "0.9" }
-                ]
-              }
-            ],
-
-            protection_results: [
-              {
-                ratioValue: "400/1",
-                burden100: "20 VA",
-                resistance: "3.1 Ω",
-                secondaryLimitingVtg: "700 V",
-                excitationCurrent: "52 mA",
-                compositeError: "3.6 %"
-              }
-            ],
-
-            ps_results: [
-              {
-                ratioValue: "400/1",
-                turnRatioError: "0.08 %",
-                resistance: "1.9 Ω",
-                vk: "420",
-                vkVal: "462",
-                iexVk: "31 mA",
-                iex11Vk: "38 mA"
-              }
-            ]
-          },
-
-          final_test_login: {
-            tester: "A. Verma",
-            status: "Completed",
-
-            metering_results: [
-              {
-                ratioValue: "800/1",
-                rows: [
-                  { current: "120%", r100: "-0.02", p100: "0.9", r25: "-0.01", p25: "0.8" }
-                ]
-              }
-            ],
-
-            protection_results: [
-              {
-                ratioValue: "800/1",
-                burden100: "30 VA",
-                resistance: "4.8 Ω",
-                secondaryLimitingVtg: "820 V",
-                excitationCurrent: "60 mA",
-                compositeError: "2.9 %"
-              }
-            ],
-
-            ps_results: [
-              {
-                ratioValue: "800/1",
-                turnRatioError: "0.05 %",
-                resistance: "2.6 Ω",
-                vk: "510",
-                vkVal: "561",
-                iexVk: "39 mA",
-                iex11Vk: "46 mA"
-              }
-            ]
-          }
+      // --- JOB-2026-013 (Quantity 5 | Stage: Secondary) ---
+      // (Assuming Core Test is finished for this batch)
+      {
+        "uniqueId": "TR-2026-023-001",
+        "jobId": "JOB-2026-023",
+        "orderId": "65bc7777a1b2c3d4e5f67777",
+        "currentStage": "secondary",
+        "testHistory": {
+          "core_test": { "status": "Completed", "tester": "John Doe", "timestamp": "2026-02-01T10:00:00Z" },
+          "secondary_test": { "status": "Pending" }
         }
       },
 
-      // =========================
-      // TRANSFORMER 2
-      // =========================
+      // --- JOB-2026-015 (Quantity 6 | Stage: Primary) ---
       {
-        uniqueId: "TR-2026-002",
-        ratings: ["200/1", "400/1"],
-        coreType: ["Metering", "Protection"],
-
-        testHistory: {
-          secondary_login: {
-            tester: "S. Patil",
-            status: "Completed",
-
-            metering_results: [
-              {
-                ratioValue: "200/1",
-                rows: [
-                  { current: "100%", r100: "-0.14", p100: "2.4", r25: "-0.11", p25: "2.0" }
-                ]
-              }
-            ],
-
-            protection_results: [
-              {
-                ratioValue: "200/1",
-                burden100: "10 VA",
-                resistance: "2.0 Ω",
-                secondaryLimitingVtg: "600 V",
-                excitationCurrent: "44 mA",
-                compositeError: "4.8 %"
-              }
-            ],
-
-            ps_results: []
-          },
-
-          primary_login: {
-            tester: "S. Patil",
-            status: "Completed",
-
-            metering_results: [
-              {
-                ratioValue: "400/1",
-                rows: [
-                  { current: "100%", r100: "-0.06", p100: "1.3", r25: "-0.05", p25: "1.1" }
-                ]
-              }
-            ],
-
-            protection_results: [
-              {
-                ratioValue: "400/1",
-                burden100: "18 VA",
-                resistance: "2.9 Ω",
-                secondaryLimitingVtg: "690 V",
-                excitationCurrent: "50 mA",
-                compositeError: "3.9 %"
-              }
-            ],
-
-            ps_results: []
-          },
-
-          final_test_login: {
-            tester: "QA Team",
-            status: "Completed",
-            metering_results: [],
-            protection_results: [],
-            ps_results: []
-          }
+        "uniqueId": "TR-2026-015-001",
+        "jobId": "JOB-2026-015",
+        "orderId": "65bc8888a1b2c3d4e5f68888",
+        "currentStage": "primary",
+        "testHistory": {
+          "core_test": { "status": "Completed" },
+          "secondary_test": { "status": "Completed" },
+          "primary_test": { "status": "Pending" }
         }
       },
 
-      // =========================
-      // TRANSFORMER 3
-      // =========================
+      // --- JOB-2026-017 (Quantity 8 | Stage: Final) ---
       {
-        uniqueId: "TR-2026-003",
-        ratings: ["800/1"],
-        coreType: ["PS"],
+        "uniqueId": "TR-2026-017-001",
+        "jobId": "JOB-2026-017",
+        "orderId": "65bcaaaaa1b2c3d4e5f6aaaa",
+        "currentStage": "final",
+        "testHistory": {
+          "core_test": { "status": "Completed" },
+          "secondary_test": { "status": "Completed" },
+          "primary_test": { "status": "Completed" },
+          "final_test": { "status": "Pending" }
+        }
+      },
 
-        testHistory: {
-          secondary_login: {
-            tester: "M. Kulkarni",
-            status: "Completed",
+      // --- JOB-2026-018 (Quantity 15 | Stage: Shipped/Completed) ---
+      {
+        "uniqueId": "TR-2026-018-001",
+        "jobId": "JOB-2026-018",
+        "orderId": "65bcbbbbb1b2c3d4e5f6bbbb",
+        "currentStage": "shipped",
+        "testHistory": {
+          "core_test": { "status": "Completed" },
+          "secondary_test": { "status": "Completed" },
+          "primary_test": { "status": "Completed" },
+          "final_test": { "status": "Completed" }
+        }
+      },
 
-            metering_results: [],
-            protection_results: [],
-
-            ps_results: [
-              {
-                ratioValue: "800/1",
-                turnRatioError: "0.06 %",
-                resistance: "2.4 Ω",
-                vk: "520",
-                vkVal: "572",
-                iexVk: "41 mA",
-                iex11Vk: "48 mA"
-              }
-            ]
-          },
-
-          primary_login: {
-            tester: "M. Kulkarni",
-            status: "Completed",
-
-            metering_results: [],
-            protection_results: [],
-
-            ps_results: [
-              {
-                ratioValue: "800/1",
-                turnRatioError: "0.05 %",
-                resistance: "2.3 Ω",
-                vk: "530",
-                vkVal: "583",
-                iexVk: "42 mA",
-                iex11Vk: "49 mA"
-              }
-            ]
-          },
-
-          final_test_login: {
-            tester: "Chief Inspector",
-            status: "Completed",
-
-            metering_results: [],
-            protection_results: [],
-
-            ps_results: [
-              {
-                ratioValue: "800/1",
-                turnRatioError: "0.04 %",
-                resistance: "2.2 Ω",
-                vk: "540",
-                vkVal: "594",
-                iexVk: "43 mA",
-                iex11Vk: "50 mA"
-              }
-            ]
+      // --- JOB-2026-020 (Dead Tank 5-Core | Stage: Core) ---
+      {
+        "uniqueId": "TR-2026-020-001",
+        "jobId": "JOB-2026-020",
+        "orderId": "65bcddeea1b2c3d4e5f6ddee",
+        "currentStage": "core",
+        "testHistory": {
+          "core_test": {
+            "status": "Pending",
+            "metering_results": [],
+            "protection_results": [],
+            "ps_results": []
           }
         }
       }
-    ];
+    ]
 
 
 
@@ -1148,8 +1389,6 @@ app.get('/addTransformerReadingData', async (req, res) => {
     res.status(500).send("Error adding Transformer Reading");
   }
 });
-
-
 
 
 //secondary metering test handle
@@ -1194,6 +1433,7 @@ app.post("/transformer-secondary-metering-tests", async (req, res) => {
   }
 });
 
+
 //secondary protection test handle
 app.post("/transformer-secondary-protection-tests", async (req, res) => {
   try {
@@ -1236,6 +1476,7 @@ app.post("/transformer-secondary-protection-tests", async (req, res) => {
     });
   }
 });
+
 
 //secondary PS test handle
 app.post("/transformer-secondary-ps-tests", async (req, res) => {
@@ -1281,6 +1522,7 @@ app.post("/transformer-secondary-ps-tests", async (req, res) => {
   }
 });
 
+
 //primary Metering test handle
 app.post("/transformer-primary-metering-tests", async (req, res) => {
   try {
@@ -1311,6 +1553,7 @@ app.post("/transformer-primary-metering-tests", async (req, res) => {
     res.status(400).json({ success: false, error: err.message });
   }
 });
+
 
 //primary protection test handle
 app.post("/transformer-primary-protection-tests", async (req, res) => {
@@ -1354,6 +1597,7 @@ app.post("/transformer-primary-protection-tests", async (req, res) => {
     });
   }
 });
+
 
 //primary PS test handle
 app.post("/transformer-primary-ps-tests", async (req, res) => {
@@ -1399,6 +1643,7 @@ app.post("/transformer-primary-ps-tests", async (req, res) => {
   }
 });
 
+
 //final Metering test handle
 app.post("/transformer-final-metering-tests", async (req, res) => {
   try {
@@ -1429,6 +1674,7 @@ app.post("/transformer-final-metering-tests", async (req, res) => {
     res.status(400).json({ success: false, error: err.message });
   }
 });
+
 
 //final protection test handle
 app.post("/transformer-final-protection-tests", async (req, res) => {
@@ -1473,6 +1719,7 @@ app.post("/transformer-final-protection-tests", async (req, res) => {
   }
 });
 
+
 //primary PS test handle
 app.post("/transformer-final-ps-tests", async (req, res) => {
   try {
@@ -1516,6 +1763,13 @@ app.post("/transformer-final-ps-tests", async (req, res) => {
     });
   }
 });
+
+
+
+
+
+
+
 
 
 //primary protection test handle

@@ -1,11 +1,11 @@
-import React, {useEffect} from 'react';
+import React, { useEffect } from 'react';
 import { useState } from 'react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import axios from 'axios';
-import { 
-  Package, 
+import {
+  Package,
   Clock,
   ChevronRight,
   Zap,
@@ -21,20 +21,25 @@ export interface CoreTypeConfig {
 }
 
 export interface CoreTestingOrder {
-  id: string;
-  orderId: string;
+  _id?: string;
+  id?: string;
+  orderId?: string; // Some views might populate this or mainOrderId
+  mainOrderId?: string;
   jobId: string;
   clientName: string;
   transformerName: string;
   transformerType: string;
-  transformerQuantity: number;
-  coreConfiguration: CoreTypeConfig[];
+  quantity?: number; // Matches API
+  transformerQuantity?: number; // Legacy/Frontend alias
+  coreDetails?: any[]; // Matches API
+  coreConfiguration?: CoreTypeConfig[]; // Legacy
   deadline: string;
-  assignedDate: string;
-  assignedBy: string;
+  assignedDate?: string;
+  assignedBy?: string;
   priority: 'High' | 'Medium' | 'Low';
-  status: 'Pending' | 'In Progress' | 'Completed';
+  status: 'Pending' | 'In Progress' | 'Completed' | 'Core Testing In Progress' | 'Pending Approval';
   instructions?: string;
+  [key: string]: any; // Allow loose typing to prevent crashes on extra fields
 }
 
 interface CoreTestingOrdersProps {
@@ -42,75 +47,17 @@ interface CoreTestingOrdersProps {
 }
 
 export function CoreTestingOrders({ onStartTesting }: CoreTestingOrdersProps) {
-  // Sample data - would come from backend in real app
-  // const [orders] = useState<CoreTestingOrder[]>([
-  //   {
-  //     id: '1',
-  //     orderId: 'ORD-2024-007',
-  //     jobId: 'JOB-2025-015',
-  //     clientName: 'MSEB Power Distribution Ltd.',
-  //     transformerName: 'Outdoor Epoxy Resin Cast CT',
-  //     transformerType: 'Current Transformer',
-  //     transformerQuantity: 150,
-  //     coreConfiguration: [
-  //       { type: 'Metering' },
-  //       { type: 'Protection' },
-  //       { type: 'PS' },
-  //     ],
-  //     deadline: '2024-12-28',
-  //     assignedDate: '2024-11-24',
-  //     assignedBy: 'Admin - Ramesh Sharma',
-  //     priority: 'High',
-  //     status: 'Pending',
-  //     instructions: 'Priority order - Please complete testing within 3 days. Each transformer has 3 cores.',
-  //   },
-  //   {
-  //     id: '2',
-  //     orderId: 'ORD-2024-008',
-  //     jobId: 'JOB-2025-016',
-  //     clientName: 'Tata Power Company',
-  //     transformerName: 'Dead Tank Type-3',
-  //     transformerType: 'Current Transformer',
-  //     transformerQuantity: 80,
-  //     coreConfiguration: [
-  //       { type: 'Metering' },
-  //       { type: 'PS' },
-  //     ],
-  //     deadline: '2024-12-30',
-  //     assignedDate: '2024-11-24',
-  //     assignedBy: 'Admin - Suresh Kumar',
-  //     priority: 'Medium',
-  //     status: 'In Progress',
-  //     instructions: 'Standard testing procedure. Each transformer has 2 cores.',
-  //   },
-  //   {
-  //     id: '3',
-  //     orderId: 'ORD-2024-006',
-  //     jobId: 'JOB-2025-014',
-  //     clientName: 'Gujarat Energy Transmission Corp.',
-  //     transformerName: 'Live Tank Type CT',
-  //     transformerType: 'Current Transformer',
-  //     transformerQuantity: 120,
-  //     coreConfiguration: [
-  //       { type: 'PS' },
-  //     ],
-  //     deadline: '2024-12-27',
-  //     assignedDate: '2024-11-23',
-  //     assignedBy: 'Admin - Ramesh Sharma',
-  //     priority: 'High',
-  //     status: 'Pending',
-  //     instructions: 'Urgent - Client requires quick turnaround. Single core per transformer.',
-  //   },
-  // ]);
 
-  
- 
- 
+
+
+
   const [orders, setOrders] = useState<CoreTestingOrder[]>([]);
+
+
 
   useEffect(() => {
     axios
-      .get("http://localhost:3002/allorders")
+      .get("http://localhost:3002/api/assigneed_orders", { withCredentials: true })
       .then((res) => {
         setOrders(res.data);
       })
@@ -120,7 +67,9 @@ export function CoreTestingOrders({ onStartTesting }: CoreTestingOrdersProps) {
   }, []);
 
 
-  
+
+
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'High':
@@ -199,8 +148,9 @@ export function CoreTestingOrders({ onStartTesting }: CoreTestingOrdersProps) {
                     </Badge>
                   </div>
                   <p className="text-sm text-gray-600">{order.clientName}</p>
+                  <p className="text-sm text-gray-600">{order.jobId}</p>
                 </div>
-                <Button 
+                <Button
                   size="sm"
                   className="bg-[#003a70] hover:bg-[#002850] gap-1 shrink-0"
                   onClick={() => onStartTesting(order)}
@@ -234,14 +184,14 @@ export function CoreTestingOrders({ onStartTesting }: CoreTestingOrdersProps) {
 
 
                     {order.coreDetails?.map((core, idx) => (
-  <Badge
-    key={idx}
-    className={`${getCoreTypeColor(core.coreType)} text-xs px-1.5 py-0 gap-1`}
-  >
-    {getCoreTypeIcon(core.coreType)}
-    {core.coreType}
-  </Badge>
-))}
+                      <Badge
+                        key={idx}
+                        className={`${getCoreTypeColor(core.coreType)} text-xs px-1.5 py-0 gap-1`}
+                      >
+                        {getCoreTypeIcon(core.coreType)}
+                        {core.coreType}
+                      </Badge>
+                    ))}
 
 
 

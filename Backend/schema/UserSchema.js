@@ -1,10 +1,15 @@
-const {Schema} = require("mongoose");
+const { Schema } = require("mongoose");
 
 const UserSchema = new Schema({
   employeeId: {
     type: String,
     required: true,
     unique: true
+  },
+
+  password: {
+    type: String,
+    required: true
   },
 
   fullName: {
@@ -63,7 +68,7 @@ const UserSchema = new Schema({
     default: []
   },
 
-    assignedLab: {
+  assignedLab: {
     type: String
   },
 
@@ -77,4 +82,4 @@ const UserSchema = new Schema({
 
 
 
-module.exports = {UserSchema};
+module.exports = { UserSchema };

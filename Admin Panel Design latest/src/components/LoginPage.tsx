@@ -12,56 +12,47 @@ interface LoginPageProps {
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
-  const [email, setEmail] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // Mock credentials
-  const credentials = [
-    {
-      email: 'admin@advent.com',
-      password: 'admin123',
-      user: { id: '1', name: 'Moni Roy', email: 'admin@advent.com', role: 'admin' as const, department: 'Management' },
-    },
-    {
-      email: 'entry@advent.com',
-      password: 'entry123',
-      user: { id: '2', name: 'Sarah Johnson', email: 'entry@advent.com', role: 'entry-operator' as const, department: 'Operations' },
-    },
-    {
-      email: 'core@advent.com',
-      password: 'core123',
-      user: { id: '3', name: 'John Smith', email: 'core@advent.com', role: 'core-tester' as const, department: 'Core Testing' },
-    },
-    {
-      email: 'secondary@advent.com',
-      password: 'secondary123',
-      user: { id: '4', name: 'Mike Wilson', email: 'secondary@advent.com', role: 'secondary-tester' as const, department: 'Secondary Testing' },
-    },
-    {
-      email: 'afterprimary@advent.com',
-      password: 'afterprimary123',
-      user: { id: '5', name: 'David Martinez', email: 'afterprimary@advent.com', role: 'after-primary-tester' as const, department: 'After Primary Testing' },
-    },
-    {
-      email: 'final@advent.com',
-      password: 'final123',
-      user: { id: '6', name: 'Emma Davis', email: 'final@advent.com', role: 'final-tester' as const, department: 'Final Testing' },
-    },
-  ];
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    const credential = credentials.find(
-      c => c.email === email && c.password === password
-    );
+    try {
+      const response = await fetch('http://localhost:3002/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ employeeId, password }),
+      });
 
-    if (credential) {
-      onLogin(credential.user);
-    } else {
-      setError('Invalid email or password');
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Map backend user to frontend User interface
+        const user: User = {
+          id: data.user.id,
+          name: data.user.fullName,
+          employeeId: data.user.employeeId,
+          role: data.user.role,
+          department: data.user.department,
+          // email is optional now
+        };
+        onLogin(user);
+      } else {
+        setError(data.message || 'Login failed');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Unable to connect to server');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -70,8 +61,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       <Card className="w-full max-w-md p-8 shadow-xl">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-6">
-            <ImageWithFallback 
-              src={logoImage} 
+            <ImageWithFallback
+              src={logoImage}
               alt="Advent Engineers Logo"
               className="h-20 w-auto"
             />
@@ -82,13 +73,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="employeeId">Employee ID</Label>
             <Input
-              id="email"
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="employeeId"
+              type="text"
+              placeholder="e.g. EMP-1001"
+              value={employeeId}
+              onChange={(e) => setEmployeeId(e.target.value)}
               required
               className="mt-1"
             />
@@ -113,8 +104,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             </div>
           )}
 
-          <Button type="submit" className="w-full bg-[#003a70] hover:bg-[#002a50] text-white">
-            Login
+          <Button type="submit" className="w-full bg-[#003a70] hover:bg-[#002a50] text-white" disabled={loading}>
+            {loading ? 'Logging in...' : 'Login'}
           </Button>
         </form>
 
@@ -123,27 +114,27 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           <div className="space-y-2 text-xs">
             <div className="bg-slate-50 p-2 rounded border border-slate-200">
               <p>Admin:</p>
-              <p className="text-gray-600">admin@advent.com / admin123</p>
+              <p className="text-gray-600">EMP-1001 / password123</p>
             </div>
             <div className="bg-slate-50 p-2 rounded border border-slate-200">
               <p>Entry Operator:</p>
-              <p className="text-gray-600">entry@advent.com / entry123</p>
+              <p className="text-gray-600">EMP-1002 / password123</p>
             </div>
             <div className="bg-slate-50 p-2 rounded border border-slate-200">
               <p>Core Tester:</p>
-              <p className="text-gray-600">core@advent.com / core123</p>
+              <p className="text-gray-600">EMP-2001 / password123</p>
             </div>
             <div className="bg-slate-50 p-2 rounded border border-slate-200">
               <p>Secondary Tester:</p>
-              <p className="text-gray-600">secondary@advent.com / secondary123</p>
+              <p className="text-gray-600">EMP-2002 / password123</p>
             </div>
             <div className="bg-slate-50 p-2 rounded border border-slate-200">
               <p>After Primary Tester:</p>
-              <p className="text-gray-600">afterprimary@advent.com / afterprimary123</p>
+              <p className="text-gray-600">EMP-2003 / password123</p>
             </div>
             <div className="bg-slate-50 p-2 rounded border border-slate-200">
               <p>Final Tester:</p>
-              <p className="text-gray-600">final@advent.com / final123</p>
+              <p className="text-gray-600">EMP-2004 / password123</p>
             </div>
           </div>
         </div>

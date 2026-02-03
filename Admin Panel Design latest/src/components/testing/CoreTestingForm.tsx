@@ -70,24 +70,19 @@ export interface FailedCore {
 }
 
 export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProps) {
-  // const generateCoreId = (transformerNum: number) => {
-  //   const prefix = coreType === 'Metering' ? 'M' : coreType === 'PS' ? 'PS' : 'P';
-  //   const orderPrefix = order.orderId.replace('ORD-', '').replace('-', '');
-  //   return `${prefix}-${orderPrefix}-${String(transformerNum).padStart(3, '0')}`;
-  // };
 
 
-  // ------------------------update-1
-
+  // 1. REFINE ID GENERATION
   const generateCoreId = (transformerNum: number) => {
-    // 1. Prefix based on core type
-    const prefix = coreType === 'Metering' ? 'M' : coreType === 'PS' ? 'PS' : 'P';
+    const upperType = coreType.toUpperCase();
+    let prefix = 'P'; // Default for Protection
 
-    // 2. Safe Job ID logic: Takes "JOB-2025-015" and gets "015"
-    // The ?. ensures it doesn't crash if order or jobId is missing
+    if (upperType === 'METERING') prefix = 'M';
+    else if (upperType.includes('PS')) prefix = 'PS';
+
+    // Safe Job ID logic: Takes "JOB-2025-015" and gets "015"
     const jobSuffix = order?.jobId?.split('-').pop() ?? '000';
 
-    // 3. Final Format: Prefix-JobSuffix-Sequence (e.g., M-015-001)
     return `${prefix}-${jobSuffix}-${String(transformerNum).padStart(3, '0')}`;
   };
 
@@ -124,69 +119,104 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
   const getSystemDate = () => new Date().toLocaleDateString('en-GB');
 
 
-  ///-------------------------------update -4
-  // Initialize rows
-  // const initializeRows = (): CoreTestRow[] => {
-  //   return Array.from({ length: 20 }, (_, i) => ({
-  //     date: '',
-  //     coreVendorNo: '',
-  //     internalCoreNo: i < order.transformerQuantity ? generateCoreId(i + 1) : '',
-  //     value1000: '',
-  //     value3000: '',
-  //     value5000: '',
-  //     value7000: '',
-  //     singleValue: '',
-  //     dynamicValues: {},
-  //     remark: '',
-  //   }));
-  // };
-  //----------------------------
+
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 3. PERSISTENT DATA LOADING
+  useEffect(() => {
+    const loadExistingData = async () => {
+      setIsLoading(true);
+      try {
+        const txnOrderId = (order as any).mainOrderId || (order as any).orderId?._id || (order as any)._id;
+        if (!txnOrderId) throw new Error("No Order ID found");
+
+        const isMeteringCheck = coreType === 'Metering';
+        const endpoint = isMeteringCheck ? '/metering-tests' : '/protection-tests';
+        const typeParam = !isMeteringCheck ? `?type=${coreType}` : '';
+
+        // Fetch existing data
+        const response = await axios.get(`http://localhost:3002/api${endpoint}/${txnOrderId}${typeParam}`, {
+          withCredentials: true
+        });
+
+        // If data exists, map it; otherwise, use fresh initialization
+        if (response.data && response.data.readings && response.data.readings.length > 0) {
+          if (!isMeteringCheck && response.data.coreType !== coreType) {
+            console.warn(`Mismatch: Expected ${coreType}, got ${response.data.coreType}`);
+            setRows(initializeRows());
+            return;
+          }
+
+          const savedRows = response.data.readings.map((r: any) => ({
+            date: r.date ? new Date(r.date).toLocaleDateString('en-GB') : getSystemDate(),
+            coreVendorNo: r.vendorCoreNo || '',
+            internalCoreNo: r.internalCoreNo || '',
+            dynamicValues: isMeteringCheck
+              ? Object.fromEntries(bsatColumns.map((col, i) => [col.id, String(r.measuredMa?.[i] || '')]))
+              : ((r.value !== undefined && protectionBColumns.length > 0) ? { [protectionBColumns[0].id]: String(r.value) } : {}),
+            singleValue: r.value !== undefined ? String(r.value) : '',
+            remark: r.result || ''
+          }));
+
+          // Merge with empty rows if saved rows < required total
+          const totalNeeded = calculateTotalRowsNeeded();
+          if (savedRows.length < totalNeeded) {
+            const merged = [...savedRows];
+            for (let i = savedRows.length; i < totalNeeded; i++) {
+              merged.push({
+                date: getSystemDate(),
+                coreVendorNo: '',
+                internalCoreNo: generateCoreId(i + 1),
+                dynamicValues: {},
+                singleValue: '',
+                remark: '',
+                value1000: '', value3000: '', value5000: '', value7000: ''
+              });
+            }
+            setRows(merged);
+          } else {
+            setRows(savedRows);
+          }
+        } else {
+          setRows(initializeRows());
+        }
+      } catch (err) {
+        console.warn("No existing data found, starting fresh.", err);
+        setRows(initializeRows());
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadExistingData();
+  }, [order, coreType]);
+
+
+  // 2. SMART ROW INITIALIZATION
+  const calculateTotalRowsNeeded = () => {
+    const validQuantity = order.quantity || order.transformerQuantity || 0;
+
+    // Count occurrences of this specific core type in the configuration
+    const coresPerTransformer = (order.coreDetails || []).filter(
+      (core: any) => (core.coreType || core.type) === coreType
+    ).length || 1;
+
+    return validQuantity * coresPerTransformer;
+  };
+
   const initializeRows = (): CoreTestRow[] => {
-    return Array.from({ length: 20 }, (_, i) => ({
+    const totalRows = calculateTotalRowsNeeded();
+    return Array.from({ length: totalRows }, (_, i) => ({
       date: getSystemDate(),
       coreVendorNo: '',
-      internalCoreNo: i < order.transformerQuantity ? generateCoreId(i + 1) : '',
-      value1000: '',
-      value3000: '',
-      value5000: '',
-      value7000: '',
+      internalCoreNo: generateCoreId(i + 1),
+      value1000: '', value3000: '', value5000: '', value7000: '',
       singleValue: '',
       dynamicValues: {},
       remark: '',
     }));
   };
 
-  //   const initializeRows = (): CoreTestRow[] => {
-  //   // Use the core type prefix
-  // const prefix = coreType === 'Metering' ? 'M' : coreType === 'PS' ? 'PS' : 'P';
-
-  // //   // Clean the JobID (e.g., "JOB-2025-015" -> "25015")
-  // const jobSuffix = order.jobId.split('-').pop();
-
-  // return Array.from({ length: 20 }, (_, i) => {
-  //   const isWithinQuantity = i < order.transformerQuantity;
-
-  //   return {
-  //     date: getSystemDate(),
-  //     coreVendorNo: '',
-  //     // Generate ID only if within the order quantity
-  //     internalCoreNo: isWithinQuantity
-  //       ? `${prefix}-${jobSuffix}-${String(i + 1).padStart(3, '0')}`
-  //       : '',
-  //     value1000: '', value3000: '', value5000: '', value7000: '',
-  //     singleValue: '',
-  //     dynamicValues: {},
-  //     remark: '',
-  //   };
-  // });
-  // };
-
-
-
-
-
-
-  // ---------------------------------------
 
   const [rows, setRows] = useState<CoreTestRow[]>(initializeRows());
   const [failedCores, setFailedCores] = useState<FailedCore[]>([]);
@@ -255,10 +285,7 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
     }
   );
 
-  // Re-initialize rows when coreType or order changes to verify correct ID generation
-  useEffect(() => {
-    setRows(initializeRows());
-  }, [coreType, order]);
+
 
   // LE Limits - Only for Metering/PS
   const leLimits = {
@@ -385,105 +412,6 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
     setRows(updatedRows);
   };
 
-  // const handleReplaceCore = (index: number) => {
-  //   const failedRow = rows[index];
-
-  //   // Add to failed cores list
-  //   const failedCore: FailedCore = {
-  //     orderId: order.orderId,
-  //     jobId: order.jobId,
-  //     clientName: order.clientName,
-  //     coreType: coreType,
-  //     internalCoreNo: failedRow.internalCoreNo,
-  //     coreVendorNo: failedRow.coreVendorNo,
-  //     date: failedRow.date,
-  //     failureReason: getFailureReason(failedRow),
-  //     value1000: failedRow.value1000,
-  //     value3000: failedRow.value3000,
-  //     value5000: failedRow.value5000,
-  //     value7000: failedRow.value7000,
-  //     singleValue: failedRow.singleValue,
-  //     dynamicValues: failedRow.dynamicValues,
-  //   };
-
-  //   setFailedCores([...failedCores, failedCore]);
-
-  //   // Reset the row for replacement core
-  //   const updatedRows = [...rows];
-  //   updatedRows[index] = {
-  //     date: '',
-  //     coreVendorNo: '',
-  //     internalCoreNo: failedRow.internalCoreNo,
-  //     value1000: '',
-  //     value3000: '',
-  //     value5000: '',
-  //     value7000: '',
-  //     singleValue: '',
-  //     dynamicValues: {},
-  //     remark: '',
-  //     isReplacement: true,
-  //     replacedCoreId: failedRow.internalCoreNo,
-  //   };
-
-  //   setRows(updatedRows);
-  // };
-
-  // const addRow = () => {
-  //   setRows([...rows, {
-  //     date: '',
-  //     coreVendorNo: '',
-  //     internalCoreNo: '',
-  //     value1000: '',
-  //     value3000: '',
-  //     value5000: '',
-  //     value7000: '',
-  //     singleValue: '',
-  //     dynamicValues: {},
-  //     remark: '',
-  //   }]);
-  // };
-
-
-
-  //--------------------------------------------------------update-2
-  /** Handles core failure: archives the data and generates a NEW ID for the replacement */
-  // const handleReplaceCore = (index: number) => {
-  //   const failedRow = rows[index];
-  //   const systemDate = getSystemDate();
-
-  //   // Archive the failure
-  //   const failedCore: FailedCore = {
-  //     orderId: order.orderId,
-  //     jobId: order.jobId,
-  //     clientName: order.clientName,
-  //     coreType: coreType,
-  //     internalCoreNo: failedRow.internalCoreNo,
-  //     coreVendorNo: failedRow.coreVendorNo,
-  //     date: failedRow.date || systemDate,
-  //     failureReason: getFailureReason(failedRow),
-  //     dynamicValues: failedRow.dynamicValues,
-  //     // ... fill other fields as needed
-  //   };
-  //   setFailedCores([...failedCores, failedCore]);
-
-  //   // Update row with a fresh unique ID for the new physical core
-  //   const nextSeq = getNextSequenceNumber(rows);
-  //   const updatedRows = [...rows];
-  //   updatedRows[index] = {
-  //     date: systemDate,
-  //     coreVendorNo: '',
-  //     internalCoreNo: generateUniqueCoreId(nextSeq, coreType, order.orderId),
-  //     value1000: '', value3000: '', value5000: '', value7000: '',
-  //     singleValue: '',
-  //     dynamicValues: {},
-  //     remark: '',
-  //     isReplacement: true,
-  //     replacedCoreId: failedRow.internalCoreNo,
-  //   };
-  //   setRows(updatedRows);
-  // };
-
-  //---------------------------------------------
 
 
 
@@ -526,44 +454,6 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
 
 
 
-  // const handleReplaceCore = (index: number) => {
-  //   const failedRow = rows[index];
-
-  //   // Create the replacement ID by adding an 'R'
-  //   // Example: M-25015-001 becomes M-25015-001-R1
-  //   const currentId = failedRow.internalCoreNo;
-  //   const replacementId = `${currentId}-R`; 
-
-  //   const updatedRows = [...rows];
-  //   updatedRows[index] = {
-  //     ...initializeRows()[0], // Get a clean object structure
-  //     date: getSystemDate(),
-  //     internalCoreNo: replacementId,
-  //     isReplacement: true,
-  //     replacedCoreId: currentId,
-  //     remark: ''
-  //   };
-
-  //   setRows(updatedRows);
-  // };
-
-
-  //-------------------------------update -4
-  // const addRow = () => {
-  //   const nextSeq = getNextSequenceNumber(rows);
-  //   setRows([...rows, {
-  //     date: getSystemDate(),
-  //     coreVendorNo: '',
-  //     internalCoreNo: generateUniqueCoreId(nextSeq, coreType, order.orderId),
-  //     value1000: '', value3000: '', value5000: '', value7000: '',
-  //     singleValue: '',
-  //     dynamicValues: {},
-  //     remark: '',
-  //   }]);
-  // };
-
-  // -------------------------------------------
-
   const addRow = () => {
     const nextSeq = getNextSequenceNumber(rows);
     setRows([...rows, {
@@ -582,338 +472,137 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
 
 
 
-  // const handleSave = async () => {
-  //   try {
-  //     // 1. Determine the path and type
-  //     const isMetering = coreType === 'Metering';
-  //     const isPS = coreType === 'PS';
-  //     const isProtection = coreType === 'Protection';
-
-  //     // Segregate Endpoint: Metering goes to its own, others go to protection-tests
-  //     const endpoint = isMetering ? '/metering-tests' : '/protection-tests';
-
-  //     let finalPayload = {
-  //       // orderId: order._id, // Ensure this is mapped for all types
-  //       coreType: coreType,  // Dynamically sets "Metering", "Protection", or "PS"
-  //       testedBy: testBy,
-  //       authorisedBy: authorizedSignatory,
-  //       testSetup: {
-  //         // Metering uses coreTypeNano, Protection/PS uses description/M4CRGO logic
-  //         [isMetering ? 'coreMaterial' : 'description']: isMetering
-  //           ? coreTypeNano
-  //           : (isProtection ? protectionCoreTypeM4CRGO : "PS Core Material"),
-  //         coreSizeMm: {
-  //           id: parseFloat(specs.coreSize1),
-  //           od: parseFloat(specs.coreSize2),
-  //           height: parseFloat(specs.coreSize3)
-  //         },
-  //         turnsUsed: parseInt(specs.turnUsed),
-  //         areaSqCm: parseFloat(specs.area),
-  //         mmp: parseFloat(specs.mmp)
-  //       }
-  //     };
-
-  //     // 2. Segregate Schema-Specific Data
-  //     if (isMetering) {
-  //       // --- METERING SPECIFIC FIELDS ---
-  //       finalPayload.testLimits = {
-  //         bsatGauss: bsatColumns.map(col => parseFloat(col.bsatValue)),
-  //         setMilliVolt: bsatColumns.map(col => parseFloat(col.setMvValue)),
-  //         leLimitMa: bsatColumns.map(col => parseFloat(col.leLimitValue))
-  //       };
-
-  //       finalPayload.readings = rows
-  //         .filter(row => row.internalCoreNo && row.remark)
-  //         .map(row => ({
-  //           date: row.date ? new Date(row.date) : new Date(),
-  //           vendorCoreNo: row.coreVendorNo,
-  //           internalCoreNo: row.internalCoreNo,
-  //           measuredMa: bsatColumns.map(col => parseFloat(row.dynamicValues[col.id] || 0)),
-  //           result: row.remark
-  //         }));
-  //     } else {
-  //       // --- PROTECTION & PS SPECIFIC FIELDS ---
-  //       finalPayload.testSpecification = {
-  //         fluxTesla: parseFloat(specs.bFlux || 0),
-  //         voltageV: parseFloat(specs.voltage || 0),
-  //         iexLimitMa: isPS ? parseFloat(specs.iexLimit) : parseFloat(protectionLimit)
-  //       };
-
-  //       finalPayload.readings = rows
-  //         .filter(row => row.internalCoreNo && row.remark)
-  //         .map(row => ({
-  //           date: row.date ? new Date(row.date) : new Date(),
-  //           vendorCoreNo: row.coreVendorNo,
-  //           internalCoreNo: row.internalCoreNo,
-  //           // Both PS and Protection save to a single 'value' field in the schema
-  //           value: parseFloat(row.singleValue || Object.values(row.dynamicValues)[0] || 0),
-  //           result: row.remark
-  //         }));
-  //     }
-
-  //     // 3. Send Request
-  //     const response = await axios.post(`http://localhost:3002${endpoint}`, finalPayload, {
-  //       withCredentials: true,
-  //       headers: { 'Content-Type': 'application/json' }
-  //     });
-
-  //     if (response.status === 201 || response.status === 200) {
-  //       alert(`${coreType} Data Saved Successfully!`);
-  //     }
-
-  //   } catch (error) {
-  //     console.error("Save Error:", error);
-  //     const errorMsg = error.response?.data?.message || error.message;
-  //     alert(`Error saving ${coreType} report: ${errorMsg}`);
-  //   }
-  // };
-
-
-
-
-  // const handleSave = async () => {
-  //   try {
-  //     const isMetering = coreType === 'Metering';
-  //     const isPS = coreType === 'PS';
-
-  //     // 1. AUTO-FILL MISSING IDs
-  //     // If the user didn't type the ID (because they saw the placeholder), we populate it now.
-  //     const processedRows = rows.map((row, index) => {
-  //       const hasValues = Object.values(row.dynamicValues || {}).some(v => v !== '' && v !== null && v !== undefined);
-  //       let currentId = row.internalCoreNo && String(row.internalCoreNo).trim() !== '' ? row.internalCoreNo : '';
-
-  //       // RELAXED CONDITION: If no ID but has values, generate the ID regardless of order quantity
-  //       if (!currentId && hasValues) {
-  //         currentId = generateCoreId(index + 1);
-  //       }
-
-  //       // Auto-calculate remark if missing but values exist (Fix for missing remarks)
-  //       let remark = row.remark;
-  //       if (hasValues && !remark) {
-  //         remark = calculateRemark({ ...row, internalCoreNo: currentId });
-  //       }
-
-  //       return { ...row, internalCoreNo: currentId, remark };
-  //     });
-
-  //     // Update state so the UI reflects the real values instead of placeholders
-  //     setRows(processedRows);
-
-  //     // 2. FILTER VALID READINGS
-  //     // Check for ID and verify that at least one test value has been entered
-  //     const validReadings = processedRows.filter((row) => {
-  //       const hasId = row.internalCoreNo && String(row.internalCoreNo).trim() !== '';
-  //       const hasValues = Object.values(row.dynamicValues || {}).some(v => v !== '' && v !== null && v !== undefined);
-  //       return hasId && hasValues;
-  //     });
-
-  //     if (validReadings.length === 0) {
-  //       alert("No data to save. Please enter Internal Core Nos and test readings.");
-  //       return;
-  //     }
-
-  //     const endpoint = isMetering ? '/metering-tests' : '/protection-tests';
-
-  //     // SAFE ORDER ID ACCESS
-  //     // Check _id (Mongo), id (string fallback), or orderId (string fallback)
-  //     const txnOrderId = (order as any)._id || order.id;
-
-  //     if (!txnOrderId) {
-  //       console.error("Missing Order ID:", order);
-  //       alert("Critical Error: Order ID is missing. Cannot save report.");
-  //       return;
-  //     }
-
-  //     let finalPayload: any = {
-  //       orderId: txnOrderId, // Sending the MongoDB ObjectID
-  //       coreType: coreType,
-  //       testedBy: testBy,
-  //       authorisedBy: authorizedSignatory,
-  //       testSetup: {
-  //         [isMetering ? 'coreMaterial' : 'description']: isMetering
-  //           ? coreTypeNano
-  //           : (coreType === 'Protection' ? protectionCoreTypeM4CRGO : "PS Core Material"),
-  //         coreSizeMm: {
-  //           id: parseFloat(specs.coreSize1) || 0,
-  //           od: parseFloat(specs.coreSize2) || 0,
-  //           height: parseFloat(specs.coreSize3) || 0
-  //         },
-  //         turnsUsed: parseInt(specs.turnUsed) || 0,
-  //         areaSqCm: parseFloat(specs.area) || 0,
-  //         mmp: parseFloat(specs.mmp) || 0
-  //       }
-  //     };
-
-  //     // Parse Date for Backend
-  //     const [day, month, year] = testDate.split('/');
-  //     const formattedDate = new Date(`${year}-${month}-${day}`);
-
-  //     if (isMetering) {
-  //       finalPayload.testLimits = {
-  //         bsatGauss: bsatColumns.map(col => parseFloat(col.bsatValue) || 0),
-  //         setMilliVolt: bsatColumns.map(col => parseFloat(col.setMvValue) || 0),
-  //         leLimitMa: bsatColumns.map(col => parseFloat(col.leLimitValue) || 0)
-  //       };
-
-  //       finalPayload.readings = validReadings.map(row => {
-  //         const remark = row.remark || calculateRemark(row);
-  //         return {
-  //           date: formattedDate, // Use parsed Date object
-  //           vendorCoreNo: row.coreVendorNo,
-  //           internalCoreNo: row.internalCoreNo,
-  //           // Map dynamic values using the actual BSAT column sequence
-  //           measuredMa: bsatColumns.map(col => parseFloat(row.dynamicValues[col.id]) || 0),
-  //           // Ensure result is strictly "P" or "F". Default to "F" if undetermined but data exists.
-  //           result: (remark === "P" || remark === "F") ? remark : "F"
-  //         };
-  //       });
-  //     } else {
-  //       finalPayload.testSpecification = {
-  //         fluxTesla: parseFloat(specs.bFlux) || 0,
-  //         voltageV: parseFloat(specs.voltage) || 0,
-  //         iexLimitMa: isPS ? parseFloat(specs.iexLimit) : 600 // using default protection limit
-  //       };
-
-  //       finalPayload.readings = validReadings.map(row => {
-  //         const remark = row.remark || calculateRemark(row);
-  //         return {
-  //           date: formattedDate, // Use parsed Date object
-  //           vendorCoreNo: row.coreVendorNo,
-  //           internalCoreNo: row.internalCoreNo,
-  //           value: parseFloat(row.singleValue || Object.values(row.dynamicValues)[0] || 0),
-  //           result: (remark === "P" || remark === "F") ? remark : "F"
-  //         };
-  //       });
-  //     }
-
-  //     // DEBUG: Log the payload to your browser console to verify it before sending
-  //     console.log("Saving Payload [DEBUG]:", JSON.stringify(finalPayload, null, 2));
-
-  //     const response = await axios.post(`http://localhost:3002${endpoint}`, finalPayload, {
-  //       withCredentials: true,
-  //       headers: { 'Content-Type': 'application/json' }
-  //     });
-
-  //     if (response.status === 201 || response.status === 200) {
-  //       alert(`${coreType} Data Saved Successfully!`);
-  //     }
-
-  //   } catch (error: any) {
-  //     console.error("Save Error:", error);
-  //     const errorMsg = error.response?.data?.message || error.message;
-  //     const validationErr = error.response?.data?.error || '';
-  //     alert(`Error saving report: ${errorMsg} ${validationErr ? `(${validationErr})` : ''}`);
-  //   }
-  // };
 
 
 
   const handleSave = async () => {
-  try {
-    const isMetering = coreType === 'Metering';
-    const isPS = coreType === 'PS';
+    try {
+      const isMetering = coreType === 'Metering';
+      const isPS = coreType === 'PS';
 
-    // 1. AUTO-FILL IDs & CALCULATE REMARKS
-    const processedRows = rows.map((row, index) => {
-      // FIX: Check both dynamicValues AND singleValue
-      const hasDynValues = Object.values(row.dynamicValues || {}).some(v => v !== '' && v !== null);
-      const hasSingleValue = row.singleValue !== '' && row.singleValue !== null;
-      const hasAnyValue = hasDynValues || hasSingleValue;
+      // 1. AUTO-FILL IDs & CALCULATE REMARKS
+      const processedRows = rows.map((row, index) => {
+        // FIX: Check both dynamicValues AND singleValue
+        const hasDynValues = Object.values(row.dynamicValues || {}).some(v => v !== '' && v !== null);
+        const hasSingleValue = row.singleValue !== '' && row.singleValue !== null;
+        const hasAnyValue = hasDynValues || hasSingleValue;
 
-      let currentId = row.internalCoreNo && String(row.internalCoreNo).trim() !== '' ? row.internalCoreNo : '';
+        let currentId = row.internalCoreNo && String(row.internalCoreNo).trim() !== '' ? row.internalCoreNo : '';
 
-      // Auto-fill ID if user saw placeholder but didn't type
-      if (!currentId && hasAnyValue) {
-        currentId = generateCoreId(index + 1);
+        // Auto-fill ID if user saw placeholder but didn't type
+        if (!currentId && hasAnyValue) {
+          currentId = generateCoreId(index + 1);
+        }
+
+        let remark = row.remark;
+        if (hasAnyValue && !remark) {
+          remark = calculateRemark({ ...row, internalCoreNo: currentId });
+        }
+
+        return { ...row, internalCoreNo: currentId, remark };
+      });
+
+      setRows(processedRows);
+
+      // 2. FILTER VALID READINGS
+      const validReadings = processedRows.filter((row) => {
+        const hasId = row.internalCoreNo && String(row.internalCoreNo).trim() !== '';
+        const hasDynValues = Object.values(row.dynamicValues || {}).some(v => v !== '' && v !== null);
+        const hasSingleValue = row.singleValue !== '' && row.singleValue !== null;
+        return hasId && (hasDynValues || hasSingleValue); // Include row if it has any data
+      });
+
+      if (validReadings.length === 0) {
+        alert("No data to save. Please enter Internal Core Nos and test readings.");
+        return;
       }
 
-      let remark = row.remark;
-      if (hasAnyValue && !remark) {
-        remark = calculateRemark({ ...row, internalCoreNo: currentId });
+      // 3. CONVERT DATE (Fixes the "Cast to date failed" error)
+      const [day, month, year] = testDate.split('/');
+      const formattedDate = new Date(`${year}-${month}-${day}`);
+
+      const endpoint = isMetering ? '/metering-tests' : '/protection-tests';
+      // const txnOrderId = (order as any)._id || order.id;
+      // Grabs the ID of the Parent Order, not the individual Transformer
+      // SAFE ORDER ID ACCESS
+      // Check mainOrderId (if passed), orderId (if populated object OR string), _id (Mongo), or id (string fallback)
+      // We check if orderId is an object with _id, OR if orderId is just a string/value itself.
+      const txnOrderId = (order as any).mainOrderId
+        || ((typeof (order as any).orderId === 'object') ? (order as any).orderId?._id : (order as any).orderId)
+        || (order as any)._id
+        || order.id;
+
+      console.log("DEBUG: Sending Order ID to Backend:", txnOrderId);
+
+      if (!txnOrderId) {
+        alert("Error: Order ID is missing from the data. Please contact support.");
+        return;
       }
 
-      return { ...row, internalCoreNo: currentId, remark };
-    });
+      let finalPayload: any = {
+        orderId: txnOrderId,
+        coreType: coreType,
+        testedBy: testBy,
+        authorisedBy: authorizedSignatory,
+        // testSetup: {
+        //   [isMetering ? 'coreMaterial' : 'description']: isMetering
+        //     ? coreTypeNano
+        //     : (coreType === 'Protection' ? protectionCoreTypeM4CRGO : "PS Core Material"),
+        testSetup: {
+          // PROTECTION SCHEMA requires 'description'. METERING requires 'coreMaterial'.
+          [isMetering ? 'coreMaterial' : 'description']: isMetering
+            ? (coreTypeNano || "TOROIDAL CORE NANO CRYSTALLINE")
+            : (coreType === 'Protection' ? (protectionCoreTypeM4CRGO || "M4CRGO") : "PS Core Material"),
 
-    setRows(processedRows);
 
-    // 2. FILTER VALID READINGS
-    const validReadings = processedRows.filter((row) => {
-      const hasId = row.internalCoreNo && String(row.internalCoreNo).trim() !== '';
-      const hasDynValues = Object.values(row.dynamicValues || {}).some(v => v !== '' && v !== null);
-      const hasSingleValue = row.singleValue !== '' && row.singleValue !== null;
-      return hasId && (hasDynValues || hasSingleValue); // Include row if it has any data
-    });
-
-    if (validReadings.length === 0) {
-      alert("No data to save. Please enter Internal Core Nos and test readings.");
-      return;
-    }
-
-    // 3. CONVERT DATE (Fixes the "Cast to date failed" error)
-    const [day, month, year] = testDate.split('/');
-    const formattedDate = new Date(`${year}-${month}-${day}`);
-
-    const endpoint = isMetering ? '/metering-tests' : '/protection-tests';
-    const txnOrderId = (order as any)._id || order.id;
-
-    let finalPayload: any = {
-      orderId: txnOrderId,
-      coreType: coreType,
-      testedBy: testBy,
-      authorisedBy: authorizedSignatory,
-      testSetup: {
-        [isMetering ? 'coreMaterial' : 'description']: isMetering
-          ? coreTypeNano
-          : (coreType === 'Protection' ? protectionCoreTypeM4CRGO : "PS Core Material"),
-        coreSizeMm: {
-          id: parseFloat(specs.coreSize1) || 0,
-          od: parseFloat(specs.coreSize2) || 0,
-          height: parseFloat(specs.coreSize3) || 0
+          coreSizeMm: {
+            id: parseFloat(specs.coreSize1) || 0,
+            od: parseFloat(specs.coreSize2) || 0,
+            height: parseFloat(specs.coreSize3) || 0
+          },
+          turnsUsed: parseInt(specs.turnUsed) || 0,
+          areaSqCm: parseFloat(specs.area) || 0,
+          mmp: parseFloat(specs.mmp) || 0
         },
-        turnsUsed: parseInt(specs.turnUsed) || 0,
-        areaSqCm: parseFloat(specs.area) || 0,
-        mmp: parseFloat(specs.mmp) || 0
-      },
-      readings: validReadings.map(row => ({
-        date: formattedDate,
-        vendorCoreNo: row.coreVendorNo,
-        internalCoreNo: row.internalCoreNo,
-        // For Protection/PS, use value; for Metering, use measuredMa
-        ...(isMetering 
+        readings: validReadings.map(row => ({
+          date: formattedDate,
+          vendorCoreNo: row.coreVendorNo,
+          internalCoreNo: row.internalCoreNo,
+          // For Protection/PS, use value; for Metering, use measuredMa
+          ...(isMetering
             ? { measuredMa: bsatColumns.map(col => parseFloat(row.dynamicValues[col.id]) || 0) }
             : { value: parseFloat(row.singleValue || Object.values(row.dynamicValues)[0] || 0) }
-        ),
-        result: row.remark || "F"
-      }))
-    };
+          ),
+          result: row.remark || "F"
+        }))
+      };
 
-    if (isMetering) {
-      finalPayload.testLimits = {
-        bsatGauss: bsatColumns.map(col => parseFloat(col.bsatValue) || 0),
-        setMilliVolt: bsatColumns.map(col => parseFloat(col.setMvValue) || 0),
-        leLimitMa: bsatColumns.map(col => parseFloat(col.leLimitValue) || 0)
-      };
-    } else {
-      finalPayload.testSpecification = {
-        fluxTesla: parseFloat(specs.bFlux) || 0,
-        voltageV: parseFloat(specs.voltage) || 0,
-        iexLimitMa: isPS ? parseFloat(specs.iexLimit) : 600
-      };
+      if (isMetering) {
+        finalPayload.testLimits = {
+          bsatGauss: bsatColumns.map(col => parseFloat(col.bsatValue) || 0),
+          setMilliVolt: bsatColumns.map(col => parseFloat(col.setMvValue) || 0),
+          leLimitMa: bsatColumns.map(col => parseFloat(col.leLimitValue) || 0)
+        };
+      } else {
+        finalPayload.testSpecification = {
+          fluxTesla: parseFloat(specs.bFlux) || 0,
+          voltageV: parseFloat(specs.voltage) || 0,
+          iexLimitMa: isPS ? parseFloat(specs.iexLimit) : 600
+        };
+      }
+
+      await axios.post(`http://localhost:3002/api${endpoint}`, finalPayload, {
+        withCredentials: true,
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      alert(`${coreType} Data Saved Successfully!`);
+
+    } catch (error: any) {
+      console.error("Save Error:", error);
+      alert(`Error: ${error.response?.data?.message || error.message}`);
     }
-
-    await axios.post(`http://localhost:3002${endpoint}`, finalPayload, {
-      withCredentials: true,
-      headers: { 'Content-Type': 'application/json' }
-    });
-
-    alert(`${coreType} Data Saved Successfully!`);
-
-  } catch (error: any) {
-    console.error("Save Error:", error);
-    alert(`Error: ${error.response?.data?.message || error.message}`);
-  }
-};
+  };
 
   const getFilledRowsCount = () => {
     // For Protection, PS, and Metering, check if any dynamic values are filled
@@ -948,6 +637,39 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
   };
 
   const { passed, failed } = getPassFailCount();
+
+  // Handle Order Approval
+  const handleApprove = async () => {
+    // Check if all rows have a remark (test completed)
+    if (getFilledRowsCount() !== rows.length) {
+      alert('Please complete all test rows before approving.');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to approve this ${coreType} Core Testing? This will move the order to the Secondary stage.`)) {
+      return;
+    }
+
+    try {
+      const txnOrderId = (order as any).mainOrderId || (order as any).orderId?._id || (order as any)._id;
+      if (!txnOrderId) {
+        alert('Error: Order ID not found. Cannot approve.');
+        return;
+      }
+
+      // Use the new approval route
+      const response = await axios.put(`http://localhost:3002/api/core-tests/approve/${txnOrderId}`, {}, { withCredentials: true });
+
+      if (response.status === 200) {
+        alert('Order approved and moved to Secondary Testing!');
+        onBack(); // Return to the dashboard/previous view
+      }
+    } catch (error: any) {
+      console.error('Approval Error:', error);
+      const msg = error.response?.data?.message || 'Failed to approve order.';
+      alert(msg);
+    }
+  };
 
   if (showPrintLabels) {
     return (
@@ -1257,6 +979,10 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
               <Save className="w-3 h-3" />
               Save All
             </Button>
+            <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={handleSave}>
+              <Save className="w-3 h-3" />
+              Save All
+            </Button>
           </div>
         </div>
 
@@ -1451,11 +1177,11 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
                     <td colSpan={2} className="p-2 border border-gray-300">
                       <div className="flex items-center gap-1">
                         <Input
-          value={String(row.internalCoreNo || '')}
-          onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
-          className="flex-1 h-8 text-xs border-0 focus:ring-1 focus:ring-blue-500 font-mono font-bold text-gray-900"
-          placeholder={generateCoreId(index + 1)}
-        />
+                          value={String(row.internalCoreNo || '')}
+                          onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
+                          className="flex-1 h-8 text-xs border-0 focus:ring-1 focus:ring-blue-500 font-mono font-bold text-gray-900"
+                          placeholder={generateCoreId(index + 1)}
+                        />
                         {row.isReplacement && (
                           <span className="text-xs text-blue-600 font-semibold whitespace-nowrap px-1 py-0.5 bg-blue-100 rounded">(R)</span>
                         )}
@@ -2045,11 +1771,11 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
                     <td colSpan={2} className="p-2 border border-gray-300">
                       <div className="flex items-center gap-1">
                         <Input
-          value={String(row.internalCoreNo || '')}
-          onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
-          className="flex-1 h-8 text-xs border-0 focus:ring-1 focus:ring-blue-500 font-mono font-bold text-gray-900"
-          placeholder={generateCoreId(index + 1)}
-        />
+                          value={String(row.internalCoreNo || '')}
+                          onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
+                          className="flex-1 h-8 text-xs border-0 focus:ring-1 focus:ring-blue-500 font-mono font-bold text-gray-900"
+                          placeholder={generateCoreId(index + 1)}
+                        />
 
                         {row.isReplacement && (
                           <span className="text-xs text-blue-600 font-semibold whitespace-nowrap px-1 py-0.5 bg-blue-100 rounded">(R)</span>
@@ -2439,6 +2165,10 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
           >
             <Tag className="w-3 h-3" />
             Print Labels ({getPassedCores().length})
+          </Button>
+          <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={handleSave}>
+            <Save className="w-3 h-3" />
+            Save All
           </Button>
           <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={handleSave}>
             <Save className="w-3 h-3" />

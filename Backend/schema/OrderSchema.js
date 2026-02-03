@@ -1,84 +1,62 @@
 const { Schema } = require("mongoose");
 
-const CoreDetailSchema = new Schema({
-  coreType: {
-    type: String,
-    required: true,
-    enum: ["Metering", "Protection", "PS"]
-  }
-});
-
 const OrderSchema = new Schema(
   {
-    jobId:{
-    type: String,
-    required: true,
-    unique: true,
-    trim: true
-    },
-    // -------- CLIENT DETAILS --------
-    clientName: {
-      type: String,
-      required: true,
-      trim: true
-    },
+    jobId: { type: String, unique: true }, // Auto-generated: JOB-2026-001
+    clientName: { type: String, required: true, trim: true },
+    clientContactNo: { type: String, required: true, trim: true },
 
+    // Transformer Specs
+    transformerName: { type: String, required: true },
+    transformerType: { type: String, enum: ["CT", "PT"], required: true },
+    quantity: { type: Number, required: true, min: 1 },
     ratio: [String],
 
-    clientContactNo: {
+    // Core Configuration
+    noOfCores: { type: Number, required: true },
+    coreDetails: [{
+      coreType: { type: String, enum: ["Metering", "Protection", "PS"], required: true }
+    }],
+
+    // Electrical & Mechanical (Simplified for brevity)
+    nominalSystemVoltage: Number,
+    burden: Number,
+    accuracyClass: String,
+    deadline: { type: Date, required: true },
+
+    // --- WORKER ASSIGNMENTS ---
+    assignments: {
+      core_tester: { type: String, required: true },
+      secondary_tester: { type: String, required: true },
+      primary_tester: { type: String, required: true },
+      final_tester: { type: String, required: true }
+    },
+
+    // --- WORKFLOW TRACKING (NEW) ---
+    currentStage: {
       type: String,
-      required: true,
-      trim: true
+      enum: ["core", "secondary", "primary", "final", "completed"],
+      default: "core" // Determines which dashboard this order appears on
     },
 
-    // -------- TRANSFORMER DETAILS --------
-    transformerName: {
+    completionStages: {
+      core: { type: Boolean, default: false },
+      secondary: { type: Boolean, default: false },
+      primary: { type: Boolean, default: false },
+      final: { type: Boolean, default: false }
+    },
+
+
+
+    // --- ADMIN APPROVAL & NOTIFICATION ---
+    isApproved: { type: Boolean, default: false },
+    isRead: { type: Boolean, default: false }, // For Admin Notification badge
+    status: {
       type: String,
-      required: true,
-      trim: true
+      enum: ["Pending Approval", "In Progress", "Completed", "Core Testing In Progress", "Core Testing Completed"],
+      default: "Pending Approval"
     },
-
-    transformerType: {
-      type: String,
-      required: true,
-      enum: ["CT", "PT"]
-    },
-
-    quantity: {
-      type: Number,
-      required: true,
-      min: 1
-    },
-
-    // -------- CORE CONFIGURATION --------
-    noOfCores: {
-      type: Number,
-      required: true,
-      min: 1
-    },
-
-    coreDetails: {
-      type: [CoreDetailSchema],
-      required: true,
-      validate: {
-        validator: function (value) {
-          return value.length === this.noOfCores;
-        },
-        message: "Core details count must match number of cores"
-      }
-    },
-
-    // -------- ELECTRICAL PARAMETERS --------
-    nominalSystemVoltage: {
-      type: Number,
-      required: true
-    },
-
-    burden: {
-      type: Number,
-      required: true
-    },
-
+    priority: { type: String, enum: ["High", "Medium", "Low"], default: "Medium" },
     ratedPrimaryCurrent: {
       type: Number,
       required: true
@@ -88,13 +66,6 @@ const OrderSchema = new Schema(
       type: Number,
       required: true
     },
-
-    accuracyClass: {
-      type: String,
-      required: true,
-      trim: true
-    },
-
     // -------- MECHANICAL DETAILS --------
     mountingDetails: {
       type: String,
@@ -107,50 +78,19 @@ const OrderSchema = new Schema(
       required: true,
       trim: true
     },
-
-    // -------- WORKFLOW / ORDER MANAGEMENT --------
-    deadline: {
-      type: Date,
-      required: true
-    },
-
     instructions: {
       type: String,
       trim: true
     },
-
-    status: {
-      type: String,
-      enum: ["Pending", "In Progress", "Completed"],
-      default: "Pending"
-    },
-
-    priority: {
-      type: String,
-      enum: ["High", "Medium", "Low"],
-      default: "Medium"
-    },
-
     // -------- STANDARD / NON-STANDARD --------
     isStandard: {
       type: String,
       required: true,
       trim: true
     },
-  //   assignments: {
-  //   core_tester: { type: String, required: true },      // Worker ID or Name
-  //   secondary_tester: { type: String, required: true },
-  //   primary_tester: { type: String, required: true },
-  //   final_tester: { type: String, required: true }
-  // },
   },
-  {
-    timestamps: true
-  }
+
+  { timestamps: true }
 );
 
 module.exports = { OrderSchema };
-
-
-
-

@@ -7,16 +7,6 @@ const ProtectionCoreTestSchema = new Schema({
     required: true
   },
 
-  // transformerSerialNo: {
-  //   type: String,
-  //   required: true
-  // },
-
-  // coreIndex: {
-  //   type: Number,
-  //   required: true
-  // },
-
   coreType: {
     type: String,
     enum: ["Protection","PS"],
