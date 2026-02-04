@@ -9,56 +9,46 @@ import { Input } from "../ui/input";
 import {
   ArrowLeft,
   Search,
-  FileText,
-  Download,
-  Calendar,
-  User,
-  Package,
+  Printer,
   CheckCircle2,
   Clock,
   XCircle,
   AlertCircle,
-  Printer,
 } from "lucide-react";
 
 export default function OrderDetailView({ order, onBack }) {
   const [searchQuery, setSearchQuery] = useState("");
 
   if (!order) {
-    return (
-      <div className="p-6 text-gray-500">
-        Select an order to view details
-      </div>
-    );
+    return <div className="p-6 text-gray-500">Select an order to view details</div>;
   }
 
-  // Generate transformer units based on quantity
+  // ⭐ SAFE transformer generator using MongoDB jobId
   const generateTransformerUnits = () => {
-    const units = [];
-    const baseId = order.orderId.replace("ORD-", "Tata-2407-");
+    if (!order?.jobId) return [];
+
+    const suffix = order.jobId.slice(-6);
 
     const statuses = [
       { core: "Complete", secondary: "Pending", primary: "Pending", final: "Pending", report: "In Progress" },
       { core: "Complete", secondary: "Rejected", primary: "Rejected", final: "Rejected", report: "Pending" },
       { core: "Complete", secondary: "Complete", primary: "Complete", final: "Complete", report: "Open" },
-      { core: "Complete", secondary: "Complete", primary: "Complete", final: "Complete", report: "Open" },
       { core: "Complete", secondary: "Complete", primary: "Complete", final: "Pending", report: "In Progress" },
     ];
 
-    for (let i = 0; i < Math.min(order.quantity, 10); i++) {
+    return Array.from({ length: order.quantity }).map((_, i) => {
       const s = statuses[i % statuses.length];
-      units.push({
-        id: `${i + 1}`,
-        transformerId: `${baseId}${String(i + 1).padStart(2, "0")}`,
+
+      return {
+        id: i + 1,
+        transformerId: `Tata-2407-${suffix}${String(i + 1).padStart(2, "0")}`,
         coreTestStatus: s.core,
         secondaryTestStatus: s.secondary,
         primaryTestStatus: s.primary,
         finalTestStatus: s.final,
         reportStatus: s.report,
-      });
-    }
-
-    return units;
+      };
+    });
   };
 
   const transformerUnits = generateTransformerUnits();
@@ -67,6 +57,7 @@ export default function OrderDetailView({ order, onBack }) {
     u.transformerId.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // ⭐ STATUS COLORS
   const getStatusColor = (status) => {
     switch (status) {
       case "Complete":
@@ -107,33 +98,6 @@ export default function OrderDetailView({ order, onBack }) {
 
   const completedCount = transformerUnits.filter(isAllTestsComplete).length;
 
-  const getTestingStateStats = () => {
-    let coreComplete = 0,
-      secondaryComplete = 0,
-      primaryComplete = 0,
-      finalComplete = 0;
-
-    transformerUnits.forEach((u) => {
-      if (u.coreTestStatus === "Complete") coreComplete++;
-      if (u.secondaryTestStatus === "Complete") secondaryComplete++;
-      if (u.primaryTestStatus === "Complete") primaryComplete++;
-      if (u.finalTestStatus === "Complete") finalComplete++;
-    });
-
-    return {
-      coreComplete,
-      secondaryComplete,
-      primaryComplete,
-      finalComplete,
-      coreRemaining: order.quantity - coreComplete,
-      secondaryRemaining: order.quantity - secondaryComplete,
-      primaryRemaining: order.quantity - primaryComplete,
-      finalRemaining: order.quantity - finalComplete,
-    };
-  };
-
-  const testingStats = getTestingStateStats();
-
   return (
     <div className="space-y-6">
       <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
@@ -146,10 +110,11 @@ export default function OrderDetailView({ order, onBack }) {
           ADVENT ENGINEERS
         </h1>
 
+        {/* ⭐ FIXED — MongoDB fields */}
         <OrderStatusTracker
           currentStage="core-testing"
-          orderId={order.orderId}
-          orderDate={order.orderDate}
+          orderId={order.jobId}
+          orderDate={new Date(order.deadline).toLocaleDateString()}
         />
 
         <div className="mt-6 flex gap-4">
@@ -164,8 +129,6 @@ export default function OrderDetailView({ order, onBack }) {
           </Button>
         </div>
       </Card>
-
-      {/* (Table + summary sections remain unchanged and safe) */}
     </div>
   );
 }

@@ -1,10 +1,15 @@
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import OrderView from "./components/orders/OrderView";
+import OrderViewPage from "./components/orders/OrderViewPage";
 
 function App() {
   return (
-    <div style={{ padding: "24px" }}>
-      <OrderView role="admin" />
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<OrderView role="admin" />} />
+        <Route path="/orders/:orderId/view" element={<OrderViewPage />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

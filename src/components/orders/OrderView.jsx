@@ -75,12 +75,6 @@ export default function OrderView({ role }) {
           </p>
         </div>
 
-        {role === "admin" && (
-          <Button className="bg-red-600 hover:bg-red-700">
-            <Plus className="w-4 h-4 mr-2" />
-            New Order
-          </Button>
-        )}
       </div>
 
       {/* Filters */}

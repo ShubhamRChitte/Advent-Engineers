@@ -1,84 +1,43 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { useNavigate } from "react-router-dom";
 
 import OrderDetailView from "./OrderDetailView";
 
 import {
   Search,
   Eye,
-  Edit,
-  Calendar,
-  Package,
-  User,
   Filter,
   Download,
+  ChevronDown,
 } from "lucide-react";
 
-export default function OrderViewList({ onViewOrder, onEditOrder }) {
+export default function OrderViewList() {
+  const navigate = useNavigate();
+
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  const orders = [
-    {
-      id: "1",
-      orderId: "ORD-1732157890123",
-      clientName: "MSEB Power Distribution Ltd.",
-      transformerName: "Outdoor Epoxy Resin Cast",
-      transformerType: "Current Transformer",
-      quantity: 25,
-      orderDate: "2024-11-15",
-      status: "In Testing",
-      priority: "High",
-    },
-    {
-      id: "2",
-      orderId: "ORD-1732157890456",
-      clientName: "Gujarat Energy Transmission Corp.",
-      transformerName: "Indoor Epoxy Resin Cast",
-      transformerType: "Current Transformer",
-      quantity: 50,
-      orderDate: "2024-11-14",
-      status: "Assigned",
-      priority: "Medium",
-    },
-    {
-      id: "3",
-      orderId: "ORD-1732157890789",
-      clientName: "Tata Power Company",
-      transformerName: "Dead Tank Type-1",
-      transformerType: "Current Transformer",
-      quantity: 30,
-      orderDate: "2024-11-13",
-      status: "Completed",
-      priority: "High",
-    },
-    {
-      id: "4",
-      orderId: "ORD-1732157891012",
-      clientName: "Reliance Infrastructure",
-      transformerName: "Live Tank Type CT",
-      transformerType: "Current Transformer",
-      quantity: 15,
-      orderDate: "2024-11-12",
-      status: "Pending",
-      priority: "Low",
-    },
-    {
-      id: "5",
-      orderId: "ORD-1732157891345",
-      clientName: "Adani Transmission Ltd.",
-      transformerName: "Dead Tank Type-2",
-      transformerType: "Current Transformer",
-      quantity: 40,
-      orderDate: "2024-11-11",
-      status: "In Testing",
-      priority: "High",
-    },
-  ];
+  // 🔥 FETCH ORDERS FROM BACKEND
+  useEffect(() => {
+    fetch("http://localhost:5000/api/orders")
+      .then((res) => res.json())
+      .then((data) => {
+        setOrders(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -110,9 +69,9 @@ export default function OrderViewList({ onViewOrder, onEditOrder }) {
 
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
-      order.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.transformerName.toLowerCase().includes(searchQuery.toLowerCase());
+      order.jobId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.transformerName?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStatus =
       selectedStatus === "all" || order.status === selectedStatus;
@@ -128,7 +87,10 @@ export default function OrderViewList({ onViewOrder, onEditOrder }) {
     Completed: orders.filter((o) => o.status === "Completed").length,
   };
 
-  // Show detail view
+  if (loading) {
+    return <p className="text-center text-gray-500">Loading orders…</p>;
+  }
+
   if (selectedOrder) {
     return (
       <OrderDetailView
@@ -197,7 +159,7 @@ export default function OrderViewList({ onViewOrder, onEditOrder }) {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Orders Table */}
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -207,23 +169,18 @@ export default function OrderViewList({ onViewOrder, onEditOrder }) {
                 <th className="p-4 text-left">Client</th>
                 <th className="p-4 text-left">Transformer</th>
                 <th className="p-4 text-left">Qty</th>
-                <th className="p-4 text-left">Date</th>
                 <th className="p-4 text-left">Status</th>
                 <th className="p-4 text-left">Priority</th>
                 <th className="p-4 text-left">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredOrders.map((order, index) => (
-                <tr
-                  key={order.id}
-                  className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                >
-                  <td className="p-4 font-mono">{order.orderId}</td>
+              {filteredOrders.map((order) => (
+                <tr key={order._id}>
+                  <td className="p-4 font-mono">{order.jobId}</td>
                   <td className="p-4">{order.clientName}</td>
                   <td className="p-4">{order.transformerName}</td>
                   <td className="p-4">{order.quantity}</td>
-                  <td className="p-4">{order.orderDate}</td>
                   <td className="p-4">
                     <Badge className={getStatusColor(order.status)}>
                       {order.status}
@@ -238,16 +195,21 @@ export default function OrderViewList({ onViewOrder, onEditOrder }) {
                     <Button
                       variant="ghost"
                       size="sm"
+                      onClick={() =>
+                        navigate(`/orders/${order.jobId}/view`)
+                      }
+                    >
+                      <Eye className="w-4 h-4 mr-1" />
+                      View
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => setSelectedOrder(order)}
                     >
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onEditOrder && onEditOrder(order)}
-                    >
-                      <Edit className="w-4 h-4" />
+                      <ChevronDown className="w-4 h-4 mr-1" />
+                      Show Status
                     </Button>
                   </td>
                 </tr>
@@ -255,13 +217,6 @@ export default function OrderViewList({ onViewOrder, onEditOrder }) {
             </tbody>
           </table>
         </div>
-
-        {filteredOrders.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
-            <Search className="w-12 h-12 mx-auto mb-2" />
-            <p>No orders found</p>
-          </div>
-        )}
       </Card>
     </div>
   );
