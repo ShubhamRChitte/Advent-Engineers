@@ -1,17 +1,42 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { CoreTestingOrders, CoreTestingOrder } from './CoreTestingOrders';
 import { CoreTypeSelection } from './CoreTypeSelection';
 import { CoreTestingForm } from './CoreTestingForm';
-import { CoreTestingReports } from './CoreTestingReports';
+import { CoreOrdersList } from '../tester/CoreOrdersList';
 import { Card } from '../ui/card';
+import { User } from '../../App';
 
 type CoreType = 'Metering' | 'PS' | 'Protection';
 type TabView = 'testing' | 'orders';
 
-export function CoreTrackingDashboard() {
+interface CoreTrackingDashboardProps {
+  user?: User;
+}
+
+export function CoreTrackingDashboard({ user }: CoreTrackingDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabView>('testing');
   const [selectedOrder, setSelectedOrder] = useState<CoreTestingOrder | null>(null);
   const [selectedCoreType, setSelectedCoreType] = useState<CoreType | null>(null);
+  const [stats, setStats] = useState({ active: 0, completed: 0 });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const [activeRes, historyRes] = await Promise.all([
+          axios.get('http://localhost:3002/api/assigneed_orders?type=active', { withCredentials: true }),
+          axios.get('http://localhost:3002/api/assigneed_orders?type=history', { withCredentials: true })
+        ]);
+        setStats({
+          active: activeRes.data.length,
+          completed: historyRes.data.length
+        });
+      } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
+      }
+    };
+    fetchStats();
+  }, []);
 
   const handleStartTesting = (order: CoreTestingOrder) => {
     setSelectedOrder(order);
@@ -39,6 +64,8 @@ export function CoreTrackingDashboard() {
           order={selectedOrder}
           coreType={selectedCoreType}
           onBack={handleBack}
+          user={user}
+          isReadOnly={selectedOrder.isReadOnly}
         />
       );
     }
@@ -53,9 +80,8 @@ export function CoreTrackingDashboard() {
         />
       );
     }
-
     // Show orders list by default
-    return <CoreTestingOrders onStartTesting={handleStartTesting} />;
+    return <CoreTestingOrders onStartTesting={handleStartTesting} user={user} />;
   };
 
   return (
@@ -66,21 +92,19 @@ export function CoreTrackingDashboard() {
           <div className="flex gap-1">
             <button
               onClick={() => setActiveTab('testing')}
-              className={`flex-1 px-4 py-2 text-sm rounded transition-colors ${
-                activeTab === 'testing'
-                  ? 'bg-[#003a70] text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={`flex-1 px-4 py-2 text-sm rounded transition-colors ${activeTab === 'testing'
+                ? 'bg-[#003a70] text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+                }`}
             >
               Testing
             </button>
             <button
               onClick={() => setActiveTab('orders')}
-              className={`flex-1 px-4 py-2 text-sm rounded transition-colors ${
-                activeTab === 'orders'
-                  ? 'bg-[#003a70] text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={`flex-1 px-4 py-2 text-sm rounded transition-colors ${activeTab === 'orders'
+                ? 'bg-[#003a70] text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+                }`}
             >
               Orders
             </button>
@@ -89,7 +113,7 @@ export function CoreTrackingDashboard() {
       )}
 
       {/* Content */}
-      {activeTab === 'testing' ? renderTestingView() : <CoreTestingReports />}
+      {activeTab === 'testing' ? renderTestingView() : <CoreOrdersList onStartTesting={handleStartTesting} user={user} type="history" />}
     </div>
   );
 }

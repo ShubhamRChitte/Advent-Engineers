@@ -30,7 +30,8 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
 
   // Helper to calculate required rows for a specific type
   const getRequiredRows = (type: string) => {
-    const validQuantity = order.quantity || order.transformerQuantity || 0;
+    // Priority: Granular Assignment > Total Quantity
+    const validQuantity = order.assignedUnitIds?.length || order.quantity || order.transformerQuantity || 0;
     const details = order.coreDetails || order.coreConfiguration || [];
 
     // Count occurrences of this specific core type in the configuration
@@ -75,6 +76,7 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
           const endpoint = isMetering ? '/metering-tests' : '/protection-tests';
           const typeParam = !isMetering ? `?type=${type}` : '';
 
+
           try {
             const res = await axios.get(`http://localhost:3002/api${endpoint}/${txnOrderId}${typeParam}`, {
               withCredentials: true
@@ -84,11 +86,56 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
             let savedCount = 0;
 
             if (savedData && savedData.readings) {
-              savedCount = savedData.readings.length;
-              // Basic check: Ensure all saved rows have a result/remark
-              // (Optional: You could filter by r.remark matches 'P' or 'F')
-              const completedRows = savedData.readings.filter((r: any) => r.result || r.remark).length;
-              savedCount = completedRows;
+              // GRANULAR COMPLETION CHECK
+              // 1. Get Assigned Transformer Indices
+              const assignedParams = (order as any).assignedUnitIds || (order as any).order?.assignedUnitIds;
+
+              if (assignedParams && assignedParams.length > 0) {
+                // Start granular check
+                const assignedIndices = assignedParams.map((id: string) => {
+                  const match = id.match(/\/(\d+)$/);
+                  return match ? parseInt(match[1]) : null;
+                }).filter((n: any) => n !== null);
+
+                // 2. Determine Cores Per Transformer (for ID generation logic)
+                const coresPerTransformer = details.filter((c: any) => {
+                  const cType = c.coreType || c.type;
+                  const isPS = cType === 'Protection' && (c.iexLimit || c.leLimit || c.class === 'PS' || (c.description && c.description.includes('PS')));
+                  if (type === 'PS') return isPS || cType === 'PS';
+                  if (type === 'Protection') return cType === 'Protection' && !isPS;
+                  return cType === type;
+                }).length || 1;
+
+                // 3. Generate Expected IDs for THIS user
+                const jobSuffix = order?.jobId?.split('-').pop() ?? '000';
+                const upperType = (type as string).toUpperCase();
+                let prefix = 'P';
+                if (upperType === 'METERING') prefix = 'M';
+                else if (upperType.includes('PS')) prefix = 'PS';
+
+                const expectedIds = new Set<string>();
+
+                assignedIndices.forEach((k: number) => {
+                  const startSeq = (k - 1) * coresPerTransformer + 1;
+                  for (let j = 0; j < coresPerTransformer; j++) {
+                    const seqNum = startSeq + j;
+                    const genId = `${prefix}-${jobSuffix}-${String(seqNum).padStart(3, '0')}`;
+                    expectedIds.add(genId);
+                  }
+                });
+
+                // 4. Count only readings that match Expected IDs
+                const completedRows = savedData.readings.filter((r: any) =>
+                  (r.result || r.remark) && expectedIds.has(r.internalCoreNo)
+                ).length;
+
+                savedCount = completedRows;
+
+              } else {
+                // Fallback to legacy total count
+                const completedRows = savedData.readings.filter((r: any) => r.result || r.remark).length;
+                savedCount = completedRows;
+              }
             }
 
             const required = getRequiredRows(type as string);
@@ -223,8 +270,12 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
             <p className="text-gray-900 mt-0.5">{order.clientName}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Quantity</p>
-            <p className="text-gray-900 mt-0.5">{order.quantity} units</p>
+            <p className="text-xs text-gray-500">
+              {order.assignedUnitIds?.length ? 'Assigned Qty' : 'Quantity'}
+            </p>
+            <p className="text-gray-900 mt-0.5">
+              {order.assignedUnitIds?.length || order.quantity} units
+            </p>
           </div>
           <div>
             <p className="text-xs text-gray-500">Deadline</p>
@@ -267,7 +318,9 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
 
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Total Cores</span>
+                    <span className="text-gray-600">
+                      {order.assignedUnitIds?.length ? 'Your Assigned Cores' : 'Total Cores'}
+                    </span>
                     <span className="font-medium text-gray-900">
                       {requiredCount} cores
                     </span>

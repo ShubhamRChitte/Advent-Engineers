@@ -79,9 +79,9 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
           </div>
         );
       } else if (activeView === 'orders') {
-        return <CoreTestingModule />;
+        return <CoreTestingModule user={user} />;
       } else if (activeView === 'core-tracking') {
-        return <CoreTrackingDashboard />;
+        return <CoreTrackingDashboard user={user} />;
       }
     }
 

@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { ArrowLeft, PlayCircle } from 'lucide-react';
+import { ArrowLeft, PlayCircle, Loader2 } from 'lucide-react';
+import axios from 'axios';
 
 interface CoreConfig {
   coreNumber: number;
   coreType: 'metering' | 'ps' | 'protection';
-  coreId: string;
+  coreId?: string; // Optional now as per DB or legacy
 }
 
 export interface FinalTransformer {
@@ -21,12 +22,18 @@ export interface FinalTransformer {
 }
 
 interface Order {
+  _id: string;
   jobId: string;
   client: string;
   transformerCount: number;
   assignedDate: string;
   status: string;
   priority: string;
+  assignedUnitIds?: string[]; // Granular filtering
+  transformerName?: string;
+  ratio?: string[];
+  nominalSystemVoltage?: number | string;
+  coreDetails?: any[];
 }
 
 interface FinalTransformersListProps {
@@ -36,73 +43,82 @@ interface FinalTransformersListProps {
 }
 
 export function FinalTransformersList({ order, onStartTest, onBack }: FinalTransformersListProps) {
-  const [transformers] = useState<FinalTransformer[]>([
-    {
-      id: 'T1',
-      name: '33 KV CT',
-      rating: '800-400-200/1-1-1A',
-      uniqueId: 'TR-2026-001',
-      voltageClass: '33kV',
-      status: 'pending',
-      cores: [
-        { coreNumber: 1, coreType: 'metering', coreId: 'C1' },
-        { coreNumber: 2, coreType: 'ps', coreId: 'C2' },
-        { coreNumber: 3, coreType: 'protection', coreId: 'C3' },
-      ],
-    },
-    {
-      id: 'T2',
-      name: '33 KV CT',
-      rating: '800-400-200/1-1-1A',
-      uniqueId: 'TR-2026-002',
-      voltageClass: '33kV',
-      status: 'pending',
-      cores: [
-        { coreNumber: 1, coreType: 'metering', coreId: 'C1' },
-        { coreNumber: 2, coreType: 'ps', coreId: 'C2' },
-        { coreNumber: 3, coreType: 'protection', coreId: 'C3' },
-      ],
-    },
-    {
-      id: 'T3',
-      name: '33 KV CT',
-      rating: '800-400-200/1-1-1A',
-      uniqueId: 'TR-2026-003',
-      voltageClass: '33kV',
-      status: 'in-progress',
-      cores: [
-        { coreNumber: 1, coreType: 'metering', coreId: 'C1' },
-        { coreNumber: 2, coreType: 'ps', coreId: 'C2' },
-        { coreNumber: 3, coreType: 'protection', coreId: 'C3' },
-      ],
-    },
-    {
-      id: 'T4',
-      name: '33 KV CT',
-      rating: '800-400-200/1-1-1A',
-      uniqueId: 'TR-2026-004',
-      voltageClass: '33kV',
-      status: 'pending',
-      cores: [
-        { coreNumber: 1, coreType: 'metering', coreId: 'C1' },
-        { coreNumber: 2, coreType: 'ps', coreId: 'C2' },
-        { coreNumber: 3, coreType: 'protection', coreId: 'C3' },
-      ],
-    },
-    {
-      id: 'T5',
-      name: '33 KV CT',
-      rating: '800-400-200/1-1-1A',
-      uniqueId: 'TR-2026-005',
-      voltageClass: '33kV',
-      status: 'completed',
-      cores: [
-        { coreNumber: 1, coreType: 'metering', coreId: 'C1' },
-        { coreNumber: 2, coreType: 'ps', coreId: 'C2' },
-        { coreNumber: 3, coreType: 'protection', coreId: 'C3' },
-      ],
-    },
-  ]);
+  const [transformers, setTransformers] = useState<FinalTransformer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchTransformers = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const orderId = order._id;
+        const response = await axios.get(`http://localhost:3002/api/orders/${orderId}/transformers`, {
+          withCredentials: true
+        });
+
+        const dbTransformers = response.data;
+
+        // Map DB data + Order Specs to UI Model
+        const mappedTransformers: FinalTransformer[] = dbTransformers.map((t: any) => {
+          let status: 'pending' | 'in-progress' | 'completed' = 'pending';
+
+          if (t.currentStage === 'final') {
+            if (t.testHistory?.final_test?.status === 'Completed') status = 'completed';
+            else if (t.testHistory?.final_test?.status === 'Pending' && t.testHistory?.final_test?.tester) status = 'in-progress';
+          } else if (t.currentStage === 'shipped') {
+            status = 'completed';
+          }
+
+          let currentCoreNum = 1;
+          const coresList: CoreConfig[] = [];
+          if (order.coreDetails && Array.isArray(order.coreDetails)) {
+            order.coreDetails.forEach((coreGroup: any) => {
+              const typeStr = (coreGroup.coreType || 'Metering').toLowerCase();
+              let mappedType: 'metering' | 'ps' | 'protection' = 'metering';
+              if (typeStr.includes('protection')) mappedType = 'protection';
+              else if (typeStr.includes('ps')) mappedType = 'ps';
+
+              coresList.push({
+                coreNumber: currentCoreNum++,
+                coreType: mappedType
+              });
+            });
+          }
+          if (coresList.length === 0) {
+            coresList.push({ coreNumber: 1, coreType: 'metering' });
+          }
+
+          return {
+            id: t._id,
+            uniqueId: t.uniqueId,
+            name: order.transformerName || 'Transformer',
+            rating: Array.isArray(order.ratio) ? order.ratio.join('/') : (order.ratio || 'N/A'),
+            voltageClass: order.nominalSystemVoltage ? `${order.nominalSystemVoltage}kV` : 'N/A',
+            cores: coresList,
+            status: status
+          };
+        });
+
+        const filtered = (!order.assignedUnitIds || order.assignedUnitIds.length === 0)
+          ? mappedTransformers
+          : mappedTransformers.filter(t => order.assignedUnitIds?.some(assignedId =>
+            assignedId === t.uniqueId || assignedId.includes(t.uniqueId)
+          ));
+
+        setTransformers(filtered);
+      } catch (err: any) {
+        console.error("Error fetching transformers:", err);
+        setError("Failed to load transformers.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (order && order._id) {
+      fetchTransformers();
+    }
+  }, [order]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -157,50 +173,66 @@ export function FinalTransformersList({ order, onStartTest, onBack }: FinalTrans
 
       {/* Transformers Table */}
       <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left p-4 text-sm">Transformer Name</th>
-                <th className="text-left p-4 text-sm">Rating</th>
-                <th className="text-left p-4 text-sm">Unique Transformer ID</th>
-                <th className="text-left p-4 text-sm">Voltage Class</th>
-                <th className="text-left p-4 text-sm">Status</th>
-                <th className="text-center p-4 text-sm">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transformers.map((transformer) => (
-                <tr key={transformer.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="p-4 font-medium">{transformer.name}</td>
-                  <td className="p-4">{transformer.rating}</td>
-                  <td className="p-4 font-medium text-blue-600">{transformer.uniqueId}</td>
-                  <td className="p-4">{transformer.voltageClass}</td>
-                  <td className="p-4">
-                    <Badge className={getStatusColor(transformer.status)}>
-                      {transformer.status.replace('-', ' ')}
-                    </Badge>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex justify-center">
-                      <Button
-                        size="sm"
-                        onClick={() => onStartTest(transformer)}
-                        className="bg-red-600 hover:bg-red-700"
-                        disabled={transformer.status === 'completed'}
-                      >
-                        <PlayCircle className="w-4 h-4 mr-2" />
-                        {transformer.status === 'pending' ? 'Start Test' :
-                          transformer.status === 'in-progress' ? 'Continue Test' :
-                            'View Report'}
-                      </Button>
-                    </div>
-                  </td>
+        {isLoading ? (
+          <div className="p-8 flex justify-center items-center">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <span className="ml-2 text-gray-600">Loading transformers...</span>
+          </div>
+        ) : error ? (
+          <div className="p-8 text-center text-red-600">
+            {error}
+            <Button variant="link" onClick={() => window.location.reload()}>Retry</Button>
+          </div>
+        ) : transformers.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            No transformers found for this order.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left p-4 text-sm">Transformer Name</th>
+                  <th className="text-left p-4 text-sm">Rating</th>
+                  <th className="text-left p-4 text-sm">Unique Transformer ID</th>
+                  <th className="text-left p-4 text-sm">Voltage Class</th>
+                  <th className="text-left p-4 text-sm">Status</th>
+                  <th className="text-center p-4 text-sm">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {transformers.map((transformer) => (
+                  <tr key={transformer.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="p-4 font-medium">{transformer.name}</td>
+                    <td className="p-4">{transformer.rating}</td>
+                    <td className="p-4 font-medium text-blue-600">{transformer.uniqueId}</td>
+                    <td className="p-4">{transformer.voltageClass}</td>
+                    <td className="p-4">
+                      <Badge className={getStatusColor(transformer.status)}>
+                        {transformer.status.replace('-', ' ')}
+                      </Badge>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex justify-center">
+                        <Button
+                          size="sm"
+                          onClick={() => onStartTest(transformer)}
+                          className="bg-red-600 hover:bg-red-700"
+                          disabled={transformer.status === 'completed'}
+                        >
+                          <PlayCircle className="w-4 h-4 mr-2" />
+                          {transformer.status === 'pending' ? 'Start Test' :
+                            transformer.status === 'in-progress' ? 'Continue Test' :
+                              'View Report'}
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
       {/* Info Box */}

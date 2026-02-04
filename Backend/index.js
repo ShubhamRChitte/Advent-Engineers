@@ -19,6 +19,7 @@ const { UserModel } = require('./models/UserModel');
 const { MeteringCoreTestModel } = require("./models/MeteringCoreTestModel");
 const { ProtectionCoreTestModel } = require("./models/ProtectionCoreTestModel");
 const { TransformerModel } = require("./models/TransformerModel");
+const { SecondaryMeteringTestModel } = require("./models/SecondaryMeteringTestModel");
 // const VerifyUser = require('./middlewares/VeriifyUser');
 // const UsersModel = require("./model/UsersModel");
 const { CounterModel } = require("./models/CounterModel");
@@ -289,324 +290,496 @@ app.get('/addCustomers', async (req, res) => {
 // add the dummy data of orders
 app.get('/addOrders', async (req, res) => {
   try {
-    let tempOrders = [
-      {
-        "jobId": "JOB-2026-021",
-        "clientName": "Reliance Infrastructure",
-        "clientContactNo": "+91-9876543210",
-        "transformerName": "Outdoor CT 33kV",
-        "transformerType": "CT",
-        "quantity": 3,
-        "ratio": ["400/1", "800/1"],
-        "noOfCores": 2,
-        "coreDetails": [{ "coreType": "Metering" }, { "coreType": "Protection" }],
-        "nominalSystemVoltage": 33,
-        "burden": 30,
-        "accuracyClass": "0.5S/5P20",
-        "deadline": "2026-03-10T00:00:00.000Z",
-        "assignments": {
-          "core_tester": "John Doe",
-          "secondary_tester": "Alice Smith",
-          "primary_tester": "Bob Johnson",
-          "final_tester": "Charlie Brown"
-        },
-        "currentStage": "core",
-        "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
-        "isApproved": true,
-        "status": "Core Testing In Progress",
-        "priority": "High",
-        "ratedPrimaryCurrent": 800,
-        "ratedSecondaryCurrent": 1,
-        "mountingDetails": "Structure Mounted",
-        "overallDimension": "800x600x1200mm",
-        "isStandard": "Standard"
-      },
-      {
-        "jobId": "JOB-2026-022",
-        "clientName": "Tata Power",
-        "clientContactNo": "+91-9922334455",
-        "transformerName": "Indoor PT 11kV",
-        "transformerType": "PT",
-        "quantity": 2,
-        "ratio": ["11000/110"],
-        "noOfCores": 1,
-        "coreDetails": [{ "coreType": "Metering" }],
-        "nominalSystemVoltage": 11,
-        "burden": 100,
-        "accuracyClass": "1.0",
-        "deadline": "2026-04-15T00:00:00.000Z",
-        "assignments": {
-          "core_tester": "Jane Wilson",
-          "secondary_tester": "Alice Smith",
-          "primary_tester": "David Miller",
-          "final_tester": "Charlie Brown"
-        },
-        "currentStage": "core",
-        "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
-        "isApproved": false,
-        "status": "Pending Approval",
-        "priority": "Medium",
-        "ratedPrimaryCurrent": 0,
-        "ratedSecondaryCurrent": 0,
-        "mountingDetails": "Panel Mounted",
-        "overallDimension": "400x400x500mm",
-        "isStandard": "Standard"
-      },
-      {
-        "jobId": "JOB-2026-023",
-        "clientName": "Adani Electricity",
-        "clientContactNo": "+91-8877665544",
-        "transformerName": "PS Class CT",
-        "transformerType": "CT",
-        "quantity": 5,
-        "ratio": ["2000/1"],
-        "noOfCores": 3,
-        "coreDetails": [{ "coreType": "Metering" }, { "coreType": "Protection" }, { "coreType": "PS" }],
-        "nominalSystemVoltage": 0.66,
-        "burden": 15,
-        "accuracyClass": "0.5/5P10/PX",
-        "deadline": "2026-02-28T00:00:00.000Z",
-        "assignments": {
-          "core_tester": "John Doe",
-          "secondary_tester": "Sam Adams",
-          "primary_tester": "Bob Johnson",
-          "final_tester": "Charlie Brown"
-        },
-        "currentStage": "secondary",
-        "completionStages": { "core": true, "secondary": false, "primary": false, "final": false },
-        "isApproved": true,
-        "status": "Core Testing Completed",
-        "priority": "High",
-        "ratedPrimaryCurrent": 2000,
-        "ratedSecondaryCurrent": 1,
-        "mountingDetails": "Busbar Mounted",
-        "overallDimension": "300x300x200mm",
-        "isStandard": "Non-Standard"
-      },
-      {
-        "jobId": "JOB-2026-014",
-        "clientName": "L&T Construction",
-        "clientContactNo": "+91-7788990011",
-        "transformerName": "Ring Type CT",
-        "transformerType": "CT",
-        "quantity": 10,
-        "ratio": ["1000/5"],
-        "noOfCores": 1,
-        "coreDetails": [{ "coreType": "Protection" }],
-        "nominalSystemVoltage": 0.66,
-        "burden": 20,
-        "accuracyClass": "5P20",
-        "deadline": "2026-05-20T00:00:00.000Z",
-        "assignments": {
-          "core_tester": "Jane Wilson",
-          "secondary_tester": "Alice Smith",
-          "primary_tester": "David Miller",
-          "final_tester": "Charlie Brown"
-        },
-        "currentStage": "core",
-        "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
-        "isApproved": true,
-        "status": "Core Testing In Progress",
-        "priority": "Low",
-        "ratedPrimaryCurrent": 1000,
-        "ratedSecondaryCurrent": 5,
-        "mountingDetails": "Indoor Case",
-        "overallDimension": "200x200x150mm",
-        "isStandard": "Standard"
-      },
-      {
-        "jobId": "JOB-2026-015",
-        "clientName": "Siemens India",
-        "clientContactNo": "+91-6655443322",
-        "transformerName": "Differential CT (PS)",
-        "transformerType": "CT",
-        "quantity": 6,
-        "ratio": ["1200/1"],
-        "noOfCores": 1,
-        "coreDetails": [{ "coreType": "PS" }],
-        "nominalSystemVoltage": 11,
-        "burden": 0,
-        "accuracyClass": "PX",
-        "deadline": "2026-03-05T00:00:00.000Z",
-        "assignments": {
-          "core_tester": "John Doe",
-          "secondary_tester": "Sam Adams",
-          "primary_tester": "Bob Johnson",
-          "final_tester": "Charlie Brown"
-        },
-        "currentStage": "primary",
-        "completionStages": { "core": true, "secondary": true, "primary": false, "final": false },
-        "isApproved": true,
-        "status": "In Progress",
-        "priority": "High",
-        "ratedPrimaryCurrent": 1200,
-        "ratedSecondaryCurrent": 1,
-        "mountingDetails": "Bushing Mounted",
-        "overallDimension": "450x450x300mm",
-        "isStandard": "Non-Standard"
-      },
-      {
-        "jobId": "JOB-2026-016",
-        "clientName": "ABB Limited",
-        "clientContactNo": "+91-5544332211",
-        "transformerName": "Cast Resin PT",
-        "transformerType": "PT",
-        "quantity": 4,
-        "ratio": ["33000/110/110"],
-        "noOfCores": 2,
-        "coreDetails": [{ "coreType": "Metering" }, { "coreType": "Metering" }],
-        "nominalSystemVoltage": 33,
-        "burden": 150,
-        "accuracyClass": "0.2/0.5",
-        "deadline": "2026-06-12T00:00:00.000Z",
-        "assignments": {
-          "core_tester": "Jane Wilson",
-          "secondary_tester": "Alice Smith",
-          "primary_tester": "David Miller",
-          "final_tester": "Charlie Brown"
-        },
-        "currentStage": "core",
-        "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
-        "isApproved": true,
-        "status": "Pending Approval",
-        "priority": "Medium",
-        "ratedPrimaryCurrent": 0,
-        "ratedSecondaryCurrent": 0,
-        "mountingDetails": "Outdoor Post",
-        "overallDimension": "900x700x1100mm",
-        "isStandard": "Standard"
-      },
-      {
-        "jobId": "JOB-2026-017",
-        "clientName": "BHEL",
-        "clientContactNo": "+91-4433221100",
-        "transformerName": "Multi-Ratio CT",
-        "transformerType": "CT",
-        "quantity": 8,
-        "ratio": ["500-1000/5"],
-        "noOfCores": 2,
-        "coreDetails": [{ "coreType": "Metering" }, { "coreType": "Protection" }],
-        "nominalSystemVoltage": 0.66,
-        "burden": 15,
-        "accuracyClass": "0.5S/5P15",
-        "deadline": "2026-03-25T00:00:00.000Z",
-        "assignments": {
-          "core_tester": "John Doe",
-          "secondary_tester": "Sam Adams",
-          "primary_tester": "Bob Johnson",
-          "final_tester": "Charlie Brown"
-        },
-        "currentStage": "final",
-        "completionStages": { "core": true, "secondary": true, "primary": true, "final": false },
-        "isApproved": true,
-        "status": "In Progress",
-        "priority": "High",
-        "ratedPrimaryCurrent": 1000,
-        "ratedSecondaryCurrent": 5,
-        "mountingDetails": "Vertical Busbar",
-        "overallDimension": "250x250x180mm",
-        "isStandard": "Standard"
-      },
-      {
-        "jobId": "JOB-2026-018",
-        "clientName": "Schneider Electric",
-        "clientContactNo": "+91-3322110099",
-        "transformerName": "Control PT",
-        "transformerType": "PT",
-        "quantity": 15,
-        "ratio": ["415/110"],
-        "noOfCores": 1,
-        "coreDetails": [{ "coreType": "Metering" }],
-        "nominalSystemVoltage": 0.415,
-        "burden": 25,
-        "accuracyClass": "1.0",
-        "deadline": "2026-04-01T00:00:00.000Z",
-        "assignments": {
-          "core_tester": "Jane Wilson",
-          "secondary_tester": "Alice Smith",
-          "primary_tester": "David Miller",
-          "final_tester": "Charlie Brown"
-        },
-        "currentStage": "completed",
-        "completionStages": { "core": true, "secondary": true, "primary": true, "final": true },
-        "isApproved": true,
-        "status": "Completed",
-        "priority": "Low",
-        "ratedPrimaryCurrent": 0,
-        "ratedSecondaryCurrent": 0,
-        "mountingDetails": "DIN Rail",
-        "overallDimension": "150x150x120mm",
-        "isStandard": "Standard"
-      },
-      {
-        "jobId": "JOB-2026-019",
-        "clientName": "KEC International",
-        "clientContactNo": "+91-2211009988",
-        "transformerName": "Summation CT",
-        "transformerType": "CT",
-        "quantity": 3,
-        "ratio": ["5+5/5"],
-        "noOfCores": 1,
-        "coreDetails": [{ "coreType": "Metering" }],
-        "nominalSystemVoltage": 0.66,
-        "burden": 10,
-        "accuracyClass": "0.5",
-        "deadline": "2026-03-15T00:00:00.000Z",
-        "assignments": {
-          "core_tester": "John Doe",
-          "secondary_tester": "Sam Adams",
-          "primary_tester": "Bob Johnson",
-          "final_tester": "Charlie Brown"
-        },
-        "currentStage": "core",
-        "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
-        "isApproved": true,
-        "status": "Core Testing In Progress",
-        "priority": "Medium",
-        "ratedPrimaryCurrent": 5,
-        "ratedSecondaryCurrent": 5,
-        "mountingDetails": "Panel Internal",
-        "overallDimension": "180x180x100mm",
-        "isStandard": "Non-Standard"
-      },
-      {
-        "jobId": "JOB-2026-020",
-        "clientName": "MSETCL",
-        "clientContactNo": "+91-1100998877",
-        "transformerName": "Dead Tank CT",
-        "transformerType": "CT",
-        "quantity": 1,
-        "ratio": ["1200/1"],
-        "noOfCores": 5,
-        "coreDetails": [
-          { "coreType": "Metering" },
-          { "coreType": "Protection" },
-          { "coreType": "Protection" },
-          { "coreType": "PS" },
-          { "coreType": "PS" }
-        ],
-        "nominalSystemVoltage": 132,
-        "burden": 30,
-        "accuracyClass": "0.2S/5P20/PX",
-        "deadline": "2026-05-30T00:00:00.000Z",
-        "assignments": {
-          "core_tester": "Jane Wilson",
-          "secondary_tester": "Alice Smith",
-          "primary_tester": "David Miller",
-          "final_tester": "Charlie Brown"
-        },
-        "currentStage": "core",
-        "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
-        "isApproved": true,
-        "status": "Pending Approval",
-        "priority": "High",
-        "ratedPrimaryCurrent": 1200,
-        "ratedSecondaryCurrent": 1,
-        "mountingDetails": "Outdoor Foundation",
-        "overallDimension": "1200x1200x2500mm",
-        "isStandard": "Non-Standard"
-      }
-    ];
+    // let tempOrders = [
+    //   {
+    //     "jobId": "JOB-2026-021",
+    //     "clientName": "Reliance Infrastructure",
+    //     "clientContactNo": "+91-9876543210",
+    //     "transformerName": "Outdoor CT 33kV",
+    //     "transformerType": "CT",
+    //     "quantity": 3,
+    //     "ratio": ["400/1", "800/1"],
+    //     "noOfCores": 2,
+    //     "coreDetails": [{ "coreType": "Metering" }, { "coreType": "Protection" }],
+    //     "nominalSystemVoltage": 33,
+    //     "burden": 30,
+    //     "accuracyClass": "0.5S/5P20",
+    //     "deadline": "2026-03-10T00:00:00.000Z",
+    //     "assignments": {
+    //       "core_tester": "John Doe",
+    //       "secondary_tester": "Alice Smith",
+    //       "primary_tester": "Bob Johnson",
+    //       "final_tester": "Charlie Brown"
+    //     },
+    //     "currentStage": "core",
+    //     "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
+    //     "isApproved": true,
+    //     "status": "Core Testing In Progress",
+    //     "priority": "High",
+    //     "ratedPrimaryCurrent": 800,
+    //     "ratedSecondaryCurrent": 1,
+    //     "mountingDetails": "Structure Mounted",
+    //     "overallDimension": "800x600x1200mm",
+    //     "isStandard": "Standard"
+    //   },
+    //   {
+    //     "jobId": "JOB-2026-022",
+    //     "clientName": "Tata Power",
+    //     "clientContactNo": "+91-9922334455",
+    //     "transformerName": "Indoor PT 11kV",
+    //     "transformerType": "PT",
+    //     "quantity": 2,
+    //     "ratio": ["11000/110"],
+    //     "noOfCores": 1,
+    //     "coreDetails": [{ "coreType": "Metering" }],
+    //     "nominalSystemVoltage": 11,
+    //     "burden": 100,
+    //     "accuracyClass": "1.0",
+    //     "deadline": "2026-04-15T00:00:00.000Z",
+    //     "assignments": {
+    //       "core_tester": "Jane Wilson",
+    //       "secondary_tester": "Alice Smith",
+    //       "primary_tester": "David Miller",
+    //       "final_tester": "Charlie Brown"
+    //     },
+    //     "currentStage": "core",
+    //     "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
+    //     "isApproved": false,
+    //     "status": "Pending Approval",
+    //     "priority": "Medium",
+    //     "ratedPrimaryCurrent": 0,
+    //     "ratedSecondaryCurrent": 0,
+    //     "mountingDetails": "Panel Mounted",
+    //     "overallDimension": "400x400x500mm",
+    //     "isStandard": "Standard"
+    //   },
+    //   {
+    //     "jobId": "JOB-2026-023",
+    //     "clientName": "Adani Electricity",
+    //     "clientContactNo": "+91-8877665544",
+    //     "transformerName": "PS Class CT",
+    //     "transformerType": "CT",
+    //     "quantity": 5,
+    //     "ratio": ["2000/1"],
+    //     "noOfCores": 3,
+    //     "coreDetails": [{ "coreType": "Metering" }, { "coreType": "Protection" }, { "coreType": "PS" }],
+    //     "nominalSystemVoltage": 0.66,
+    //     "burden": 15,
+    //     "accuracyClass": "0.5/5P10/PX",
+    //     "deadline": "2026-02-28T00:00:00.000Z",
+    //     "assignments": {
+    //       "core_tester": "John Doe",
+    //       "secondary_tester": "Sam Adams",
+    //       "primary_tester": "Bob Johnson",
+    //       "final_tester": "Charlie Brown"
+    //     },
+    //     "currentStage": "secondary",
+    //     "completionStages": { "core": true, "secondary": false, "primary": false, "final": false },
+    //     "isApproved": true,
+    //     "status": "Core Testing Completed",
+    //     "priority": "High",
+    //     "ratedPrimaryCurrent": 2000,
+    //     "ratedSecondaryCurrent": 1,
+    //     "mountingDetails": "Busbar Mounted",
+    //     "overallDimension": "300x300x200mm",
+    //     "isStandard": "Non-Standard"
+    //   },
+    //   {
+    //     "jobId": "JOB-2026-014",
+    //     "clientName": "L&T Construction",
+    //     "clientContactNo": "+91-7788990011",
+    //     "transformerName": "Ring Type CT",
+    //     "transformerType": "CT",
+    //     "quantity": 10,
+    //     "ratio": ["1000/5"],
+    //     "noOfCores": 1,
+    //     "coreDetails": [{ "coreType": "Protection" }],
+    //     "nominalSystemVoltage": 0.66,
+    //     "burden": 20,
+    //     "accuracyClass": "5P20",
+    //     "deadline": "2026-05-20T00:00:00.000Z",
+    //     "assignments": {
+    //       "core_tester": "Jane Wilson",
+    //       "secondary_tester": "Alice Smith",
+    //       "primary_tester": "David Miller",
+    //       "final_tester": "Charlie Brown"
+    //     },
+    //     "currentStage": "core",
+    //     "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
+    //     "isApproved": true,
+    //     "status": "Core Testing In Progress",
+    //     "priority": "Low",
+    //     "ratedPrimaryCurrent": 1000,
+    //     "ratedSecondaryCurrent": 5,
+    //     "mountingDetails": "Indoor Case",
+    //     "overallDimension": "200x200x150mm",
+    //     "isStandard": "Standard"
+    //   },
+    //   {
+    //     "jobId": "JOB-2026-015",
+    //     "clientName": "Siemens India",
+    //     "clientContactNo": "+91-6655443322",
+    //     "transformerName": "Differential CT (PS)",
+    //     "transformerType": "CT",
+    //     "quantity": 6,
+    //     "ratio": ["1200/1"],
+    //     "noOfCores": 1,
+    //     "coreDetails": [{ "coreType": "PS" }],
+    //     "nominalSystemVoltage": 11,
+    //     "burden": 0,
+    //     "accuracyClass": "PX",
+    //     "deadline": "2026-03-05T00:00:00.000Z",
+    //     "assignments": {
+    //       "core_tester": "John Doe",
+    //       "secondary_tester": "Sam Adams",
+    //       "primary_tester": "Bob Johnson",
+    //       "final_tester": "Charlie Brown"
+    //     },
+    //     "currentStage": "primary",
+    //     "completionStages": { "core": true, "secondary": true, "primary": false, "final": false },
+    //     "isApproved": true,
+    //     "status": "In Progress",
+    //     "priority": "High",
+    //     "ratedPrimaryCurrent": 1200,
+    //     "ratedSecondaryCurrent": 1,
+    //     "mountingDetails": "Bushing Mounted",
+    //     "overallDimension": "450x450x300mm",
+    //     "isStandard": "Non-Standard"
+    //   },
+    //   {
+    //     "jobId": "JOB-2026-016",
+    //     "clientName": "ABB Limited",
+    //     "clientContactNo": "+91-5544332211",
+    //     "transformerName": "Cast Resin PT",
+    //     "transformerType": "PT",
+    //     "quantity": 4,
+    //     "ratio": ["33000/110/110"],
+    //     "noOfCores": 2,
+    //     "coreDetails": [{ "coreType": "Metering" }, { "coreType": "Metering" }],
+    //     "nominalSystemVoltage": 33,
+    //     "burden": 150,
+    //     "accuracyClass": "0.2/0.5",
+    //     "deadline": "2026-06-12T00:00:00.000Z",
+    //     "assignments": {
+    //       "core_tester": "Jane Wilson",
+    //       "secondary_tester": "Alice Smith",
+    //       "primary_tester": "David Miller",
+    //       "final_tester": "Charlie Brown"
+    //     },
+    //     "currentStage": "core",
+    //     "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
+    //     "isApproved": true,
+    //     "status": "Pending Approval",
+    //     "priority": "Medium",
+    //     "ratedPrimaryCurrent": 0,
+    //     "ratedSecondaryCurrent": 0,
+    //     "mountingDetails": "Outdoor Post",
+    //     "overallDimension": "900x700x1100mm",
+    //     "isStandard": "Standard"
+    //   },
+    //   {
+    //     "jobId": "JOB-2026-017",
+    //     "clientName": "BHEL",
+    //     "clientContactNo": "+91-4433221100",
+    //     "transformerName": "Multi-Ratio CT",
+    //     "transformerType": "CT",
+    //     "quantity": 8,
+    //     "ratio": ["500-1000/5"],
+    //     "noOfCores": 2,
+    //     "coreDetails": [{ "coreType": "Metering" }, { "coreType": "Protection" }],
+    //     "nominalSystemVoltage": 0.66,
+    //     "burden": 15,
+    //     "accuracyClass": "0.5S/5P15",
+    //     "deadline": "2026-03-25T00:00:00.000Z",
+    //     "assignments": {
+    //       "core_tester": "John Doe",
+    //       "secondary_tester": "Sam Adams",
+    //       "primary_tester": "Bob Johnson",
+    //       "final_tester": "Charlie Brown"
+    //     },
+    //     "currentStage": "final",
+    //     "completionStages": { "core": true, "secondary": true, "primary": true, "final": false },
+    //     "isApproved": true,
+    //     "status": "In Progress",
+    //     "priority": "High",
+    //     "ratedPrimaryCurrent": 1000,
+    //     "ratedSecondaryCurrent": 5,
+    //     "mountingDetails": "Vertical Busbar",
+    //     "overallDimension": "250x250x180mm",
+    //     "isStandard": "Standard"
+    //   },
+    //   {
+    //     "jobId": "JOB-2026-018",
+    //     "clientName": "Schneider Electric",
+    //     "clientContactNo": "+91-3322110099",
+    //     "transformerName": "Control PT",
+    //     "transformerType": "PT",
+    //     "quantity": 15,
+    //     "ratio": ["415/110"],
+    //     "noOfCores": 1,
+    //     "coreDetails": [{ "coreType": "Metering" }],
+    //     "nominalSystemVoltage": 0.415,
+    //     "burden": 25,
+    //     "accuracyClass": "1.0",
+    //     "deadline": "2026-04-01T00:00:00.000Z",
+    //     "assignments": {
+    //       "core_tester": "Jane Wilson",
+    //       "secondary_tester": "Alice Smith",
+    //       "primary_tester": "David Miller",
+    //       "final_tester": "Charlie Brown"
+    //     },
+    //     "currentStage": "completed",
+    //     "completionStages": { "core": true, "secondary": true, "primary": true, "final": true },
+    //     "isApproved": true,
+    //     "status": "Completed",
+    //     "priority": "Low",
+    //     "ratedPrimaryCurrent": 0,
+    //     "ratedSecondaryCurrent": 0,
+    //     "mountingDetails": "DIN Rail",
+    //     "overallDimension": "150x150x120mm",
+    //     "isStandard": "Standard"
+    //   },
+    //   {
+    //     "jobId": "JOB-2026-019",
+    //     "clientName": "KEC International",
+    //     "clientContactNo": "+91-2211009988",
+    //     "transformerName": "Summation CT",
+    //     "transformerType": "CT",
+    //     "quantity": 3,
+    //     "ratio": ["5+5/5"],
+    //     "noOfCores": 1,
+    //     "coreDetails": [{ "coreType": "Metering" }],
+    //     "nominalSystemVoltage": 0.66,
+    //     "burden": 10,
+    //     "accuracyClass": "0.5",
+    //     "deadline": "2026-03-15T00:00:00.000Z",
+    //     "assignments": {
+    //       "core_tester": "John Doe",
+    //       "secondary_tester": "Sam Adams",
+    //       "primary_tester": "Bob Johnson",
+    //       "final_tester": "Charlie Brown"
+    //     },
+    //     "currentStage": "core",
+    //     "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
+    //     "isApproved": true,
+    //     "status": "Core Testing In Progress",
+    //     "priority": "Medium",
+    //     "ratedPrimaryCurrent": 5,
+    //     "ratedSecondaryCurrent": 5,
+    //     "mountingDetails": "Panel Internal",
+    //     "overallDimension": "180x180x100mm",
+    //     "isStandard": "Non-Standard"
+    //   },
+    //   {
+    //     "jobId": "JOB-2026-020",
+    //     "clientName": "MSETCL",
+    //     "clientContactNo": "+91-1100998877",
+    //     "transformerName": "Dead Tank CT",
+    //     "transformerType": "CT",
+    //     "quantity": 1,
+    //     "ratio": ["1200/1"],
+    //     "noOfCores": 5,
+    //     "coreDetails": [
+    //       { "coreType": "Metering" },
+    //       { "coreType": "Protection" },
+    //       { "coreType": "Protection" },
+    //       { "coreType": "PS" },
+    //       { "coreType": "PS" }
+    //     ],
+    //     "nominalSystemVoltage": 132,
+    //     "burden": 30,
+    //     "accuracyClass": "0.2S/5P20/PX",
+    //     "deadline": "2026-05-30T00:00:00.000Z",
+    //     "assignments": {
+    //       "core_tester": "Jane Wilson",
+    //       "secondary_tester": "Alice Smith",
+    //       "primary_tester": "David Miller",
+    //       "final_tester": "Charlie Brown"
+    //     },
+    //     "currentStage": "core",
+    //     "completionStages": { "core": false, "secondary": false, "primary": false, "final": false },
+    //     "isApproved": true,
+    //     "status": "Pending Approval",
+    //     "priority": "High",
+    //     "ratedPrimaryCurrent": 1200,
+    //     "ratedSecondaryCurrent": 1,
+    //     "mountingDetails": "Outdoor Foundation",
+    //     "overallDimension": "1200x1200x2500mm",
+    //     "isStandard": "Non-Standard"
+    //   }
+    // ];
+
+    let tempOrders=[
+  {
+    
+    jobId: "JOB-2026-031",
+    clientName: "Tata Power",
+    clientContactNo: "9876543210",
+    transformerName: "CT-200A",
+    transformerType: "CT",
+    quantity: 50,
+    ratio: ["200/1", "400/1"],
+    noOfCores: 2,
+    coreDetails: [{ coreType: "Metering" }, { coreType: "Protection" }],
+    deadline: "2026-03-10T00:00:00.000Z",
+    nominalSystemVoltage: 132,
+    burden: 30,
+    accuracyClass: "0.2S/5P20/PX",
+    assignments: [
+      { testerName: "Rahul Sharma", stage: "core", unitRange: { from: 1, to: 25 } },
+      { testerName: "Pranav Godse", stage: "core", unitRange: { from: 26, to: 50 } },
+      { testerName: "Rahul Sharma", stage: "core", unitRange: { from: 1, to: 50 } },
+      { testerName: "Amit Verma", stage: "secondary", unitRange: { from: 1, to: 50 } },
+      { testerName: "Neha Patil", stage: "primary", unitRange: { from: 1, to: 25 } },
+      { testerName: "Sai Ghumare", stage: "primary", unitRange: { from: 26, to: 50 } },
+      { testerName: "Suresh Kulkarni", stage: "final", unitRange: { from: 1, to: 50 } },
+      { testerName: "YD", stage: "final", unitRange: { from: 1, to: 30 } },
+      { testerName: "Suresh Kulkarni", stage: "final", unitRange: { from: 31, to: 50 } }
+    ],
+    currentStage: "core",
+    isApproved: true,
+    ratedPrimaryCurrent: 200,
+    ratedSecondaryCurrent: 1,
+    mountingDetails: "Panel Mounted",
+    overallDimension: "250x180x120 mm",
+    isStandard: "Yes",
+    status: "Pending Approval",
+    completionStages: { "core": false, "secondary": false, "primary": false, "final": false },
+  },
+
+  {
+  status: "Pending Approval",
+    jobId: "JOB-2026-032",
+    clientName: "Mahavitaran",
+    clientContactNo: "9123456780",
+    transformerName: "CT-400A",
+    transformerType: "CT",
+    quantity: 30,
+    ratio: ["400/1"],
+    noOfCores: 1,
+    coreDetails: [{ coreType: "Metering" }],
+    deadline: "2026-03-10T00:00:00.000Z",
+     nominalSystemVoltage: 132,
+    burden: 30,
+    accuracyClass: "0.2S/5P20/PX",
+    assignments: [
+      { testerName: "Rohit Deshmukh", stage: "core", unitRange: { from: 1, to: 10 } },
+      { testerName: "Pranav Godse", stage: "core", unitRange: { from: 11, to: 30 } },
+      { testerName: "Pooja Joshi", stage: "secondary", unitRange: { from: 1, to: 15 } },
+      { testerName: "Tejas Demse", stage: "secondary", unitRange: { from: 16, to: 30 } },
+      { testerName: "Amit Verma", stage: "primary", unitRange: { from: 1, to: 15 } },
+      { testerName: "Sai Ghumare", stage: "primary", unitRange: { from: 16, to: 30 } },
+      { testerName: "Neha Patil", stage: "final", unitRange: { from: 1, to: 20 } },
+      { testerName: "YD", stage: "final", unitRange: { from: 21, to: 30 } },
+    ],
+    currentStage: "secondary",
+    isApproved: true,
+    ratedPrimaryCurrent: 400,
+    ratedSecondaryCurrent: 1,
+    mountingDetails: "Busbar Mounted",
+    overallDimension: "300x200x150 mm",
+    isStandard: "Yes",
+    completionStages: { "core": false, "secondary": false, "primary": false, "final": false },
+  },
+
+  {
+   status: "Pending Approval",
+    jobId: "JOB-2026-033",
+    clientName: "L&T Electricals",
+    clientContactNo: "9988776655",
+    transformerName: "PT-11KV",
+    transformerType: "PT",
+    quantity: 20,
+    ratio: ["11000/110"],
+    noOfCores: 1,
+    coreDetails: [{ coreType: "Protection" }],
+    deadline:"2026-03-10T00:00:00.000Z",
+     nominalSystemVoltage: 132,
+    burden: 30,
+    accuracyClass: "0.2S/5P20/PX",
+    assignments: [
+      { testerName: "Kunal Mehta", stage: "core", unitRange: { from: 1, to: 10 } },
+      { testerName: "Pranav Godse", stage: "core", unitRange: { from: 11, to: 20 } },
+      { testerName: "Rahul Sharma", stage: "secondary", unitRange: { from: 1, to: 10 } },
+      { testerName: "Pooja Joshi", stage: "primary", unitRange: { from: 1, to: 20 } },
+      { testerName: "Tejas Demse", stage: "secondary", unitRange: { from: 11, to: 20 } },
+      { testerName: "Suresh Kulkarni", stage: "final", unitRange: { from: 1, to: 20 } }
+    ],
+    currentStage: "primary",
+    isApproved: true,
+    ratedPrimaryCurrent: 11000,
+    ratedSecondaryCurrent: 110,
+    mountingDetails: "Floor Mounted",
+    overallDimension: "400x300x250 mm",
+    isStandard: "No",
+    completionStages: { "core": false, "secondary": false, "primary": false, "final": false },
+  },
+
+  {
+   status: "Pending Approval",
+    jobId: "JOB-2026-034",
+    clientName: "Reliance Energy",
+    clientContactNo: "9001122334",
+    transformerName: "CT-800A",
+    transformerType: "CT",
+    quantity: 40,
+    ratio: ["800/1"],
+    noOfCores: 2,
+    coreDetails: [{ coreType: "Protection" }, { coreType: "PS" }],
+    deadline: "2026-03-10T00:00:00.000Z",
+     nominalSystemVoltage: 132,
+    burden: 30,
+    accuracyClass: "0.2S/5P20/PX",
+    assignments: [
+      { testerName: "Amit Verma", stage: "core", unitRange: { from: 1, to: 20 } },
+      { testerName: "Pranav Godse", stage: "core", unitRange: { from: 21, to: 40 } },
+      { testerName: "Tejas Demse", stage: "secondary", unitRange: { from: 1, to: 20 } },
+      { testerName: "Neha Patil", stage: "secondary", unitRange: { from: 21, to: 40 } },
+      { testerName: "Kunal Mehta", stage: "primary", unitRange: { from: 1, to: 40 } },
+      { testerName: "Rahul Sharma", stage: "final", unitRange: { from: 1, to: 40 } }
+    ],
+    currentStage: "final",
+    isApproved: true,
+    ratedPrimaryCurrent: 800,
+    ratedSecondaryCurrent: 1,
+    mountingDetails: "Panel Mounted",
+    overallDimension: "350x250x180 mm",
+    isStandard: "Yes",
+    completionStages: { "core": false, "secondary": false, "primary": false, "final": false },
+  },
+
+  {
+    status: "Pending Approval",
+    jobId: "JOB-2026-035",
+    clientName: "Adani Power",
+    clientContactNo: "9112233445",
+    transformerName: "CT-1000A",
+    transformerType: "CT",
+    quantity: 25,
+    ratio: ["1000/1"],
+    noOfCores: 1,
+    coreDetails: [{ coreType: "PS" }],
+    deadline: "2026-03-10T00:00:00.000Z",
+     nominalSystemVoltage: 132,
+    burden: 30,
+    accuracyClass: "0.2S/5P20/PX",
+    assignments: [
+      { testerName: "Suresh Kulkarni", stage: "core", unitRange: { from: 1, to: 25 } },
+      { testerName: "Rohit Deshmukh", stage: "secondary", unitRange: { from: 1, to: 14 } },
+      { testerName: "Tejas Demse", stage: "secondary", unitRange: { from: 15, to: 25 } },
+      { testerName: "Amit Verma", stage: "primary", unitRange: { from: 1, to: 25 } },
+      { testerName: "Neha Patil", stage: "final", unitRange: { from: 1, to: 25 } }
+    ],
+    currentStage: "completed",
+    isApproved: true,
+    ratedPrimaryCurrent: 1000,
+    ratedSecondaryCurrent: 1,
+    mountingDetails: "Outdoor Mounted",
+    overallDimension: "450x320x260 mm",
+    isStandard: "No",
+    completionStages: { "core": false, "secondary": false, "primary": false, "final": false }
+  }
+];
 
 
 
@@ -958,142 +1131,6 @@ app.get('/addMetringdata', async (req, res) => {
 //add dummy data of the Protection core test
 app.get('/addProtectiondata', async (req, res) => {
   try {
-    //     let tempProtectionReading =[
-    //   {
-    //     "orderId": "64f9b0c7f1e7b4a1d3c6e8a9",
-    //     "transformerSerialNo": "TR-PRO-001",
-    //     "coreIndex": 1,
-    //     "coreType": "Protection",
-    //     "testSetup": {
-    //       "description": "M4CRGO",
-    //       "coreSizeMm": { "id": 85, "od": 185, "height": 85 },
-    //       "turnsUsed": 10,
-    //       "areaSqCm": 41.225,
-    //       "mmp": 42.39
-    //     },
-    //     "testSpecification": {
-    //       "fluxTesla": 1.5,
-    //       "voltageV": 7.04,
-    //       "iexLimitMa": 1696
-    //     },
-    //     "readings": [
-    //       {
-    //         "date": "2026-01-18T10:00:00.000Z",
-    //         "vendorCoreNo": "04",
-    //         "internalCoreNo": "P-1455",
-    //         "value": 486,
-    //         "result": "P"
-    //       },
-    //       {
-    //         "date": "2026-01-18T10:15:00.000Z",
-    //         "vendorCoreNo": "55",
-    //         "internalCoreNo": "P-1456",
-    //         "value": 550,
-    //         "result": "P"
-    //       },
-    //       {
-    //         "date": "2026-01-18T10:30:00.000Z",
-    //         "vendorCoreNo": "51",
-    //         "internalCoreNo": "P-1457",
-    //         "value": 465,
-    //         "result": "P"
-    //       }
-    //     ],
-    //     "testedBy": "Ravi Kumar",
-    //     "authorisedBy": "Priya Singh"
-    //   },
-
-    //   {
-    //     "orderId": "64f9b0c7f1e7b4a1d3c6e8aa",
-    //     "transformerSerialNo": "TR-PRO-002",
-    //     "coreIndex": 2,
-    //     "coreType": "Protection",
-    //     "testSetup": {
-    //       "description": "M4CRGO",
-    //       "coreSizeMm": { "id": 85, "od": 185, "height": 85 },
-    //       "turnsUsed": 10,
-    //       "areaSqCm": 41.225,
-    //       "mmp": 42.39
-    //     },
-    //     "testSpecification": {
-    //       "fluxTesla": 1.5,
-    //       "voltageV": 7.04,
-    //       "iexLimitMa": 1696
-    //     },
-    //     "readings": [
-    //       {
-    //         "date": "2026-01-19T10:00:00.000Z",
-    //         "vendorCoreNo": "11",
-    //         "internalCoreNo": "P-1458",
-    //         "value": 553,
-    //         "result": "P"
-    //       },
-    //       {
-    //         "date": "2026-01-19T10:15:00.000Z",
-    //         "vendorCoreNo": "38",
-    //         "internalCoreNo": "P-1459",
-    //         "value": 606,
-    //         "result": "P"
-    //       },
-    //       {
-    //         "date": "2026-01-19T10:30:00.000Z",
-    //         "vendorCoreNo": "33",
-    //         "internalCoreNo": "P-1460",
-    //         "value": 579,
-    //         "result": "P"
-    //       }
-    //     ],
-    //     "testedBy": "Amit Sharma",
-    //     "authorisedBy": "Anjali Verma"
-    //   },
-
-    //   {
-    //     "orderId": "64f9b0c7f1e7b4a1d3c6e8ab",
-    //     "transformerSerialNo": "TR-PRO-003",
-    //     "coreIndex": 3,
-    //     "coreType": "Protection",
-    //     "testSetup": {
-    //       "description": "M4CRGO",
-    //       "coreSizeMm": { "id": 85, "od": 185, "height": 85 },
-    //       "turnsUsed": 10,
-    //       "areaSqCm": 41.225,
-    //       "mmp": 42.39
-    //     },
-    //     "testSpecification": {
-    //       "fluxTesla": 1.5,
-    //       "voltageV": 7.04,
-    //       "iexLimitMa": 1696
-    //     },
-    //     "readings": [
-    //       {
-    //         "date": "2026-01-20T10:00:00.000Z",
-    //         "vendorCoreNo": "26",
-    //         "internalCoreNo": "P-1461",
-    //         "value": 508,
-    //         "result": "P"
-    //       },
-    //       {
-    //         "date": "2026-01-20T10:15:00.000Z",
-    //         "vendorCoreNo": "25",
-    //         "internalCoreNo": "P-1462",
-    //         "value": 512,
-    //         "result": "P"
-    //       },
-    //       {
-    //         "date": "2026-01-20T10:30:00.000Z",
-    //         "vendorCoreNo": "45",
-    //         "internalCoreNo": "P-1463",
-    //         "value": 475,
-    //         "result": "P"
-    //       }
-    //     ],
-    //     "testedBy": "Suresh Patil",
-    //     "authorisedBy": "Vikas Joshi"
-    //   }
-    // ];
-
-
-    //addin the dummy data of the PS Core
     let tempProtectionReading = [
       // ================= ORDER 1 =================
       {
@@ -1254,127 +1291,226 @@ app.get("/allorders", async (req, res) => {
 })
 
 
-// routes/meteringTest.js
-// app.post('/metering-tests', async (req, res) => {
-//   try {
-//     const testRecord = new MeteringCoreTestModel(req.body);
-//     await testRecord.save();
-//     res.status(201).send({ message: "Record Created", id: testRecord._id });
-//   } catch (err) {
-//     res.status(400).send({ message: "Validation Failed", error: err.message });
-//   }
-// });
 
 
-// routes/protectionTest.js
-// app.post("/protection-tests", async (req, res) => {
-//   try {
-//     const testRecord = new ProtectionCoreTestModel(req.body);
-//     await testRecord.save();
-//     res.status(201).send({ message: "Record Created", id: testRecord._id });
-//   } catch (err) {
-//     res.status(400).send({ message: "Validation Failed", error: err.message });
-//   }
-// });
 
 
 //add dummy data of the transformer 
 app.get('/addTransformerReadingData', async (req, res) => {
   try {
+    // let TransformerReading = [
+    //   // --- JOB-2026-011 (Quantity 3 | Stage: Core) ---
+    //   {
+    //     "uniqueId": "TR-2026-021-001",
+    //     "jobId": "JOB-2026-021",
+    //     "orderId": "65bc5555a1b2c3d4e5f61111",
+    //     "currentStage": "core",
+    //     "testHistory": { "core_test": { "status": "Pending" } }
+    //   },
+    //   {
+    //     "uniqueId": "TR-2026-021-002",
+    //     "jobId": "JOB-2026-021",
+    //     "orderId": "65bc5555a1b2c3d4e5f61111",
+    //     "currentStage": "core",
+    //     "testHistory": { "core_test": { "status": "Pending" } }
+    //   },
+    //   {
+    //     "uniqueId": "TR-2026-021-003",
+    //     "jobId": "JOB-2026-021",
+    //     "orderId": "65bc5555a1b2c3d4e5f61111",
+    //     "currentStage": "core",
+    //     "testHistory": { "core_test": { "status": "Pending" } }
+    //   },
+
+    //   // --- JOB-2026-013 (Quantity 5 | Stage: Secondary) ---
+    //   // (Assuming Core Test is finished for this batch)
+    //   {
+    //     "uniqueId": "TR-2026-023-001",
+    //     "jobId": "JOB-2026-023",
+    //     "orderId": "65bc7777a1b2c3d4e5f67777",
+    //     "currentStage": "secondary",
+    //     "testHistory": {
+    //       "core_test": { "status": "Completed", "tester": "John Doe", "timestamp": "2026-02-01T10:00:00Z" },
+    //       "secondary_test": { "status": "Pending" }
+    //     }
+    //   },
+
+    //   // --- JOB-2026-015 (Quantity 6 | Stage: Primary) ---
+    //   {
+    //     "uniqueId": "TR-2026-015-001",
+    //     "jobId": "JOB-2026-015",
+    //     "orderId": "65bc8888a1b2c3d4e5f68888",
+    //     "currentStage": "primary",
+    //     "testHistory": {
+    //       "core_test": { "status": "Completed" },
+    //       "secondary_test": { "status": "Completed" },
+    //       "primary_test": { "status": "Pending" }
+    //     }
+    //   },
+
+    //   // --- JOB-2026-017 (Quantity 8 | Stage: Final) ---
+    //   {
+    //     "uniqueId": "TR-2026-017-001",
+    //     "jobId": "JOB-2026-017",
+    //     "orderId": "65bcaaaaa1b2c3d4e5f6aaaa",
+    //     "currentStage": "final",
+    //     "testHistory": {
+    //       "core_test": { "status": "Completed" },
+    //       "secondary_test": { "status": "Completed" },
+    //       "primary_test": { "status": "Completed" },
+    //       "final_test": { "status": "Pending" }
+    //     }
+    //   },
+
+    //   // --- JOB-2026-018 (Quantity 15 | Stage: Shipped/Completed) ---
+    //   {
+    //     "uniqueId": "TR-2026-018-001",
+    //     "jobId": "JOB-2026-018",
+    //     "orderId": "65bcbbbbb1b2c3d4e5f6bbbb",
+    //     "currentStage": "shipped",
+    //     "testHistory": {
+    //       "core_test": { "status": "Completed" },
+    //       "secondary_test": { "status": "Completed" },
+    //       "primary_test": { "status": "Completed" },
+    //       "final_test": { "status": "Completed" }
+    //     }
+    //   },
+
+    //   // --- JOB-2026-020 (Dead Tank 5-Core | Stage: Core) ---
+    //   {
+    //     "uniqueId": "TR-2026-020-001",
+    //     "jobId": "JOB-2026-020",
+    //     "orderId": "65bcddeea1b2c3d4e5f6ddee",
+    //     "currentStage": "core",
+    //     "testHistory": {
+    //       "core_test": {
+    //         "status": "Pending",
+    //         "metering_results": [],
+    //         "protection_results": [],
+    //         "ps_results": []
+    //       }
+    //     }
+    //   }
+    // ]
     let TransformerReading = [
-      // --- JOB-2026-011 (Quantity 3 | Stage: Core) ---
-      {
-        "uniqueId": "TR-2026-021-001",
-        "jobId": "JOB-2026-021",
-        "orderId": "65bc5555a1b2c3d4e5f61111",
-        "currentStage": "core",
-        "testHistory": { "core_test": { "status": "Pending" } }
-      },
-      {
-        "uniqueId": "TR-2026-021-002",
-        "jobId": "JOB-2026-021",
-        "orderId": "65bc5555a1b2c3d4e5f61111",
-        "currentStage": "core",
-        "testHistory": { "core_test": { "status": "Pending" } }
-      },
-      {
-        "uniqueId": "TR-2026-021-003",
-        "jobId": "JOB-2026-021",
-        "orderId": "65bc5555a1b2c3d4e5f61111",
-        "currentStage": "core",
-        "testHistory": { "core_test": { "status": "Pending" } }
-      },
 
-      // --- JOB-2026-013 (Quantity 5 | Stage: Secondary) ---
-      // (Assuming Core Test is finished for this batch)
-      {
-        "uniqueId": "TR-2026-023-001",
-        "jobId": "JOB-2026-023",
-        "orderId": "65bc7777a1b2c3d4e5f67777",
-        "currentStage": "secondary",
-        "testHistory": {
-          "core_test": { "status": "Completed", "tester": "John Doe", "timestamp": "2026-02-01T10:00:00Z" },
-          "secondary_test": { "status": "Pending" }
-        }
-      },
+  // ---------- JOB-2026-031 (CT-200A | Qty: 50 | Stage: Core) ----------
+  {
+    uniqueId: "TR-JOB-2026-031-001",
+    jobId: "JOB-2026-031",
+    orderId: "65bc1111a1b2c3d4e5f61111",
+    transformerType: "CT",
+    transformerName: "CT-200A",
+    unitNo: 1,
+    currentStage: "core",
+    testHistory: {
+      core_test: { status: "Pending" }
+    }
+  },
+  {
+    uniqueId: "TR-JOB-2026-031-002",
+    jobId: "JOB-2026-031",
+    orderId: "65bc1111a1b2c3d4e5f61111",
+    transformerType: "CT",
+    transformerName: "CT-200A",
+    unitNo: 2,
+    currentStage: "core",
+    testHistory: {
+      core_test: { status: "Pending" }
+    }
+  },
+  {
+    uniqueId: "TR-JOB-2026-031-003",
+    jobId: "JOB-2026-031",
+    orderId: "65bc1111a1b2c3d4e5f61111",
+    transformerType: "CT",
+    transformerName: "CT-200A",
+    unitNo: 3,
+    currentStage: "core",
+    testHistory: {
+      core_test: { status: "Pending" }
+    }
+  },
 
-      // --- JOB-2026-015 (Quantity 6 | Stage: Primary) ---
-      {
-        "uniqueId": "TR-2026-015-001",
-        "jobId": "JOB-2026-015",
-        "orderId": "65bc8888a1b2c3d4e5f68888",
-        "currentStage": "primary",
-        "testHistory": {
-          "core_test": { "status": "Completed" },
-          "secondary_test": { "status": "Completed" },
-          "primary_test": { "status": "Pending" }
-        }
-      },
+  // ---------- JOB-2026-032 (CT-400A | Qty: 30 | Stage: Secondary) ----------
+  {
+    uniqueId: "TR-JOB-2026-032-001",
+    jobId: "JOB-2026-032",
+    orderId: "65bc2222a1b2c3d4e5f62222",
+    transformerType: "CT",
+    transformerName: "CT-400A",
+    unitNo: 1,
+    currentStage: "secondary",
+    testHistory: {
+      core_test: { status: "Completed" },
+      secondary_test: { status: "Pending" }
+    }
+  },
+  {
+    uniqueId: "TR-JOB-2026-032-002",
+    jobId: "JOB-2026-032",
+    orderId: "65bc2222a1b2c3d4e5f62222",
+    transformerType: "CT",
+    transformerName: "CT-400A",
+    unitNo: 2,
+    currentStage: "secondary",
+    testHistory: {
+      core_test: { status: "Completed" },
+      secondary_test: { status: "Pending" }
+    }
+  },
 
-      // --- JOB-2026-017 (Quantity 8 | Stage: Final) ---
-      {
-        "uniqueId": "TR-2026-017-001",
-        "jobId": "JOB-2026-017",
-        "orderId": "65bcaaaaa1b2c3d4e5f6aaaa",
-        "currentStage": "final",
-        "testHistory": {
-          "core_test": { "status": "Completed" },
-          "secondary_test": { "status": "Completed" },
-          "primary_test": { "status": "Completed" },
-          "final_test": { "status": "Pending" }
-        }
-      },
+  // ---------- JOB-2026-033 (PT-11KV | Qty: 20 | Stage: Primary) ----------
+  {
+    uniqueId: "TR-JOB-2026-033-001",
+    jobId: "JOB-2026-033",
+    orderId: "65bc3333a1b2c3d4e5f63333",
+    transformerType: "PT",
+    transformerName: "PT-11KV",
+    unitNo: 1,
+    currentStage: "primary",
+    testHistory: {
+      core_test: { status: "Completed" },
+      secondary_test: { status: "Completed" },
+      primary_test: { status: "Pending" }
+    }
+  },
 
-      // --- JOB-2026-018 (Quantity 15 | Stage: Shipped/Completed) ---
-      {
-        "uniqueId": "TR-2026-018-001",
-        "jobId": "JOB-2026-018",
-        "orderId": "65bcbbbbb1b2c3d4e5f6bbbb",
-        "currentStage": "shipped",
-        "testHistory": {
-          "core_test": { "status": "Completed" },
-          "secondary_test": { "status": "Completed" },
-          "primary_test": { "status": "Completed" },
-          "final_test": { "status": "Completed" }
-        }
-      },
+  // ---------- JOB-2026-034 (CT-800A | Qty: 40 | Stage: Final) ----------
+  {
+    uniqueId: "TR-JOB-2026-034-001",
+    jobId: "JOB-2026-034",
+    orderId: "65bc4444a1b2c3d4e5f64444",
+    transformerType: "CT",
+    transformerName: "CT-800A",
+    unitNo: 1,
+    currentStage: "final",
+    testHistory: {
+      core_test: { status: "Completed" },
+      secondary_test: { status: "Completed" },
+      primary_test: { status: "Completed" },
+      final_test: { status: "Pending" }
+    }
+  },
 
-      // --- JOB-2026-020 (Dead Tank 5-Core | Stage: Core) ---
-      {
-        "uniqueId": "TR-2026-020-001",
-        "jobId": "JOB-2026-020",
-        "orderId": "65bcddeea1b2c3d4e5f6ddee",
-        "currentStage": "core",
-        "testHistory": {
-          "core_test": {
-            "status": "Pending",
-            "metering_results": [],
-            "protection_results": [],
-            "ps_results": []
-          }
-        }
-      }
-    ]
+  // ---------- JOB-2026-035 (CT-1000A | Qty: 25 | Completed) ----------
+  {
+    uniqueId: "TR-JOB-2026-035-001",
+    jobId: "JOB-2026-035",
+    orderId: "65bc5555a1b2c3d4e5f65555",
+    transformerType: "CT",
+    transformerName: "CT-1000A",
+    unitNo: 1,
+    currentStage: "shipped",
+    testHistory: {
+      core_test: { status: "Completed" },
+      secondary_test: { status: "Completed" },
+      primary_test: { status: "Completed" },
+      final_test: { status: "Completed" }
+    }
+  }
+];
+
 
 
 
@@ -1771,6 +1907,58 @@ app.post("/transformer-final-ps-tests", async (req, res) => {
 
 
 
+
+// -------------------------------------------------------------------
+// SECONDARY TEST ROUTES
+// -------------------------------------------------------------------
+
+app.post("/transformer-secondary-metering-tests", async (req, res) => {
+  try {
+    const { uniqueId, coreId, tester, metering_results, remarks } = req.body;
+
+    // 1. Save detailed test report (Upsert)
+    const testRecord = await SecondaryMeteringTestModel.findOneAndUpdate(
+      { uniqueId, coreId },
+      {
+        uniqueId,
+        coreId,
+        tester,
+        metering_results,
+        remarks,
+        testDate: new Date(),
+        status: "Completed"
+      },
+      { upsert: true, new: true, runValidators: true }
+    );
+
+    // 2. Update Master Transformer Status
+    const transformer = await TransformerModel.findOneAndUpdate(
+      { uniqueId: uniqueId },
+      {
+        $set: {
+          "testHistory.secondary_test.status": "In Progress",
+          "testHistory.secondary_test.tester": tester,
+          "testHistory.secondary_test.timestamp": new Date()
+        }
+      },
+      { new: true }
+    );
+
+    if (!transformer) {
+      return res.status(404).json({ success: false, message: "Transformer not found" });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Secondary Metering Test Saved",
+      data: testRecord
+    });
+
+  } catch (error) {
+    console.error("Error saving secondary metering test:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 //primary protection test handle
 app.listen(PORT, () => {

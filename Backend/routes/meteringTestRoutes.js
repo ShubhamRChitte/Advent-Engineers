@@ -26,44 +26,6 @@ router.get('/metering-tests/:orderId', async (req, res) => {
 });
 
 
-
-// router.post('/metering-tests', async (req, res) => {
-//   try {
-//     const { orderId, testedBy, readings } = req.body;
-
-//     if (!mongoose.Types.ObjectId.isValid(orderId)) {
-//       return res.status(400).json({ message: 'Invalid Parent Order ID' });
-//     }
-
-
-//     // 1. Create and Save the Bulk Test Record
-//     const testRecord = new MeteringCoreTestModel(req.body);
-//     await testRecord.save();
-
-//     // 2. Update the Parent Order Status
-//     // Mark as completed so the Secondary Test department knows data is ready
-//     await OrderModel.findByIdAndUpdate(orderId, {
-//       $set: {
-//         status: "Core Testing Completed",
-//         lastTestedBy: testedBy,
-//         "completionStages.core": true
-//       }
-//     });
-
-//     res.status(201).json({
-//       message: "Metering Bulk Report Saved Successfully",
-//       id: testRecord._id
-//     });
-//   } catch (err) {
-//     console.error("Metering Save Error:", err);
-//     res.status(400).json({ message: "Validation Failed", error: err.message });
-//   }
-// });
-
-
-
-
-
 // Example for Metering (Apply same logic to Protection)
 router.post('/metering-tests', async (req, res) => {
   try {

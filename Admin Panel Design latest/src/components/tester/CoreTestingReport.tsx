@@ -4,12 +4,14 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Label } from '../ui/label';
-import { Download, ArrowLeft, Save } from 'lucide-react';
+import { Download, ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { CheckCircle } from 'lucide-react';
 import { exportCoreTestingReport } from '../../utils/pdfExport';
+import axios from 'axios';
 
 interface Order {
+  _id: string;
   jobId: string;
   client: string;
   transformerType: string;
@@ -17,6 +19,7 @@ interface Order {
   assignedDate: string;
   status: string;
   priority: string;
+  assignedUnitIds?: string[];
 }
 
 interface CoreTestData {
@@ -42,20 +45,34 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
   const [coreSize2, setCoreSize2] = useState('');
   const [coreSize3, setCoreSize3] = useState('');
   const [tataRef, setTataRef] = useState('2407-01');
-  
+
   const [bsatSpec, setBsatSpec] = useState('');
   const [setMvSpec, setSetMvSpec] = useState('');
   const [leLimitSpec, setLeLimitSpec] = useState('');
 
   const [coreTests, setCoreTests] = useState<CoreTestData[]>([]);
+  const [isApproving, setIsApproving] = useState(false);
 
-  // Auto-generate internal core numbers when component mounts
+  // Auto-generate rows based on Assignments
   useEffect(() => {
     const today = new Date().toLocaleDateString('en-GB');
-    const initialTests: CoreTestData[] = Array.from({ length: order.coresRequired }, (_, i) => ({
+
+    // Determine the units to test:
+    // If assignedUnitIds is present, use those.
+    // Otherwise, fallback to coresRequired (Legacy behavior, or if explicit assignments missing)
+    let unitsToTest: string[] = [];
+
+    if (order.assignedUnitIds && order.assignedUnitIds.length > 0) {
+      unitsToTest = order.assignedUnitIds;
+    } else {
+      // Fallback or Full Order view
+      unitsToTest = Array.from({ length: order.coresRequired }, (_, i) => `M-${2082 + i}`);
+    }
+
+    const initialTests: CoreTestData[] = unitsToTest.map(unitId => ({
       date: today,
       vendorCoreNo: '',
-      internalCoreNo: `M-${2082 + i}`,
+      internalCoreNo: unitId, // Use the real Unit ID / Transformer ID
       bsat1: '',
       bsat2: '',
       bsat3: '',
@@ -63,12 +80,12 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
       remark: '',
     }));
     setCoreTests(initialTests);
-  }, [order.coresRequired]);
+  }, [order.coresRequired, order.assignedUnitIds]);
 
   // Recalculate all Pass/Fail when BSAT spec changes
   useEffect(() => {
     if (!bsatSpec || coreTests.length === 0) return;
-    
+
     const updatedTests = coreTests.map(test => {
       const bsatValues = [
         parseFloat(test.bsat1),
@@ -76,7 +93,7 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
         parseFloat(test.bsat3),
         parseFloat(test.bsat4),
       ].filter(v => !isNaN(v));
-      
+
       if (bsatValues.length === 4) {
         const specValue = parseFloat(bsatSpec);
         const allPass = bsatValues.every(v => v <= specValue);
@@ -84,14 +101,14 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
       }
       return test;
     });
-    
+
     setCoreTests(updatedTests);
   }, [bsatSpec]);
 
   const updateCoreTest = (index: number, field: keyof CoreTestData, value: string) => {
     const updatedTests = [...coreTests];
     updatedTests[index] = { ...updatedTests[index], [field]: value };
-    
+
     // Auto-calculate remark based on BSAT values when entering measurements
     if (field.startsWith('bsat') && bsatSpec) {
       const test = updatedTests[index];
@@ -101,14 +118,14 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
         parseFloat(test.bsat3),
         parseFloat(test.bsat4),
       ].filter(v => !isNaN(v));
-      
+
       if (bsatValues.length === 4) {
         const specValue = parseFloat(bsatSpec);
         const allPass = bsatValues.every(v => v <= specValue);
         updatedTests[index].remark = allPass ? 'P' : 'F';
       }
     }
-    
+
     setCoreTests(updatedTests);
   };
 
@@ -132,9 +149,39 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
       leLimitSpec,
       coreTests,
     };
-    
+
     exportCoreTestingReport(reportData);
     toast.success('Core testing report downloaded successfully');
+  };
+
+  const handleApprove = async () => {
+    if (!order._id) {
+      toast.error("Order ID needed for approval.");
+      return;
+    }
+
+    try {
+      setIsApproving(true);
+      // Call the Granular Batch Approval Endpoint
+      const response = await axios.put(
+        `http://localhost:3002/api/core-tests/approve/${order._id}`,
+        {},
+        { withCredentials: true }
+      );
+
+      if (response.data.success) {
+        toast.success(response.data.message || 'Batch approved & forwarded successfully!');
+        // Optional: Redirect back or refresh
+        setTimeout(() => {
+          onBack(); // Go back to list as this order/batch is done
+        }, 1000);
+      }
+    } catch (error: any) {
+      console.error("Approval Error:", error);
+      toast.error(error.response?.data?.message || "Failed to approve batch.");
+    } finally {
+      setIsApproving(false);
+    }
   };
 
   return (
@@ -351,19 +398,18 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
                     />
                   </td>
                   <td className="border border-gray-300 p-2 text-center">
-                    <span className={`px-2 py-1 rounded text-sm ${
-                      test.remark === 'P' 
-                        ? 'bg-green-100 text-green-700' 
-                        : test.remark === 'F'
+                    <span className={`px-2 py-1 rounded text-sm ${test.remark === 'P'
+                      ? 'bg-green-100 text-green-700'
+                      : test.remark === 'F'
                         ? 'bg-red-100 text-red-700'
                         : ''
-                    }`}>
+                      }`}>
                       {test.remark}
                     </span>
                   </td>
                 </tr>
               ))}
-              
+
               {/* Add extra empty rows */}
               {Array.from({ length: Math.max(0, 8 - coreTests.length) }, (_, i) => (
                 <tr key={`empty-${i}`} className="border-b border-gray-200">
@@ -399,14 +445,13 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
             </p>
           </div>
           <Button
-            onClick={() => {
-              toast.success('Core testing approved! Notification sent to Secondary Testing team.');
-            }}
+            onClick={handleApprove}
+            disabled={isApproving}
             className="bg-green-600 hover:bg-green-700 gap-2"
             size="lg"
           >
-            <CheckCircle className="w-5 h-5" />
-            Approve & Forward
+            {isApproving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
+            {isApproving ? 'Approving...' : 'Approve & Forward'}
           </Button>
         </div>
       </Card>

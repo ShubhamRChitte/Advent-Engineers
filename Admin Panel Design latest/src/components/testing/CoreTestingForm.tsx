@@ -28,6 +28,8 @@ interface CoreTestingFormProps {
   order: CoreTestingOrder;
   coreType: 'Metering' | 'PS' | 'Protection';
   onBack: () => void;
+  isReadOnly?: boolean;
+  user?: any; // Receives user profile
 }
 
 interface CoreTestRow {
@@ -69,7 +71,7 @@ export interface FailedCore {
   dynamicValues?: { [key: string]: string };
 }
 
-export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProps) {
+export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, user }: CoreTestingFormProps) {
 
 
   // 1. REFINE ID GENERATION
@@ -158,43 +160,70 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
             remark: r.result || ''
           }));
 
-          // Merge with empty rows if saved rows < required total
-          const totalNeeded = calculateTotalRowsNeeded();
-          if (savedRows.length < totalNeeded) {
-            const merged = [...savedRows];
-            for (let i = savedRows.length; i < totalNeeded; i++) {
-              merged.push({
-                date: getSystemDate(),
-                coreVendorNo: '',
-                internalCoreNo: generateCoreId(i + 1),
-                dynamicValues: {},
-                singleValue: '',
-                remark: '',
-                value1000: '', value3000: '', value5000: '', value7000: ''
-              });
-            }
-            setRows(merged);
-          } else {
-            setRows(savedRows);
-          }
+          // Merge logic considering Granular Visibility
+          // 1. Get the skeleton of what we SHOULD display based on assignment
+          const initializedSkeleton = initializeRows();
+          const validInternalNos = new Set(initializedSkeleton.map(r => r.internalCoreNo));
+
+          // 2. Map saved rows, but only keep if they match our assignment
+          const filteredSavedRows = response.data.readings
+            .map((r: any) => ({
+              date: r.date ? new Date(r.date).toLocaleDateString('en-GB') : getSystemDate(),
+              coreVendorNo: r.vendorCoreNo || '',
+              internalCoreNo: r.internalCoreNo || '',
+              dynamicValues: isMeteringCheck
+                ? Object.fromEntries(bsatColumns.map((col, i) => [col.id, String(r.measuredMa?.[i] || '')]))
+                : ((r.value !== undefined && protectionBColumns.length > 0) ? { [protectionBColumns[0].id]: String(r.value) } : {}),
+              singleValue: r.value !== undefined ? String(r.value) : '',
+              remark: r.result || ''
+            }))
+            .filter((r: { internalCoreNo: string }) => validInternalNos.has(r.internalCoreNo));
+
+          // 3. Merge: Use saved row if exists, else use skeleton default
+          const mergedRows = initializedSkeleton.map(skel => {
+            const saved = filteredSavedRows.find((s: { internalCoreNo: string }) => s.internalCoreNo === skel.internalCoreNo);
+            return saved ? { ...saved } : skel;
+          });
+
+          setRows(mergedRows);
         } else {
-          setRows(initializeRows());
+          if (!isReadOnly) setRows(initializeRows());
+          else setRows([]); // No data to show in read-only
         }
       } catch (err) {
         console.warn("No existing data found, starting fresh.", err);
-        setRows(initializeRows());
+        if (!isReadOnly) setRows(initializeRows());
       } finally {
         setIsLoading(false);
       }
     };
 
     loadExistingData();
-  }, [order, coreType]);
+  }, [order, coreType, isReadOnly]);
 
 
-  // 2. SMART ROW INITIALIZATION
+  // 2. SMART ROW INITIALIZATION & GRANULAR FILTERING
+  const getAssignedTransformerIndices = (): number[] | null => {
+    // If ReadOnly (View Mode), show ALL rows
+    if (isReadOnly) return null;
+
+    // Check both potential locations for assignedUnitIds
+    const params = (order as any).assignedUnitIds || (order as any).order?.assignedUnitIds;
+
+    if (!params || params.length === 0) return null; // Show All if no granular data
+
+    return params.map((id: string) => {
+      // Expecting format like "TR-2025-001/01" -> 1 
+      // OR just check if it ends with /number
+      const match = id.match(/\/(\d+)$/);
+      return match ? parseInt(match[1]) : null;
+    }).filter((n: any): n is number => n !== null);
+  };
+
   const calculateTotalRowsNeeded = () => {
-    const validQuantity = order.quantity || order.transformerQuantity || 0;
+    const assignedIndices = getAssignedTransformerIndices();
+    // If granular assignment exists, use that count. Else use total quantity.
+    const validQuantity = assignedIndices ? assignedIndices.length : (order.quantity || order.transformerQuantity || 0);
 
     // Count occurrences of this specific core type in the configuration
     const coresPerTransformer = (order.coreDetails || []).filter(
@@ -205,11 +234,35 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
   };
 
   const initializeRows = (): CoreTestRow[] => {
-    const totalRows = calculateTotalRowsNeeded();
-    return Array.from({ length: totalRows }, (_, i) => ({
+    const assignedIndices = getAssignedTransformerIndices();
+    const coresPerTransformer = (order.coreDetails || []).filter(
+      (core: any) => (core.coreType || core.type) === coreType
+    ).length || 1;
+    const totalPossibleRows = calculateTotalRowsNeeded();
+
+    // Strategy: If assignedIndices exists, we populate ONLY those chunks.
+    // Each transformer 'k' (1-based) corresponds to Cores: 
+    // StartID = (k-1)*coresPerTransformer + 1
+    // EndID = k*coresPerTransformer
+
+    let rowsToCreate: { seqNum: number }[] = [];
+
+    if (assignedIndices) {
+      assignedIndices.sort((a, b) => a - b).forEach(k => {
+        const startSeq = (k - 1) * coresPerTransformer + 1;
+        for (let j = 0; j < coresPerTransformer; j++) {
+          rowsToCreate.push({ seqNum: startSeq + j });
+        }
+      });
+    } else {
+      // Create ALL
+      rowsToCreate = Array.from({ length: totalPossibleRows }, (_, i) => ({ seqNum: i + 1 }));
+    }
+
+    return rowsToCreate.map(item => ({
       date: getSystemDate(),
       coreVendorNo: '',
-      internalCoreNo: generateCoreId(i + 1),
+      internalCoreNo: generateCoreId(item.seqNum),
       value1000: '', value3000: '', value5000: '', value7000: '',
       singleValue: '',
       dynamicValues: {},
@@ -224,8 +277,8 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
   const [showPrintLabels, setShowPrintLabels] = useState(false);
   const [currentDate] = useState(new Date().toISOString().split('T')[0]);
   const [testDate, setTestDate] = useState(new Date().toLocaleDateString('en-GB'));
-  const [testBy, setTestBy] = useState('');
-  const [authorizedSignatory, setAuthorizedSignatory] = useState('');
+  const [testBy, setTestBy] = useState(user?.fullName || user?.name || '');
+  const [authorizedSignatory, setAuthorizedSignatory] = useState(user?.fullName || user?.name || '');
 
   // Metering configuration state
   const [meteringConfigured, setMeteringConfigured] = useState(false);
@@ -302,6 +355,7 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
   const psLimit = parseFloat(specs.iexLimit || '1150');
 
   const handleSpecChange = (field: string, value: string) => {
+    if (isReadOnly) return;
     setSpecs({ ...specs, [field]: value });
   };
 
@@ -401,6 +455,7 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
   };
 
   const handleRowChange = (index: number, field: keyof CoreTestRow, value: string | any) => {
+    if (isReadOnly) return;
     const updatedRows = [...rows];
     updatedRows[index] = { ...updatedRows[index], [field]: value };
 
@@ -416,6 +471,7 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
 
 
   const handleReplaceCore = (index: number) => {
+    if (isReadOnly) return;
     const failedRow = rows[index];
     const systemDate = getSystemDate();
 
@@ -455,6 +511,7 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
 
 
   const addRow = () => {
+    if (isReadOnly) return;
     const nextSeq = getNextSequenceNumber(rows);
     setRows([...rows, {
       date: getSystemDate(),
@@ -476,6 +533,7 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
 
 
   const handleSave = async () => {
+    if (isReadOnly) return;
     try {
       const isMetering = coreType === 'Metering';
       const isPS = coreType === 'PS';
@@ -640,6 +698,7 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
 
   // Handle Order Approval
   const handleApprove = async () => {
+    if (isReadOnly) return;
     // Check if all rows have a remark (test completed)
     if (getFilledRowsCount() !== rows.length) {
       alert('Please complete all test rows before approving.');
@@ -694,7 +753,7 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
   // Protection Core Template
   if (isProtectionCore) {
     // Protection Configuration Screen
-    if (!protectionConfigured) {
+    if (!protectionConfigured && !isReadOnly) { // Skip config screen if Read Only (Assume configured)
       const addBColumn = () => {
         const newId = String(protectionBColumns.length + 1);
         setProtectionBColumns([...protectionBColumns, { id: newId, bsatValue: '', setMvValue: '', leLimitValue: '' }]);
@@ -916,6 +975,17 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
     // Protection Testing Form (after configuration)
     return (
       <div className="space-y-4">
+        {isReadOnly && (
+          <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4" role="alert">
+            <div className="flex items-center">
+              <div className="py-1"><AlertTriangle className="h-6 w-6 text-amber-500 mr-4" /></div>
+              <div>
+                <p className="font-bold">Read-Only View</p>
+                <p className="text-sm">You are viewing a historical record. Modifications are disabled.</p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -1514,6 +1584,17 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
     // PS Testing Form (after configuration)
     return (
       <div className="space-y-4">
+        {isReadOnly && (
+          <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4" role="alert">
+            <div className="flex items-center">
+              <div className="py-1"><AlertTriangle className="h-6 w-6 text-amber-500 mr-4" /></div>
+              <div>
+                <p className="font-bold">Read-Only View</p>
+                <p className="text-sm">You are viewing a historical record. Modifications are disabled.</p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -2107,6 +2188,17 @@ export function CoreTestingForm({ order, coreType, onBack }: CoreTestingFormProp
   // Metering/PS Core Template (Original)
   return (
     <div className="space-y-4">
+      {isReadOnly && (
+        <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4" role="alert">
+          <div className="flex items-center">
+            <div className="py-1"><AlertTriangle className="h-6 w-6 text-amber-500 mr-4" /></div>
+            <div>
+              <p className="font-bold">Read-Only View</p>
+              <p className="text-sm">You are viewing a historical record. Modifications are disabled.</p>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

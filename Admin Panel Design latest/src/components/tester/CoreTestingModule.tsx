@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CoreOrdersList } from './CoreOrdersList';
 import { CoreTestingReport } from './CoreTestingReport';
+import { User } from '../../App';
 
 interface Order {
   jobId: string;
@@ -10,9 +11,14 @@ interface Order {
   assignedDate: string;
   status: string;
   priority: string;
+  userStats?: any;
 }
 
-export function CoreTestingModule() {
+interface CoreTestingModuleProps {
+  user?: User;
+}
+
+export function CoreTestingModule({ user }: CoreTestingModuleProps) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const handleStartTesting = (order: Order) => {
@@ -27,5 +33,5 @@ export function CoreTestingModule() {
     return <CoreTestingReport order={selectedOrder} onBack={handleBack} />;
   }
 
-  return <CoreOrdersList onStartTesting={handleStartTesting} />;
+  return <CoreOrdersList onStartTesting={handleStartTesting} user={user} />;
 }

@@ -1,108 +1,130 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { Eye, PlayCircle } from 'lucide-react';
+import { Eye, PlayCircle, ChevronDown, ChevronUp, CheckCircle, XCircle } from 'lucide-react';
+import axios from 'axios';
+import { User } from '../../App';
+
+interface UserReading {
+  coreId: string;
+  date: string;
+  result: 'P' | 'F';
+  type: string;
+  readingValue?: string;
+}
 
 interface Order {
+  _id: string;
   jobId: string;
-  client: string;
+  clientName: string;
   transformerType: string;
-  coresRequired: number;
-  assignedDate: string;
-  status: 'assigned' | 'in-testing' | 'completed';
-  priority: 'low' | 'medium' | 'high';
+  quantity: number;
+  transformerQuantity?: number; // fallback
+  assignedDate?: string;
+  createdAt: string;
+  status: string;
+  priority: string;
+  deadline: string;
+  currentStage: string;
+  assignments: {
+    core_tester: string;
+  };
+  userStats?: {
+    testsCompleted: number;
+    passed: number;
+    failed: number;
+    userReadings: UserReading[];
+  };
+  assignedUnitIds?: string[]; // Added for granular filtering
 }
 
 interface CoreOrdersListProps {
-  onStartTesting: (order: Order) => void;
+  onStartTesting: (order: any) => void;
+  user?: User;
+  type?: 'active' | 'history';
 }
 
-export function CoreOrdersList({ onStartTesting }: CoreOrdersListProps) {
-  const [orders] = useState<Order[]>([
-    {
-      jobId: 'JOB-2025-001',
-      client: 'PowerGrid Corporation',
-      transformerType: 'M4CRGO Toroidal',
-      coresRequired: 10,
-      assignedDate: '2025-11-15',
-      status: 'assigned',
-      priority: 'high',
-    },
-    {
-      jobId: 'JOB-2025-002',
-      client: 'City Electric Ltd',
-      transformerType: 'M4CRGO Toroidal',
-      coresRequired: 5,
-      assignedDate: '2025-11-16',
-      status: 'assigned',
-      priority: 'medium',
-    },
-    {
-      jobId: 'JOB-2025-003',
-      client: 'National Grid',
-      transformerType: 'M4CRGO Toroidal',
-      coresRequired: 8,
-      assignedDate: '2025-11-14',
-      status: 'in-testing',
-      priority: 'high',
-    },
-    {
-      jobId: 'JOB-2025-004',
-      client: 'Metro Power',
-      transformerType: 'M4CRGO Toroidal',
-      coresRequired: 6,
-      assignedDate: '2025-11-13',
-      status: 'completed',
-      priority: 'low',
-    },
-  ]);
+export function CoreOrdersList({ onStartTesting, user, type = 'active' }: CoreOrdersListProps) {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [type]);
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('http://localhost:3002/api/assigneed_orders', {
+        params: { type },
+        withCredentials: true
+      });
+      setOrders(response.data);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleExpand = (orderId: string) => {
+    setExpandedOrderId(expandedOrderId === orderId ? null : orderId);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'assigned': return 'bg-blue-100 text-blue-700';
-      case 'in-testing': return 'bg-yellow-100 text-yellow-700';
-      case 'completed': return 'bg-green-100 text-green-700';
+      case 'In Progress': return 'bg-blue-100 text-blue-700';
+      case 'Core Testing In Progress': return 'bg-blue-100 text-blue-700';
+      case 'Completed': return 'bg-green-100 text-green-700';
+      case 'Core Testing Completed': return 'bg-green-100 text-green-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'low': return 'bg-gray-100 text-gray-700';
-      case 'medium': return 'bg-orange-100 text-orange-700';
-      case 'high': return 'bg-red-100 text-red-700';
+      case 'High': return 'bg-red-100 text-red-700';
+      case 'Medium': return 'bg-orange-100 text-orange-700';
+      case 'Low': return 'bg-green-100 text-green-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
 
+  // Check if the current user is the ACTIVE assigned tester
+  const isAssignedTester = (order: Order) => {
+    return user && order.assignments?.core_tester === user.name;
+  };
+
+  // Check if order is editable
+  const isEditable = (order: Order) => {
+    if (type === 'history') return false; // History is always read-only
+    const isActive = order.currentStage === 'core' &&
+      order.status !== 'Completed' &&
+      order.status !== 'Core Testing Completed';
+    return isAssignedTester(order) && isActive;
+  };
+
+  const handleAction = (order: Order) => {
+    const editable = isEditable(order);
+    // Pass extra flag to indicate read-only mode if not editable
+    onStartTesting({ ...order, isReadOnly: !editable });
+  };
+
+  if (loading) {
+    return <div className="p-8 text-center text-gray-500">Loading orders...</div>;
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h2>Assigned Orders</h2>
-        <p className="text-gray-500 mt-1">View and start testing on assigned core orders</p>
-      </div>
-
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4 bg-blue-50 border-blue-200">
-          <p className="text-sm text-blue-600">Assigned Orders</p>
-          <p className="text-2xl mt-1 text-blue-700">
-            {orders.filter(o => o.status === 'assigned').length}
-          </p>
-        </Card>
-        <Card className="p-4 bg-yellow-50 border-yellow-200">
-          <p className="text-sm text-yellow-600">In Testing</p>
-          <p className="text-2xl mt-1 text-yellow-700">
-            {orders.filter(o => o.status === 'in-testing').length}
-          </p>
-        </Card>
-        <Card className="p-4 bg-green-50 border-green-200">
-          <p className="text-sm text-green-600">Completed</p>
-          <p className="text-2xl mt-1 text-green-700">
-            {orders.filter(o => o.status === 'completed').length}
-          </p>
-        </Card>
+        <h2>{type === 'history' ? 'Order History' : 'Assigned Orders'}</h2>
+        <p className="text-gray-500 mt-1">
+          {type === 'history'
+            ? 'View your completed tests and audit logs'
+            : 'View and start testing on assigned core orders'}
+        </p>
       </div>
 
       {/* Orders Table */}
@@ -111,58 +133,137 @@ export function CoreOrdersList({ onStartTesting }: CoreOrdersListProps) {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="w-8"></th>{/* Expand chevron */}
                 <th className="text-left p-4 text-sm">Job ID</th>
                 <th className="text-left p-4 text-sm">Client</th>
-                <th className="text-left p-4 text-sm">Transformer Type</th>
-                <th className="text-center p-4 text-sm">Cores Required</th>
-                <th className="text-left p-4 text-sm">Assigned Date</th>
+                <th className="text-left p-4 text-sm">Type</th>
+                <th className="text-center p-4 text-sm">Tests Completed</th>{/* Personalized */}
+                <th className="text-center p-4 text-sm">Pass / Fail</th>{/* Personalized */}
                 <th className="text-left p-4 text-sm">Status</th>
-                <th className="text-left p-4 text-sm">Priority</th>
                 <th className="text-center p-4 text-sm">Action</th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => (
-                <tr key={order.jobId} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="p-4 font-medium">{order.jobId}</td>
-                  <td className="p-4">{order.client}</td>
-                  <td className="p-4">{order.transformerType}</td>
-                  <td className="p-4 text-center">{order.coresRequired}</td>
-                  <td className="p-4">{new Date(order.assignedDate).toLocaleDateString()}</td>
-                  <td className="p-4">
-                    <Badge className={getStatusColor(order.status)}>
-                      {order.status.replace('-', ' ')}
-                    </Badge>
-                  </td>
-                  <td className="p-4">
-                    <Badge className={getPriorityColor(order.priority)}>
-                      {order.priority}
-                    </Badge>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex gap-2 justify-center">
-                      {order.status === 'assigned' || order.status === 'in-testing' ? (
-                        <Button
-                          size="sm"
-                          onClick={() => onStartTesting(order)}
-                          className="bg-red-600 hover:bg-red-700"
-                        >
-                          <PlayCircle className="w-4 h-4 mr-2" />
-                          {order.status === 'assigned' ? 'Start Testing' : 'Continue Testing'}
+              {orders.map((order) => {
+                const isExpanded = expandedOrderId === order._id;
+                const stats = order.userStats || { testsCompleted: 0, passed: 0, failed: 0, userReadings: [] };
+
+                return (
+                  <>
+                    <tr key={order._id} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${isExpanded ? 'bg-gray-50' : ''}`}>
+                      <td className="p-4 text-center">
+                        <Button variant="ghost" size="sm" onClick={() => toggleExpand(order._id)} className="h-8 w-8 p-0">
+                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                         </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Report
-                        </Button>
-                      )}
-                    </div>
+                      </td>
+                      <td className="p-4 font-medium">{order.jobId}</td>
+                      <td className="p-4 text-sm">{order.clientName}</td>
+                      <td className="p-4 text-sm">{order.transformerType}</td>
+
+                      {/* Personalized Stats */}
+                      <td className="p-4 text-center">
+                        <div className="font-medium text-gray-900">{stats.testsCompleted}</div>
+                        <div className="text-xs text-gray-500">tests by you</div>
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="text-green-600 font-medium">{stats.passed}</span>
+                          <span className="text-gray-300">/</span>
+                          <span className="text-red-600 font-medium">{stats.failed}</span>
+                        </div>
+                      </td>
+
+                      <td className="p-4">
+                        <Badge className={getStatusColor(order.status)}>
+                          {order.status}
+                        </Badge>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex gap-2 justify-center">
+                          {isEditable(order) ? (
+                            <Button
+                              size="sm"
+                              onClick={() => handleAction(order)}
+                              className="bg-[#003a70] hover:bg-[#002850]"
+                            >
+                              <PlayCircle className="w-4 h-4 mr-2" />
+                              Start
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleAction(order)}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* EXPANDED ROW - AUDIT VIEW */}
+                    {isExpanded && (
+                      <tr className="bg-gray-50">
+                        <td colSpan={8} className="p-4 pl-12">
+                          <div className="bg-white rounded border border-gray-200 overflow-hidden">
+                            <div className="px-4 py-2 bg-gray-100 border-b border-gray-200 text-xs font-semibold text-gray-600">
+                              My Test History (Ordered by Date)
+                            </div>
+                            {stats.userReadings.length > 0 ? (
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-gray-100">
+                                    <th className="p-2 text-left w-32">Date</th>
+                                    <th className="p-2 text-left">Core ID</th>
+                                    <th className="p-2 text-left">Type</th>
+                                    <th className="p-2 text-left">Readings</th>
+                                    <th className="p-2 text-left">Result</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {stats.userReadings.map((reading, idx) => (
+                                    <tr key={idx} className="border-b border-gray-100 last:border-0">
+                                      <td className="p-2 text-gray-600">{new Date(reading.date).toLocaleDateString('en-GB')}</td>
+                                      <td className="p-2 font-mono text-gray-700">{reading.coreId}</td>
+                                      <td className="p-2 text-gray-600">{reading.type}</td>
+                                      <td className="p-2 text-gray-600 font-mono text-xs">{reading.readingValue || '-'}</td>
+                                      <td className="p-2">
+                                        {reading.result === 'P' ? (
+                                          <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-[10px] px-1.5 flex w-fit gap-1 items-center">
+                                            <CheckCircle className="w-3 h-3" /> Pass
+                                          </Badge>
+                                        ) : (
+                                          <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-[10px] px-1.5 flex w-fit gap-1 items-center">
+                                            <XCircle className="w-3 h-3" /> Fail
+                                          </Badge>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            ) : (
+                              <div className="p-4 text-center text-gray-500 text-sm">
+                                No test history found for you on this order.
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
+
+              {orders.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-gray-500">
+                    No assigned orders found.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

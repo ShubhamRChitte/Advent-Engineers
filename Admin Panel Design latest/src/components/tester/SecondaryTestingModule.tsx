@@ -7,10 +7,13 @@ import { SecondaryPSReport } from './SecondaryPSReport';
 import { SecondaryProtectionReport } from './SecondaryProtectionReport';
 
 interface Order {
+  _id: string;
   jobId: string;
-  client: string;
-  transformerCount: number;
+  clientName: string;
+  quantity: number;
+  transformerQuantity?: number;
   assignedDate: string;
+  deadline: string;
   status: string;
   priority: string;
 }

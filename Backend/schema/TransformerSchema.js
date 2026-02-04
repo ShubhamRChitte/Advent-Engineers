@@ -169,7 +169,7 @@ const TestStageSchema = new Schema({
   tester: String,
   timestamp: { type: Date, default: Date.now },
   status: { type: String, enum: ['Pending', 'Completed'], default: 'Pending' },
-  
+
   // These arrays will hold the results based on the Order's core configuration
   metering_results: [MeteringBlockSchema],
   protection_results: [ProtectionBlockSchema],
@@ -180,17 +180,17 @@ const TestStageSchema = new Schema({
 
 const TransformerSchema = new Schema({
   // Global Serial Number (Generated automatically after Admin Approval)
-  uniqueId: { type: String, required: true, unique: true }, 
-  
+  uniqueId: { type: String, required: true, unique: true },
+
   // Connection to Parent Order
   orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true },
   jobId: { type: String, required: true }, // Redundant for faster searching
 
   // Workflow tracking
-  currentStage: { 
-    type: String, 
-    enum: ["core", "secondary", "primary", "final", "shipped"], 
-    default: "core" 
+  currentStage: {
+    type: String,
+    enum: ["core", "secondary", "primary", "final", "shipped"],
+    default: "core"
   },
 
   // The 4 Testing Stages
@@ -199,6 +199,14 @@ const TransformerSchema = new Schema({
     secondary_test: { type: TestStageSchema, default: () => ({}) },
     primary_test: { type: TestStageSchema, default: () => ({}) },
     final_test: { type: TestStageSchema, default: () => ({}) }
+  },
+
+  // Granular Assignments (Per-Unit)
+  assignments: {
+    core_tester: String,
+    secondary_tester: String,
+    primary_tester: String,
+    final_tester: String
   }
 }, { timestamps: true });
 

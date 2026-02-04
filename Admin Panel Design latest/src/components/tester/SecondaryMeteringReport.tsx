@@ -299,6 +299,7 @@ import { toast } from 'sonner';
 
 interface SecondaryMeteringReportProps {
   transformer: Transformer;
+  coreNumber: number;
   coreId: string;
   testerName: string;
   onBack: () => void;
@@ -306,6 +307,7 @@ interface SecondaryMeteringReportProps {
 
 export function SecondaryMeteringReport({
   transformer,
+  coreNumber,
   coreId,
   testerName,
   onBack,

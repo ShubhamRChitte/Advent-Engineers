@@ -39,14 +39,17 @@ export interface CoreTestingOrder {
   priority: 'High' | 'Medium' | 'Low';
   status: 'Pending' | 'In Progress' | 'Completed' | 'Core Testing In Progress' | 'Pending Approval';
   instructions?: string;
+  assignedUnitIds?: string[]; // Granular visibility: specific Transformer IDs assigned to user
   [key: string]: any; // Allow loose typing to prevent crashes on extra fields
 }
 
 interface CoreTestingOrdersProps {
   onStartTesting: (order: CoreTestingOrder) => void;
+  user?: any;
+  type?: 'active' | 'history';
 }
 
-export function CoreTestingOrders({ onStartTesting }: CoreTestingOrdersProps) {
+export function CoreTestingOrders({ onStartTesting, user, type = 'active' }: CoreTestingOrdersProps) {
 
 
 
@@ -57,7 +60,10 @@ export function CoreTestingOrders({ onStartTesting }: CoreTestingOrdersProps) {
 
   useEffect(() => {
     axios
-      .get("http://localhost:3002/api/assigneed_orders", { withCredentials: true })
+      .get("http://localhost:3002/api/assigneed_orders", {
+        params: { type },
+        withCredentials: true
+      })
       .then((res) => {
         setOrders(res.data);
       })
@@ -168,8 +174,12 @@ export function CoreTestingOrders({ onStartTesting }: CoreTestingOrdersProps) {
                   <p className="text-gray-900 mt-0.5">{order.transformerName}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Quantity</p>
-                  <p className="text-gray-900 mt-0.5">{order.quantity} units</p>
+                  <p className="text-xs text-gray-500">
+                    {order.assignedUnitIds?.length ? 'Assigned Qty' : 'Quantity'}
+                  </p>
+                  <p className="text-gray-900 mt-0.5">
+                    {order.assignedUnitIds?.length || order.quantity} units
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Cores</p>
