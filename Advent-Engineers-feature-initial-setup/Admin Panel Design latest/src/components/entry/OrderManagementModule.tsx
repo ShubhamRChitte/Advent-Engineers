@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import axios from 'axios';
 import { TransformerListView } from './TransformerListView';
 import { EnhancedOrderForm } from './EnhancedOrderForm';
 import { AssignTestingWorkflow } from './AssignTestingWorkflow';
@@ -49,14 +50,59 @@ export function OrderManagementModule() {
     setCurrentView('order-summary');
   };
 
-  const handleSaveOrder = () => {
-    // In a real app, this would save to database
-    alert('Order saved successfully!\n\nOrder ID: ' + orderData.orderId);
-    // Reset and show orders list
-    setCurrentView('orders-list');
-    setSelectedTransformer(null);
-    setOrderData(null);
-    setTestAssignments([]);
+  const handleSaveOrder = async () => {
+    try {
+      // Map frontend fields to backend schema:
+      // transformerName -> transformer.name
+      // transformerType -> transformer.type
+
+      const payload = {
+        ...orderData,
+        transformerName: orderData.transformer.name,
+        transformerType: orderData.transformer.type,
+        quantity: parseInt(orderData.transformer.quantity),
+        // ensure assignments and status are set default by backend or added here if needed
+        assignments: testAssignments.flatMap((t) => {
+          const stageMap: { [key: string]: string } = {
+            'Core Test': 'core',
+            'Secondary Test': 'secondary',
+            'Primary Test': 'primary',
+            'Final Test': 'final'
+          };
+          const stage = stageMap[t.testType];
+          if (!stage) return [];
+
+          let startUnit = 1;
+          return t.workers.map(w => {
+            const range = {
+              from: startUnit,
+              to: startUnit + w.transformerCount - 1
+            };
+            startUnit += w.transformerCount;
+
+            return {
+              testerName: w.worker.name,
+              stage: stage,
+              unitRange: range,
+              status: 'Assigned' // Default status
+            };
+          });
+        })
+      };
+
+      const res = await axios.post("http://localhost:3002/api/create_order", payload, { withCredentials: true });
+
+      if (res.data.success) {
+        alert('Order saved successfully!\n\nOrder ID: ' + res.data.jobId);
+        setCurrentView('orders-list');
+        setSelectedTransformer(null);
+        setOrderData(null);
+        setTestAssignments([]);
+      }
+    } catch (err: any) {
+      console.error("Error creating order:", err);
+      alert("Failed to create order: " + (err.response?.data?.error || err.message));
+    }
   };
 
   const handleBackToList = () => {

@@ -34,7 +34,7 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack }: EnhancedOrd
   const [quantity, setQuantity] = useState('1');
   const [isStandard, setIsStandard] = useState('');
   const [numberOfCores, setNumberOfCores] = useState(transformer.cores.toString());
-  
+
   // Core configurations
   const [coreTypes, setCoreTypes] = useState<string[]>(
     Array(transformer.cores).fill('metering')
@@ -81,24 +81,24 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack }: EnhancedOrd
     const orderData = {
       orderId: `ORD-${Date.now()}`,
       orderDate: new Date().toLocaleDateString(),
+      deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       clientName,
-      clientContact,
+      clientContactNo: clientContact,
       transformer: {
         ...transformer,
         quantity: parseInt(quantity),
       },
       isStandard,
-      numberOfCores: parseInt(numberOfCores),
+      noOfCores: parseInt(numberOfCores),
       coreTypes,
-      parameters: {
-        nominalVoltage,
-        burden,
-        ratedPrimaryCurrent,
-        ratedSecondaryCurrent,
-        accuracyClass,
-        mountingDetails,
-        overallDimensions,
-      },
+      // Flattened parameters to match OrderSchema
+      nominalSystemVoltage: nominalVoltage,
+      burden,
+      ratedPrimaryCurrent,
+      ratedSecondaryCurrent,
+      accuracyClass,
+      mountingDetails,
+      overallDimension: overallDimensions,
       additionalParams,
     };
     onSubmit(orderData);

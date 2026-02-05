@@ -1,9 +1,9 @@
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { 
-  CheckCircle2, 
-  User, 
+import {
+  CheckCircle2,
+  User,
   Package,
   Calendar,
   ClipboardCheck,
@@ -101,7 +101,7 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
               </div>
               <div>
                 <p className="text-sm text-gray-500 mb-1">Client Contact</p>
-                <p className="font-medium">{orderData.clientContact}</p>
+                <p className="font-medium">{orderData.clientContactNo}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500 mb-1">IS Standard</p>
@@ -126,7 +126,7 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
                 <p className="font-medium text-lg">{orderData.transformer.name}</p>
                 <p className="text-sm text-gray-600 mt-1">{orderData.transformer.type}</p>
               </div>
-              
+
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <div>
                   <p className="text-sm text-gray-500">Capacity</p>
@@ -146,7 +146,7 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Number of Cores</p>
-                  <p className="font-medium">{orderData.numberOfCores}</p>
+                  <p className="font-medium">{orderData.noOfCores}</p>
                 </div>
               </div>
 
@@ -170,46 +170,46 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
           <Card className="p-6">
             <h3 className="mb-4 pb-3 border-b-2 border-gray-200">Transformer Parameters</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {orderData.parameters.nominalVoltage && (
+              {orderData.nominalSystemVoltage && (
                 <div>
                   <p className="text-sm text-gray-500">Nominal System Voltage</p>
-                  <p className="font-medium">{orderData.parameters.nominalVoltage}</p>
+                  <p className="font-medium">{orderData.nominalSystemVoltage}</p>
                 </div>
               )}
-              {orderData.parameters.burden && (
+              {orderData.burden && (
                 <div>
                   <p className="text-sm text-gray-500">Burden</p>
-                  <p className="font-medium">{orderData.parameters.burden}</p>
+                  <p className="font-medium">{orderData.burden}</p>
                 </div>
               )}
-              {orderData.parameters.ratedPrimaryCurrent && (
+              {orderData.ratedPrimaryCurrent && (
                 <div>
                   <p className="text-sm text-gray-500">Rated Primary Current</p>
-                  <p className="font-medium">{orderData.parameters.ratedPrimaryCurrent}</p>
+                  <p className="font-medium">{orderData.ratedPrimaryCurrent}</p>
                 </div>
               )}
-              {orderData.parameters.ratedSecondaryCurrent && (
+              {orderData.ratedSecondaryCurrent && (
                 <div>
                   <p className="text-sm text-gray-500">Rated Secondary Current</p>
-                  <p className="font-medium">{orderData.parameters.ratedSecondaryCurrent}</p>
+                  <p className="font-medium">{orderData.ratedSecondaryCurrent}</p>
                 </div>
               )}
-              {orderData.parameters.accuracyClass && (
+              {orderData.accuracyClass && (
                 <div>
                   <p className="text-sm text-gray-500">Accuracy Class</p>
-                  <p className="font-medium">{orderData.parameters.accuracyClass}</p>
+                  <p className="font-medium">{orderData.accuracyClass}</p>
                 </div>
               )}
-              {orderData.parameters.mountingDetails && (
+              {orderData.mountingDetails && (
                 <div>
                   <p className="text-sm text-gray-500">Mounting Details</p>
-                  <p className="font-medium">{orderData.parameters.mountingDetails}</p>
+                  <p className="font-medium">{orderData.mountingDetails}</p>
                 </div>
               )}
-              {orderData.parameters.overallDimensions && (
+              {orderData.overallDimension && (
                 <div className="md:col-span-2">
                   <p className="text-sm text-gray-500">Overall Dimensions</p>
-                  <p className="font-medium">{orderData.parameters.overallDimensions}</p>
+                  <p className="font-medium">{orderData.overallDimension}</p>
                 </div>
               )}
             </div>
