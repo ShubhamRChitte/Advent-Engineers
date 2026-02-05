@@ -93,7 +93,7 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
               if (assignedParams && assignedParams.length > 0) {
                 // Start granular check
                 const assignedIndices = assignedParams.map((id: string) => {
-                  const match = id.match(/\/(\d+)$/);
+                  const match = id.match(/[/\-](\d+)$/);
                   return match ? parseInt(match[1]) : null;
                 }).filter((n: any) => n !== null);
 

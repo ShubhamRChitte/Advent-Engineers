@@ -212,12 +212,15 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
 
     if (!params || params.length === 0) return null; // Show All if no granular data
 
-    return params.map((id: string) => {
+    const indices = params.map((id: string) => {
       // Expecting format like "TR-2025-001/01" -> 1 
-      // OR just check if it ends with /number
-      const match = id.match(/\/(\d+)$/);
+      // OR "TR-2025-001-01" -> 1
+      const match = id.match(/[/\-](\d+)$/);
       return match ? parseInt(match[1]) : null;
     }).filter((n: any): n is number => n !== null);
+
+    // Any valid indices? If not, return NULL to trigger fallback to Quantity-based rows.
+    return indices.length > 0 ? indices : null;
   };
 
   const calculateTotalRowsNeeded = () => {
@@ -696,7 +699,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
 
   const { passed, failed } = getPassFailCount();
 
-  // Handle Order Approval
+  // Handle Order Approval (BATCH)
   const handleApprove = async () => {
     if (isReadOnly) return;
     // Check if all rows have a remark (test completed)
@@ -705,27 +708,27 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to approve this ${coreType} Core Testing? This will move the order to the Secondary stage.`)) {
+    if (!window.confirm(`Are you sure you want to approve this batch of ${rows.length} cores? This will move them to the Secondary stage.`)) {
       return;
     }
 
     try {
-      const txnOrderId = (order as any).mainOrderId || (order as any).orderId?._id || (order as any)._id;
-      if (!txnOrderId) {
-        alert('Error: Order ID not found. Cannot approve.');
-        return;
-      }
+      // Collect Internal Core IDs to approve
+      const internalCoreNos = rows.map(r => r.internalCoreNo);
 
-      // Use the new approval route
-      const response = await axios.put(`http://localhost:3002/api/core-tests/approve/${txnOrderId}`, {}, { withCredentials: true });
+      // Send Batch Approval
+      const response = await axios.put(`http://localhost:3002/api/core-tests/approve-batch`, {
+        jobId: order.jobId,
+        internalCoreNos
+      }, { withCredentials: true });
 
       if (response.status === 200) {
-        alert('Order approved and moved to Secondary Testing!');
+        alert('Batch approved and moved to Secondary Testing!');
         onBack(); // Return to the dashboard/previous view
       }
     } catch (error: any) {
       console.error('Approval Error:', error);
-      const msg = error.response?.data?.message || 'Failed to approve order.';
+      const msg = error.response?.data?.message || 'Failed to approve batch.';
       alert(msg);
     }
   };

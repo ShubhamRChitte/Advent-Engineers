@@ -25,22 +25,22 @@ const OrderSchema = new Schema(
     deadline: { type: Date, required: true },
 
     // --- WORKER ASSIGNMENTS ---
-// Add this to your OrderSchema
-assignments: [
-  {
-    testerName: { type: String, required: true }, // e.g., "Rahul Sharma"
-    stage: { 
-      type: String, 
-      enum: ["core", "secondary", "primary", "final"], 
-      required: true 
-    },
-    unitRange: {
-      from: { type: Number, required: true }, // e.g., 1
-      to: { type: Number, required: true }    // e.g., 50
-    },
-    status: { type: String, default: "Assigned" } // "Assigned", "In Progress", "Completed"
-  }
-],
+    // Add this to your OrderSchema
+    assignments: [
+      {
+        testerName: { type: String, required: true }, // e.g., "Rahul Sharma"
+        stage: {
+          type: String,
+          enum: ["core", "secondary", "primary", "final"],
+          required: true
+        },
+        unitRange: {
+          from: { type: Number, required: true }, // e.g., 1
+          to: { type: Number, required: true }    // e.g., 50
+        },
+        status: { type: String, default: "Assigned" } // "Assigned", "In Progress", "Completed"
+      }
+    ],
 
     // --- WORKFLOW TRACKING (NEW) ---
     currentStage: {

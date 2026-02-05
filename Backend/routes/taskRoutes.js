@@ -77,18 +77,19 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
     // -------------------------------------------------------------------------
 
     // 1. Identify the Assignment Field
+    // Now querying the TRANSFORMER's assignments object directly
     const assignmentField = `assignments.${stageKey}_tester`;
     const namesToCheck = [user.name, user.fullName, (user.name || '').trim(), (user.fullName || '').trim()].filter(Boolean);
 
     // Use $in to match any variation of the user's name
     // Also Ensure currentStage matches the user's department/role stage
+    // Note: We use the TransformerModel directly now.
     const activeAssignmentQuery = {
       [assignmentField]: { $in: namesToCheck },
       currentStage: stageKey
     };
 
-    // 2. Find Assigned Transformers
-    // We look for transformers assigned to this user in the current stage
+    // 2. Find Assigned Transformers directly
     const { TransformerModel } = require('../models/TransformerModel');
     const assignedTransformers = await TransformerModel.find(activeAssignmentQuery).select('orderId uniqueId');
 

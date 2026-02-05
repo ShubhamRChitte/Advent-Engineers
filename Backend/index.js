@@ -99,7 +99,76 @@ async function getNextSequenceValue(sequenceName) {
 
 
 
-// 2. Method: Create Order (Operator Level)
+// Helper: Generate Transformers with Assignments
+const generateTransformersForOrder = async (order) => {
+
+  try {
+    const { jobId, quantity, ratings, coreDetails, assignments } = order;
+    const transformers = [];
+
+    // 1. Create a map of Unit Number -> Assignments
+    // Logic: Iterate through order.assignments (e.g., "Rahul: Core, 1-3") and build a map.
+    const unitAssignments = {};
+
+    // Initialize map
+    for (let i = 1; i <= quantity; i++) {
+      unitAssignments[i] = {
+        core_tester: "",
+        secondary_tester: "",
+        primary_tester: "",
+        final_tester: ""
+      };
+    }
+
+    if (assignments && assignments.length > 0) {
+      assignments.forEach(assign => {
+        const { stage, testerName, unitRange } = assign; // stage: 'core', 'secondary', etc.
+        const from = parseInt(unitRange.from);
+        const to = parseInt(unitRange.to) || quantity; // Default to max if empty
+
+        for (let u = from; u <= to; u++) {
+          if (unitAssignments[u]) {
+            unitAssignments[u][`${stage}_tester`] = testerName;
+          }
+        }
+      });
+    }
+
+    console.log(`[Generate] Generating ${quantity} transformers for ${jobId} with assignments mapping.`);
+
+    for (let i = 1; i <= quantity; i++) {
+      const uniqueId = `TR-${jobId}-${String(i).padStart(3, '0')}`;
+
+      // Construct Initial History
+      const initialHistory = {
+        secondary_login: { status: 'Pending' },
+        primary_login: { status: 'Pending' },
+        final_test_login: { status: 'Pending' }
+      };
+
+      transformers.push({
+        uniqueId,
+        orderId: order._id, // Link to Parent Order
+        // ratings: ratings,
+        // coreType: coreDetails.map(c => c.coreType),
+        currentStage: 'core', // Always start at 'core'
+        testHistory: initialHistory,
+        // Populate the specific assignments for THIS unit
+        assignments: unitAssignments[i],
+        jobId: jobId,
+      });
+    }
+
+    // Bulk Insert for performance
+    await TransformerModel.insertMany(transformers);
+    console.log(`Successfully generated ${quantity} transformers for ${jobId}`);
+
+  } catch (error) {
+    console.error("Error generating transformers:", error);
+    throw error; // Re-throw to be caught by caller
+  }
+};
+// 2. Method: Create Order (Operator Level OR Admin Level)
 const createOrder = async (req, res) => {
   try {
     // 1. Generate the Job ID
@@ -107,20 +176,29 @@ const createOrder = async (req, res) => {
     const currentYear = new Date().getFullYear();
     const jobId = `JOB-${currentYear}-${jobSeq.toString().padStart(3, '0')}`;
 
-    // 2. Create Order with "Pending Approval" status
+    const isDirectApproval = req.body.bypassApproval === true;
+
+    // 2. Create Order
     const newOrder = new OrderModel({
       ...req.body,
       jobId: jobId,
-      isApproved: false,
-      isRead: false,
-      status: "Pending Approval"
+      isApproved: isDirectApproval,
+      isRead: !isDirectApproval, // If admin created it, it's already "read"
+      status: isDirectApproval ? "In Progress" : "Pending Approval"
     });
 
     const savedOrder = await newOrder.save();
 
+    // 3. Trigger Transformer Generation if approved immediately
+    if (isDirectApproval) {
+      await generateTransformersForOrder(savedOrder);
+    }
+
     res.status(201).json({
       success: true,
-      message: "Order submitted to Admin for approval.",
+      message: isDirectApproval
+        ? `Order created and ${savedOrder.quantity} units generated.`
+        : "Order submitted to Admin for approval.",
       jobId: savedOrder.jobId
     });
   } catch (error) {
@@ -143,28 +221,8 @@ const approveOrder = async (req, res) => {
     order.status = "In Progress";
     await order.save();
 
-    // 2. Generate Transformers with Combined IDs
-    const transformerRecords = [];
-
-    for (let i = 1; i <= order.quantity; i++) {
-      // Build ID: jobId + "/" + index (e.g., JOB-2026-001/01)
-      const unitId = `${order.jobId}/${i.toString().padStart(2, '0')}`;
-
-      transformerRecords.push({
-        orderId: order._id,
-        jobId: order.jobId,
-        uniqueId: unitId, // THE COMBINATION ID
-        currentStage: "core",
-        testHistory: {
-          core_test: { status: "Pending" },
-          secondary_test: { status: "Pending" },
-          primary_test: { status: "Pending" },
-          final_test: { status: "Pending" }
-        }
-      });
-    }
-
-    await TransformerModel.insertMany(transformerRecords);
+    // 2. Generate Transformers using Helper
+    await generateTransformersForOrder(order);
 
     res.status(200).json({
       success: true,
@@ -175,8 +233,13 @@ const approveOrder = async (req, res) => {
   }
 };
 
+// Routes for Orders
+app.post('/api/create-order', createOrder);
+app.put('/api/orders/:orderId/approve', approveOrder);
+app.get('/api/admin/notifications', getAdminNotifications); // Ensure this one is also mounted if used
+
 // 4. Method: Get Pending Notifications (Admin View)
-const getAdminNotifications = async (req, res) => {
+async function getAdminNotifications(req, res) {
   try {
     const pendingOrders = await OrderModel.find({ isApproved: false })
       .select("jobId clientName quantity createdAt")
@@ -609,177 +672,177 @@ app.get('/addOrders', async (req, res) => {
     //   }
     // ];
 
-    let tempOrders=[
-  {
-    
-    jobId: "JOB-2026-031",
-    clientName: "Tata Power",
-    clientContactNo: "9876543210",
-    transformerName: "CT-200A",
-    transformerType: "CT",
-    quantity: 50,
-    ratio: ["200/1", "400/1"],
-    noOfCores: 2,
-    coreDetails: [{ coreType: "Metering" }, { coreType: "Protection" }],
-    deadline: "2026-03-10T00:00:00.000Z",
-    nominalSystemVoltage: 132,
-    burden: 30,
-    accuracyClass: "0.2S/5P20/PX",
-    assignments: [
-      { testerName: "Rahul Sharma", stage: "core", unitRange: { from: 1, to: 25 } },
-      { testerName: "Pranav Godse", stage: "core", unitRange: { from: 26, to: 50 } },
-      { testerName: "Rahul Sharma", stage: "core", unitRange: { from: 1, to: 50 } },
-      { testerName: "Amit Verma", stage: "secondary", unitRange: { from: 1, to: 50 } },
-      { testerName: "Neha Patil", stage: "primary", unitRange: { from: 1, to: 25 } },
-      { testerName: "Sai Ghumare", stage: "primary", unitRange: { from: 26, to: 50 } },
-      { testerName: "Suresh Kulkarni", stage: "final", unitRange: { from: 1, to: 50 } },
-      { testerName: "YD", stage: "final", unitRange: { from: 1, to: 30 } },
-      { testerName: "Suresh Kulkarni", stage: "final", unitRange: { from: 31, to: 50 } }
-    ],
-    currentStage: "core",
-    isApproved: true,
-    ratedPrimaryCurrent: 200,
-    ratedSecondaryCurrent: 1,
-    mountingDetails: "Panel Mounted",
-    overallDimension: "250x180x120 mm",
-    isStandard: "Yes",
-    status: "Pending Approval",
-    completionStages: { "core": false, "secondary": false, "primary": false, "final": false },
-  },
+    let tempOrders = [
+      {
 
-  {
-  status: "Pending Approval",
-    jobId: "JOB-2026-032",
-    clientName: "Mahavitaran",
-    clientContactNo: "9123456780",
-    transformerName: "CT-400A",
-    transformerType: "CT",
-    quantity: 30,
-    ratio: ["400/1"],
-    noOfCores: 1,
-    coreDetails: [{ coreType: "Metering" }],
-    deadline: "2026-03-10T00:00:00.000Z",
-     nominalSystemVoltage: 132,
-    burden: 30,
-    accuracyClass: "0.2S/5P20/PX",
-    assignments: [
-      { testerName: "Rohit Deshmukh", stage: "core", unitRange: { from: 1, to: 10 } },
-      { testerName: "Pranav Godse", stage: "core", unitRange: { from: 11, to: 30 } },
-      { testerName: "Pooja Joshi", stage: "secondary", unitRange: { from: 1, to: 15 } },
-      { testerName: "Tejas Demse", stage: "secondary", unitRange: { from: 16, to: 30 } },
-      { testerName: "Amit Verma", stage: "primary", unitRange: { from: 1, to: 15 } },
-      { testerName: "Sai Ghumare", stage: "primary", unitRange: { from: 16, to: 30 } },
-      { testerName: "Neha Patil", stage: "final", unitRange: { from: 1, to: 20 } },
-      { testerName: "YD", stage: "final", unitRange: { from: 21, to: 30 } },
-    ],
-    currentStage: "secondary",
-    isApproved: true,
-    ratedPrimaryCurrent: 400,
-    ratedSecondaryCurrent: 1,
-    mountingDetails: "Busbar Mounted",
-    overallDimension: "300x200x150 mm",
-    isStandard: "Yes",
-    completionStages: { "core": false, "secondary": false, "primary": false, "final": false },
-  },
+        jobId: "JOB-2026-031",
+        clientName: "Tata Power",
+        clientContactNo: "9876543210",
+        transformerName: "CT-200A",
+        transformerType: "CT",
+        quantity: 50,
+        ratio: ["200/1", "400/1"],
+        noOfCores: 2,
+        coreDetails: [{ coreType: "Metering" }, { coreType: "Protection" }],
+        deadline: "2026-03-10T00:00:00.000Z",
+        nominalSystemVoltage: 132,
+        burden: 30,
+        accuracyClass: "0.2S/5P20/PX",
+        assignments: [
+          { testerName: "Rahul Sharma", stage: "core", unitRange: { from: 1, to: 25 } },
+          { testerName: "Pranav Godse", stage: "core", unitRange: { from: 26, to: 50 } },
+          { testerName: "Rahul Sharma", stage: "core", unitRange: { from: 1, to: 50 } },
+          { testerName: "Amit Verma", stage: "secondary", unitRange: { from: 1, to: 50 } },
+          { testerName: "Neha Patil", stage: "primary", unitRange: { from: 1, to: 25 } },
+          { testerName: "Sai Ghumare", stage: "primary", unitRange: { from: 26, to: 50 } },
+          { testerName: "Suresh Kulkarni", stage: "final", unitRange: { from: 1, to: 50 } },
+          { testerName: "YD", stage: "final", unitRange: { from: 1, to: 30 } },
+          { testerName: "Suresh Kulkarni", stage: "final", unitRange: { from: 31, to: 50 } }
+        ],
+        currentStage: "core",
+        isApproved: true,
+        ratedPrimaryCurrent: 200,
+        ratedSecondaryCurrent: 1,
+        mountingDetails: "Panel Mounted",
+        overallDimension: "250x180x120 mm",
+        isStandard: "Yes",
+        status: "Pending Approval",
+        completionStages: { "core": false, "secondary": false, "primary": false, "final": false },
+      },
 
-  {
-   status: "Pending Approval",
-    jobId: "JOB-2026-033",
-    clientName: "L&T Electricals",
-    clientContactNo: "9988776655",
-    transformerName: "PT-11KV",
-    transformerType: "PT",
-    quantity: 20,
-    ratio: ["11000/110"],
-    noOfCores: 1,
-    coreDetails: [{ coreType: "Protection" }],
-    deadline:"2026-03-10T00:00:00.000Z",
-     nominalSystemVoltage: 132,
-    burden: 30,
-    accuracyClass: "0.2S/5P20/PX",
-    assignments: [
-      { testerName: "Kunal Mehta", stage: "core", unitRange: { from: 1, to: 10 } },
-      { testerName: "Pranav Godse", stage: "core", unitRange: { from: 11, to: 20 } },
-      { testerName: "Rahul Sharma", stage: "secondary", unitRange: { from: 1, to: 10 } },
-      { testerName: "Pooja Joshi", stage: "primary", unitRange: { from: 1, to: 20 } },
-      { testerName: "Tejas Demse", stage: "secondary", unitRange: { from: 11, to: 20 } },
-      { testerName: "Suresh Kulkarni", stage: "final", unitRange: { from: 1, to: 20 } }
-    ],
-    currentStage: "primary",
-    isApproved: true,
-    ratedPrimaryCurrent: 11000,
-    ratedSecondaryCurrent: 110,
-    mountingDetails: "Floor Mounted",
-    overallDimension: "400x300x250 mm",
-    isStandard: "No",
-    completionStages: { "core": false, "secondary": false, "primary": false, "final": false },
-  },
+      {
+        status: "Pending Approval",
+        jobId: "JOB-2026-032",
+        clientName: "Mahavitaran",
+        clientContactNo: "9123456780",
+        transformerName: "CT-400A",
+        transformerType: "CT",
+        quantity: 30,
+        ratio: ["400/1"],
+        noOfCores: 1,
+        coreDetails: [{ coreType: "Metering" }],
+        deadline: "2026-03-10T00:00:00.000Z",
+        nominalSystemVoltage: 132,
+        burden: 30,
+        accuracyClass: "0.2S/5P20/PX",
+        assignments: [
+          { testerName: "Rohit Deshmukh", stage: "core", unitRange: { from: 1, to: 10 } },
+          { testerName: "Pranav Godse", stage: "core", unitRange: { from: 11, to: 30 } },
+          { testerName: "Pooja Joshi", stage: "secondary", unitRange: { from: 1, to: 15 } },
+          { testerName: "Tejas Demse", stage: "secondary", unitRange: { from: 16, to: 30 } },
+          { testerName: "Amit Verma", stage: "primary", unitRange: { from: 1, to: 15 } },
+          { testerName: "Sai Ghumare", stage: "primary", unitRange: { from: 16, to: 30 } },
+          { testerName: "Neha Patil", stage: "final", unitRange: { from: 1, to: 20 } },
+          { testerName: "YD", stage: "final", unitRange: { from: 21, to: 30 } },
+        ],
+        currentStage: "secondary",
+        isApproved: true,
+        ratedPrimaryCurrent: 400,
+        ratedSecondaryCurrent: 1,
+        mountingDetails: "Busbar Mounted",
+        overallDimension: "300x200x150 mm",
+        isStandard: "Yes",
+        completionStages: { "core": false, "secondary": false, "primary": false, "final": false },
+      },
 
-  {
-   status: "Pending Approval",
-    jobId: "JOB-2026-034",
-    clientName: "Reliance Energy",
-    clientContactNo: "9001122334",
-    transformerName: "CT-800A",
-    transformerType: "CT",
-    quantity: 40,
-    ratio: ["800/1"],
-    noOfCores: 2,
-    coreDetails: [{ coreType: "Protection" }, { coreType: "PS" }],
-    deadline: "2026-03-10T00:00:00.000Z",
-     nominalSystemVoltage: 132,
-    burden: 30,
-    accuracyClass: "0.2S/5P20/PX",
-    assignments: [
-      { testerName: "Amit Verma", stage: "core", unitRange: { from: 1, to: 20 } },
-      { testerName: "Pranav Godse", stage: "core", unitRange: { from: 21, to: 40 } },
-      { testerName: "Tejas Demse", stage: "secondary", unitRange: { from: 1, to: 20 } },
-      { testerName: "Neha Patil", stage: "secondary", unitRange: { from: 21, to: 40 } },
-      { testerName: "Kunal Mehta", stage: "primary", unitRange: { from: 1, to: 40 } },
-      { testerName: "Rahul Sharma", stage: "final", unitRange: { from: 1, to: 40 } }
-    ],
-    currentStage: "final",
-    isApproved: true,
-    ratedPrimaryCurrent: 800,
-    ratedSecondaryCurrent: 1,
-    mountingDetails: "Panel Mounted",
-    overallDimension: "350x250x180 mm",
-    isStandard: "Yes",
-    completionStages: { "core": false, "secondary": false, "primary": false, "final": false },
-  },
+      {
+        status: "Pending Approval",
+        jobId: "JOB-2026-033",
+        clientName: "L&T Electricals",
+        clientContactNo: "9988776655",
+        transformerName: "PT-11KV",
+        transformerType: "PT",
+        quantity: 20,
+        ratio: ["11000/110"],
+        noOfCores: 1,
+        coreDetails: [{ coreType: "Protection" }],
+        deadline: "2026-03-10T00:00:00.000Z",
+        nominalSystemVoltage: 132,
+        burden: 30,
+        accuracyClass: "0.2S/5P20/PX",
+        assignments: [
+          { testerName: "Kunal Mehta", stage: "core", unitRange: { from: 1, to: 10 } },
+          { testerName: "Pranav Godse", stage: "core", unitRange: { from: 11, to: 20 } },
+          { testerName: "Rahul Sharma", stage: "secondary", unitRange: { from: 1, to: 10 } },
+          { testerName: "Pooja Joshi", stage: "primary", unitRange: { from: 1, to: 20 } },
+          { testerName: "Tejas Demse", stage: "secondary", unitRange: { from: 11, to: 20 } },
+          { testerName: "Suresh Kulkarni", stage: "final", unitRange: { from: 1, to: 20 } }
+        ],
+        currentStage: "primary",
+        isApproved: true,
+        ratedPrimaryCurrent: 11000,
+        ratedSecondaryCurrent: 110,
+        mountingDetails: "Floor Mounted",
+        overallDimension: "400x300x250 mm",
+        isStandard: "No",
+        completionStages: { "core": false, "secondary": false, "primary": false, "final": false },
+      },
 
-  {
-    status: "Pending Approval",
-    jobId: "JOB-2026-035",
-    clientName: "Adani Power",
-    clientContactNo: "9112233445",
-    transformerName: "CT-1000A",
-    transformerType: "CT",
-    quantity: 25,
-    ratio: ["1000/1"],
-    noOfCores: 1,
-    coreDetails: [{ coreType: "PS" }],
-    deadline: "2026-03-10T00:00:00.000Z",
-     nominalSystemVoltage: 132,
-    burden: 30,
-    accuracyClass: "0.2S/5P20/PX",
-    assignments: [
-      { testerName: "Suresh Kulkarni", stage: "core", unitRange: { from: 1, to: 25 } },
-      { testerName: "Rohit Deshmukh", stage: "secondary", unitRange: { from: 1, to: 14 } },
-      { testerName: "Tejas Demse", stage: "secondary", unitRange: { from: 15, to: 25 } },
-      { testerName: "Amit Verma", stage: "primary", unitRange: { from: 1, to: 25 } },
-      { testerName: "Neha Patil", stage: "final", unitRange: { from: 1, to: 25 } }
-    ],
-    currentStage: "completed",
-    isApproved: true,
-    ratedPrimaryCurrent: 1000,
-    ratedSecondaryCurrent: 1,
-    mountingDetails: "Outdoor Mounted",
-    overallDimension: "450x320x260 mm",
-    isStandard: "No",
-    completionStages: { "core": false, "secondary": false, "primary": false, "final": false }
-  }
-];
+      {
+        status: "Pending Approval",
+        jobId: "JOB-2026-034",
+        clientName: "Reliance Energy",
+        clientContactNo: "9001122334",
+        transformerName: "CT-800A",
+        transformerType: "CT",
+        quantity: 40,
+        ratio: ["800/1"],
+        noOfCores: 2,
+        coreDetails: [{ coreType: "Protection" }, { coreType: "PS" }],
+        deadline: "2026-03-10T00:00:00.000Z",
+        nominalSystemVoltage: 132,
+        burden: 30,
+        accuracyClass: "0.2S/5P20/PX",
+        assignments: [
+          { testerName: "Amit Verma", stage: "core", unitRange: { from: 1, to: 20 } },
+          { testerName: "Pranav Godse", stage: "core", unitRange: { from: 21, to: 40 } },
+          { testerName: "Tejas Demse", stage: "secondary", unitRange: { from: 1, to: 20 } },
+          { testerName: "Neha Patil", stage: "secondary", unitRange: { from: 21, to: 40 } },
+          { testerName: "Kunal Mehta", stage: "primary", unitRange: { from: 1, to: 40 } },
+          { testerName: "Rahul Sharma", stage: "final", unitRange: { from: 1, to: 40 } }
+        ],
+        currentStage: "final",
+        isApproved: true,
+        ratedPrimaryCurrent: 800,
+        ratedSecondaryCurrent: 1,
+        mountingDetails: "Panel Mounted",
+        overallDimension: "350x250x180 mm",
+        isStandard: "Yes",
+        completionStages: { "core": false, "secondary": false, "primary": false, "final": false },
+      },
+
+      {
+        status: "Pending Approval",
+        jobId: "JOB-2026-035",
+        clientName: "Adani Power",
+        clientContactNo: "9112233445",
+        transformerName: "CT-1000A",
+        transformerType: "CT",
+        quantity: 25,
+        ratio: ["1000/1"],
+        noOfCores: 1,
+        coreDetails: [{ coreType: "PS" }],
+        deadline: "2026-03-10T00:00:00.000Z",
+        nominalSystemVoltage: 132,
+        burden: 30,
+        accuracyClass: "0.2S/5P20/PX",
+        assignments: [
+          { testerName: "Suresh Kulkarni", stage: "core", unitRange: { from: 1, to: 25 } },
+          { testerName: "Rohit Deshmukh", stage: "secondary", unitRange: { from: 1, to: 14 } },
+          { testerName: "Tejas Demse", stage: "secondary", unitRange: { from: 15, to: 25 } },
+          { testerName: "Amit Verma", stage: "primary", unitRange: { from: 1, to: 25 } },
+          { testerName: "Neha Patil", stage: "final", unitRange: { from: 1, to: 25 } }
+        ],
+        currentStage: "completed",
+        isApproved: true,
+        ratedPrimaryCurrent: 1000,
+        ratedSecondaryCurrent: 1,
+        mountingDetails: "Outdoor Mounted",
+        overallDimension: "450x320x260 mm",
+        isStandard: "No",
+        completionStages: { "core": false, "secondary": false, "primary": false, "final": false }
+      }
+    ];
 
 
 
@@ -799,168 +862,314 @@ app.get('/addOrders', async (req, res) => {
 // add the dummy data of the users
 app.get('/addUsers', async (req, res) => {
   try {
+    // let tempUsers = [
+    //   {
+    //     "employeeId": "EMP-1001",
+    //     "fullName": "Amit Kulkarni",
+    //     "mobileNumber": "9876543211",
+    //     "emailId": "amit.kulkarni@transformer.com",
+    //     "designation": "Admin",
+    //     "department": "Core Test",
+    //     "dateOfJoining": "2022-04-12",
+    //     "employmentType": "Permanent",
+    //     "transformerSkills": {
+    //       "canTestCT": true,
+    //       "canTestPT": true
+    //     },
+    //     "testCapabilities": {
+    //       "ratioTest": true,
+    //       "polarityTest": true,
+    //       "burdenTest": true,
+    //       "accuracyTest": true,
+    //       "excitationTest": true,
+    //       "insulationResistanceTest": true,
+    //       "tanDeltaTest": true
+    //     },
+    //     "voltageExperience": [11, 33, 66, 132],
+    //     "assignedLab": "Core Testing Lab",
+    //     "activeStatus": true,
+    //     "password": "password123"
+    //   },
+    //   {
+    //     "employeeId": "EMP-1002",
+    //     "fullName": "Rohit Patil",
+    //     "mobileNumber": "9876543212",
+    //     "emailId": "rohit.patil@transformer.com",
+    //     "designation": "Testing",
+    //     "department": "After Secondary Test",
+    //     "dateOfJoining": "2023-01-20",
+    //     "employmentType": "Permanent",
+    //     "transformerSkills": {
+    //       "canTestCT": true,
+    //       "canTestPT": false
+    //     },
+    //     "testCapabilities": {
+    //       "ratioTest": true,
+    //       "polarityTest": true,
+    //       "burdenTest": true,
+    //       "accuracyTest": false,
+    //       "excitationTest": true,
+    //       "insulationResistanceTest": true
+    //     },
+    //     "voltageExperience": [11, 33],
+    //     "assignedLab": "Secondary Testing Lab",
+    //     "activeStatus": true,
+    //     "password": "password123"
+    //   },
+    //   {
+    //     "employeeId": "EMP-1003",
+    //     "fullName": "Sneha Deshmukh",
+    //     "mobileNumber": "9876543213",
+    //     "emailId": "sneha.deshmukh@transformer.com",
+    //     "designation": "Entry Level",
+    //     "department": "After Primary Test",
+    //     "dateOfJoining": "2024-06-10",
+    //     "employmentType": "Trainee",
+    //     "transformerSkills": {
+    //       "canTestCT": true,
+    //       "canTestPT": false
+    //     },
+    //     "testCapabilities": {
+    //       "ratioTest": true,
+    //       "polarityTest": false,
+    //       "burdenTest": false,
+    //       "accuracyTest": false,
+    //       "excitationTest": true,
+    //       "insulationResistanceTest": false
+    //     },
+    //     "voltageExperience": [11],
+    //     "assignedLab": "Primary Testing Lab",
+    //     "activeStatus": true,
+    //     "password": "password123"
+    //   },
+    //   {
+    //     "employeeId": "EMP-1004",
+    //     "fullName": "Vikas Jadhav",
+    //     "mobileNumber": "9876543214",
+    //     "emailId": "vikas.jadhav@transformer.com",
+    //     "designation": "Testing",
+    //     "department": "Final Test",
+    //     "dateOfJoining": "2021-09-18",
+    //     "employmentType": "Permanent",
+    //     "transformerSkills": {
+    //       "canTestCT": true,
+    //       "canTestPT": true
+    //     },
+    //     "testCapabilities": {
+    //       "ratioTest": true,
+    //       "polarityTest": true,
+    //       "burdenTest": true,
+    //       "accuracyTest": true,
+    //       "excitationTest": true,
+    //       "insulationResistanceTest": true,
+    //       "tanDeltaTest": true
+    //     },
+    //     "voltageExperience": [11, 33, 66],
+    //     "assignedLab": "Final Testing Lab",
+    //     "activeStatus": true,
+    //     "password": "password123"
+    //   },
+    //   {
+    //     "employeeId": "EMP-1005",
+    //     "fullName": "Neha More",
+    //     "mobileNumber": "9876543215",
+    //     "emailId": "neha.more@transformer.com",
+    //     "designation": "Entry Level",
+    //     "department": "Core Test",
+    //     "dateOfJoining": "2024-02-05",
+    //     "employmentType": "Contract",
+    //     "transformerSkills": {
+    //       "canTestCT": false,
+    //       "canTestPT": false
+    //     },
+    //     "testCapabilities": {
+    //       "ratioTest": false,
+    //       "polarityTest": false,
+    //       "burdenTest": false,
+    //       "accuracyTest": false,
+    //       "excitationTest": false,
+    //       "insulationResistanceTest": true
+    //     },
+    //     "voltageExperience": [],
+    //     "assignedLab": "Core Assembly Area",
+    //     "activeStatus": true,
+    //     "password": "password123"
+    //   },
+    //   {
+    //     "employeeId": "EMP-1006",
+    //     "fullName": "Suresh Pawar",
+    //     "mobileNumber": "9876543216",
+    //     "emailId": "suresh.pawar@transformer.com",
+    //     "designation": "Admin",
+    //     "department": "Final Test",
+    //     "dateOfJoining": "2020-11-01",
+    //     "employmentType": "Permanent",
+    //     "transformerSkills": {
+    //       "canTestCT": true,
+    //       "canTestPT": true
+    //     },
+    //     "testCapabilities": {
+    //       "ratioTest": true,
+    //       "polarityTest": true,
+    //       "burdenTest": true,
+    //       "accuracyTest": true,
+    //       "excitationTest": true,
+    //       "insulationResistanceTest": true,
+    //       "tanDeltaTest": true
+    //     },
+    //     "voltageExperience": [11, 33, 66, 132],
+    //     "assignedLab": "Quality & Final Approval",
+    //     "activeStatus": true,
+    //     "password": "password123"
+    //   }
+    // ];
+
     let tempUsers = [
       {
-        "employeeId": "EMP-1001",
-        "fullName": "Amit Kulkarni",
-        "mobileNumber": "9876543211",
-        "emailId": "amit.kulkarni@transformer.com",
-        "designation": "Admin",
-        "department": "Core Test",
-        "dateOfJoining": "2022-04-12",
-        "employmentType": "Permanent",
-        "transformerSkills": {
-          "canTestCT": true,
-          "canTestPT": true
-        },
-        "testCapabilities": {
-          "ratioTest": true,
-          "polarityTest": true,
-          "burdenTest": true,
-          "accuracyTest": true,
-          "excitationTest": true,
-          "insulationResistanceTest": true,
-          "tanDeltaTest": true
-        },
-        "voltageExperience": [11, 33, 66, 132],
-        "assignedLab": "Core Testing Lab",
-        "activeStatus": true,
-        "password": "password123"
-      },
-      {
-        "employeeId": "EMP-1002",
-        "fullName": "Rohit Patil",
-        "mobileNumber": "9876543212",
-        "emailId": "rohit.patil@transformer.com",
+        "employeeId": "EMP-6001",
+        "fullName": "Rahul Sharma",
+        "mobileNumber": "9822002201",
         "designation": "Testing",
-        "department": "After Secondary Test",
-        "dateOfJoining": "2023-01-20",
+        "department": "Core Test",
+        "dateOfJoining": "2025-01-10T09:00:00.000Z",
         "employmentType": "Permanent",
-        "transformerSkills": {
-          "canTestCT": true,
-          "canTestPT": false
-        },
-        "testCapabilities": {
-          "ratioTest": true,
-          "polarityTest": true,
-          "burdenTest": true,
-          "accuracyTest": false,
-          "excitationTest": true,
-          "insulationResistanceTest": true
-        },
-        "voltageExperience": [11, 33],
-        "assignedLab": "Secondary Testing Lab",
+        "transformerSkills": { "canTestCT": true, "canTestPT": false },
         "activeStatus": true,
         "password": "password123"
       },
       {
-        "employeeId": "EMP-1003",
-        "fullName": "Sneha Deshmukh",
-        "mobileNumber": "9876543213",
-        "emailId": "sneha.deshmukh@transformer.com",
-        "designation": "Entry Level",
-        "department": "After Primary Test",
-        "dateOfJoining": "2024-06-10",
+        "employeeId": "EMP-6002",
+        "password": "password123",
+        "fullName": "Rajesh Kumar",
+        "mobileNumber": "9822002202",
+        "designation": "Testing",
+        "department": "Core Test",
+        "dateOfJoining": "2025-03-15T09:00:00.000Z",
+        "employmentType": "Permanent",
+        "transformerSkills": { "canTestCT": true, "canTestPT": true },
+        "activeStatus": true
+      },
+      {
+        "employeeId": "EMP-6003",
+        "fullName": "Amit Patel",
+        "password": "password123",
+        "mobileNumber": "9822002203",
+        "designation": "Testing",
+        "department": "Core Test",
+        "dateOfJoining": "2026-01-05T09:00:00.000Z",
         "employmentType": "Trainee",
-        "transformerSkills": {
-          "canTestCT": true,
-          "canTestPT": false
-        },
-        "testCapabilities": {
-          "ratioTest": true,
-          "polarityTest": false,
-          "burdenTest": false,
-          "accuracyTest": false,
-          "excitationTest": true,
-          "insulationResistanceTest": false
-        },
-        "voltageExperience": [11],
-        "assignedLab": "Primary Testing Lab",
-        "activeStatus": true,
-        "password": "password123"
+        "transformerSkills": { "canTestCT": true, "canTestPT": false },
+        "activeStatus": true
       },
       {
-        "employeeId": "EMP-1004",
-        "fullName": "Vikas Jadhav",
-        "mobileNumber": "9876543214",
-        "emailId": "vikas.jadhav@transformer.com",
+        "employeeId": "EMP-3001",
+        "fullName": "Vikram Singh",
+        "mobileNumber": "9822003301",
+        "password": "password123",
+        "designation": "Testing",
+        "department": "Secondary Test",
+        "dateOfJoining": "2024-11-20T09:00:00.000Z",
+        "employmentType": "Permanent",
+        "transformerSkills": { "canTestCT": true, "canTestPT": true },
+        "activeStatus": true
+      },
+      {
+        "employeeId": "EMP-3002",
+        "fullName": "Suresh Raina",
+        "mobileNumber": "9822003302",
+        "password": "password123",
+        "designation": "Testing",
+        "department": "Secondary Test",
+        "dateOfJoining": "2025-06-12T09:00:00.000Z",
+        "employmentType": "Contract",
+        "transformerSkills": { "canTestCT": true, "canTestPT": false },
+        "activeStatus": true
+      },
+      {
+        "employeeId": "EMP-3003",
+        "fullName": "Priya Das",
+        "mobileNumber": "9822003303",
+        "password": "password123",
+        "designation": "Testing",
+        "department": "Secondary Test",
+        "dateOfJoining": "2025-08-01T09:00:00.000Z",
+        "employmentType": "Permanent",
+        "transformerSkills": { "canTestCT": true, "canTestPT": true },
+        "activeStatus": true
+      },
+      {
+        "employeeId": "EMP-4001",
+        "fullName": "Anil Primary",
+        "mobileNumber": "9999999995",
+        "password": "password123",
+        "designation": "Testing",
+        "department": "Primary Test",
+        "dateOfJoining": "2026-02-01T18:30:23.875Z",
+        "employmentType": "Permanent",
+        "transformerSkills": { "canTestCT": true, "canTestPT": true },
+        "activeStatus": true
+      },
+      {
+        "employeeId": "EMP-4002",
+        "fullName": "Karan Johar",
+        "mobileNumber": "9822004402",
+        "password": "password123",
+        "designation": "Testing",
+        "department": "Primary Test",
+        "dateOfJoining": "2024-05-15T09:00:00.000Z",
+        "employmentType": "Permanent",
+        "transformerSkills": { "canTestCT": true, "canTestPT": false },
+        "activeStatus": true
+      },
+      {
+        "employeeId": "EMP-4003",
+        "fullName": "Deepak Punia",
+        "mobileNumber": "9822004403",
+        "designation": "Testing",
+        "password": "password123",
+        "department": "Primary Test",
+        "dateOfJoining": "2025-10-10T09:00:00.000Z",
+        "employmentType": "Contract",
+        "transformerSkills": { "canTestCT": true, "canTestPT": true },
+        "activeStatus": true
+      },
+      {
+        "employeeId": "EMP-5001",
+        "fullName": "Sanjay Dutt",
+        "mobileNumber": "9822005501",
+        "password": "password123",
         "designation": "Testing",
         "department": "Final Test",
-        "dateOfJoining": "2021-09-18",
+        "dateOfJoining": "2023-12-01T09:00:00.000Z",
         "employmentType": "Permanent",
-        "transformerSkills": {
-          "canTestCT": true,
-          "canTestPT": true
-        },
-        "testCapabilities": {
-          "ratioTest": true,
-          "polarityTest": true,
-          "burdenTest": true,
-          "accuracyTest": true,
-          "excitationTest": true,
-          "insulationResistanceTest": true,
-          "tanDeltaTest": true
-        },
-        "voltageExperience": [11, 33, 66],
-        "assignedLab": "Final Testing Lab",
-        "activeStatus": true,
-        "password": "password123"
+        "transformerSkills": { "canTestCT": true, "canTestPT": true },
+        "activeStatus": true
       },
       {
-        "employeeId": "EMP-1005",
-        "fullName": "Neha More",
-        "mobileNumber": "9876543215",
-        "emailId": "neha.more@transformer.com",
-        "designation": "Entry Level",
-        "department": "Core Test",
-        "dateOfJoining": "2024-02-05",
-        "employmentType": "Contract",
-        "transformerSkills": {
-          "canTestCT": false,
-          "canTestPT": false
-        },
-        "testCapabilities": {
-          "ratioTest": false,
-          "polarityTest": false,
-          "burdenTest": false,
-          "accuracyTest": false,
-          "excitationTest": false,
-          "insulationResistanceTest": true
-        },
-        "voltageExperience": [],
-        "assignedLab": "Core Assembly Area",
-        "activeStatus": true,
-        "password": "password123"
-      },
-      {
-        "employeeId": "EMP-1006",
-        "fullName": "Suresh Pawar",
-        "mobileNumber": "9876543216",
-        "emailId": "suresh.pawar@transformer.com",
-        "designation": "Admin",
+        "employeeId": "EMP-5002",
+        "fullName": "Rohit Verma",
+        "mobileNumber": "9822005502",
+        "password": "password123",
+        "designation": "Testing",
         "department": "Final Test",
-        "dateOfJoining": "2020-11-01",
+        "dateOfJoining": "2024-02-14T09:00:00.000Z",
         "employmentType": "Permanent",
-        "transformerSkills": {
-          "canTestCT": true,
-          "canTestPT": true
-        },
-        "testCapabilities": {
-          "ratioTest": true,
-          "polarityTest": true,
-          "burdenTest": true,
-          "accuracyTest": true,
-          "excitationTest": true,
-          "insulationResistanceTest": true,
-          "tanDeltaTest": true
-        },
-        "voltageExperience": [11, 33, 66, 132],
-        "assignedLab": "Quality & Final Approval",
-        "activeStatus": true,
-        "password": "password123"
+        "transformerSkills": { "canTestCT": true, "canTestPT": true },
+        "activeStatus": true
+      },
+      {
+        "employeeId": "EMP-5003",
+        "fullName": "Neha Sharma",
+        "mobileNumber": "9822005503",
+        "password": "password123",
+        "designation": "Testing",
+        "department": "Final Test",
+        "dateOfJoining": "2025-01-20T09:00:00.000Z",
+        "employmentType": "Permanent",
+        "transformerSkills": { "canTestCT": true, "canTestPT": true },
+        "activeStatus": true
       }
-    ];
-
+    ]
     for (const item of tempUsers) {
       // Hash password before saving
       const salt = await bcrypt.genSalt(10);
@@ -1284,6 +1493,101 @@ app.get("/", (req, res) => {
 });
 
 
+// --- BATCH APPROVAL ROUTE (New) ---
+app.put('/api/core-tests/approve-batch', async (req, res) => {
+  try {
+    const { jobId, internalCoreNos } = req.body;
+
+    if (!jobId || !internalCoreNos || !Array.isArray(internalCoreNos)) {
+      return res.status(400).json({ success: false, message: "Invalid payload. jobId and internalCoreNos array required." });
+    }
+
+    // Update Transformers matching these internalCoreNos (mapped to unitNo via parsing or regex if needed,
+    // BUT our TransformerSchema has 'uniqueId' like TR-JOB-2026-007-001. 
+    // And CoreTestingForm uses 'internalCoreNo' like M-007-001.
+    // The link is the Sequence Number.
+    // Let's assume frontend passes VALID TRANSFORMER IDs or we query by regex.
+    // Actually, CoreTestingForm generates internalCoreNo. It doesn't know the Transformer UniqueID directly unless we passed it.
+    // Let's check if we can match by 'internalCoreNo' in the readings? NO.
+    // Better: Frontend sends the UNIT Suffixes (001, 002) and we construct the Transformer UniqueID.
+
+    // WAIT. The frontend "Internal Core No" IS the identifier used in the test readings.
+    // But the Transformer Document has 'uniqueId'.
+    // Logic: 
+    // internalCoreNo "M-007-001" -> Transformer "TR-JOB-2026-007-001".
+    // 001 is the link.
+
+    // -----------------------------------------------------------
+    // BATCH APPROVAL LOGIC
+    // -----------------------------------------------------------
+    console.log(`[Batch Approve] JobId: ${jobId}, Cores:`, internalCoreNos);
+    const fs = require('fs');
+    fs.writeFileSync('d:/Advent/Backend/debug_payload.txt', `Job: ${jobId}\nCores: ${pkg_JSON.stringify(internalCoreNos)}\nDate: ${new Date().toISOString()}`);
+
+    const updatePromises = internalCoreNos.map(async (coreId) => {
+      // Extract sequence: M-007-001 -> 001
+      // OR P-007-001 -> 001
+      // We take the last part.
+      const parts = coreId.split('-');
+      const seq = parts[parts.length - 1]; // "001" or "01"
+
+      // 1. Try Standard Format (TR-{jobId}-{seq}) - e.g. TR-JOB-2026-007-001
+      // Ensure seq is padStart(3, '0') for standard
+      const seq3 = seq.padStart(3, '0');
+      let transformerUniqueId = `TR-${jobId}-${seq3}`;
+
+      // Try update
+      let updated = await TransformerModel.findOneAndUpdate(
+        { uniqueId: transformerUniqueId },
+        {
+          $set: {
+            currentStage: 'secondary',
+            "testHistory.core_test.status": "Completed"
+          }
+        },
+        { new: true }
+      );
+
+      // 2. If not found, Try Legacy Format ({jobId}/{seq}) - e.g. JOB-2026-007/01
+      if (!updated) {
+        // Legacy used padStart(2, '0') BUT we must ensure we strip leading zeros first
+        const seqInt = parseInt(seq, 10);
+        const seq2 = String(seqInt).padStart(2, '0');
+
+        const legacyId = `${jobId}/${seq2}`;
+        console.log(`[Batch Approve] Trying Legacy ID: ${legacyId}`);
+
+        updated = await TransformerModel.findOneAndUpdate(
+          { uniqueId: legacyId },
+          {
+            $set: {
+              currentStage: 'secondary',
+              "testHistory.core_test.status": "Completed"
+            }
+          },
+          { new: true }
+        );
+      }
+
+      return updated;
+    });
+
+    const results = await Promise.all(updatePromises);
+    const successCount = results.filter(r => r !== null).length;
+
+    res.status(200).json({
+      success: true,
+      message: `Batch processed. Approved ${successCount} / ${internalCoreNos.length} cores.`,
+      details: results.map((r, i) => r ? `Matched: ${r.uniqueId}` : `Failed: ${internalCoreNos[i]}`)
+    });
+
+  } catch (error) {
+    console.error("Batch Approval Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// --- EXISTING ROUTES ---
 // get allorders
 app.get("/allorders", async (req, res) => {
   let orders = await OrderModel.find({});
@@ -1394,122 +1698,122 @@ app.get('/addTransformerReadingData', async (req, res) => {
     // ]
     let TransformerReading = [
 
-  // ---------- JOB-2026-031 (CT-200A | Qty: 50 | Stage: Core) ----------
-  {
-    uniqueId: "TR-JOB-2026-031-001",
-    jobId: "JOB-2026-031",
-    orderId: "65bc1111a1b2c3d4e5f61111",
-    transformerType: "CT",
-    transformerName: "CT-200A",
-    unitNo: 1,
-    currentStage: "core",
-    testHistory: {
-      core_test: { status: "Pending" }
-    }
-  },
-  {
-    uniqueId: "TR-JOB-2026-031-002",
-    jobId: "JOB-2026-031",
-    orderId: "65bc1111a1b2c3d4e5f61111",
-    transformerType: "CT",
-    transformerName: "CT-200A",
-    unitNo: 2,
-    currentStage: "core",
-    testHistory: {
-      core_test: { status: "Pending" }
-    }
-  },
-  {
-    uniqueId: "TR-JOB-2026-031-003",
-    jobId: "JOB-2026-031",
-    orderId: "65bc1111a1b2c3d4e5f61111",
-    transformerType: "CT",
-    transformerName: "CT-200A",
-    unitNo: 3,
-    currentStage: "core",
-    testHistory: {
-      core_test: { status: "Pending" }
-    }
-  },
+      // ---------- JOB-2026-031 (CT-200A | Qty: 50 | Stage: Core) ----------
+      {
+        uniqueId: "TR-JOB-2026-031-001",
+        jobId: "JOB-2026-031",
+        orderId: "65bc1111a1b2c3d4e5f61111",
+        transformerType: "CT",
+        transformerName: "CT-200A",
+        unitNo: 1,
+        currentStage: "core",
+        testHistory: {
+          core_test: { status: "Pending" }
+        }
+      },
+      {
+        uniqueId: "TR-JOB-2026-031-002",
+        jobId: "JOB-2026-031",
+        orderId: "65bc1111a1b2c3d4e5f61111",
+        transformerType: "CT",
+        transformerName: "CT-200A",
+        unitNo: 2,
+        currentStage: "core",
+        testHistory: {
+          core_test: { status: "Pending" }
+        }
+      },
+      {
+        uniqueId: "TR-JOB-2026-031-003",
+        jobId: "JOB-2026-031",
+        orderId: "65bc1111a1b2c3d4e5f61111",
+        transformerType: "CT",
+        transformerName: "CT-200A",
+        unitNo: 3,
+        currentStage: "core",
+        testHistory: {
+          core_test: { status: "Pending" }
+        }
+      },
 
-  // ---------- JOB-2026-032 (CT-400A | Qty: 30 | Stage: Secondary) ----------
-  {
-    uniqueId: "TR-JOB-2026-032-001",
-    jobId: "JOB-2026-032",
-    orderId: "65bc2222a1b2c3d4e5f62222",
-    transformerType: "CT",
-    transformerName: "CT-400A",
-    unitNo: 1,
-    currentStage: "secondary",
-    testHistory: {
-      core_test: { status: "Completed" },
-      secondary_test: { status: "Pending" }
-    }
-  },
-  {
-    uniqueId: "TR-JOB-2026-032-002",
-    jobId: "JOB-2026-032",
-    orderId: "65bc2222a1b2c3d4e5f62222",
-    transformerType: "CT",
-    transformerName: "CT-400A",
-    unitNo: 2,
-    currentStage: "secondary",
-    testHistory: {
-      core_test: { status: "Completed" },
-      secondary_test: { status: "Pending" }
-    }
-  },
+      // ---------- JOB-2026-032 (CT-400A | Qty: 30 | Stage: Secondary) ----------
+      {
+        uniqueId: "TR-JOB-2026-032-001",
+        jobId: "JOB-2026-032",
+        orderId: "65bc2222a1b2c3d4e5f62222",
+        transformerType: "CT",
+        transformerName: "CT-400A",
+        unitNo: 1,
+        currentStage: "secondary",
+        testHistory: {
+          core_test: { status: "Completed" },
+          secondary_test: { status: "Pending" }
+        }
+      },
+      {
+        uniqueId: "TR-JOB-2026-032-002",
+        jobId: "JOB-2026-032",
+        orderId: "65bc2222a1b2c3d4e5f62222",
+        transformerType: "CT",
+        transformerName: "CT-400A",
+        unitNo: 2,
+        currentStage: "secondary",
+        testHistory: {
+          core_test: { status: "Completed" },
+          secondary_test: { status: "Pending" }
+        }
+      },
 
-  // ---------- JOB-2026-033 (PT-11KV | Qty: 20 | Stage: Primary) ----------
-  {
-    uniqueId: "TR-JOB-2026-033-001",
-    jobId: "JOB-2026-033",
-    orderId: "65bc3333a1b2c3d4e5f63333",
-    transformerType: "PT",
-    transformerName: "PT-11KV",
-    unitNo: 1,
-    currentStage: "primary",
-    testHistory: {
-      core_test: { status: "Completed" },
-      secondary_test: { status: "Completed" },
-      primary_test: { status: "Pending" }
-    }
-  },
+      // ---------- JOB-2026-033 (PT-11KV | Qty: 20 | Stage: Primary) ----------
+      {
+        uniqueId: "TR-JOB-2026-033-001",
+        jobId: "JOB-2026-033",
+        orderId: "65bc3333a1b2c3d4e5f63333",
+        transformerType: "PT",
+        transformerName: "PT-11KV",
+        unitNo: 1,
+        currentStage: "primary",
+        testHistory: {
+          core_test: { status: "Completed" },
+          secondary_test: { status: "Completed" },
+          primary_test: { status: "Pending" }
+        }
+      },
 
-  // ---------- JOB-2026-034 (CT-800A | Qty: 40 | Stage: Final) ----------
-  {
-    uniqueId: "TR-JOB-2026-034-001",
-    jobId: "JOB-2026-034",
-    orderId: "65bc4444a1b2c3d4e5f64444",
-    transformerType: "CT",
-    transformerName: "CT-800A",
-    unitNo: 1,
-    currentStage: "final",
-    testHistory: {
-      core_test: { status: "Completed" },
-      secondary_test: { status: "Completed" },
-      primary_test: { status: "Completed" },
-      final_test: { status: "Pending" }
-    }
-  },
+      // ---------- JOB-2026-034 (CT-800A | Qty: 40 | Stage: Final) ----------
+      {
+        uniqueId: "TR-JOB-2026-034-001",
+        jobId: "JOB-2026-034",
+        orderId: "65bc4444a1b2c3d4e5f64444",
+        transformerType: "CT",
+        transformerName: "CT-800A",
+        unitNo: 1,
+        currentStage: "final",
+        testHistory: {
+          core_test: { status: "Completed" },
+          secondary_test: { status: "Completed" },
+          primary_test: { status: "Completed" },
+          final_test: { status: "Pending" }
+        }
+      },
 
-  // ---------- JOB-2026-035 (CT-1000A | Qty: 25 | Completed) ----------
-  {
-    uniqueId: "TR-JOB-2026-035-001",
-    jobId: "JOB-2026-035",
-    orderId: "65bc5555a1b2c3d4e5f65555",
-    transformerType: "CT",
-    transformerName: "CT-1000A",
-    unitNo: 1,
-    currentStage: "shipped",
-    testHistory: {
-      core_test: { status: "Completed" },
-      secondary_test: { status: "Completed" },
-      primary_test: { status: "Completed" },
-      final_test: { status: "Completed" }
-    }
-  }
-];
+      // ---------- JOB-2026-035 (CT-1000A | Qty: 25 | Completed) ----------
+      {
+        uniqueId: "TR-JOB-2026-035-001",
+        jobId: "JOB-2026-035",
+        orderId: "65bc5555a1b2c3d4e5f65555",
+        transformerType: "CT",
+        transformerName: "CT-1000A",
+        unitNo: 1,
+        currentStage: "shipped",
+        testHistory: {
+          core_test: { status: "Completed" },
+          secondary_test: { status: "Completed" },
+          primary_test: { status: "Completed" },
+          final_test: { status: "Completed" }
+        }
+      }
+    ];
 
 
 

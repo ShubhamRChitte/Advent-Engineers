@@ -62,4 +62,24 @@ router.get("/check-auth", (req, res) => {
     }
 });
 
+// Get Testers List (for Admin Dropdowns)
+router.get("/testers", async (req, res) => {
+    try {
+        const { UserModel } = require("../models/UserModel"); // Lazy load to avoid circular deps if any
+        // Roles that are considered testers
+        const testerRoles = ["Core Tester", "Secondary Tester", "Final Tester"];
+        // Or filter by designation/department if roles are dynamic
+
+        // Fetch all users and filter or just fetch all and frontend filters
+        const users = await UserModel.find({
+            activeStatus: true,
+            department: { $in: ['Core Test', 'Secondary Test', 'Primary Test', 'Final Test'] }
+        }).select("fullName designation department employeeId");
+
+        res.status(200).json({ success: true, users });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 module.exports = router;

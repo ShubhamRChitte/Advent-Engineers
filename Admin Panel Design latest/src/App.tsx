@@ -3,6 +3,7 @@ import { LoginPage } from './components/LoginPage';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { EntryOperatorLayout } from './components/entry/EntryOperatorLayout';
 import { TesterLayout } from './components/tester/TesterLayout';
+import { Toaster } from 'sonner';
 
 export interface User {
   id: string;
@@ -30,16 +31,36 @@ export default function App() {
 
   // Route based on user role
   if (user.role === 'admin') {
-    return <AdminLayout user={user} onLogout={handleLogout} />;
+    return (
+      <>
+        <AdminLayout user={user} onLogout={handleLogout} />
+        <Toaster />
+      </>
+    );
   }
 
   if (user.role === 'entry-operator') {
-    return <EntryOperatorLayout user={user} onLogout={handleLogout} />;
+    return (
+      <>
+        <EntryOperatorLayout user={user} onLogout={handleLogout} />
+        <Toaster />
+      </>
+    );
   }
 
   if (['core-tester', 'secondary-tester', 'after-primary-tester', 'final-tester'].includes(user.role)) {
-    return <TesterLayout user={user} onLogout={handleLogout} />;
+    return (
+      <>
+        <TesterLayout user={user} onLogout={handleLogout} />
+        <Toaster />
+      </>
+    );
   }
 
-  return <LoginPage onLogin={handleLogin} />;
+  return (
+    <>
+      <LoginPage onLogin={handleLogin} />
+      <Toaster />
+    </>
+  );
 }

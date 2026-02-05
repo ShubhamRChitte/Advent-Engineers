@@ -17,6 +17,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "express-async-handler": "^1.2.0",
     "express-session": "^1.19.0",
     "mongoose": "^9.1.4",
     "passport": "^0.7.0",
