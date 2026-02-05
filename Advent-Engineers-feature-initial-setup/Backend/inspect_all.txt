@@ -1,0 +1,5 @@
+Starting Full Inspection
+Connected to DB
+Metering Tests: Total 5, Empty testedBy: 5
+Protection Tests: Total 23, Empty testedBy: 8
+PS Tests: Total 11, Empty testedBy: 8
