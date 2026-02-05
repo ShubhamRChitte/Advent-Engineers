@@ -1,0 +1,18 @@
+{
+  "name": "advent",
+  "version": "1.0.0",
+  "private": true,
+"scripts": {
+  "client": "cd \"Admin Panel Design latest\" && npm run dev",
+  "server": "cd backend && npm run dev",
+  "dev": "concurrently \"npm run server\" \"npm run client\""
+},
+
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
