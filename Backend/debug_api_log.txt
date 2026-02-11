@@ -1,0 +1,25 @@
+
+[2026-02-06T11:25:55.308Z] User: 'Vikram Singh' | Found: 11 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}},{"assignments.secondary_tester":{"$regex":{}}}]}
+[2026-02-06T12:41:21.751Z] User: 'Vikram Singh' | Found: 11 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}},{"assignments.secondary_tester":{"$regex":{}}}]}
+[2026-02-06T12:52:28.177Z] User: 'Vikram Singh' | Found: 11 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}},{"assignments.secondary_tester":{"$regex":{}}}]}
+[2026-02-06T12:54:12.009Z] User: 'Vikram Singh' | Found: 11 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}},{"assignments.secondary_tester":{"$regex":{}}}]}
+[2026-02-06T12:54:45.958Z] User: 'Amit Patel' | Found: 3 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}},{"assignments.secondary_tester":{"$regex":{}}}]}
+[2026-02-06T12:56:54.664Z] User: 'Amit Patel' | Found: 3 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}},{"assignments.secondary_tester":{"$regex":{}}}]}
+[2026-02-06T13:03:24.902Z] User: 'Amit Patel' | Found: 3 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}},{"assignments.secondary_tester":{"$regex":{}}}]}
+[2026-02-06T13:44:39.708Z] User: 'Amit Patel' | Found: 5 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}},{"assignments.secondary_tester":{"$regex":{}}}]}
+[2026-02-06T13:45:09.376Z] User: 'Amit Patel' | Found: 5 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}},{"assignments.secondary_tester":{"$regex":{}}}]}
+[2026-02-06T13:45:18.006Z] User: 'Amit Patel' | Found: 5 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}},{"assignments.secondary_tester":{"$regex":{}}}]}
+[2026-02-06T13:45:24.303Z] User: 'Amit Patel' | Found: 5 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}},{"assignments.secondary_tester":{"$regex":{}}}]}
+[2026-02-06T13:46:36.978Z] User: 'Amit Patel' | Found: 6 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}},{"assignments.secondary_tester":{"$regex":{}}}]}
+[2026-02-06T13:50:13.110Z] User: 'Amit Patel' | Found: 140 reports | Query: {"testHistory.secondary_test.status":{"$in":["Completed","In Progress","Pending"]},"$or":[{"testHistory.secondary_test.tester":{"$regex":{}}},{"assignments.secondary_tester":{"$regex":{}}}]}
+[2026-02-06T13:55:16.744Z] User: 'Amit Patel' | Found: 5 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}}]}
+[2026-02-06T14:00:16.562Z] User: 'Amit Patel' | Found: 5 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}}]}
+[2026-02-06T14:01:56.247Z] User: 'Amit Patel' | Found: 5 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}}]}
+[2026-02-06T14:08:37.919Z] User: 'Amit Patel' | Found: 5 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}}]}
+[2026-02-06T14:08:53.732Z] User: 'Vikram Singh' | Found: 11 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}}]}
+[2026-02-06T14:09:07.405Z] User: 'Vikram Singh' | Found: 11 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}}]}
+[2026-02-06T14:12:10.788Z] User: 'Suresh Raina' | Found: 0 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}}]}
+[2026-02-06T14:33:51.941Z] User: 'Vikram Singh' | Found: 12 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}}]}
+[2026-02-07T08:30:01.178Z] User: 'Amit Patel' | Found: 6 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}}]}
+[2026-02-07T10:27:05.882Z] User: 'Vikram Singh' | Found: 13 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}}]}
+[2026-02-07T10:42:20.341Z] User: 'Vikram Singh' | Found: 13 reports | Query: {"testHistory.secondary_test.status":"Completed","$or":[{"testHistory.secondary_test.tester":{"$regex":{}}}]}
