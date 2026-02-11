@@ -54,7 +54,6 @@ exports.getDashboardStats = async (req, res) => {
     }
 };
 
-// 2. Production Overview (Orders grouped by Month)
 exports.getProductionOverview = async (req, res) => {
     try {
         const sixMonthsAgo = new Date();
@@ -69,31 +68,32 @@ exports.getProductionOverview = async (req, res) => {
             },
             {
                 $group: {
-                    _id: { $month: "$createdAt" },
-                    year: { $year: "$createdAt" }, // Keep year to sort correctly across year boundary
-                    count: { $sum: 1 }, // Simple count of orders
+                    _id: { 
+                        month: { $month: "$createdAt" }, 
+                        year: { $year: "$createdAt" } 
+                    },
+                    count: { $sum: 1 }, 
                     totalUnits: { $sum: "$quantity" },
-                    // Mock revenue calculation: quantity * 50000
                     revenue: { $sum: { $multiply: ["$quantity", 50000] } }
                 }
             },
-            { $sort: { year: 1, _id: 1 } }
+            { $sort: { "_id.year": 1, "_id.month": 1 } }
         ]);
 
         // Format for Recharts
         const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
         const formattedData = productionData.map(item => ({
-            month: monthNames[item._id - 1],
+            month: monthNames[item._id.month - 1],
             production: item.totalUnits,
             orders: item.count,
-            revenue: item.revenue / 1000, // Convert to K for easier reading
-            efficiency: Math.floor(Math.random() * (95 - 80 + 1)) + 80 // Mock efficiency between 80-95%
+            revenue: item.revenue / 1000, 
+            efficiency: Math.floor(Math.random() * (95 - 80 + 1)) + 80 
         }));
 
         res.status(200).json({ success: true, data: formattedData });
     } catch (error) {
         console.error("Error fetching production overview:", error);
-        res.status(500).json({ success: false, error: "Failed to fetch production overview" });
+        res.status(500).json({ success: false, error: "Failed to fetch production overview", details: error.message });
     }
 };
 
@@ -125,81 +125,46 @@ exports.getTransformerDistribution = async (req, res) => {
 // 4. Testing Progress (Bar Chart)
 exports.getTestingProgress = async (req, res) => {
     try {
-        // Aggregate transformers by `currentStage`
         const progress = await TransformerModel.aggregate([
-            {
-                $group: {
-                    _id: "$currentStage",
-                    count: { $sum: 1 }
-                }
-            }
+            { $group: { _id: "$currentStage", count: { $sum: 1 } } }
         ]);
 
-        // Map stages to visualization format
-        const stageMap = {
-            "core": "Core/Visual",
-            "secondary": "Secondary/Electrical",
-            "primary": "Primary/Performance",
-            "final": "Final QC"
-        };
+        const counts = { core: 0, secondary: 0, primary: 0, final: 0, completed: 0, shipped: 0 };
         
-        // Ensure all stages are represented even if count is 0
-        const stages = ["core", "secondary", "primary", "final"];
-        const formattedData = await Promise.all(stages.map(async (stage) => {
-            const found = progress.find(p => p._id === stage);
-            const count = found ? found.count : 0;
-            
-            // For pending vs completed, we can estimate details
-            // This assumes all in that stage are "pending" completion of that stage
-            // And those in subsequent stages are "completed" for this stage
-            // This is a simplification for visualization
-            
-            return {
-                stage: stageMap[stage] || stage,
-                pending: count, 
-                completed: 0 // We'd need more complex logic to know completed history of *previous* stages for accurate "completed" bars
-            };
-        }));
-        
-        // Refined Logic:
-        // Visual Inspection (Core) -> Completed = Sum(Secondary + Primary + Final + Completed), Pending = Core
-        // Electrical Test (Secondary) -> Completed = Sum(Primary + Final + Completed), Pending = Secondary
-        // ...
-        
-        const counts = {
-            core: 0, secondary: 0, primary: 0, final: 0, completed: 0
-        };
-        
-        progress.forEach(p => {
-            if (counts.hasOwnProperty(p._id)) {
-                counts[p._id] = p.count;
-            }
+        progress.forEach(p => { 
+            if (counts.hasOwnProperty(p._id)) { 
+                counts[p._id] = p.count; 
+            } 
         });
 
-        // "completed" implies it passed all previous stages
+        // 'shipped' and 'completed' are both considered fully done
+        const totalCompleted = counts.completed + counts.shipped;
+
+        // Waterfall logic:
+        // Pending = Currently at this stage
+        // Completed = Successfully passed this stage (i.e., is at a later stage)
         const finalData = [
             { 
-                stage: 'Visual Inspection', 
-                completed: counts.secondary + counts.primary + counts.final + counts.completed, 
+                stage: 'Core Testing', 
+                completed: counts.secondary + counts.primary + counts.final + totalCompleted, 
                 pending: counts.core 
             },
             { 
-                stage: 'Electrical Test', 
-                completed: counts.primary + counts.final + counts.completed, 
+                stage: 'Secondary Testing', 
+                completed: counts.primary + counts.final + totalCompleted, 
                 pending: counts.secondary 
             },
             { 
-                stage: 'Performance Test', 
-                completed: counts.final + counts.completed, 
+                stage: 'Primary Testing', 
+                completed: counts.final + totalCompleted, 
                 pending: counts.primary 
             },
             { 
-                stage: 'Final QC', 
-                completed: counts.completed, 
+                stage: 'Final Testing', 
+                completed: totalCompleted, 
                 pending: counts.final 
             },
         ];
-
         res.status(200).json({ success: true, data: finalData });
     } catch (error) {
         console.error("Error fetching testing progress:", error);

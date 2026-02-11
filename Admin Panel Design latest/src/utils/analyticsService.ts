@@ -59,11 +59,11 @@ export interface AdvancedAnalyticsData {
 
 const API_URL = 'http://localhost:3002/api/analytics';
 
-const getHeaders = () => {
-    const token = localStorage.getItem('token');
+const getConfig = () => {
     return {
+        withCredentials: true,
         headers: {
-            'Authorization': `Bearer ${token}`
+            'Content-Type': 'application/json'
         }
     };
 };
@@ -71,32 +71,32 @@ const getHeaders = () => {
 
 export const analyticsService = {
   getDashboardStats: async (): Promise<DashboardStats> => {
-    const response = await axios.get(`${API_URL}/dashboard-stats`, getHeaders());
+    const response = await axios.get(`${API_URL}/dashboard-stats`, getConfig());
     return response.data.stats;
   },
 
   getProductionOverview: async (): Promise<ProductionData[]> => {
-    const response = await axios.get(`${API_URL}/production-overview`, getHeaders());
+    const response = await axios.get(`${API_URL}/production-overview`, getConfig());
     return response.data.data;
   },
 
   getTransformerDistribution: async (): Promise<TransformerDistribution[]> => {
-    const response = await axios.get(`${API_URL}/transformer-distribution`, getHeaders());
+    const response = await axios.get(`${API_URL}/transformer-distribution`, getConfig());
     return response.data.data;
   },
 
   getTestingProgress: async (): Promise<TestingProgress[]> => {
-    const response = await axios.get(`${API_URL}/testing-progress`, getHeaders());
+    const response = await axios.get(`${API_URL}/testing-progress`, getConfig());
     return response.data.data;
   },
 
   getRecentActivity: async (): Promise<RecentActivity[]> => {
-    const response = await axios.get(`${API_URL}/recent-activity`, getHeaders());
+    const response = await axios.get(`${API_URL}/recent-activity`, getConfig());
     return response.data.data;
   },
 
   getAdvancedAnalytics: async (): Promise<AdvancedAnalyticsData> => {
-      const response = await axios.get(`${API_URL}/advanced-analytics`, getHeaders());
+      const response = await axios.get(`${API_URL}/advanced-analytics`, getConfig());
       return response.data;
   }
 };

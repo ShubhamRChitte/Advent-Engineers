@@ -132,6 +132,10 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               <span className="font-semibold text-gray-700">Final Tester:</span>
               <span className="text-gray-600 font-mono">EMP008 / password123</span>
             </div>
+            <div className="bg-slate-50 p-2 rounded border border-slate-200 flex justify-between">
+              <span className="font-semibold text-gray-700">Entry Operator:</span>
+              <span className="text-gray-600 font-mono">EMP099 / password123</span>
+            </div>
           </div>
         </div>
       </Card>
