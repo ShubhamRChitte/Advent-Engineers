@@ -1,0 +1,23 @@
+--- Query Debug Report ---
+Connected to DB
+Simulated currentUserName: 'Vikram Singh'
+Regex: /Vikram Singh/i
+Executing Query: {
+  "testHistory.secondary_test.status": "Completed",
+  "$or": [
+    {
+      "testHistory.secondary_test.tester": {
+        "$regex": {}
+      }
+    },
+    {
+      "assignments.secondary_tester": {
+        "$regex": {}
+      }
+    }
+  ]
+}
+Query returned 3 results.
+- Found: TR-JOB-2026-038-001 | Status: Completed | Tester: Vikram Singh
+- Found: TR-JOB-2026-038-002 | Status: Completed | Tester: Vikram Singh
+- Found: TR-JOB-2026-038-003 | Status: Completed | Tester: Vikram Singh
