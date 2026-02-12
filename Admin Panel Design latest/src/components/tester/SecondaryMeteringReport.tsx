@@ -304,6 +304,10 @@ interface SecondaryMeteringReportProps {
   testerName: string;
   onBack: () => void;
   readOnly?: boolean;
+<<<<<<< HEAD
+=======
+  stage?: 'secondary' | 'primary' | 'final';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 }
 
 export function SecondaryMeteringReport({
@@ -313,11 +317,21 @@ export function SecondaryMeteringReport({
   testerName,
   onBack,
   readOnly = false,
+<<<<<<< HEAD
+=======
+  stage = 'secondary',
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 }: SecondaryMeteringReportProps) {
 
   // Determine ratios from transformer (passed from props)
   // Fallback to Order's hardcoded ratios if for some reason missing, but Transformer interface now has it.
+<<<<<<< HEAD
   const dynamicRatios = transformer.ratios && transformer.ratios.length > 0 ? transformer.ratios : ['200/1'];
+=======
+  const dynamicRatios = transformer.ratios && transformer.ratios.length > 0
+    ? transformer.ratios
+    : (transformer.orderId?.ratio || ['200/1']);
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
   // State management: Map Ratio -> Array of Rows
   const [dataByRatio, setDataByRatio] = useState<{ [ratio: string]: any[] }>(() => {
@@ -330,8 +344,14 @@ export function SecondaryMeteringReport({
     // 2️⃣ Attempt to sync with prop if it has history (Fast Load)
     // For ReadOnly, we rely heavily on props or fetched data
     // If transformer.testHistory exists, use it immediately
+<<<<<<< HEAD
     if (transformer.testHistory?.secondary_test?.metering_results?.length > 0) {
       const myResults = transformer.testHistory.secondary_test.metering_results.filter((res: any) =>
+=======
+    const stageKey = `${stage}_test`;
+    if (transformer.testHistory?.[stageKey]?.metering_results?.length > 0) {
+      const myResults = transformer.testHistory[stageKey].metering_results.filter((res: any) =>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
         res.internalCoreNo === coreId || res.coreId === coreId
       );
 
@@ -356,21 +376,45 @@ export function SecondaryMeteringReport({
         const res = await axios.get(`http://localhost:3002/api/transformers/${transformer.uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
 
+<<<<<<< HEAD
         if (freshTransformer?.testHistory?.secondary_test?.metering_results?.length > 0) {
           console.log("Found saved metering results, loading...", freshTransformer.testHistory.secondary_test.metering_results);
 
           // Filter results for THIS specific core ID to avoid loading data from other cores
           const myResults = freshTransformer.testHistory.secondary_test.metering_results.filter((res: any) =>
+=======
+        // Dynamic path: testHistory.secondary_test or testHistory.primary_test
+        const stageKey = `${stage}_test` as keyof typeof freshTransformer.testHistory;
+        const stageHistory = freshTransformer?.testHistory?.[stageKey];
+
+        if (stageHistory?.metering_results?.length > 0) {
+          console.log(`Found saved metering results for ${stage}, loading...`, stageHistory.metering_results);
+
+          // Filter results for THIS specific core ID to avoid loading data from other cores
+          const myResults = stageHistory.metering_results.filter((res: any) =>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
             res.internalCoreNo === coreId || res.coreId === coreId
           );
 
           setDataByRatio(prev => {
             const newState = { ...prev };
             myResults.forEach((block: any) => {
+<<<<<<< HEAD
               // Only update if we have this ratio in our current config
               if (newState[block.ratioValue]) {
                 newState[block.ratioValue] = block.rows;
               }
+=======
+              // Upsert the row data.
+              // 1. Exact Match
+              if (block.ratioValue && newState[block.ratioValue]) {
+                newState[block.ratioValue] = block.rows;
+              }
+              // 2. Fallback for "N/A" ratio if we only have one expected ratio
+              else if ((!block.ratioValue || block.ratioValue === 'N/A') && dynamicRatios.length === 1) {
+                newState[dynamicRatios[0]] = block.rows;
+              }
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
             });
             return newState;
           });
@@ -412,7 +456,11 @@ export function SecondaryMeteringReport({
 
       const payload = {
         uniqueId: transformer.uniqueId,
+<<<<<<< HEAD
         loginType: "secondary_login",
+=======
+        loginType: `${stage}_login`,
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
         tester: testerName, // Use dynamic tester name from props
         coreId: coreId,
         metering_results: meteringResults
@@ -420,8 +468,16 @@ export function SecondaryMeteringReport({
 
       console.log("handleDatabaseSave: Payload ready", payload);
 
+<<<<<<< HEAD
       const response = await axios.post(
         "http://localhost:3002/api/secondary-metering-tests",
+=======
+      const endpoint = `http://localhost:3002/transformer-${stage}-metering-tests`;
+      console.log(`handleDatabaseSave: Posting to ${endpoint}`);
+
+      const response = await axios.post(
+        endpoint,
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
         payload,
         { withCredentials: true }
       );
@@ -434,6 +490,17 @@ export function SecondaryMeteringReport({
     }
   };
 
+<<<<<<< HEAD
+=======
+
+  // Check Completion
+  const isComplete = dynamicRatios.length > 0 && dynamicRatios.every(ratio => {
+    const rows = dataByRatio[ratio];
+    if (!rows) return false;
+    return rows.every((row: any) => row.r100 && row.p100 && row.r25 && row.p25);
+  });
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   return (
     <div className="space-y-6 p-4">
       <div className="flex items-center justify-between no-print">
@@ -452,10 +519,17 @@ export function SecondaryMeteringReport({
         </div>
       </div>
 
+<<<<<<< HEAD
       <Card className="p-6">
 
         <div className="text-center mb-6 pb-4 border-b border-gray-200">
           <h3 className="text-red-600 font-bold text-xl uppercase">Advent Engineers</h3>
+=======
+      <Card className={`p-6 border overflow-hidden ${isComplete ? 'border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]' : 'border-gray-200'}`}>
+
+        <div className={`text-center mb-6 pb-4 border-b ${isComplete ? 'bg-green-50/50 border-green-200 rounded-t-lg' : 'border-gray-200'}`}>
+          <h3 className="text-red-600 font-bold text-xl uppercase">Advent Engineers {isComplete && <span className="text-green-600 ml-2 text-sm">(Completed)</span>}</h3>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
           <p className="text-sm font-semibold">METERING CORE REPORT - {dynamicRatios.join(' / ')}</p>
         </div>
 

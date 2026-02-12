@@ -1,4 +1,9 @@
 import { useState } from 'react';
+<<<<<<< HEAD
+=======
+import axios from 'axios';
+import { toast } from 'sonner';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 import { TransformerListView } from './TransformerListView';
 import { EnhancedOrderForm } from './EnhancedOrderForm';
 import { AssignTestingWorkflow } from './AssignTestingWorkflow';
@@ -28,8 +33,13 @@ interface TestAssignment {
   workers: WorkerAssignment[];
 }
 
+<<<<<<< HEAD
 export function OrderManagementModule() {
   const [currentView, setCurrentView] = useState<ViewType>('transformer-list');
+=======
+export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }) {
+  const [currentView, setCurrentView] = useState<ViewType>('order-form');
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   const [selectedTransformer, setSelectedTransformer] = useState<Transformer | null>(null);
   const [orderData, setOrderData] = useState<any>(null);
   const [testAssignments, setTestAssignments] = useState<TestAssignment[]>([]);
@@ -49,6 +59,7 @@ export function OrderManagementModule() {
     setCurrentView('order-summary');
   };
 
+<<<<<<< HEAD
   const handleSaveOrder = () => {
     // In a real app, this would save to database
     alert('Order saved successfully!\n\nOrder ID: ' + orderData.orderId);
@@ -57,6 +68,98 @@ export function OrderManagementModule() {
     setSelectedTransformer(null);
     setOrderData(null);
     setTestAssignments([]);
+=======
+  const handleSaveOrder = async () => {
+    try {
+      // 1. Transform Assignments
+      // Logic: Iterate assignments by stage, calculate simple ranges for now.
+      const assignmentsByStage = testAssignments.reduce((acc: any[], stage) => {
+        let start = 1;
+        const stageAssignments = stage.workers.map(w => {
+          const range = { from: start, to: start + w.transformerCount - 1 };
+          start += w.transformerCount;
+          // Map Frontend Stage Name to Backend Enum Pair
+          const stageEnumMap: Record<string, string> = {
+            'Core Test': 'core',
+            'After Secondary Test': 'secondary', // Fixed mapping
+            'Secondary Test': 'secondary', // Also support direct name
+            'After Primary Test': 'primary',
+            'Final Test': 'final'
+          };
+
+          return {
+            testerName: w.worker.name,
+            stage: stageEnumMap[stage.testType] || 'core',
+            unitRange: range,
+            status: 'Assigned'
+          };
+        });
+        return [...acc, ...stageAssignments];
+      }, []);
+
+      // 2. Transform Core Types & Capitalize for Enum Match
+      // Form: ['metering', 'ps'] -> Backend: [{ coreType: 'Metering' }, { coreType: 'PS' }]
+      const formatCoreType = (type: string) => {
+        if (!type) return 'Metering';
+        if (type.toLowerCase() === 'ps') return 'PS';
+        if (type.toLowerCase() === 'ct') return 'CT'; // fallback
+        // Capitalize first letter
+        return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+      };
+
+      const coreDetails = (orderData.coreTypes || []).map((ct: string) => ({
+        coreType: formatCoreType(ct)
+      }));
+
+      // 3. Construct Final Payload matching OrderSchema
+      const payload = {
+        // ...orderData, // Don't spread first to avoid overwriting strict fields with wrong names
+        clientName: orderData.clientName,
+        clientContactNo: orderData.clientContact, // Backend expects clientContactNo
+
+        transformerName: orderData.transformerName,
+        transformerType: orderData.transformerType,
+        quantity: parseInt(orderData.quantity),
+
+        noOfCores: parseInt(orderData.numberOfCores),
+        coreDetails: coreDetails,
+        ratio: orderData.ratio && orderData.ratio.length > 0 ? orderData.ratio : ["N/A"],
+
+        // Spread parameters to root
+        nominalSystemVoltage: parseFloat(orderData.parameters?.nominalVoltage) || 0,
+        burden: parseFloat(orderData.parameters?.burden) || 0,
+        ratedPrimaryCurrent: parseFloat(orderData.parameters?.ratedPrimaryCurrent) || 0,
+        ratedSecondaryCurrent: parseFloat(orderData.parameters?.ratedSecondaryCurrent) || 0,
+        accuracyClass: orderData.parameters?.accuracyClass || 'N/A',
+        mountingDetails: orderData.parameters?.mountingDetails || 'N/A',
+        overallDimension: orderData.parameters?.overallDimensions || 'N/A', // Schema: overallDimension (singular)
+
+        isStandard: orderData.isStandard || 'No',
+        instructions: "None",
+
+        deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // Default 14 days
+
+        assignments: assignmentsByStage,
+        bypassApproval: isAdmin // If Admin, bypass approval (Auto-Approve)
+      };
+
+      console.log("Sending Order Payload:", payload);
+
+      const response = await axios.post('http://localhost:3002/api/create-order', payload);
+
+      if (response.data.success) {
+        toast.success(`Order saved successfully! ID: ${response.data.jobId}`); // Response returns jobId not order.jobId
+        // Reset and show orders list
+        setCurrentView('orders-list');
+        setSelectedTransformer(null);
+        setOrderData(null);
+        setTestAssignments([]);
+      }
+    } catch (error: any) {
+      console.error("Failed to save order:", error);
+      toast.error(error.response?.data?.message || "Failed to save order");
+    }
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   };
 
   const handleBackToList = () => {
@@ -68,6 +171,7 @@ export function OrderManagementModule() {
     setCurrentView('order-form');
   };
 
+<<<<<<< HEAD
   // Transformer List View
   if (currentView === 'transformer-list') {
     return <TransformerListView onOrderTransformer={handleOrderTransformer} />;
@@ -80,6 +184,16 @@ export function OrderManagementModule() {
         transformer={selectedTransformer}
         onSubmit={handleSubmitOrder}
         onBack={handleBackToList}
+=======
+  // Order Form View (Direct Entry)
+  if (currentView === 'order-form') {
+    return (
+      <EnhancedOrderForm
+        transformer={selectedTransformer!} // It handles null/undefined internally now
+        onSubmit={handleSubmitOrder}
+        onBack={() => setCurrentView('orders-list')} // Back goes to Orders List, not Transformer Templates
+        isEntryOperator={!isAdmin}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       />
     );
   }
@@ -111,6 +225,11 @@ export function OrderManagementModule() {
     return <OrdersListView />;
   }
 
+<<<<<<< HEAD
   // Default fallback
   return <TransformerListView onOrderTransformer={handleOrderTransformer} />;
+=======
+  // Fallback / Default
+  return <OrdersListView />;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 }

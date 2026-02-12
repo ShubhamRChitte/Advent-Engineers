@@ -2,49 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { isAuthenticated } = require('../middlewares/authMiddleware');
 const { TransformerModel } = require('../models/TransformerModel');
-
-// router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
-//     console.log("Session:", req.session);
-//     console.log("User:", req.user);
-
-//     // 1. Check if user is actually attached to the request
-//     if (!req.user) return res.status(401).json({ message: "Not Authenticated" });
-
-//     const { department, fullName } = req.user;
-
-//     // 2. Map Department to DB Stage
-//     // 'Core Test' maps to 'core' based on the prompt's requirement for matching TransformerSchema short names
-//     const stageMap = {
-//         "Core Test": "core",
-//         "Secondary Test": "secondary",
-//         "Primary Test": "primary",
-//         "Final Test": "final"
-//     };
-
-//     const stage = stageMap[department]; // e.g., 'core'
-//     if (!stage) return res.status(400).json({ message: "Invalid Department for testing" });
-
-//     try {
-//         // 3. Find and Filter
-//         // Fetch transformers where currentStage matches the user's mapped stage
-//         const tasks = await TransformerModel.find({ currentStage: stage }).populate("orderId");
-
-//         // Filter results: only transformers where req.user.fullName matches the corresponding tester field in Order.assignments
-//         const filteredTasks = tasks.filter(task => {
-//             if (!task.orderId || !task.orderId.assignments) return false;
-
-//             // assignment key is like 'core_tester', 'secondary_tester'
-//             const assignmentKey = `${stage}_tester`;
-//             return task.orderId.assignments[assignmentKey] === fullName;
-//         });
-
-//         res.json(filteredTasks);
-//     } catch (err) {
-//         res.status(500).json({ error: err.message });
-//     }
-// });
-
-
+const express = require('express');
+const router = express.Router();
+const { isAuthenticated } = require('../middlewares/authMiddleware');
+const { TransformerModel } = require('../models/TransformerModel');
+const { CounterModel } = require('../models/CounterModel'); // Adjust path if needed
 
 const { OrderModel } = require('../models/OrderModel');
 
@@ -99,6 +61,16 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
     const { TransformerModel } = require('../models/TransformerModel');
     const assignedTransformers = await TransformerModel.find(activeAssignmentQuery).select('orderId uniqueId');
 
+    console.log("----- DEBUG ASSIGNMENTS -----");
+    console.log("User:", namesToCheck);
+    console.log("Stage:", stageKey);
+    console.log("Query:", JSON.stringify(activeAssignmentQuery));
+    console.log("Found Transformers matched:", assignedTransformers.length);
+    if (assignedTransformers.length > 0) {
+      console.log("Sample ID:", assignedTransformers[0].uniqueId);
+    }
+    console.log("-----------------------------");
+
     // Group by Order ID to know which specific units are assigned for each order
     // Map: OrderID (string) -> Array of UniqueIDs
     const orderToUnitMap = {};
@@ -152,14 +124,33 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
     let finalOrderQuery = {};
 
     if (filterType === 'active') {
-      finalOrderQuery = { _id: { $in: activeOrderIds } };
-      // If filtering by stage specifically
+      // 1. Orders from Assigned Transformers
+      const transformerBasedQuery = { _id: { $in: activeOrderIds } };
+
+      // 2. Direct Order Assignment (Fallback/Robustness)
+      const directAssignmentQuery = {
+        currentStage: stageKey,
+        assignments: {
+          $elemMatch: {
+            testerName: { $in: namesToCheck },
+            stage: stageKey
+          }
+        },
+        isApproved: true // Only show orders that have been approved by Admin
+        // status: { $regex: /In Progress/i } // Optional: Filter by status if needed
+      };
+
+      // Combine: Show order if (Transformers are assigned OR Order says I'm assigned)
+      finalOrderQuery = {
+        $or: [
+          transformerBasedQuery,
+          directAssignmentQuery
+        ]
+      };
+
+      // If filtering by stage specifically (User override)
       if (req.query.stage) {
         finalOrderQuery.currentStage = req.query.stage;
-      } else {
-        // Implicitly we are likely in the stage because we queried transformers by stageKey
-        // But the Order itself might hold a status. 
-        // We prioritize the Transformer's presence in the query which checked currentStage=stageKey.
       }
     } else if (filterType === 'history') {
       finalOrderQuery = {
@@ -347,37 +338,39 @@ router.get('/secondary/reports', isAuthenticated, async (req, res) => {
   try {
     const { TransformerModel } = require('../models/TransformerModel');
     const user = req.user;
-    const currentUserName = (user.name || user.fullName || user.username || '').trim();
+    const currentUserName = (user.name || user.fullName || '').trim();
 
     console.log("Fetching secondary reports for:", currentUserName);
 
     // Find transformers where this user marked secondary test as Completed
-    // We look into testHistory.secondary_test.tester
-    // Using regex for case-insensitive match on tester name
+    // Construct a list of possible names to search for
+    const namesToCheck = [user.name, user.fullName, user.username].filter(n => n && n.trim().length > 0).map(n => n.trim());
+    const nameRegexes = namesToCheck.map(n => new RegExp(n, 'i'));
+
+    console.log("Fetching secondary reports for names:", namesToCheck);
+
     const query = {
+      // User Request: Show ONLY "Completed" reports (approved by tester).
+      // STRICTLY match the 'tester' field (no assignment fallback) to ensure they only see what THEY tested.
+      // Excludes "In Progress" and "Pending".
       "testHistory.secondary_test.status": "Completed",
       $or: [
-        { "testHistory.secondary_test.tester": { $regex: new RegExp(currentUserName, 'i') } },
-        { "assignments.secondary_tester": { $regex: new RegExp(currentUserName, 'i') } }
+        ...nameRegexes.map(r => ({ "testHistory.secondary_test.tester": { $regex: r } }))
       ]
     };
 
-    const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 });
+    const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 }).populate('orderId');
 
     const path = require('path');
     const fs = require('fs');
     const logPath = path.join(__dirname, '../debug_api_log.txt');
-
-    const logEntry = `\n[${new Date().toISOString()}] User: '${JSON.stringify(user)}' | Name: '${currentUserName}' | Found: ${transformers.length}`;
-
-    // Log to console for immediate visibility
-    console.log(logEntry);
-    console.log("Query:", JSON.stringify(query, null, 2));
+    const logEntry = `\n[${new Date().toISOString()}] User: '${currentUserName}' | Found: ${transformers.length}`;
 
     try {
-      fs.appendFileSync(logPath, logEntry + `\nQuery: ${JSON.stringify(query)}`);
+        fs.appendFileSync(logPath, logEntry + `\nQuery: ${JSON.stringify(query)}`);
     } catch (e) { console.error("Could not write to log file", e); }
 
+    console.log(`Found ${transformers.length} completed reports for ${currentUserName}`);
     res.json(transformers);
   } catch (err) {
     console.error("Error fetching secondary reports:", err);
@@ -385,7 +378,157 @@ router.get('/secondary/reports', isAuthenticated, async (req, res) => {
   }
 });
 
-// Route 'PUT /core-tests/approve/:orderId' removed to resolve conflict with coreTestRoutes.js
+// ✅ FETCH COMPLETED REPORTS FOR AFTER PRIMARY TESTER
+router.get('/after-primary/reports', isAuthenticated, async (req, res) => {
+  try {
+    const { TransformerModel } = require('../models/TransformerModel');
+    const user = req.user;
+    const currentUserName = (user.name || user.fullName || '').trim();
 
+    console.log("Fetching after-primary reports for:", currentUserName);
+
+    // Find transformers where this user marked after-primary test as Completed
+    const namesToCheck = [user.name, user.fullName, user.username].filter(n => n && n.trim().length > 0).map(n => n.trim());
+    const nameRegexes = namesToCheck.map(n => new RegExp(n, 'i'));
+
+    const query = {
+      // User Request: Show ONLY "Completed" reports (approved by tester).
+      "testHistory.primary_test.status": "Completed",
+      $or: [
+        ...nameRegexes.map(r => ({ "testHistory.primary_test.tester": { $regex: r } }))
+      ]
+    };
+
+    const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 }).populate('orderId');
+
+    console.log(`Found ${transformers.length} completed after-primary reports for ${currentUserName}`);
+    res.json(transformers);
+  } catch (err) {
+    console.error("Error fetching after-primary reports:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ✅ FETCH COMPLETED REPORTS FOR FINAL TESTER
+router.get('/final/reports', isAuthenticated, async (req, res) => {
+  try {
+    const { TransformerModel } = require('../models/TransformerModel');
+    const user = req.user;
+    const currentUserName = (user.name || user.fullName || '').trim();
+
+    console.log("Fetching final reports for:", currentUserName);
+
+    // Find transformers where this user marked final test as Completed
+    const namesToCheck = [user.name, user.fullName, user.username].filter(n => n && n.trim().length > 0).map(n => n.trim());
+    const nameRegexes = namesToCheck.map(n => new RegExp(n, 'i'));
+
+    const query = {
+      // User Request: Show ONLY "Completed" reports (approved by tester).
+      "testHistory.final_test.status": "Completed",
+      $or: [
+        ...nameRegexes.map(r => ({ "testHistory.final_test.tester": { $regex: r } }))
+      ]
+    };
+
+    const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 }).populate('orderId');
+
+    console.log(`Found ${transformers.length} completed final reports for ${currentUserName}`);
+    res.json(transformers);
+  } catch (err) {
+    console.error("Error fetching final reports:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+
+// ✅ FETCH ALL ORDERS (ADMIN VIEW)
+router.get('/admin/orders', isAuthenticated, async (req, res) => {
+  try {
+    const { OrderModel } = require('../models/OrderModel');
+    // Fetch all orders, sorted by newest first
+    const orders = await OrderModel.find({}).sort({ createdAt: -1 });
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ✅ ADMIN NOTIFICATIONS
+router.get('/admin/notifications', isAuthenticated, async (req, res) => {
+  try {
+    const { OrderModel } = require('../models/OrderModel');
+    // Fetch orders that are either "Pending Approval" OR have isRead: false
+    // Sort by newest first
+    const notifications = await OrderModel.find({
+      $or: [
+        { status: "Pending Approval" },
+        { isRead: false }
+      ]
+    }).sort({ createdAt: -1 });
+
+    res.json(notifications);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// --- NEW ENDPOINT: Client Stats for Reports ---
+router.get('/orders/clients/stats', async (req, res) => {
+  try {
+    const { OrderModel } = require('../models/OrderModel');
+    const stats = await OrderModel.aggregate([
+      {
+        $group: {
+          _id: "$clientName", // Group by Client Name (Correct field: clientName, not companyName)
+          totalOrders: { $sum: 1 },
+          completedOrders: {
+            $sum: { $cond: [{ $eq: ["$status", "Completed"] }, 1, 0] }
+          },
+          inProgressOrders: {
+            $sum: { $cond: [{ $ne: ["$status", "Completed"] }, 1, 0] }
+          },
+          // Optional: Get contact info from the latest order for this client
+          // We can try to find fields like clientContactNo or emailId if they exist in schema
+          contactNumber: { $first: "$clientContactNo" },
+          email: { $first: "$emailId" }
+        }
+      },
+      { $sort: { _id: 1 } } // Sort alphabetically by client name
+    ]);
+
+    // Map to frontend structure
+    const clients = stats.map((client, index) => ({
+      id: client._id || `client-${index}`,
+      name: client._id || 'Unknown Client',
+      contactNumber: client.contactNumber || 'N/A',
+      email: client.email || 'N/A',
+      totalOrders: client.totalOrders,
+      completedOrders: client.completedOrders,
+      inProgressOrders: client.inProgressOrders
+    }));
+
+    res.status(200).json({ success: true, clients });
+  } catch (error) {
+    console.error("Error fetching client stats:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// --- NEW ENDPOINT: Orders by Client Name ---
+router.get('/orders/client/:clientName', async (req, res) => {
+  try {
+    const { OrderModel } = require('../models/OrderModel');
+    const clientName = req.params.clientName;
+    // Use regex for case-insensitive matching if needed, or exact match
+    const orders = await OrderModel.find({ clientName: clientName }).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, orders });
+  } catch (error) {
+    console.error("Error fetching client orders:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 module.exports = router;

@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 import { useState } from 'react';
+=======
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -19,6 +24,10 @@ import {
   Play,
 } from 'lucide-react';
 import { CoreTestingInitiation } from '../testing/CoreTestingInitiation';
+<<<<<<< HEAD
+=======
+import { TestReportModal } from '../common/TestReportModal';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
 interface TransformerUnit {
   id: string;
@@ -51,6 +60,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
   const [showCoreTestingInitiation, setShowCoreTestingInitiation] = useState(false);
 
   // Generate transformer units based on quantity
+<<<<<<< HEAD
   const generateTransformerUnits = (): TransformerUnit[] => {
     const units: TransformerUnit[] = [];
     const baseId = order.orderId.replace('ORD-', 'Tata-2407-');
@@ -87,6 +97,75 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
 
   const transformerUnits = generateTransformerUnits();
 
+=======
+  const [transformerUnits, setTransformerUnits] = useState<TransformerUnit[]>([]);
+  const [rawTransformers, setRawTransformers] = useState<any[]>([]);
+  const [reportModal, setReportModal] = useState<{ isOpen: boolean; transformer: any; type: 'core' | 'secondary' | 'primary' | 'final' }>({
+    isOpen: false,
+    transformer: null,
+    type: 'core'
+  });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTransformers = async () => {
+      try {
+        const response = await axios.get(`http://localhost:3002/api/transformers/order/${order.id}`, {
+          withCredentials: true
+        });
+
+        // Define the progression of stages
+        const stageOrder = ['core', 'secondary', 'primary', 'final', 'completed', 'shipped'];
+
+        const getStatusForStage = (targetStage: string, currentStage: string, historyStatus?: string) => {
+          // 1. Explicit History Check
+          if (historyStatus === 'Rejected') return 'Rejected';
+          if (historyStatus === 'Completed') return 'Complete';
+
+          // 2. Stage Progression Check
+          const targetIndex = stageOrder.indexOf(targetStage);
+          const currentIndex = stageOrder.indexOf(currentStage);
+
+          if (targetIndex === -1 || currentIndex === -1) return 'Pending'; // Safety fallback
+
+          if (currentIndex > targetIndex) {
+            return 'Complete'; // If we are passed this stage, it's done
+          }
+          if (currentIndex === targetIndex) {
+            // If history says Pending/Empty but we are IN this stage, it's In Progress
+            // (Unless history explicitly says otherwise, which we checked above)
+            return 'In Progress';
+          }
+
+          return 'Pending'; // Not reached yet
+        };
+
+        const mappedUnits: TransformerUnit[] = response.data.map((t: any) => ({
+          id: t._id,
+          // Use the uniqueId from DB (TR-JOB-...), fallback to constructing it if missing
+          transformerId: t.uniqueId || `TR-${t.jobId || 'UNKNOWN'}-${String(t.internalCoreNo || '').split('-').pop() || '???'}`,
+          coreTestStatus: getStatusForStage('core', t.currentStage, t.testHistory?.core_test?.status),
+          secondaryTestStatus: getStatusForStage('secondary', t.currentStage, t.testHistory?.secondary_test?.status),
+          primaryTestStatus: getStatusForStage('primary', t.currentStage, t.testHistory?.primary_test?.status),
+          finalTestStatus: getStatusForStage('final', t.currentStage, t.testHistory?.final_test?.status),
+          reportStatus: (t.currentStage === 'completed' || t.currentStage === 'shipped') ? 'Open' : 'Pending'
+        }));
+
+        setRawTransformers(response.data);
+        setTransformerUnits(mappedUnits);
+      } catch (error) {
+        console.error("Error fetching transformers:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (order.id) {
+      fetchTransformers();
+    }
+  }, [order.id]);
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
   const filteredUnits = transformerUnits.filter(unit =>
     unit.transformerId.toLowerCase().includes(searchQuery.toLowerCase())
@@ -134,7 +213,33 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
   };
 
   const handleViewReport = (transformerId: string, testType: string) => {
+<<<<<<< HEAD
     alert(`Opening ${testType} report for ${transformerId}`);
+=======
+    // Find the full transformer object
+    // Note: transformerId passed here is the DISPLAY ID (uniqueId)
+    // We should look it up in rawTransformers
+    const transformer = rawTransformers.find(t =>
+      t.uniqueId === transformerId ||
+      `TR-${t.jobId || 'UNKNOWN'}-${String(t.internalCoreNo || '').split('-').pop() || '???'}` === transformerId
+    );
+
+    if (transformer) {
+      let type: 'core' | 'secondary' | 'primary' | 'final' = 'core';
+      if (testType.includes('Core')) type = 'core';
+      else if (testType.includes('Secondary')) type = 'secondary';
+      else if (testType.includes('Primary')) type = 'primary';
+      else if (testType.includes('Final')) type = 'final';
+
+      setReportModal({
+        isOpen: true,
+        transformer,
+        type
+      });
+    } else {
+      console.error("Transformer not found for ID:", transformerId);
+    }
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   };
 
   const handleDownloadFullReport = (transformerId: string) => {
@@ -622,6 +727,17 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
           </div>
         </div>
       </Card>
+<<<<<<< HEAD
+=======
+
+      {/* Report Modal */}
+      <TestReportModal
+        isOpen={reportModal.isOpen}
+        onClose={() => setReportModal({ ...reportModal, isOpen: false })}
+        transformer={reportModal.transformer}
+        testType={reportModal.type}
+      />
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     </div>
   );
 }

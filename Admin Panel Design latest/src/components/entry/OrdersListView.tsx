@@ -1,11 +1,20 @@
+<<<<<<< HEAD
 import { useState } from 'react';
+=======
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { OrderDetailView } from './OrderDetailView';
+<<<<<<< HEAD
 import { OrderStatusTracker } from '../order/OrderStatusTracker';
 import { 
+=======
+import {
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   Search,
   Eye,
   Edit,
@@ -14,6 +23,7 @@ import {
   User,
   Filter,
   Download,
+<<<<<<< HEAD
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -21,10 +31,18 @@ import {
 interface Order {
   id: string;
   orderId: string;
+=======
+} from 'lucide-react';
+
+interface Order {
+  _id: string;
+  jobId: string;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   clientName: string;
   transformerName: string;
   transformerType: string;
   quantity: number;
+<<<<<<< HEAD
   orderDate: string;
   status: 'Pending' | 'Assigned' | 'In Testing' | 'Completed';
   priority: 'Low' | 'Medium' | 'High';
@@ -32,6 +50,17 @@ interface Order {
 
 interface OrdersListViewProps {
   onViewOrder?: (order: Order) => void;
+=======
+  createdAt: string;
+  status: string;
+  priority: string;
+  deadline?: string;
+  // Add other fields as needed
+}
+
+interface OrdersListViewProps {
+  onViewOrder?: (order: Order) => void; // Update type locally if needed, but passing any is safer for now or matching Order
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   onEditOrder?: (order: Order) => void;
 }
 
@@ -39,6 +68,7 @@ export function OrdersListView({ onViewOrder, onEditOrder }: OrdersListViewProps
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+<<<<<<< HEAD
 
   const orders: Order[] = [
     {
@@ -111,10 +141,42 @@ export function OrdersListView({ onViewOrder, onEditOrder }: OrdersListViewProps
       default:
         return 'bg-gray-100 text-gray-700 border-gray-300';
     }
+=======
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch Orders
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      // Using admin/orders or a generic orders endpoint. Assuming Entry Operator can access this.
+      const response = await axios.get('http://localhost:3002/api/admin/orders', {
+        withCredentials: true
+      });
+      setOrders(response.data);
+    } catch (error) {
+      console.error("Failed to fetch orders", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    const s = status || 'Pending';
+    if (s.includes('Pending')) return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+    if (s.includes('Assigned') || s.includes('Progress')) return 'bg-blue-100 text-blue-700 border-blue-300';
+    if (s.includes('Testing')) return 'bg-purple-100 text-purple-700 border-purple-300';
+    if (s.includes('Completed')) return 'bg-green-100 text-green-700 border-green-300';
+    return 'bg-gray-100 text-gray-700 border-gray-300';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
+<<<<<<< HEAD
       case 'High':
         return 'bg-red-100 text-red-700';
       case 'Medium':
@@ -123,32 +185,71 @@ export function OrdersListView({ onViewOrder, onEditOrder }: OrdersListViewProps
         return 'bg-green-100 text-green-700';
       default:
         return 'bg-gray-100 text-gray-700';
+=======
+      case 'High': return 'bg-red-100 text-red-700';
+      case 'Medium': return 'bg-orange-100 text-orange-700';
+      case 'Low': return 'bg-green-100 text-green-700';
+      default: return 'bg-gray-100 text-gray-700';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     }
   };
 
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
+<<<<<<< HEAD
       order.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.transformerName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus =
       selectedStatus === 'all' || order.status === selectedStatus;
     return matchesSearch && matchesStatus;
+=======
+      (order.jobId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (order.clientName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (order.transformerName || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+    // Simple status filter mapping
+    if (selectedStatus === 'all') return matchesSearch;
+    // Map Frontend Filter to Backend Status
+    const status = order.status || '';
+    if (selectedStatus === 'Pending') return matchesSearch && status.includes('Pending');
+    if (selectedStatus === 'Assigned') return matchesSearch && (status.includes('Assigned') || status === 'In Progress');
+    if (selectedStatus === 'In Testing') return matchesSearch && status.includes('Testing');
+    if (selectedStatus === 'Completed') return matchesSearch && status === 'Completed';
+
+    return matchesSearch && status === selectedStatus;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   });
 
   const statusCounts = {
     all: orders.length,
+<<<<<<< HEAD
     Pending: orders.filter((o) => o.status === 'Pending').length,
     Assigned: orders.filter((o) => o.status === 'Assigned').length,
     'In Testing': orders.filter((o) => o.status === 'In Testing').length,
     Completed: orders.filter((o) => o.status === 'Completed').length,
+=======
+    Pending: orders.filter((o) => (o.status || '').includes('Pending')).length,
+    Assigned: orders.filter((o) => (o.status || '').includes('Assigned') || (o.status || '') === 'In Progress').length,
+    'In Testing': orders.filter((o) => (o.status || '').includes('Testing')).length,
+    Completed: orders.filter((o) => (o.status || '') === 'Completed').length,
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   };
 
   // If an order is selected, show the detail view
   if (selectedOrder) {
     return (
       <OrderDetailView
+<<<<<<< HEAD
         order={selectedOrder}
+=======
+        order={{
+          ...selectedOrder,
+          id: selectedOrder._id, // Map for view compatibility
+          orderId: selectedOrder.jobId,
+          orderDate: new Date(selectedOrder.createdAt).toLocaleDateString()
+        }}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
         onBack={() => setSelectedOrder(null)}
       />
     );
@@ -162,9 +263,15 @@ export function OrdersListView({ onViewOrder, onEditOrder }: OrdersListViewProps
           <h2>Orders List</h2>
           <p className="text-gray-500 mt-1">View and manage all transformer orders</p>
         </div>
+<<<<<<< HEAD
         <Button variant="outline" className="gap-2">
           <Download className="w-4 h-4" />
           Export Orders
+=======
+        <Button variant="outline" className="gap-2" onClick={fetchOrders}>
+          <Download className="w-4 h-4" />
+          Refresh List
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
         </Button>
       </div>
 
@@ -235,6 +342,7 @@ export function OrdersListView({ onViewOrder, onEditOrder }: OrdersListViewProps
               </tr>
             </thead>
             <tbody>
+<<<<<<< HEAD
               {filteredOrders.map((order, index) => (
                 <tr
                   key={order.id}
@@ -244,6 +352,18 @@ export function OrdersListView({ onViewOrder, onEditOrder }: OrdersListViewProps
                 >
                   <td className="p-4">
                     <p className="font-mono text-sm font-medium">{order.orderId}</p>
+=======
+              {loading ? (
+                <tr><td colSpan={8} className="p-8 text-center">Loading...</td></tr>
+              ) : filteredOrders.map((order, index) => (
+                <tr
+                  key={order._id}
+                  className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                    }`}
+                >
+                  <td className="p-4">
+                    <p className="font-mono text-sm font-medium">{order.jobId}</p>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-2">
@@ -268,7 +388,11 @@ export function OrdersListView({ onViewOrder, onEditOrder }: OrdersListViewProps
                   <td className="p-4">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-gray-400" />
+<<<<<<< HEAD
                       <span className="text-sm">{order.orderDate}</span>
+=======
+                      <span className="text-sm">{new Date(order.createdAt).toLocaleDateString()}</span>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                     </div>
                   </td>
                   <td className="p-4">
@@ -292,6 +416,7 @@ export function OrdersListView({ onViewOrder, onEditOrder }: OrdersListViewProps
                         <Eye className="w-4 h-4" />
                         View
                       </Button>
+<<<<<<< HEAD
                       <Button
                         variant="ghost"
                         size="sm"
@@ -301,6 +426,9 @@ export function OrdersListView({ onViewOrder, onEditOrder }: OrdersListViewProps
                         <Edit className="w-4 h-4" />
                         Edit
                       </Button>
+=======
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                     </div>
                   </td>
                 </tr>
@@ -309,7 +437,11 @@ export function OrdersListView({ onViewOrder, onEditOrder }: OrdersListViewProps
           </table>
         </div>
 
+<<<<<<< HEAD
         {filteredOrders.length === 0 && (
+=======
+        {!loading && filteredOrders.length === 0 && (
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
           <div className="text-center py-12 text-gray-500">
             <Search className="w-12 h-12 mx-auto mb-2 text-gray-400" />
             <p>No orders found</p>

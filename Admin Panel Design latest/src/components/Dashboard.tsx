@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useEffect, useState } from 'react';
 import { Card } from './ui/card';
 import { TrendingUp, TrendingDown, Package, Users, Truck, AlertCircle } from 'lucide-react';
@@ -53,6 +54,43 @@ export function Dashboard() {
   if (loading) {
       return <div className="p-6">Loading dashboard data...</div>;
   }
+=======
+import { Card } from './ui/card';
+import { TrendingUp, TrendingDown, Package, Users, Truck, AlertCircle } from 'lucide-react';
+import { LineChart, Line, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+
+export function Dashboard() {
+  const stats = [
+    { label: 'Current Orders', value: '25', change: '+15%', trending: 'up', icon: Package },
+    { label: 'Active Workers', value: '18', change: '+8%', trending: 'up', icon: Users },
+    { label: 'Pending Tests', value: '36', change: '-6%', trending: 'down', icon: AlertCircle },
+    { label: 'Dispatched Today', value: '12', change: '+20%', trending: 'up', icon: Truck },
+  ];
+
+  const productionData = [
+    { month: 'Jan', production: 45 },
+    { month: 'Feb', production: 52 },
+    { month: 'Mar', production: 48 },
+    { month: 'Apr', production: 61 },
+    { month: 'May', production: 55 },
+    { month: 'Jun', production: 67 },
+  ];
+
+  const transformerTypes = [
+    { name: 'Dead Tank Type-1', value: 30, color: '#ff6b6b' },
+    { name: 'Dead Tank Type-2', value: 20, color: '#4ecdc4' },
+    { name: 'Live Tank Type', value: 15, color: '#45b7d1' },
+    { name: 'Indoor ERC', value: 10, color: '#96ceb4' },
+    { name: 'Outdoor ERC', value: 25, color: '#ffeaa7' },
+  ];
+
+  const testingProgress = [
+    { stage: 'Visual Inspection', completed: 28, pending: 8 },
+    { stage: 'Electrical Test', completed: 22, pending: 14 },
+    { stage: 'Performance Test', completed: 18, pending: 18 },
+    { stage: 'Final QC', completed: 15, pending: 21 },
+  ];
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
   return (
     <div className="space-y-6">
@@ -152,7 +190,16 @@ export function Dashboard() {
       <Card className="p-6">
         <h3 className="mb-4">Recent Activity</h3>
         <div className="space-y-4">
+<<<<<<< HEAD
           {recentActivity.map((activity, idx) => (
+=======
+          {[
+            { action: 'New order received', detail: 'Dead Tank Type-1 - Order #1234', time: '5 min ago', type: 'success' },
+            { action: 'Testing completed', detail: 'Live Tank Type - Order #1230', time: '1 hour ago', type: 'info' },
+            { action: 'Worker assigned', detail: 'John Doe assigned to Order #1235', time: '2 hours ago', type: 'info' },
+            { action: 'Dispatch scheduled', detail: 'Order #1228 scheduled for tomorrow', time: '3 hours ago', type: 'warning' },
+          ].map((activity, idx) => (
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
             <div key={idx} className="flex items-start gap-4 pb-4 border-b border-gray-100 last:border-0">
               <div className={`w-2 h-2 rounded-full mt-2 ${
                 activity.type === 'success' ? 'bg-green-500' :

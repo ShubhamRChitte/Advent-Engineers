@@ -7,9 +7,18 @@ import { SecondaryTestingModule } from './SecondaryTestingModule';
 import { AfterPrimaryTestingModule } from './AfterPrimaryTestingModule';
 import { FinalTestingModule } from './FinalTestingModule';
 import { TesterNotifications } from './TesterNotifications';
+<<<<<<< HEAD
 import { CoreTrackingDashboard } from '../testing/CoreTrackingDashboard';
 import { Card } from '../ui/card';
 import { ClipboardCheck, FileText, Activity } from 'lucide-react';
+=======
+import { SecondaryReportsList } from './SecondaryReportsList';
+import { CoreTrackingDashboard } from '../testing/CoreTrackingDashboard';
+import { Card } from '../ui/card';
+import { ClipboardCheck, FileText, Activity } from 'lucide-react';
+import { AfterPrimaryReportsList } from './reports/AfterPrimaryReportsList';
+import { FinalReportsList } from './reports/FinalReportsList';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
 interface TesterLayoutProps {
   user: User;
@@ -141,6 +150,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
       } else if (activeView === 'testing') {
         return <SecondaryTestingModule userName={user.name} />;
       } else if (activeView === 'reports') {
+<<<<<<< HEAD
         return (
           <div className="space-y-6">
             <div>
@@ -156,6 +166,9 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
             </Card>
           </div>
         );
+=======
+        return <SecondaryReportsList userName={user.name} />;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       }
     }
 
@@ -215,6 +228,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
       } else if (activeView === 'testing') {
         return <FinalTestingModule userName={user.name} />;
       } else if (activeView === 'reports') {
+<<<<<<< HEAD
         return (
           <div className="space-y-6">
             <div>
@@ -230,6 +244,9 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
             </Card>
           </div>
         );
+=======
+        return <FinalReportsList />;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       }
     }
 
@@ -289,6 +306,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
       } else if (activeView === 'testing') {
         return <AfterPrimaryTestingModule userName={user.name} />;
       } else if (activeView === 'reports') {
+<<<<<<< HEAD
         return (
           <div className="space-y-6">
             <div>
@@ -304,6 +322,9 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
             </Card>
           </div>
         );
+=======
+        return <AfterPrimaryReportsList />;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       }
     }
 

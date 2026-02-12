@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // import { useState } from 'react';
 // import { Card } from '../ui/card';
 // import { Button } from '../ui/button';
@@ -300,17 +301,32 @@ import { toast } from 'sonner';
 interface FinalMeteringReportProps {
   transformer: FinalTransformer;
   coreId: string;
+=======
+import React from 'react';
+import { SecondaryMeteringReport } from './SecondaryMeteringReport';
+// Import Transformer interface to assume compatibility (structural typing)
+import { Transformer } from './SecondaryTransformersList';
+
+interface FinalMeteringReportProps {
+  transformer: any; // Using any for runtime compatibility with FinalTransformer/Transformer
+  core: { coreNumber: number; coreId: string; };
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   testerName: string;
   onBack: () => void;
 }
 
 export function FinalMeteringReport({
   transformer,
+<<<<<<< HEAD
   coreId,
+=======
+  core,
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   testerName,
   onBack,
 }: FinalMeteringReportProps) {
 
+<<<<<<< HEAD
 
   // Determine ratios from transformer (passed from props)
   // Fallback to Order's hardcoded ratios for robustness
@@ -539,4 +555,16 @@ function getInitialData(r100: string, p100: string, r25: string, p25: string) {
     { current: '5%', r100, p100, r25, p25 },
     { current: '1%', r100, p100, r25, p25 },
   ];
+=======
+  return (
+    <SecondaryMeteringReport
+      transformer={transformer}
+      coreNumber={core.coreNumber}
+      coreId={core.coreId}
+      testerName={testerName}
+      onBack={onBack}
+      stage="final"
+    />
+  );
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 }

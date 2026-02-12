@@ -2,7 +2,15 @@ import { Card } from '../ui/card';
 import { Package, Users, CheckCircle2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 
+<<<<<<< HEAD
 export function EntryDashboard() {
+=======
+interface EntryDashboardProps {
+  onAddOrder?: () => void;
+}
+
+export function EntryDashboard({ onAddOrder }: EntryDashboardProps) {
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   const stats = [
     { label: 'Orders Created', value: '28', icon: Package, color: 'blue' },
     { label: 'Registered Vendors', value: '12', icon: Users, color: 'purple' },
@@ -28,7 +36,11 @@ export function EntryDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => {
           const Icon = stat.icon;
+<<<<<<< HEAD
           
+=======
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
           return (
             <Card key={stat.label} className="p-6">
               <div className="flex items-start justify-between">
@@ -80,7 +92,14 @@ export function EntryDashboard() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+<<<<<<< HEAD
         <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-[#003a70]">
+=======
+        <Card
+          className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-[#003a70]"
+          onClick={onAddOrder}
+        >
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
           <Package className="w-8 h-8 text-[#003a70] mb-3" />
           <h4>Add New Order</h4>
           <p className="text-sm text-gray-500 mt-1">Create a new transformer order</p>

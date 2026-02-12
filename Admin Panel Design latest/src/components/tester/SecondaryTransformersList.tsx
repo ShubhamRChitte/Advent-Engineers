@@ -27,6 +27,10 @@ export interface Transformer {
     ps: string[];
     protection: string[];
   };
+<<<<<<< HEAD
+=======
+  orderId?: any; // Added for ratio fallback
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 }
 
 interface Order {
@@ -126,11 +130,46 @@ export function SecondaryTransformersList({ order, onStartTest, onBack }: Second
           const completedProtectionCount = secTest.protection_results?.length || 0;
           const completedPsCount = secTest.ps_results?.length || 0;
 
+<<<<<<< HEAD
           // Validate: Completed must correspond to Required
           // Note: If required is 0, then condition "0 >= 0" is true (Correct).
           const meteringDone = completedMeteringCount >= requiredMeteringCount;
           const protectionDone = completedProtectionCount >= requiredProtectionCount;
           const psDone = completedPsCount >= requiredPsCount;
+=======
+          // Validate: Completed must correspond to Required AND be fully filled
+          const checkStrictCompletion = (type: 'metering' | 'ps' | 'protection', results: any[]) => {
+            if (!results || results.length === 0) return false;
+
+            // Must have enough results to cover all cores of this type
+            const requiredCount = coresList.filter(c => c.coreType === type).length;
+            if (results.length < requiredCount) return false;
+
+            // And every result must be fully filled
+            if (type === 'metering') {
+              return results.every((res: any) =>
+                res.rows && res.rows.length > 0 && res.rows.every((row: any) =>
+                  row.r100 && row.p100 && row.r25 && row.p25
+                )
+              );
+            } else if (type === 'protection') {
+              return results.every((res: any) =>
+                res.burden100_1 && res.burden100_2 && res.resistance &&
+                res.secondaryLimitingVtg && res.excitationCurrent && res.compositeError
+              );
+            } else if (type === 'ps') {
+              return results.every((res: any) =>
+                res.turnRatioError && res.resistance && res.vk &&
+                res.vkVal && res.iexVk && res.iex11Vk
+              );
+            }
+            return true;
+          };
+
+          const meteringDone = requiredMeteringCount === 0 || checkStrictCompletion('metering', secTest.metering_results);
+          const protectionDone = requiredProtectionCount === 0 || checkStrictCompletion('protection', secTest.protection_results);
+          const psDone = requiredPsCount === 0 || checkStrictCompletion('ps', secTest.ps_results);
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
           const canApprove = meteringDone && protectionDone && psDone && t.currentStage === 'secondary';
 
@@ -402,6 +441,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack }: Second
                     <td className="p-4">{transformer.uniqueId}</td>
                     <td className="p-4">
                       <div className="flex flex-wrap gap-1">
+<<<<<<< HEAD
                         {transformer.cores.map((core) => (
                           <Badge
                             key={core.coreNumber}
@@ -410,6 +450,63 @@ export function SecondaryTransformersList({ order, onStartTest, onBack }: Second
                             Core {core.coreNumber}: {getCoreTypeLabel(core.coreType)}
                           </Badge>
                         ))}
+=======
+
+                        {transformer.cores.map((core) => {
+                          const results = transformer.testHistory?.secondary_test?.[`${core.coreType}_results`] || [];
+
+                          // Improved Completion Logic (Matching SecondaryCoreSelection.tsx)
+                          // 1. Identify the applicable Core ID
+                          const typeCores = transformer.cores.filter(c => c.coreType === core.coreType);
+                          const typeIndex = typeCores.findIndex(c => c.coreNumber === core.coreNumber);
+                          const expectedId = transformer.availableCoreIdsPool?.[core.coreType]?.[typeIndex];
+                          const suffix = `-${String(core.coreNumber).padStart(3, '0')}`;
+                          const typeSeq = typeIndex + 1;
+                          const typeSuffix = `-${String(typeSeq).padStart(3, '0')}`;
+
+                          // Find ALL results that belong to this Core (by ID matching)
+                          const coreResults = results.filter((r: any) => {
+                            const id = r.internalCoreNo || r.coreId || '';
+                            return (expectedId && id === expectedId) ||
+                              id.endsWith(suffix) || id.includes(suffix) ||
+                              id.endsWith(typeSuffix) || id.includes(typeSuffix);
+                          });
+
+                          // 2. Strict Check: Are there results AND are they fully filled?
+                          let isCompleted = false;
+                          if (coreResults.length > 0) {
+                            if (core.coreType === 'metering') {
+                              isCompleted = coreResults.every((res: any) =>
+                                res.rows && res.rows.length > 0 && res.rows.every((row: any) =>
+                                  row.r100 && row.p100 && row.r25 && row.p25
+                                )
+                              );
+                            } else if (core.coreType === 'protection') {
+                              isCompleted = coreResults.every((res: any) =>
+                                res.burden100_1 && res.burden100_2 && res.resistance &&
+                                res.secondaryLimitingVtg && res.excitationCurrent && res.compositeError
+                              );
+                            } else if (core.coreType === 'ps') {
+                              isCompleted = coreResults.every((res: any) =>
+                                res.turnRatioError && res.resistance && res.vk &&
+                                res.vkVal && res.iexVk && res.iex11Vk
+                              );
+                            }
+                          }
+
+                          return (
+                            <Badge
+                              key={core.coreNumber}
+                              className={`${isCompleted
+                                ? 'bg-green-100 text-green-700 border-green-200'
+                                : getCoreTypeColor(core.coreType)} text-xs transition-colors duration-300`}
+                            >
+                              {isCompleted && <CheckCircle className="w-3 h-3 mr-1 inline-block" />}
+                              Core {core.coreNumber}: {getCoreTypeLabel(core.coreType)}
+                            </Badge>
+                          );
+                        })}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                       </div>
                     </td>
                     <td className="p-4">

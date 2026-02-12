@@ -1,14 +1,27 @@
+<<<<<<< HEAD
 import { useState } from 'react';
+=======
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { OrderDetailView } from './OrderDetailView';
 import { OrderStatusTracker } from '../order/OrderStatusTracker';
+<<<<<<< HEAD
 import { 
   Search,
   Eye,
   Edit,
+=======
+import { toast } from 'sonner';
+import {
+  Search,
+  Eye,
+  CheckCircle,
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   Calendar,
   Package,
   User,
@@ -19,17 +32,29 @@ import {
 } from 'lucide-react';
 
 interface Order {
+<<<<<<< HEAD
   id: string;
+=======
+  _id: string;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   orderId: string;
   clientName: string;
   transformerName: string;
   transformerType: string;
   quantity: number;
+<<<<<<< HEAD
   orderDate: string;
   status: 'Pending' | 'Assigned' | 'In Testing' | 'Completed';
   priority: 'Low' | 'Medium' | 'High';
   testingStage: 'order-created' | 'core-testing' | 'secondary-testing' | 'after-primary-testing' | 'final-testing' | 'completed';
   expectedCompletion?: string;
+=======
+  createdAt: string; // API returns createdAt
+  status: string;
+  priority: string;
+  currentStage: string; // API returns currentStage
+  deadline?: string;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 }
 
 interface OrdersListViewEnhancedProps {
@@ -42,6 +67,7 @@ export function OrdersListViewEnhanced({ onViewOrder, onEditOrder }: OrdersListV
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+<<<<<<< HEAD
 
   const orders: Order[] = [
     {
@@ -110,6 +136,50 @@ export function OrdersListViewEnhanced({ onViewOrder, onEditOrder }: OrdersListV
       expectedCompletion: '2024-11-30'
     },
   ];
+=======
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchOrders = async () => {
+    try {
+      const response = await axios.get('http://localhost:3002/api/admin/orders', {
+        withCredentials: true
+      });
+      // Map API response to match interface if needed, or ensure backend sends orderId
+      // Assuming backend sends jobId, we map it to orderId for frontend consistency
+      const mappedOrders = response.data.map((order: any) => ({
+        ...order,
+        orderId: order.jobId || order.orderId || 'N/A' // Prioritize jobId
+      }));
+      setOrders(mappedOrders);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+      toast.error("Failed to load orders");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const handleApprove = async (orderId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent row click or expansion
+    try {
+      const response = await axios.put(`http://localhost:3002/api/orders/${orderId}/approve`, {}, {
+        withCredentials: true
+      });
+      if (response.data.success) {
+        toast.success("Order Approved & Units Generated");
+        fetchOrders(); // Refresh list
+      }
+    } catch (error) {
+      console.error("Error approving order:", error);
+      toast.error("Failed to approve order");
+    }
+  };
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
   const toggleOrderExpansion = (orderId: string) => {
     const newExpanded = new Set(expandedOrders);
@@ -123,12 +193,21 @@ export function OrdersListViewEnhanced({ onViewOrder, onEditOrder }: OrdersListV
 
   const getStatusColor = (status: string) => {
     switch (status) {
+<<<<<<< HEAD
       case 'Pending':
         return 'bg-yellow-100 text-yellow-700 border-yellow-300';
       case 'Assigned':
         return 'bg-blue-100 text-blue-700 border-blue-300';
       case 'In Testing':
         return 'bg-purple-100 text-purple-700 border-purple-300';
+=======
+      case 'Pending Approval':
+        return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+      case 'Assigned':
+      case 'In Progress':
+      case 'Core Testing In Progress':
+        return 'bg-blue-100 text-blue-700 border-blue-300';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       case 'Completed':
         return 'bg-green-100 text-green-700 border-green-300';
       default:
@@ -150,6 +229,7 @@ export function OrdersListViewEnhanced({ onViewOrder, onEditOrder }: OrdersListV
   };
 
   const filteredOrders = orders.filter((order) => {
+<<<<<<< HEAD
     const matchesSearch =
       order.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -157,21 +237,53 @@ export function OrdersListViewEnhanced({ onViewOrder, onEditOrder }: OrdersListV
     const matchesStatus =
       selectedStatus === 'all' || order.status === selectedStatus;
     return matchesSearch && matchesStatus;
+=======
+    const orderId = order.orderId || '';
+    const clientName = order.clientName || '';
+    const transformerName = order.transformerName || '';
+    const status = order.status || ''; // Handle potentially undefined status
+
+    const matchesSearch =
+      orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      transformerName.toLowerCase().includes(searchQuery.toLowerCase());
+
+    // Status Filter Mapping
+    if (selectedStatus === 'all') return matchesSearch;
+    if (selectedStatus === 'Pending') return matchesSearch && status === 'Pending Approval';
+    if (selectedStatus === 'In Testing') return matchesSearch && status !== 'Pending Approval' && status !== 'Completed';
+    return matchesSearch && status === selectedStatus;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   });
 
   const statusCounts = {
     all: orders.length,
+<<<<<<< HEAD
     Pending: orders.filter((o) => o.status === 'Pending').length,
     Assigned: orders.filter((o) => o.status === 'Assigned').length,
     'In Testing': orders.filter((o) => o.status === 'In Testing').length,
     Completed: orders.filter((o) => o.status === 'Completed').length,
+=======
+    Pending: orders.filter((o) => (o.status || '') === 'Pending Approval').length,
+    Assigned: orders.filter((o) => (o.status || '') === 'Assigned' || (o.status || '') === 'In Progress').length,
+    'In Testing': orders.filter((o) => (o.status || '').includes('Testing')).length,
+    Completed: orders.filter((o) => (o.status || '') === 'Completed').length,
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   };
 
   // If an order is selected, show the detail view
   if (selectedOrder) {
     return (
       <OrderDetailView
+<<<<<<< HEAD
         order={selectedOrder}
+=======
+        order={{
+          ...selectedOrder,
+          id: selectedOrder._id,
+          orderDate: new Date(selectedOrder.createdAt).toLocaleDateString()
+        }}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
         onBack={() => setSelectedOrder(null)}
       />
     );
@@ -185,9 +297,15 @@ export function OrdersListViewEnhanced({ onViewOrder, onEditOrder }: OrdersListV
           <h2>Orders List</h2>
           <p className="text-gray-500 mt-1">View and manage all transformer orders with status tracking</p>
         </div>
+<<<<<<< HEAD
         <Button variant="outline" className="gap-2">
           <Download className="w-4 h-4" />
           Export Orders
+=======
+        <Button variant="outline" className="gap-2" onClick={fetchOrders}>
+          <Download className="w-4 h-4" />
+          Refresh List
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
         </Button>
       </div>
 
@@ -197,12 +315,21 @@ export function OrdersListViewEnhanced({ onViewOrder, onEditOrder }: OrdersListV
           <p className="text-sm text-gray-600">All Orders</p>
           <p className="text-2xl font-bold text-blue-700 mt-1">{statusCounts.all}</p>
         </Card>
+<<<<<<< HEAD
         <Card className="p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-300">
           <p className="text-sm text-gray-600">Pending</p>
           <p className="text-2xl font-bold text-yellow-700 mt-1">{statusCounts.Pending}</p>
         </Card>
         <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-300">
           <p className="text-sm text-gray-600">Assigned</p>
+=======
+        <Card className="p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-300 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedStatus('Pending')}>
+          <p className="text-sm text-gray-600">Pending Approval</p>
+          <p className="text-2xl font-bold text-yellow-700 mt-1">{statusCounts.Pending}</p>
+        </Card>
+        <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-300">
+          <p className="text-sm text-gray-600">Active / Assigned</p>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
           <p className="text-2xl font-bold text-blue-700 mt-1">{statusCounts.Assigned}</p>
         </Card>
         <Card className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-300">
@@ -227,7 +354,11 @@ export function OrdersListViewEnhanced({ onViewOrder, onEditOrder }: OrdersListV
           />
         </div>
         <div className="flex gap-2">
+<<<<<<< HEAD
           {['all', 'Pending', 'Assigned', 'In Testing', 'Completed'].map((status) => (
+=======
+          {['all', 'Pending', 'In Testing', 'Completed'].map((status) => (
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
             <Button
               key={status}
               variant={selectedStatus === status ? 'default' : 'outline'}
@@ -242,6 +373,7 @@ export function OrdersListViewEnhanced({ onViewOrder, onEditOrder }: OrdersListV
       </div>
 
       {/* Orders List with Status Trackers */}
+<<<<<<< HEAD
       <div className="space-y-4">
         {filteredOrders.map((order) => {
           const isExpanded = expandedOrders.has(order.id);
@@ -354,6 +486,134 @@ export function OrdersListViewEnhanced({ onViewOrder, onEditOrder }: OrdersListV
       </div>
 
       {filteredOrders.length === 0 && (
+=======
+      <div className="space-y-4 overflow-x-auto pb-4">
+        <div className="min-w-[1200px]"> {/* Ensure minimum width to trigger scroll if needed */}
+          {loading ? <div className="text-center py-10">Loading orders...</div> : filteredOrders.map((order) => {
+            const isExpanded = expandedOrders.has(order._id);
+            const isPending = order.status === 'Pending Approval';
+
+            return (
+              <Card key={order._id} className={`overflow-hidden mb-4 ${isPending ? 'border-l-4 border-l-yellow-400' : ''}`}>
+                {/* Order Summary Row */}
+                <div className="p-4 bg-white hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-6 flex-1">
+                      {/* Order ID */}
+                      <div className="min-w-[150px]">
+                        <p className="text-xs text-gray-500 mb-1">Order ID</p>
+                        <p className="font-mono text-sm font-medium">{order.orderId}</p>
+                      </div>
+
+                      {/* Client */}
+                      <div className="flex items-center gap-2 min-w-[200px]">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <User className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Client</p>
+                          <p className="font-medium text-sm truncate max-w-[180px]" title={order.clientName}>{order.clientName}</p>
+                        </div>
+                      </div>
+
+                      {/* Transformer */}
+                      <div className="flex-1 min-w-[180px]">
+                        <p className="text-xs text-gray-500 mb-1">Transformer</p>
+                        <p className="font-medium text-sm truncate max-w-[200px]" title={order.transformerName}>{order.transformerName}</p>
+                      </div>
+
+                      {/* Quantity */}
+                      <div className="min-w-[80px]">
+                        <p className="text-xs text-gray-500 mb-1">Qty</p>
+                        <div className="flex items-center gap-1">
+                          <Package className="w-4 h-4 text-gray-400" />
+                          <span className="font-medium text-sm">{order.quantity}</span>
+                        </div>
+                      </div>
+
+                      {/* Date */}
+                      <div className="min-w-[120px]">
+                        <p className="text-xs text-gray-500 mb-1">Order Date</p>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm">{new Date(order.createdAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+
+                      {/* Status & Priority */}
+                      <div className="flex flex-col gap-2 min-w-[140px]">
+                        <Badge className={`w-fit ${getStatusColor(order.status)}`}>
+                          {order.status}
+                        </Badge>
+                        <Badge className={`w-fit ${getPriorityColor(order.priority || 'Medium')}`}>
+                          {order.priority || 'Medium'}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 ml-4">
+                      {isPending && (
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-white gap-1 shadow-sm"
+                          onClick={(e: React.MouseEvent) => handleApprove(order._id, e)}
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          Approve
+                        </Button>
+                      )}
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedOrder(order)}
+                        className="gap-1"
+                      >
+                        <Eye className="w-4 h-4" />
+                        View
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleOrderExpansion(order._id)}
+                        className="gap-1"
+                      >
+                        {isExpanded ? (
+                          <>
+                            <ChevronUp className="w-4 h-4" />
+                            Hide
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="w-4 h-4" />
+                            Show
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded Order Status Tracker */}
+                {isExpanded && (
+                  <div className="border-t border-gray-200 p-6 bg-gray-50">
+                    <OrderStatusTracker
+                      currentStage={order.currentStage as any}
+                      orderDate={order.createdAt}
+                      expectedCompletion={order.deadline}
+                      orderId={order.orderId}
+                    />
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      {!loading && filteredOrders.length === 0 && (
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
         <Card className="p-12">
           <div className="text-center text-gray-500">
             <Search className="w-12 h-12 mx-auto mb-2 text-gray-400" />

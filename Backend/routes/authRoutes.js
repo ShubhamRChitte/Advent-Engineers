@@ -5,7 +5,7 @@ const router = express.Router();
 // Helper to map designation/department to frontend role
 const getMappedRole = (user) => {
     const role = user.designation === 'Admin' ? 'admin' :
-        user.designation === 'Entry Level' ? 'entry-operator' :
+        (user.designation === 'Entry Operator' || user.designation === 'Entry Level') ? 'entry-operator' :
             user.department === 'Core Test' ? 'core-tester' :
                 user.department === 'Secondary Test' ? 'secondary-tester' :
                     user.department === 'Primary Test' ? 'after-primary-tester' :
@@ -79,6 +79,104 @@ router.get("/testers", async (req, res) => {
         res.status(200).json({ success: true, users });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- User Management Routes ---
+
+// Helper: Generate Employee ID
+const getNextEmployeeId = async () => {
+    try {
+        const { CounterModel } = require("../models/CounterModel");
+        const sequenceDocument = await CounterModel.findOneAndUpdate(
+            { id: "employee_id" },
+            { $inc: { seq: 1 } },
+            { new: true, upsert: true }
+        );
+        const seq = sequenceDocument.seq;
+        return `EMP${seq.toString().padStart(3, '0')}`;
+    } catch (error) {
+        console.error("Error generating employee ID:", error);
+        throw error;
+    }
+};
+
+// Add Employee Route
+router.post("/add-employee", async (req, res) => {
+    try {
+        const { UserModel } = require("../models/UserModel");
+        const bcrypt = require("bcryptjs");
+
+        const {
+            fullName,
+            mobileNumber,
+            emailId,
+            designation,
+            department,
+            dateOfJoining,
+            employmentType,
+            transformerSkills,
+            testCapabilities,
+            voltageExperience,
+            assignedLab,
+            password
+        } = req.body;
+
+        // Check if user already exists
+        const existingUser = await UserModel.findOne({
+            $or: [{ emailId: emailId }, { mobileNumber: mobileNumber }]
+        });
+
+        if (existingUser) {
+            return res.status(400).json({ success: false, message: "User with this email or mobile number already exists." });
+        }
+
+        // Generate Employee ID
+        const employeeId = await getNextEmployeeId();
+
+        // Hash Password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const newUser = new UserModel({
+            employeeId,
+            fullName,
+            mobileNumber,
+            emailId,
+            designation,
+            department,
+            dateOfJoining,
+            employmentType,
+            transformerSkills,
+            testCapabilities,
+            voltageExperience,
+            assignedLab,
+            password: hashedPassword,
+            activeStatus: true
+        });
+
+        await newUser.save();
+
+        res.status(201).json({
+            success: true,
+            message: `Employee added successfully with ID: ${employeeId}`,
+            employeeId
+        });
+
+    } catch (error) {
+        console.error("Add Employee Error:", error);
+        res.status(500).json({ success: false, message: "Server error", error: error.message });
+    }
+});
+
+// Get All Employees Route
+router.get("/all-employees", async (req, res) => {
+    try {
+        const { UserModel } = require("../models/UserModel");
+        const users = await UserModel.find({}).select("-password").sort({ createdAt: -1 });
+        res.status(200).json({ success: true, users });
+    } catch (error) {
+        console.error("Get Employees Error:", error);
+        res.status(500).json({ success: false, message: "Server error", error: error.message });
     }
 });
 

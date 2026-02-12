@@ -1,7 +1,11 @@
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+<<<<<<< HEAD
 import { ArrowLeft, PlayCircle, FileText } from 'lucide-react';
+=======
+import { ArrowLeft, PlayCircle, FileText, CheckCircle } from 'lucide-react';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 import { FinalTransformer } from './FinalTransformersList';
 
 interface Order {
@@ -16,7 +20,11 @@ interface Order {
 interface CoreConfig {
   coreNumber: number;
   coreType: 'metering' | 'ps' | 'protection';
+<<<<<<< HEAD
   coreId: string;
+=======
+  coreId?: string;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 }
 
 interface FinalCoreSelectionProps {
@@ -25,6 +33,10 @@ interface FinalCoreSelectionProps {
   onSelectCore: (core: CoreConfig) => void;
   onOpenComprehensiveReport: () => void;
   onBack: () => void;
+<<<<<<< HEAD
+=======
+  onApprove: () => void;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 }
 
 export function FinalCoreSelection({
@@ -33,8 +45,52 @@ export function FinalCoreSelection({
   onSelectCore,
   onOpenComprehensiveReport,
   onBack,
+<<<<<<< HEAD
 }: FinalCoreSelectionProps) {
   const getCoreTypeColor = (type: string) => {
+=======
+  onApprove,
+}: FinalCoreSelectionProps) {
+
+  const checkCoreCompletion = (core: CoreConfig) => {
+    // Safety check for missing coreId
+    if (!core.coreId) return false;
+
+    const finalTest = transformer.testHistory?.final_test || {};
+
+    if (core.coreType === 'metering') {
+      const results = finalTest.metering_results?.filter((r: any) =>
+        r.coreId === core.coreId || r.internalCoreNo === core.coreId
+      );
+      if (!results || results.length === 0) return false;
+      return results.every((res: any) =>
+        Array.isArray(res.rows) && res.rows.every((row: any) =>
+          row.r100 && row.p100 && row.r25 && row.p25
+        )
+      );
+    } else if (core.coreType === 'ps') {
+      const results = finalTest.ps_results?.filter((r: any) =>
+        r.coreId === core.coreId || r.internalCoreNo === core.coreId
+      );
+      if (!results || results.length === 0) return false;
+      return results.every((res: any) =>
+        res.turnRatioError && res.resistance && res.vk && res.iexVk
+      );
+    } else if (core.coreType === 'protection') {
+      const results = finalTest.protection_results?.filter((r: any) =>
+        r.coreId === core.coreId || r.internalCoreNo === core.coreId
+      );
+      if (!results || results.length === 0) return false;
+      return results.every((res: any) =>
+        res.turnRatioError && res.resistance
+      );
+    }
+    return false;
+  };
+
+  const getCoreTypeColor = (type: string, isComplete: boolean) => {
+    if (isComplete) return 'bg-green-50 text-green-700 border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     switch (type) {
       case 'metering': return 'bg-blue-100 text-blue-700 border-blue-300';
       case 'ps': return 'bg-purple-100 text-purple-700 border-purple-300';
@@ -67,6 +123,34 @@ export function FinalCoreSelection({
         <p className="text-gray-500 mt-1">Choose a core for individual testing or open the comprehensive report</p>
       </div>
 
+<<<<<<< HEAD
+=======
+      {/* Approval Card - Visible only if fully complete */}
+      {transformer.status === 'completed' && (
+        <Card className="p-6 bg-green-50 border-green-200 border-2 shadow-sm animate-in fade-in slide-in-from-top-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-green-800 font-semibold text-lg">Testing Completed</h3>
+                <p className="text-green-700">All cores have been tested. This transformer is ready for approval.</p>
+              </div>
+            </div>
+            <Button
+              size="lg"
+              className="bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
+              onClick={onApprove}
+            >
+              <CheckCircle className="w-5 h-5 mr-2" />
+              Approve Final Test
+            </Button>
+          </div>
+        </Card>
+      )}
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       {/* Transformer Info */}
       <Card className="p-4 bg-gray-50 border-gray-200">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -128,6 +212,7 @@ export function FinalCoreSelection({
       <div>
         <h3 className="mb-4">Core-Wise Testing</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+<<<<<<< HEAD
           {transformer.cores.map((core) => (
             <Card
               key={core.coreNumber}
@@ -167,6 +252,66 @@ export function FinalCoreSelection({
               </Button>
             </Card>
           ))}
+=======
+          {transformer.cores.map((core) => {
+            const isComplete = checkCoreCompletion(core);
+            return (
+              <Card
+                key={core.coreNumber}
+                className={`p-6 hover:shadow-lg transition-all cursor-pointer border-2 ${getCoreTypeColor(core.coreType, isComplete)}`}
+                onClick={() => onSelectCore(core)}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Core Number</p>
+                    <h3 className="mt-1">{core.coreNumber}</h3>
+                  </div>
+                  <div className="flex flex-col gap-1 items-end">
+                    <Badge className={isComplete ? 'bg-green-600 hover:bg-green-700' : ''}>
+                      {core.coreType.toUpperCase()}
+                    </Badge>
+                    {isComplete && (
+                      <Badge className="bg-green-600 hover:bg-green-700 gap-1 pl-1 pr-2">
+                        <CheckCircle className="w-3 h-3" /> Done
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2 mb-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Core Type</p>
+                    <p className="font-medium">{getCoreTypeLabel(core.coreType)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Core ID</p>
+                    <p className="font-medium text-blue-600">{core.coreId}</p>
+                  </div>
+                </div>
+
+                <Button
+                  className={`w-full ${isComplete ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
+                  onClick={(e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    onSelectCore(core);
+                  }}
+                >
+                  {isComplete ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      View Report
+                    </>
+                  ) : (
+                    <>
+                      <PlayCircle className="w-4 h-4 mr-2" />
+                      Start Core Test
+                    </>
+                  )}
+                </Button>
+              </Card>
+            );
+          })}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
         </div>
       </div>
 
@@ -181,7 +326,11 @@ export function FinalCoreSelection({
             <p className="text-sm text-gray-700">
               <strong>Option 1:</strong> Open the Comprehensive Final Test Report to perform all final tests at once (Polarity, Meggar, H.V., O.V.I.T., Accuracy).
               <br />
+<<<<<<< HEAD
               <strong>Option 2:</strong> Test each core individually based on its type (Metering, PS, or Protection). 
+=======
+              <strong>Option 2:</strong> Test each core individually based on its type (Metering, PS, or Protection).
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
               The appropriate report template will open automatically based on the core configuration.
             </p>
           </div>

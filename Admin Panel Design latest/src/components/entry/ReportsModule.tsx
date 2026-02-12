@@ -1,14 +1,26 @@
+<<<<<<< HEAD
 import { useState } from 'react';
+=======
+import { useState, useEffect } from 'react';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { ClientOrdersView } from './ClientOrdersView';
+<<<<<<< HEAD
 import { 
   Users, 
   Phone, 
   Package, 
   ChevronRight, 
+=======
+import {
+  Users,
+  Phone,
+  Package,
+  ChevronRight,
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   Search,
   Calendar,
   Filter,
@@ -36,6 +48,7 @@ export function ReportsModule({ fromAdmin = false }: ReportsModuleProps) {
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
 
+<<<<<<< HEAD
   const clients: Client[] = [
     {
       id: '1',
@@ -110,6 +123,31 @@ export function ReportsModule({ fromAdmin = false }: ReportsModuleProps) {
       inProgressOrders: 2,
     },
   ];
+=======
+  const [clients, setClients] = useState<Client[]>([]); // Initialize as empty array
+  const [loading, setLoading] = useState(true);
+
+  // Fetch client stats on mount
+  useEffect(() => {
+    const fetchClientStats = async () => {
+      try {
+        const response = await fetch('http://localhost:3002/api/orders/clients/stats');
+        const data = await response.json();
+        if (data.success) {
+          setClients(data.clients);
+        }
+      } catch (error) {
+        console.error("Error fetching client reports:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchClientStats();
+  }, []);
+
+  // const clients: Client[] = [ ... ]; // Logic replaced by API call
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
   const filteredClients = clients.filter((client) =>
     client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -209,7 +247,11 @@ export function ReportsModule({ fromAdmin = false }: ReportsModuleProps) {
           <Filter className="w-5 h-5 text-gray-600" />
           <h3 className="text-gray-900">Filter by Time Period</h3>
         </div>
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
         <div className="flex flex-wrap gap-4 items-end">
           {/* Quick Filters */}
           <div className="flex gap-2">

@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
+<<<<<<< HEAD
 import { ArrowLeft, PlayCircle, Loader2 } from 'lucide-react';
+=======
+import { ArrowLeft, PlayCircle, Loader2, CheckCircle } from 'lucide-react';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 import axios from 'axios';
 
 interface CoreConfig {
@@ -20,13 +24,23 @@ export interface FinalTransformer {
   status: 'pending' | 'in-progress' | 'completed';
   cores: CoreConfig[];
   ratios?: string[];
+<<<<<<< HEAD
+=======
+  testHistory?: any;
+  orderId?: any;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 }
 
 interface Order {
   _id: string;
   jobId: string;
+<<<<<<< HEAD
   client: string;
   transformerCount: number;
+=======
+  client?: string;
+  transformerCount?: number;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   assignedDate: string;
   status: string;
   priority: string;
@@ -35,15 +49,28 @@ interface Order {
   ratio?: string[];
   nominalSystemVoltage?: number | string;
   coreDetails?: any[];
+<<<<<<< HEAD
+=======
+  clientName?: string;
+  quantity?: number;
+  transformerQuantity?: number;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 }
 
 interface FinalTransformersListProps {
   order: Order;
   onStartTest: (transformer: FinalTransformer) => void;
   onBack: () => void;
+<<<<<<< HEAD
 }
 
 export function FinalTransformersList({ order, onStartTest, onBack }: FinalTransformersListProps) {
+=======
+  onApprove: (transformer: FinalTransformer) => void;
+}
+
+export function FinalTransformersList({ order, onStartTest, onBack, onApprove }: FinalTransformersListProps) {
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   const [transformers, setTransformers] = useState<FinalTransformer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -180,7 +207,13 @@ export function FinalTransformersList({ order, onStartTest, onBack }: FinalTrans
             voltageClass: order.nominalSystemVoltage ? `${order.nominalSystemVoltage}kV` : 'N/A',
             cores: coresList,
             status: status,
+<<<<<<< HEAD
             ratios: t.ratios || (Array.isArray(order.ratio) ? order.ratio : [order.ratio])
+=======
+            ratios: t.ratios || (Array.isArray(order.ratio) ? order.ratio : [order.ratio]),
+            testHistory: t.testHistory,
+            orderId: order
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
           };
         });
 
@@ -301,6 +334,7 @@ export function FinalTransformersList({ order, onStartTest, onBack }: FinalTrans
                       </Badge>
                     </td>
                     <td className="p-4">
+<<<<<<< HEAD
                       <div className="flex justify-center">
                         <Button
                           size="sm"
@@ -313,6 +347,40 @@ export function FinalTransformersList({ order, onStartTest, onBack }: FinalTrans
                             transformer.status === 'in-progress' ? 'Continue Test' :
                               'View Report'}
                         </Button>
+=======
+                      <div className="flex justify-center items-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => onStartTest(transformer)}
+                          className={transformer.status === 'completed' ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
+                          disabled={false}
+                        >
+                          {transformer.status === 'completed' ? (
+                            <>
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              View Report
+                            </>
+                          ) : (
+                            <>
+                              <PlayCircle className="w-4 h-4 mr-2" />
+                              {transformer.status === 'pending' ? 'Start Test' : 'Continue Test'}
+                            </>
+                          )}
+                        </Button>
+
+                        {transformer.status === 'completed' && (
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            onClick={(e: React.MouseEvent) => {
+                              e.stopPropagation();
+                              onApprove(transformer);
+                            }}
+                          >
+                            Approve
+                          </Button>
+                        )}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                       </div>
                     </td>
                   </tr>

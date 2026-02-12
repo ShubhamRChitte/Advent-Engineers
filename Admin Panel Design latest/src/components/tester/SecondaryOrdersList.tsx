@@ -34,7 +34,11 @@ export function SecondaryOrdersList({ onStartTesting }: SecondaryOrdersListProps
     try {
       // The backend /assigneed_orders route automatically filters by the user's role (secondary)
       // and finding orders in the 'secondary' stage.
+<<<<<<< HEAD
       const response = await axios.get("http://localhost:3002/api/assigneed_orders", {
+=======
+      const response = await axios.get("http://localhost:3002/api/assigneed_orders?type=active", {
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
         withCredentials: true
       });
       setOrders(response.data);

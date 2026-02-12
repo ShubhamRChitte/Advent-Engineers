@@ -9,9 +9,16 @@ import { SecondaryPSReport } from './SecondaryPSReport';
 interface SecondaryReportViewProps {
     transformer: any;
     onBack: () => void;
+<<<<<<< HEAD
 }
 
 export function SecondaryReportView({ transformer, onBack }: SecondaryReportViewProps) {
+=======
+    stage?: 'secondary' | 'primary' | 'final';
+}
+
+export function SecondaryReportView({ transformer, onBack, stage = 'secondary' }: SecondaryReportViewProps) {
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     // Determine report type based on transformer data
     // Fallback logic similar to SecondaryTransformersList
     const getReportType = () => {
@@ -21,19 +28,50 @@ export function SecondaryReportView({ transformer, onBack }: SecondaryReportView
         if (type.includes('ps')) return 'ps';
 
         // Fallback: Check which results exist in history
+<<<<<<< HEAD
         if (transformer.testHistory?.secondary_test?.metering_results?.length > 0) return 'metering';
         if (transformer.testHistory?.secondary_test?.protection_results?.length > 0) return 'protection';
         if (transformer.testHistory?.secondary_test?.ps_results?.length > 0) return 'ps';
+=======
+        // Use dynamic stage to check the correct history object
+        const stageHistory = transformer.testHistory?.[`${stage}_test`];
+
+        if (stageHistory?.metering_results?.length > 0) return 'metering';
+        if (stageHistory?.protection_results?.length > 0) return 'protection';
+        if (stageHistory?.ps_results?.length > 0) return 'ps';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
         return 'metering'; // Default
     };
 
     const reportType = getReportType();
+<<<<<<< HEAD
     const coreId = transformer.uniqueId; // Or internalCoreNo if available differently? Usually uniqueId is the unit ID.
+=======
+    const getCoreId = () => {
+        const history = transformer.testHistory?.[`${stage}_test`];
+        if (!history) return transformer.uniqueId;
+
+        if (reportType === 'metering' && history.metering_results?.length > 0) {
+            return history.metering_results[0].internalCoreNo || history.metering_results[0].coreId || transformer.uniqueId;
+        }
+        if (reportType === 'protection' && history.protection_results?.length > 0) {
+            return history.protection_results[0].internalCoreNo || history.protection_results[0].coreId || transformer.uniqueId;
+        }
+        if (reportType === 'ps' && history.ps_results?.length > 0) {
+            return history.ps_results[0].internalCoreNo || history.ps_results[0].coreId || transformer.uniqueId;
+        }
+
+        return transformer.uniqueId;
+    };
+
+    const coreId = getCoreId();
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
     // Core Test Context Data (BSAT etc.)
     const coreTestData = transformer.testHistory?.core_test || {};
 
+<<<<<<< HEAD
     return (
         <div className="space-y-8">
             {/* We don't need a double header if the specific reports have one, 
@@ -44,6 +82,31 @@ export function SecondaryReportView({ transformer, onBack }: SecondaryReportView
                  However, we also need to show "Core Test Readings".
             */}
 
+=======
+    // Logic to determine which reports to show based on history
+    const history = transformer.testHistory?.[`${stage}_test`];
+    const showMetering = history?.metering_results?.length > 0;
+    const showProtection = history?.protection_results?.length > 0;
+    const showPS = history?.ps_results?.length > 0;
+
+    // Fallback if no history (e.g. before test starts, but this view is likely for completed tests)
+    // If no history, we fall back to the single view based on type, OR we could check `cores` config if available.
+    // For now, if no history, the original logic applies (shows one empty report).
+
+    // If we have history, show proper accumulated tabs or stacked view.
+    // Given the user wants to see "complete report", stacking is good.
+
+    // If NO history is present, we might want to default to showing based on `transformer.cores` if available.
+    // `SecondaryTransformersList` maps `cores`. Let's check if `transformer.cores` is available here.
+    // It is typed as `any` in props but likely matches the interface.
+    // However, if we are viewing a "Report", we expect history. 
+
+    // Let's stick to: Show what is in history. If nothing in history, show default type.
+    const hasHistory = showMetering || showProtection || showPS;
+
+    return (
+        <div className="space-y-8">
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
             <div className="bg-gray-100 p-4 rounded-lg mb-6 border border-gray-300">
                 <h3 className="text-lg font-bold text-gray-700 mb-2">Core Test Context (Read-Only)</h3>
                 {coreTestData && Object.keys(coreTestData).length > 0 ? (
@@ -76,6 +139,7 @@ export function SecondaryReportView({ transformer, onBack }: SecondaryReportView
                 )}
             </div>
 
+<<<<<<< HEAD
             <div className="border-t border-gray-300 pt-6">
                 {reportType === 'metering' && (
                     <SecondaryMeteringReport
@@ -107,6 +171,43 @@ export function SecondaryReportView({ transformer, onBack }: SecondaryReportView
                         testerName={transformer.testHistory?.secondary_test?.tester || 'Unknown'}
                         onBack={onBack}
                         readOnly={true}
+=======
+            <div className="border-t border-gray-300 pt-6 space-y-8">
+                {(!hasHistory || showMetering) && (reportType === 'metering' || hasHistory) && (
+                    <SecondaryMeteringReport
+                        transformer={transformer}
+                        coreNumber={1}
+                        // For metering, extract metering specific core ID
+                        coreId={history?.metering_results?.[0]?.internalCoreNo || history?.metering_results?.[0]?.coreId || transformer.uniqueId}
+                        testerName={history?.tester || 'Unknown'}
+                        onBack={onBack}
+                        readOnly={true}
+                        stage={stage}
+                    />
+                )}
+
+                {(!hasHistory || showProtection) && (reportType === 'protection' || hasHistory) && (
+                    <SecondaryProtectionReport
+                        transformer={transformer}
+                        coreNumber={1}
+                        coreId={history?.protection_results?.[0]?.internalCoreNo || history?.protection_results?.[0]?.coreId || transformer.uniqueId}
+                        testerName={history?.tester || 'Unknown'}
+                        onBack={onBack}
+                        readOnly={true}
+                        stage={stage}
+                    />
+                )}
+
+                {(!hasHistory || showPS) && (reportType === 'ps' || hasHistory) && (
+                    <SecondaryPSReport
+                        transformer={transformer}
+                        coreNumber={1}
+                        coreId={history?.ps_results?.[0]?.internalCoreNo || history?.ps_results?.[0]?.coreId || transformer.uniqueId}
+                        testerName={history?.tester || 'Unknown'}
+                        onBack={onBack}
+                        readOnly={true}
+                        stage={stage}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                     />
                 )}
             </div>

@@ -98,6 +98,7 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
     const type = config.coreType;
     const results = transformer.testHistory?.secondary_test?.[type + '_results'] || [];
 
+<<<<<<< HEAD
     // Find which "Index" of this type this core is.
     // e.g. If I have M1, P1, M2.
     // M1 is 1st Metering core. M2 is 2nd Metering Core.
@@ -113,6 +114,30 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
         setEnteredCoreId(savedId);
         return;
       }
+=======
+    // Reliable Logic: 
+    // 1. Check if the "Expected ID" from the pool is in the results.
+    // 2. Fallback to suffix matching.
+    const typeCores = transformer.cores.filter(c => c.coreType === config.coreType);
+    const typeIndex = typeCores.findIndex(c => c.coreNumber === coreNumber);
+    const expectedId = transformer.availableCoreIdsPool?.[config.coreType as 'metering' | 'ps' | 'protection']?.[typeIndex];
+    const suffix = `-${String(coreNumber).padStart(3, '0')}`;
+    const typeSeq = typeIndex + 1;
+    const typeSuffix = `-${String(typeSeq).padStart(3, '0')}`; // e.g. -001 for 1st PS core (even if it's Core 2)
+
+    const foundResult = results.find((r: any) => {
+      const id = r.internalCoreNo || r.coreId || '';
+      return (expectedId && id === expectedId) ||
+        id.endsWith(suffix) || id.includes(suffix) ||
+        id.endsWith(typeSuffix) || id.includes(typeSuffix);
+    });
+
+    if (foundResult) {
+      const savedId = foundResult.internalCoreNo || foundResult.coreId;
+      console.log(`Auto-selecting ID for Core ${coreNumber} (${type}):`, savedId);
+      setEnteredCoreId(savedId);
+      return;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     }
 
     setEnteredCoreId('');
@@ -180,6 +205,7 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+<<<<<<< HEAD
           {transformer.cores.map((core) => (
             <Card
               key={core.coreNumber}
@@ -205,12 +231,94 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
               </div>
             </Card>
           ))}
+=======
+          {transformer.cores.map((core) => {
+            // Keep the robust completion logic
+            // Improved Completion Logic:
+            // Check if any result exists where the internalCoreNo contains the suffix OR exactly matches a known pool ID for this index
+            const results = transformer.testHistory?.secondary_test?.[`${core.coreType}_results`] || [];
+            // Improved Completion Logic:
+            // 1. Identify the applicable Core ID
+            const typeCores = transformer.cores.filter(c => c.coreType === core.coreType);
+            const typeIndex = typeCores.findIndex(c => c.coreNumber === core.coreNumber);
+            const expectedId = transformer.availableCoreIdsPool?.[core.coreType]?.[typeIndex];
+            const suffix = `-${String(core.coreNumber).padStart(3, '0')}`;
+            const typeSeq = typeIndex + 1;
+            const typeSuffix = `-${String(typeSeq).padStart(3, '0')}`;
+
+            // Find ALL results that belong to this Core (by ID matching)
+            const coreResults = results.filter((r: any) => {
+              const id = r.internalCoreNo || r.coreId || '';
+              return (expectedId && id === expectedId) ||
+                id.endsWith(suffix) || id.includes(suffix) ||
+                id.endsWith(typeSuffix) || id.includes(typeSuffix);
+            });
+
+            // 2. Strict Check: Are there results AND are they fully filled?
+            let isCompleted = false;
+            if (coreResults.length > 0) {
+              if (core.coreType === 'metering') {
+                // Metering: Check r100, p100, r25, p25 for all rows
+                isCompleted = coreResults.every((res: any) =>
+                  res.rows && res.rows.length > 0 && res.rows.every((row: any) =>
+                    row.r100 && row.p100 && row.r25 && row.p25
+                  )
+                );
+              } else if (core.coreType === 'protection') {
+                // Protection: Check all main test fields
+                isCompleted = coreResults.every((res: any) =>
+                  res.burden100_1 && res.burden100_2 && res.resistance &&
+                  res.secondaryLimitingVtg && res.excitationCurrent && res.compositeError
+                );
+              } else if (core.coreType === 'ps') {
+                // PS: Check all ps fields
+                isCompleted = coreResults.every((res: any) =>
+                  res.turnRatioError && res.resistance && res.vk &&
+                  res.vkVal && res.iexVk && res.iex11Vk
+                );
+              } else {
+                isCompleted = true; // Fallback for unknown types
+              }
+            }
+
+            return (
+              <Card
+                key={core.coreNumber}
+                className={`p-4 cursor-pointer transition-all ${selectedCore === core.coreNumber
+                  ? 'ring-2 ring-red-500 ' + getCoreTypeColor(core.coreType)
+                  : getCoreTypeColor(core.coreType) + ' hover:shadow-md'
+                  } ${isCompleted ? 'bg-green-50' : ''}`}
+                onClick={() => handleCoreSelect(core.coreNumber)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-2xl">Core {core.coreNumber}</span>
+                      {/* Show Check if Selected OR Completed */}
+                      {(selectedCore === core.coreNumber || isCompleted) && (
+                        <CheckCircle className={`w-5 h-5 ${isCompleted ? 'text-green-600' : 'text-gray-400'}`} />
+                      )}
+                    </div>
+                    <p className="text-sm font-medium mb-1">{getCoreTypeLabel(core.coreType)}</p>
+                    <p className="text-xs text-gray-600">
+                      Type: {core.coreType.toUpperCase()}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
         </div>
       </Card>
 
       {/* Core Number Entry (Dropdown) */}
       {selectedCore !== null && (
+<<<<<<< HEAD
         <Card className="p-6 bg-yellow-50 border-yellow-200">
+=======
+        <Card className="p-6 bg-yellow-50 border-yellow-200 mt-6">
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
           <h3 className="mb-4">Select Core ID</h3>
           <div className="max-w-md">
             <Label htmlFor="coreId">Internal Core No</Label>
@@ -225,6 +333,7 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
               {(() => {
                 let pool: string[] = [];
                 if (transformer.availableCoreIdsPool) {
+<<<<<<< HEAD
                   if (selectedCoreConfig?.coreType === 'metering') pool = transformer.availableCoreIdsPool.metering;
                   else if (selectedCoreConfig?.coreType === 'ps') pool = transformer.availableCoreIdsPool.ps;
                   else if (selectedCoreConfig?.coreType === 'protection') pool = transformer.availableCoreIdsPool.protection;
@@ -232,12 +341,23 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
 
                 // ALSO include the ID currently assigned to *this* specific core of *this* transformer
                 // (so if we re-open a saved report, the ID is still selectable)
+=======
+                  const type = transformer.cores.find(c => c.coreNumber === selectedCore)?.coreType;
+                  if (type === 'metering') pool = transformer.availableCoreIdsPool.metering;
+                  else if (type === 'ps') pool = transformer.availableCoreIdsPool.ps;
+                  else if (type === 'protection') pool = transformer.availableCoreIdsPool.protection;
+                }
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                 const showList = [...pool];
                 if (enteredCoreId && !showList.includes(enteredCoreId)) {
                   showList.unshift(enteredCoreId);
                 }
+<<<<<<< HEAD
 
                 // Deduplicate just in case
+=======
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                 const uniqueList = Array.from(new Set(showList)).sort();
 
                 return uniqueList.length > 0 ? (
@@ -249,15 +369,27 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
                 );
               })()}
             </select>
+<<<<<<< HEAD
 
+=======
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
             <p className="text-sm text-gray-600 mt-2">
               Select the Internal Core No. generated during the Core Test stage.
             </p>
           </div>
 
+<<<<<<< HEAD
           {/* New Block: Helper Text if Pre-Selected */}
           {(() => {
             const isExisting = transformer.testHistory?.secondary_test?.[(selectedCoreConfig?.coreType || 'metering') + '_results']?.some((r: any) =>
+=======
+          {/* Helper Text if Pre-Selected */}
+          {(() => {
+            const typeFn = transformer.cores.find(c => c.coreNumber === selectedCore)?.coreType;
+            const targetSuffix = `-${String(selectedCore).padStart(3, '0')}`;
+
+            const isExisting = transformer.testHistory?.secondary_test?.[(typeFn || 'metering') + '_results']?.some((r: any) =>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
               (r.internalCoreNo === enteredCoreId) || (r.coreId === enteredCoreId)
             );
 
@@ -265,13 +397,20 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
               return (
                 <div className="mt-2 text-green-700 text-sm font-medium flex items-center gap-2">
                   <CheckCircle className="w-4 h-4" />
+<<<<<<< HEAD
                   This core has already been tested. ID auto-selected.
                 </div>
               );
+=======
+                  <span>This core has already been tested. ID auto-selected.</span>
+                </div>
+              )
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
             }
             return null;
           })()}
 
+<<<<<<< HEAD
           {selectedCoreConfig && enteredCoreId.trim() && (
             <div className="mt-4 p-4 bg-white rounded-lg border border-yellow-300">
               <p className="text-sm mb-2">
@@ -283,10 +422,13 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
             </div>
           )}
 
+=======
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
           <div className="mt-6">
             <Button
               onClick={handleStartTest}
               disabled={!enteredCoreId.trim()}
+<<<<<<< HEAD
               className={`${
                 // Check if the CURRENTLY SELECTED ID has data
                 transformer.testHistory?.secondary_test?.[(selectedCoreConfig?.coreType || 'metering') + '_results']?.some((r: any) =>
@@ -325,11 +467,55 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
                 ? "Existing test data found. Click to view/edit."
                 : "No data found for this specific ID. Click to start a fresh test."}
             </p>
+=======
+              className={`${transformer.testHistory?.secondary_test?.[(selectedCoreConfig?.coreType || 'metering') + '_results']?.some((r: any) =>
+                (r.internalCoreNo === enteredCoreId) || (r.coreId === enteredCoreId)
+              )
+                ? "bg-green-600 hover:bg-green-700"
+                : "bg-red-600 hover:bg-red-700"
+                } px-8`}
+            >
+              {(() => {
+                const type = selectedCoreConfig?.coreType || 'metering';
+                const results = transformer.testHistory?.secondary_test?.[type + '_results'] || [];
+
+                // Fix: Must filter for ALL rows belonging to this Core ID, not just find the first one.
+                const coreResults = results.filter((r: any) => (r.internalCoreNo === enteredCoreId) || (r.coreId === enteredCoreId));
+
+                if (coreResults.length > 0) {
+                  // Reuse Strict Check Logic for ALL rows
+                  let isCompleted = false;
+
+                  if (type === 'metering') {
+                    isCompleted = coreResults.every((res: any) =>
+                      res.rows && res.rows.length > 0 && res.rows.every((row: any) =>
+                        row.r100 && row.p100 && row.r25 && row.p25
+                      )
+                    );
+                  } else if (type === 'protection') {
+                    isCompleted = coreResults.every((res: any) =>
+                      res.burden100_1 && res.burden100_2 && res.resistance &&
+                      res.secondaryLimitingVtg && res.excitationCurrent && res.compositeError
+                    );
+                  } else if (type === 'ps') {
+                    isCompleted = coreResults.every((res: any) =>
+                      res.turnRatioError && res.resistance && res.vk &&
+                      res.vkVal && res.iexVk && res.iex11Vk
+                    );
+                  }
+
+                  return isCompleted ? "View Report" : "Complete Test";
+                }
+                return `Start New ${type.toUpperCase()} Test`;
+              })()}
+            </Button>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
           </div>
         </Card>
       )}
 
       {/* Instructions */}
+<<<<<<< HEAD
       <Card className="p-6 bg-blue-50 border-blue-200">
         <div className="flex items-start gap-3">
           <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
@@ -347,5 +533,22 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
         </div>
       </Card>
     </div >
+=======
+      <Card className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100">
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+            <span className="font-bold">i</span>
+          </div>
+          <div>
+            <h4 className="font-semibold text-blue-900 mb-1">Testing Guide</h4>
+            <p className="text-sm text-blue-700 leading-relaxed">
+              Verify the Core ID on the physical unit before starting.
+              Green completed cards can be reviewed or edited at any time before final approval.
+            </p>
+          </div>
+        </div>
+      </Card>
+    </div>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   );
 }

@@ -27,9 +27,13 @@ interface Order {
   priority: string;
   deadline: string;
   currentStage: string;
+<<<<<<< HEAD
   assignments: {
     core_tester: string;
   };
+=======
+  assignments: any; // Allow both Object (legacy) and Array (new)
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   userStats?: {
     testsCompleted: number;
     passed: number;
@@ -94,7 +98,21 @@ export function CoreOrdersList({ onStartTesting, user, type = 'active' }: CoreOr
 
   // Check if the current user is the ACTIVE assigned tester
   const isAssignedTester = (order: Order) => {
+<<<<<<< HEAD
     return user && order.assignments?.core_tester === user.name;
+=======
+    if (!user || !order.assignments) return false;
+
+    // Check Legacy Object Format
+    if (!Array.isArray(order.assignments)) {
+      return order.assignments.core_tester === user.name;
+    }
+
+    // Check New Array Format
+    return order.assignments.some((a: any) =>
+      a.stage === 'core' && a.testerName === user.name
+    );
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   };
 
   // Check if order is editable

@@ -1,14 +1,27 @@
+<<<<<<< HEAD
 import { useState } from 'react';
+=======
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+<<<<<<< HEAD
 import { 
   TestTube, 
   Zap, 
   Activity, 
   ClipboardCheck, 
+=======
+import {
+  TestTube,
+  Zap,
+  Activity,
+  ClipboardCheck,
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   User,
   Award,
   CheckCircle2,
@@ -50,6 +63,55 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
   const [selectedWorkers, setSelectedWorkers] = useState<Worker[]>([]);
   const [workerCounts, setWorkerCounts] = useState<{ [workerId: string]: string }>({});
   const [distributionMode, setDistributionMode] = useState<'manual' | 'auto'>('manual');
+<<<<<<< HEAD
+=======
+  const [allWorkers, setAllWorkers] = useState<Worker[]>([]);
+  const [loadingTesters, setLoadingTesters] = useState(true);
+
+  useEffect(() => {
+    const fetchTesters = async () => {
+      try {
+        const response = await axios.get('http://localhost:3002/auth/testers');
+        if (response.data.success) {
+          const mappedWorkers: Worker[] = response.data.users.map((user: any) => {
+            // Map Department to Skill Category
+            let skill = '';
+            switch (user.department) {
+              case 'Core Test': skill = 'Core Test'; break;
+              case 'Secondary Test': skill = 'After Secondary Test'; break;
+              case 'Primary Test': skill = 'After Primary Test'; break;
+              case 'Final Test': skill = 'Final Test'; break;
+              default: skill = user.department;
+            }
+
+            // Map Designation to Experience Level
+            let level: 'Junior' | 'Mid-Level' | 'Senior' | 'Expert' = 'Mid-Level';
+            const des = user.designation.toLowerCase();
+            if (des.includes('senior')) level = 'Senior';
+            else if (des.includes('junior') || des.includes('trainee')) level = 'Junior';
+            else if (des.includes('expert') || des.includes('lead') || des.includes('manager')) level = 'Expert';
+
+            return {
+              id: user._id,
+              name: user.fullName,
+              workerId: user.employeeId,
+              skillCategories: [skill],
+              currentWorkload: 0, // Default for now
+              status: 'Available', // Default for now
+              experienceLevel: level
+            };
+          });
+          setAllWorkers(mappedWorkers);
+        }
+      } catch (error) {
+        console.error("Error fetching testers:", error);
+      } finally {
+        setLoadingTesters(false);
+      }
+    };
+    fetchTesters();
+  }, []);
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
   const testTypes = [
     { id: 'core-test', name: 'Core Test', icon: TestTube, color: 'blue' },
@@ -58,6 +120,7 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
     { id: 'final-test', name: 'Final Test', icon: ClipboardCheck, color: 'green' },
   ];
 
+<<<<<<< HEAD
   const allWorkers: Worker[] = [
     {
       id: 'W001',
@@ -135,6 +198,15 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
 
   const currentTest = testTypes[currentTestIndex];
   const quantity = parseInt(orderData.transformer.quantity) || 1;
+=======
+
+
+  const currentTest = testTypes[currentTestIndex];
+  // Handle both flat structure (Entry Operator) and nested structure (Admin)
+  const quantity = orderData.quantity
+    ? (typeof orderData.quantity === 'string' ? parseInt(orderData.quantity) : orderData.quantity)
+    : (orderData.transformer?.quantity ? parseInt(orderData.transformer.quantity) : 1);
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
   const availableWorkers = allWorkers.filter((worker) =>
     worker.skillCategories.includes(currentTest.name)
@@ -172,10 +244,17 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
 
   const handleAutoDistribute = () => {
     if (selectedWorkers.length === 0) return;
+<<<<<<< HEAD
     
     const perWorker = Math.floor(quantity / selectedWorkers.length);
     const remainder = quantity % selectedWorkers.length;
     
+=======
+
+    const perWorker = Math.floor(quantity / selectedWorkers.length);
+    const remainder = quantity % selectedWorkers.length;
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     const newCounts: { [workerId: string]: string } = {};
     selectedWorkers.forEach((worker, index) => {
       newCounts[worker.id] = (perWorker + (index < remainder ? 1 : 0)).toString();
@@ -243,7 +322,11 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
             const Icon = test.icon;
             const isCompleted = index < currentTestIndex;
             const isCurrent = index === currentTestIndex;
+<<<<<<< HEAD
             
+=======
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
             return (
               <div key={test.id} className="flex items-center flex-1">
                 <div className={`flex items-center gap-2 flex-1 ${index !== 0 ? 'ml-2' : ''}`}>
@@ -252,6 +335,7 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
                   )}
                   <div className={`flex items-center gap-2 ${isCurrent ? 'scale-110' : ''} transition-transform`}>
                     <div
+<<<<<<< HEAD
                       className={`w-10 h-10 rounded-full flex items-center justify-center ${
                         isCompleted
                           ? 'bg-green-500 text-white'
@@ -259,6 +343,14 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
                           ? `bg-${test.color}-500 text-white`
                           : 'bg-gray-200 text-gray-400'
                       }`}
+=======
+                      className={`w-10 h-10 rounded-full flex items-center justify-center ${isCompleted
+                        ? 'bg-green-500 text-white'
+                        : isCurrent
+                          ? `bg-${test.color}-500 text-white`
+                          : 'bg-gray-200 text-gray-400'
+                        }`}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                     >
                       {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
                     </div>
@@ -311,6 +403,7 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
             <div className="space-y-3">
               {availableWorkers.map((worker) => {
                 const isSelected = selectedWorkers.find(w => w.id === worker.id);
+<<<<<<< HEAD
                 
                 return (
                   <Card
@@ -320,6 +413,16 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
                         ? 'border-2 border-blue-500 bg-blue-50'
                         : 'hover:shadow-md'
                     }`}
+=======
+
+                return (
+                  <Card
+                    key={worker.id}
+                    className={`p-4 cursor-pointer transition-all ${isSelected
+                      ? 'border-2 border-blue-500 bg-blue-50'
+                      : 'hover:shadow-md'
+                      }`}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                     onClick={() => toggleWorkerSelection(worker)}
                   >
                     <div className="flex items-center gap-4">
@@ -395,9 +498,14 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
                 <div className="pt-3 border-t-2 border-gray-200">
                   <div className="flex justify-between items-center">
                     <span className="font-medium">Total Assigned:</span>
+<<<<<<< HEAD
                     <span className={`text-lg font-medium ${
                       getTotalAssigned() === quantity ? 'text-green-600' : 'text-red-600'
                     }`}>
+=======
+                    <span className={`text-lg font-medium ${getTotalAssigned() === quantity ? 'text-green-600' : 'text-red-600'
+                      }`}>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                       {getTotalAssigned()} / {quantity}
                     </span>
                   </div>
@@ -427,7 +535,11 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
               </div>
               <div>
                 <p className="text-sm text-gray-500">Transformer</p>
+<<<<<<< HEAD
                 <p className="font-medium">{orderData.transformer.name}</p>
+=======
+                <p className="font-medium">{orderData.transformerName || orderData.transformer?.name || 'N/A'}</p>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
               </div>
               <div>
                 <p className="text-sm text-gray-500">Total Quantity</p>

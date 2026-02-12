@@ -10,8 +10,6 @@ const { OrderModel } = require('../models/OrderModel');
 
 
 // --- ADD THIS GET ROUTE HERE ---
-// This allows the frontend to fetch previously saved data using the Order ID
-// --- ADD THIS GET ROUTE HERE ---
 // This allows the frontend to fetch previously saved data using the Order ID.
 // Secure: Filters by both orderId AND coreType.
 router.get('/metering-tests/:orderId', async (req, res) => {
@@ -32,15 +30,41 @@ router.get('/metering-tests/:orderId', async (req, res) => {
 // Example for Metering (Apply same logic to Protection)
 router.post('/metering-tests', async (req, res) => {
   try {
-    const { orderId, coreType } = req.body;
+    const { orderId, coreType, readings, ...otherData } = req.body;
 
-    // Use findOneAndUpdate with upsert: true
-    // This finds the existing report for this order/type and UPDATES it.
-    const testRecord = await MeteringCoreTestModel.findOneAndUpdate(
-      { orderId: orderId, coreType: coreType },
-      req.body,
-      { upsert: true, new: true, runValidators: true }
-    );
+    // 1. Check if document exists
+    let testRecord = await MeteringCoreTestModel.findOne({ orderId, coreType });
+
+    if (testRecord) {
+      // 2. MERGE LOGIC
+      // Update non-array fields (header info)
+      Object.assign(testRecord, otherData);
+
+      // Merge readings: Append new ones, or update if we can identify duplicates (based on internalCoreNo)
+      const existingReadings = testRecord.readings || [];
+      const incomingReadings = readings || [];
+
+      const mergedReadings = [...existingReadings];
+
+      incomingReadings.forEach(newReading => {
+        const index = mergedReadings.findIndex(r => r.internalCoreNo === newReading.internalCoreNo);
+        if (index > -1) {
+          // Update existing reading
+          mergedReadings[index] = newReading;
+        } else {
+          // Add new reading
+          mergedReadings.push(newReading);
+        }
+      });
+
+      testRecord.readings = mergedReadings;
+      await testRecord.save();
+
+    } else {
+      // 3. Create New
+      testRecord = new MeteringCoreTestModel(req.body);
+      await testRecord.save();
+    }
 
     // Update parent order status
     await OrderModel.findByIdAndUpdate(orderId, {
@@ -68,22 +92,6 @@ router.post('/secondary-metering-tests', async (req, res) => {
 
     console.log(`[Secondary Metering] Saving report for ${uniqueId} by ${tester}`);
 
-    // 1. Check if a report already exists for this Transformer + Core combo?
-    // Actually, secondary tests might cover multiple cores or be saved iteratively.
-    // The Model structure seems to store an array of results or similar. 
-    // Based on the Frontend Payload: it sends `metering_results` which is an array of objects (one per ratio).
-
-    // We will upsert based on uniqueId (Transformer ID).
-    // If the schema supports arrays of tests, we might push. 
-    // But usually for "Report", we overwrite or merge.
-
-    // Let's look at the usage. The frontend sends the full result set for a core.
-    // We'll create a new document for this test session.
-
-    // Wait, SecondaryMeteringTestModel usually needs to link to the Transformer.
-    // Let's assume one document per test record (or per transformer?).
-    // If we want to support multiple tests (re-tests), we create new.
-
     // Create new test record
     const newTest = new SecondaryMeteringTestModel({
       uniqueId,
@@ -97,9 +105,6 @@ router.post('/secondary-metering-tests', async (req, res) => {
     const savedTest = await newTest.save();
 
     // 2. Update Transformer History Status
-    // This is CRITICAL for "My Reports" to work.
-
-    // Find the transformer
     const transformer = await TransformerModel.findOne({ uniqueId });
     if (transformer) {
       // Ensure structure exists
@@ -110,9 +115,6 @@ router.post('/secondary-metering-tests', async (req, res) => {
       transformer.testHistory.secondary_test.status = "Completed";
       transformer.testHistory.secondary_test.tester = tester;
       transformer.testHistory.secondary_test.timestamp = new Date();
-
-      // Optionally, we can save the test ID implicitly or just rely on query by uniqueId
-      // transformer.testHistory.secondary_test.lastTestId = savedTest._id;
 
       await transformer.save();
       console.log(`[Secondary Metering] Updated Transformer ${uniqueId} status to Completed.`);
@@ -158,16 +160,6 @@ router.post('/secondary-ps-tests', async (req, res) => {
       if (!transformer.testHistory) transformer.testHistory = {};
       if (!transformer.testHistory.secondary_test) transformer.testHistory.secondary_test = {};
 
-      // Update status if not already (though partially complete applies per core)
-      // We'll mark the overall stage as In Progress or rely on manual approval?
-      // Actually, the request is to "mark status" similarly.
-      // But usually completion is checked differently. 
-      // IMPORTANT: We need to SAVE these results into the transformer document too so they can be re-loaded!
-      // The previous logic for Metering didn't explicitly save RESULTS to transformer, just status.
-      // BUT `SecondaryPSReport` tries to LOAD from `transformer.testHistory.secondary_test.ps_results`.
-
-      // So we MUST push/update results in the transformer model.
-
       // Initialize array if missing
       if (!transformer.testHistory.secondary_test.ps_results) {
         transformer.testHistory.secondary_test.ps_results = [];
@@ -181,9 +173,6 @@ router.post('/secondary-ps-tests', async (req, res) => {
       // Add new results
       transformer.testHistory.secondary_test.ps_results.push(...ps_results);
 
-      // We only mark stage "Completed" when ALL done? 
-      // Or we just update "tester" info.
-      // If this is the active test, let's update tester name.
       transformer.testHistory.secondary_test.tester = tester;
       transformer.testHistory.secondary_test.timestamp = new Date();
       // We explicitly mark stage as Completed for "My Reports" visibility

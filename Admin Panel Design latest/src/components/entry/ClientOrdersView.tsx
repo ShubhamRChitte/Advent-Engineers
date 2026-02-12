@@ -1,12 +1,23 @@
+<<<<<<< HEAD
 import { useState } from 'react';
+=======
+import { useState, useEffect } from 'react';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { OrderReportsView } from './OrderReportsView';
+<<<<<<< HEAD
 import { 
   ArrowLeft, 
   Package, 
   Calendar, 
+=======
+import {
+  ArrowLeft,
+  Package,
+  Calendar,
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   FileText,
   CheckCircle,
   Clock,
@@ -46,16 +57,26 @@ interface ClientOrdersViewProps {
   customDateTo: string;
 }
 
+<<<<<<< HEAD
 export function ClientOrdersView({ 
   client, 
   onBack, 
   dateFilter, 
   customDateFrom, 
   customDateTo 
+=======
+export function ClientOrdersView({
+  client,
+  onBack,
+  dateFilter,
+  customDateFrom,
+  customDateTo
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 }: ClientOrdersViewProps) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   // Sample orders for the client
+<<<<<<< HEAD
   const allOrders: Order[] = [
     {
       id: '1',
@@ -130,23 +151,83 @@ export function ClientOrdersView({
       totalTests: 4,
     },
   ];
+=======
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch orders for this client
+  useEffect(() => {
+    const fetchClientOrders = async () => {
+      try {
+        // Encode client name to handle special chars like '&'
+        const response = await fetch(`http://localhost:3002/api/orders/client/${encodeURIComponent(client.name)}`);
+        const data = await response.json();
+
+        if (data.success && data.orders) {
+          // Map backend order to frontend Order interface
+          const mappedOrders = data.orders.map((o: any) => ({
+            id: o._id,
+            orderId: o.jobId || o.orderId || 'N/A', // Handle variations in field names
+            transformerName: o.capacity || 'Transformer', // Use capacity or type as name
+            transformerType: o.type || 'N/A',
+            quantity: o.quantity || 0,
+            orderDate: o.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0],
+            testStatus: o.status === 'Completed' ? 'Completed' : (o.status === 'Pending' ? 'Pending' : 'In Progress'),
+            testingStage: o.currentStage ? (o.currentStage.charAt(0).toUpperCase() + o.currentStage.slice(1) + ' Testing') : 'Order Created',
+            completedTests: calculateCompletedTests(o), // Helper needed or mock for now
+            totalTests: 4 // Core, Secondary, Primary, Final
+          }));
+          setAllOrders(mappedOrders);
+        }
+      } catch (error) {
+        console.error("Error fetching client orders:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchClientOrders();
+  }, [client.name]);
+
+  const calculateCompletedTests = (order: any) => {
+    // Logic based on completionStages object if present
+    let count = 0;
+    if (order.completionStages?.core) count++;
+    if (order.completionStages?.secondary) count++;
+    if (order.completionStages?.primary) count++;
+    if (order.completionStages?.final) count++;
+    return count;
+  };
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
   // Filter orders based on date range
   const filterOrdersByDate = (orders: Order[]) => {
     const today = new Date();
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     if (dateFilter === '3months') {
       const threeMonthsAgo = new Date(today);
       threeMonthsAgo.setMonth(today.getMonth() - 3);
       return orders.filter(order => new Date(order.orderDate) >= threeMonthsAgo);
     }
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     if (dateFilter === '1month') {
       const oneMonthAgo = new Date(today);
       oneMonthAgo.setMonth(today.getMonth() - 1);
       return orders.filter(order => new Date(order.orderDate) >= oneMonthAgo);
     }
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     if (dateFilter === 'custom' && customDateFrom && customDateTo) {
       const fromDate = new Date(customDateFrom);
       const toDate = new Date(customDateTo);
@@ -155,7 +236,11 @@ export function ClientOrdersView({
         return orderDate >= fromDate && orderDate <= toDate;
       });
     }
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     return orders;
   };
 

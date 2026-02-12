@@ -5,14 +5,29 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Plus, Upload, Trash2 } from 'lucide-react';
+<<<<<<< HEAD
 import { toast } from 'sonner@2.0.3';
+=======
+import { toast } from 'sonner';
+
+import axios from 'axios';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
 interface CoreData {
   id: string;
   coreType: string;
 }
 
+<<<<<<< HEAD
 export function AddOrderForm() {
+=======
+interface AddOrderFormProps {
+  onCancel?: () => void;
+  onSuccess?: () => void;
+}
+
+export function AddOrderForm({ onCancel, onSuccess }: AddOrderFormProps) {
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   const [formData, setFormData] = useState({
     clientName: '',
     isStandard: 'IS 2705',
@@ -74,7 +89,11 @@ export function AddOrderForm() {
 
     const jobId = `JOB-2025-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
     toast.success(`Order created successfully! Job ID: ${jobId}`);
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     // Reset form
     setFormData({
       clientName: '',
@@ -115,7 +134,11 @@ export function AddOrderForm() {
 
               <div>
                 <Label htmlFor="isStandard">IS Standard *</Label>
+<<<<<<< HEAD
                 <Select value={formData.isStandard} onValueChange={(value) => handleInputChange('isStandard', value)}>
+=======
+                <Select value={formData.isStandard} onValueChange={(value: string) => handleInputChange('isStandard', value)}>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                   <SelectTrigger className="mt-1">
                     <SelectValue />
                   </SelectTrigger>
@@ -129,7 +152,11 @@ export function AddOrderForm() {
 
               <div>
                 <Label htmlFor="voltage">Voltage *</Label>
+<<<<<<< HEAD
                 <Select value={formData.voltage} onValueChange={(value) => handleInputChange('voltage', value)}>
+=======
+                <Select value={formData.voltage} onValueChange={(value: string) => handleInputChange('voltage', value)}>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select voltage" />
                   </SelectTrigger>
@@ -169,7 +196,11 @@ export function AddOrderForm() {
 
               <div>
                 <Label htmlFor="accuracyClass">Accuracy Class</Label>
+<<<<<<< HEAD
                 <Select value={formData.accuracyClass} onValueChange={(value) => handleInputChange('accuracyClass', value)}>
+=======
+                <Select value={formData.accuracyClass} onValueChange={(value: string) => handleInputChange('accuracyClass', value)}>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select accuracy class" />
                   </SelectTrigger>
@@ -195,7 +226,11 @@ export function AddOrderForm() {
                   <Label className="w-24">Core {index + 1}:</Label>
                   <Select
                     value={core.coreType}
+<<<<<<< HEAD
                     onValueChange={(value) => handleCoreTypeChange(index, value)}
+=======
+                    onValueChange={(value: string) => handleCoreTypeChange(index, value)}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select core type" />
@@ -301,7 +336,11 @@ export function AddOrderForm() {
               <Plus className="w-4 h-4 mr-2" />
               Create Order
             </Button>
+<<<<<<< HEAD
             <Button variant="outline">
+=======
+            <Button variant="outline" onClick={onCancel}>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
               Cancel
             </Button>
           </div>

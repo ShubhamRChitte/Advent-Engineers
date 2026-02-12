@@ -1,9 +1,15 @@
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
+<<<<<<< HEAD
 import { 
   CheckCircle2, 
   User, 
+=======
+import {
+  CheckCircle2,
+  User,
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   Package,
   Calendar,
   ClipboardCheck,
@@ -32,7 +38,22 @@ interface OrderSummaryViewProps {
 }
 
 export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: OrderSummaryViewProps) {
+<<<<<<< HEAD
   const quantity = parseInt(orderData.transformer.quantity) || 1;
+=======
+  // Safe Access for Entry Operator (flat) vs Admin (nested)
+  const quantity = orderData.quantity
+    ? (typeof orderData.quantity === 'string' ? parseInt(orderData.quantity) : orderData.quantity)
+    : (orderData.transformer?.quantity ? parseInt(orderData.transformer.quantity) : 1);
+
+  const transformerName = orderData.transformerName || orderData.transformer?.name || 'N/A';
+  const transformerType = orderData.transformerType || orderData.transformer?.type || 'N/A';
+  const capacity = orderData.capacity || orderData.transformer?.capacity || 'N/A';
+  const voltageRating = orderData.voltageRating || orderData.transformer?.voltageRating || 'N/A';
+  const phase = orderData.phase || orderData.transformer?.phase || 'N/A';
+  const serialNumber = orderData.serialNumber || orderData.transformer?.serialNumber || 'N/A';
+  const numberOfCores = orderData.numberOfCores || 1;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
   const getTestColor = (testType: string) => {
     if (testType.includes('Core')) return 'bg-blue-100 text-blue-700 border-blue-300';
@@ -123,6 +144,7 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
             <div className="space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-gray-600 mb-1">Transformer Type</p>
+<<<<<<< HEAD
                 <p className="font-medium text-lg">{orderData.transformer.name}</p>
                 <p className="text-sm text-gray-600 mt-1">{orderData.transformer.type}</p>
               </div>
@@ -147,6 +169,32 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
                 <div>
                   <p className="text-sm text-gray-500">Number of Cores</p>
                   <p className="font-medium">{orderData.numberOfCores}</p>
+=======
+                <p className="font-medium text-lg">{transformerName}</p>
+                <p className="text-sm text-gray-600 mt-1">{transformerType}</p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div>
+                  <p className="text-sm text-gray-500">Capacity</p>
+                  <p className="font-medium">{capacity}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Voltage</p>
+                  <p className="font-medium">{voltageRating}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Phase</p>
+                  <p className="font-medium">{phase}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Serial Number</p>
+                  <p className="font-medium font-mono">{serialNumber}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Number of Cores</p>
+                  <p className="font-medium">{numberOfCores}</p>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                 </div>
               </div>
 

@@ -1,13 +1,37 @@
+<<<<<<< HEAD
+=======
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 import { useState, useEffect } from 'react';
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { ChevronDown, ChevronRight, FileText, Loader2 } from 'lucide-react';
 import { ReportDetails } from './ReportDetails';
 
+<<<<<<< HEAD
 export function SecondaryReportsDashboard() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [reports, setReports] = useState<any[]>([]);
+=======
+// Helper to group by Job ID
+const groupByJob = (transformers: any[]) => {
+    return transformers.reduce((groups, tf) => {
+        const jobId = tf.jobId || 'Unknown Job';
+        if (!groups[jobId]) {
+            groups[jobId] = [];
+        }
+        groups[jobId].push(tf);
+        return groups;
+    }, {} as Record<string, any[]>);
+};
+
+export function SecondaryReportsDashboard() {
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [groupedReports, setGroupedReports] = useState<Record<string, any[]>>({});
+    const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     const [selectedTransformer, setSelectedTransformer] = useState<any | null>(null);
 
     useEffect(() => {
@@ -26,7 +50,12 @@ export function SecondaryReportsDashboard() {
             if (!response.ok) throw new Error('Failed to fetch reports');
 
             const data = await response.json();
+<<<<<<< HEAD
             setReports(data);
+=======
+            const grouped = groupByJob(data);
+            setGroupedReports(grouped);
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -34,6 +63,16 @@ export function SecondaryReportsDashboard() {
         }
     };
 
+<<<<<<< HEAD
+=======
+    const toggleJob = (jobId: string) => {
+        setExpandedJobs(prev => ({
+            ...prev,
+            [jobId]: !prev[jobId]
+        }));
+    };
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     if (selectedTransformer) {
         return <ReportDetails transformer={selectedTransformer} onBack={() => setSelectedTransformer(null)} />;
     }
@@ -51,6 +90,11 @@ export function SecondaryReportsDashboard() {
         return <div className="text-red-500 p-4">Error: {error}</div>;
     }
 
+<<<<<<< HEAD
+=======
+    const jobIds = Object.keys(groupedReports).sort();
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     return (
         <div className="space-y-6">
             <div>
@@ -58,11 +102,16 @@ export function SecondaryReportsDashboard() {
                 <p className="text-gray-500">View and generate certificates for your completed tests.</p>
             </div>
 
+<<<<<<< HEAD
             {reports.length === 0 ? (
+=======
+            {jobIds.length === 0 ? (
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                 <Card className="p-8 text-center text-gray-500 bg-gray-50 border-dashed">
                     <p>No completed reports found.</p>
                 </Card>
             ) : (
+<<<<<<< HEAD
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {reports.map((tf, idx) => (
                         <div
@@ -83,6 +132,53 @@ export function SecondaryReportsDashboard() {
                                 </p>
                             </div>
                         </div>
+=======
+                <div className="space-y-4">
+                    {jobIds.map(jobId => (
+                        <Card key={jobId} className="overflow-hidden border-gray-200">
+                            <div
+                                className="flex items-center justify-between p-4 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
+                                onClick={() => toggleJob(jobId)}
+                            >
+                                <div className="flex items-center gap-3">
+                                    {expandedJobs[jobId] ? (
+                                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                                    ) : (
+                                        <ChevronRight className="w-5 h-5 text-gray-400" />
+                                    )}
+                                    <div>
+                                        <h3 className="font-semibold text-lg">{jobId}</h3>
+                                        <p className="text-sm text-gray-500">{groupedReports[jobId].length} Transformers Completed</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {expandedJobs[jobId] && (
+                                <div className="bg-gray-50 p-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {groupedReports[jobId].map((tf, idx) => (
+                                        <div
+                                            key={tf.uniqueId || idx}
+                                            onClick={() => setSelectedTransformer(tf)}
+                                            className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md cursor-pointer flex items-center gap-3 transition-all"
+                                        >
+                                            <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                                <FileText className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-sm text-gray-900">{tf.uniqueId}</p>
+                                                <p className="text-xs text-gray-500 truncate">{tf.name || 'Unknown Name'}</p>
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    {tf.testHistory?.secondary_test?.timestamp
+                                                        ? new Date(tf.testHistory.secondary_test.timestamp).toLocaleDateString()
+                                                        : 'No Date'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </Card>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                     ))}
                 </div>
             )}

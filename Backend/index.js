@@ -43,11 +43,18 @@ const authRoutes = require('./routes/authRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const meteringTestRoutes = require('./routes/meteringTestRoutes');
 const protectionTestRoutes = require('./routes/protectionTestRoutes');
+<<<<<<< HEAD
 const analyticsRoutes = require('./routes/analyticsRoutes');
 
 // 1. CORS (Must be first)
 app.use(cors({
   origin: ["http://localhost:3000", "http://localhost:3001", "http://localhost:5173"],
+=======
+
+// 1. CORS (Must be first)
+app.use(cors({
+  origin: ["http://localhost:3000", "http://localhost:3001"],
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   credentials: true
 }));
 
@@ -80,14 +87,22 @@ app.use((req, res, next) => {
 
 // Routes
 app.use('/auth', authRoutes);
+<<<<<<< HEAD
 app.use('/api/users', require('./routes/userRoutes')); // Admin User Management
+=======
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 app.use('/api', taskRoutes); // Mounted at /api
 app.use('/api', meteringTestRoutes); // Mounted at /api/metering-tests
 app.use('/api', protectionTestRoutes); // Mounted at /api/protection-tests
 app.use('/api/core-tests', require('./routes/coreTestRoutes')); // Generic Route
+<<<<<<< HEAD
 app.use('/api/core-tests', require('./routes/coreTestRoutes')); // Generic Route
 app.use('/api/transformers', require('./routes/transformerRoutes')); // New Transformer Approval Routes
 app.use('/api/analytics', analyticsRoutes); // New Analytics Routes
+=======
+app.use('/api/transformers', require('./routes/transformerRoutes')); // New Transformer Approval Routes
+app.use('/api/final', require('./routes/finalTestRoutes')); // New Final Test Routes
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 // ----------------------------
 
 
@@ -140,6 +155,30 @@ const generateTransformersForOrder = async (order) => {
       });
     }
 
+<<<<<<< HEAD
+=======
+    // Determine Start Stage based on Assignments
+    let startStage = 'core';
+    let hasCore = false;
+    let hasSecondary = false;
+
+    if (assignments && assignments.length > 0) {
+      hasCore = assignments.some(a => a.stage === 'core');
+      hasSecondary = assignments.some(a => a.stage === 'secondary');
+    }
+
+    // Logic: If NO core assignments but YES secondary -> Start at Secondary
+    // (User explicitly skipped core in assignments)
+    if (!hasCore && hasSecondary) {
+      startStage = 'secondary';
+      // Mark Order as Core Completed effectively
+      order.currentStage = 'secondary';
+      order.completionStages.core = true;
+      await order.save();
+      console.log(`[Generate] Skipping Core stage. Starting at Secondary.`);
+    }
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     console.log(`[Generate] Generating ${quantity} transformers for ${jobId} with assignments mapping.`);
 
     for (let i = 1; i <= quantity; i++) {
@@ -157,7 +196,11 @@ const generateTransformersForOrder = async (order) => {
         orderId: order._id, // Link to Parent Order
         // ratings: ratings,
         // coreType: coreDetails.map(c => c.coreType),
+<<<<<<< HEAD
         currentStage: 'core', // Always start at 'core'
+=======
+        currentStage: startStage, // Dynamic Start Stage
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
         testHistory: initialHistory,
         // Populate the specific assignments for THIS unit
         assignments: unitAssignments[i],
@@ -193,11 +236,22 @@ const createOrder = async (req, res) => {
       status: isDirectApproval ? "In Progress" : "Pending Approval"
     });
 
+<<<<<<< HEAD
+=======
+    console.log(`[CreateOrder] Payload for ${jobId}:`, JSON.stringify(req.body, null, 2));
+    console.log(`[CreateOrder] Processed Ratio:`, newOrder.ratio);
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     const savedOrder = await newOrder.save();
 
     // 3. Trigger Transformer Generation if approved immediately
     if (isDirectApproval) {
       await generateTransformersForOrder(savedOrder);
+<<<<<<< HEAD
+=======
+    } else {
+      console.log(`Order ${jobId} created with status Pending Approval`);
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     }
 
     res.status(201).json({
@@ -239,9 +293,101 @@ const approveOrder = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 // Routes for Orders
 app.post('/api/create-order', createOrder);
 app.put('/api/orders/:orderId/approve', approveOrder);
+=======
+// 3.5 Method: Update Order (Assignments or Details) - Admin
+const updateOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const updates = req.body;
+
+    // Prevent updating critical fields if needed, or allow full update
+    const order = await OrderModel.findByIdAndUpdate(
+      orderId,
+      { $set: updates },
+      { new: true }
+    );
+
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    res.status(200).json({
+      success: true,
+      message: "Order updated successfully",
+      order
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 3.6 Method: Reassign Tester for a Stage (Admin Notification)
+const reassignTester = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { stage, testerName } = req.body; // e.g. { stage: 'core', testerName: 'Rahul' }
+
+    if (!stage || !testerName) {
+      return res.status(400).json({ message: "Stage and Tester Name are required" });
+    }
+
+    const order = await OrderModel.findById(orderId);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    // 1. Remove ALL existing assignments for this stage
+    // We filter out the old ones and push the new one
+    // This effectively "Resets" the stage to a single tester
+    const outputAssignments = order.assignments.filter(a => a.stage !== stage);
+
+    // 2. Add New Assignment (Full Range)
+    outputAssignments.push({
+      testerName: testerName,
+      stage: stage,
+      unitRange: { from: 1, to: order.quantity }, // Assign full range
+      status: "Assigned"
+    });
+
+    order.assignments = outputAssignments;
+
+    // Also update legacy fields if they exist to match schema (for backward compatibility if needed)
+    // But schema says assignments is array only now.
+
+    await order.save();
+
+    // 3. Update Transformers (Critical for visibility)
+    // We need to update existing Transformers to reflect this change
+    // Find all transformers for this order
+    const transformers = await TransformerModel.find({ orderId: order._id });
+
+    // Update each transformer's assignment map
+    const updatePromises = transformers.map(t => {
+      if (!t.assignments) t.assignments = {};
+      t.assignments[`${stage}_tester`] = testerName;
+      return t.save();
+    });
+
+    await Promise.all(updatePromises);
+
+    res.status(200).json({
+      success: true,
+      message: `Reassigned ${stage} stage to ${testerName}`,
+      order
+    });
+
+  } catch (error) {
+    console.error("Reassignment Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Routes for Orders
+app.post('/api/create-order', createOrder);
+app.put('/api/orders/:orderId/approve', approveOrder);
+app.put('/api/orders/:orderId/reassign', reassignTester); // New Reassign Route
+app.put('/api/orders/:orderId', updateOrder); // Generic Update Route
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 app.get('/api/admin/notifications', getAdminNotifications); // Ensure this one is also mounted if used
 
 // 4. Method: Get Pending Notifications (Admin View)

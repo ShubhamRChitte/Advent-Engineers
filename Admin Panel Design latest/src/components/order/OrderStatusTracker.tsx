@@ -9,6 +9,7 @@ interface OrderStatusTrackerProps {
   compact?: boolean;
 }
 
+<<<<<<< HEAD
 export function OrderStatusTracker({ 
   currentStage, 
   orderDate, 
@@ -20,48 +21,97 @@ export function OrderStatusTracker({
     { 
       id: 'order-created', 
       label: 'Order Created', 
+=======
+export function OrderStatusTracker({
+  currentStage,
+  orderDate,
+  expectedCompletion,
+  orderId,
+  compact = false
+}: OrderStatusTrackerProps) {
+  const stages = [
+    {
+      id: 'order-created',
+      label: 'Order Created',
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       icon: Package,
       color: 'blue',
       description: 'Order registered in system'
     },
+<<<<<<< HEAD
     { 
       id: 'core-testing', 
       label: 'Core Testing', 
+=======
+    {
+      id: 'core-testing',
+      label: 'Core Testing',
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       icon: Zap,
       color: 'purple',
       description: 'Core winding tests in progress'
     },
+<<<<<<< HEAD
     { 
       id: 'secondary-testing', 
       label: 'Secondary Testing', 
+=======
+    {
+      id: 'secondary-testing',
+      label: 'Secondary Testing',
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       icon: Shield,
       color: 'indigo',
       description: 'Secondary winding verification'
     },
+<<<<<<< HEAD
     { 
       id: 'after-primary-testing', 
       label: 'After Primary Testing', 
+=======
+    {
+      id: 'after-primary-testing',
+      label: 'After Primary Testing',
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       icon: Clock,
       color: 'orange',
       description: 'Primary side testing'
     },
+<<<<<<< HEAD
     { 
       id: 'final-testing', 
       label: 'Final Testing', 
+=======
+    {
+      id: 'final-testing',
+      label: 'Final Testing',
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       icon: Award,
       color: 'amber',
       description: 'Final quality checks'
     },
+<<<<<<< HEAD
     { 
       id: 'completed', 
       label: 'Completed', 
+=======
+    {
+      id: 'completed',
+      label: 'Completed',
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       icon: Truck,
       color: 'green',
       description: 'Ready for delivery'
     },
   ];
 
+<<<<<<< HEAD
   const currentStageIndex = stages.findIndex(stage => stage.id === currentStage);
+=======
+  // Fallback to first stage if not found to prevent crash
+  const foundIndex = stages.findIndex(stage => stage.id === currentStage);
+  const currentStageIndex = foundIndex === -1 ? 0 : foundIndex;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
   const getStageStatus = (index: number) => {
     if (index < currentStageIndex) return 'completed';
@@ -84,6 +134,7 @@ export function OrderStatusTracker({
                 {/* Stage Node */}
                 <div className="relative flex flex-col items-center">
                   <div
+<<<<<<< HEAD
                     className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
                       status === 'completed'
                         ? 'bg-green-500 border-green-500'
@@ -91,6 +142,14 @@ export function OrderStatusTracker({
                         ? 'bg-blue-500 border-blue-500 animate-pulse'
                         : 'bg-gray-200 border-gray-300'
                     }`}
+=======
+                    className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${status === 'completed'
+                        ? 'bg-green-500 border-green-500'
+                        : status === 'current'
+                          ? 'bg-blue-500 border-blue-500 animate-pulse'
+                          : 'bg-gray-200 border-gray-300'
+                      }`}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                   >
                     {status === 'completed' ? (
                       <CheckCircle className="w-5 h-5 text-white" />
@@ -106,9 +165,14 @@ export function OrderStatusTracker({
                 {!isLast && (
                   <div className="flex-1 h-0.5 mx-2">
                     <div
+<<<<<<< HEAD
                       className={`h-full transition-all ${
                         index < currentStageIndex ? 'bg-green-500' : 'bg-gray-300'
                       }`}
+=======
+                      className={`h-full transition-all ${index < currentStageIndex ? 'bg-green-500' : 'bg-gray-300'
+                        }`}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                     />
                   </div>
                 )}
@@ -124,11 +188,18 @@ export function OrderStatusTracker({
             return (
               <div key={stage.id} className="flex-1 text-center">
                 <p
+<<<<<<< HEAD
                   className={`text-xs ${
                     status === 'completed' || status === 'current'
                       ? 'text-gray-900 font-medium'
                       : 'text-gray-500'
                   }`}
+=======
+                  className={`text-xs ${status === 'completed' || status === 'current'
+                      ? 'text-gray-900 font-medium'
+                      : 'text-gray-500'
+                    }`}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                 >
                   {stage.label}
                 </p>
@@ -178,6 +249,7 @@ export function OrderStatusTracker({
                 <div className="flex flex-col items-center flex-1">
                   {/* Node */}
                   <div
+<<<<<<< HEAD
                     className={`w-16 h-16 rounded-full flex items-center justify-center border-4 transition-all shadow-lg ${
                       status === 'completed'
                         ? 'bg-green-500 border-green-500'
@@ -185,6 +257,14 @@ export function OrderStatusTracker({
                         ? 'bg-blue-500 border-blue-500 ring-4 ring-blue-200 animate-pulse'
                         : 'bg-white border-gray-300'
                     }`}
+=======
+                    className={`w-16 h-16 rounded-full flex items-center justify-center border-4 transition-all shadow-lg ${status === 'completed'
+                        ? 'bg-green-500 border-green-500'
+                        : status === 'current'
+                          ? 'bg-blue-500 border-blue-500 ring-4 ring-blue-200 animate-pulse'
+                          : 'bg-white border-gray-300'
+                      }`}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                   >
                     {status === 'completed' ? (
                       <CheckCircle className="w-8 h-8 text-white" />
@@ -198,11 +278,18 @@ export function OrderStatusTracker({
                   {/* Label */}
                   <div className="mt-3 text-center">
                     <p
+<<<<<<< HEAD
                       className={`text-sm font-medium ${
                         status === 'completed' || status === 'current'
                           ? 'text-gray-900'
                           : 'text-gray-500'
                       }`}
+=======
+                      className={`text-sm font-medium ${status === 'completed' || status === 'current'
+                          ? 'text-gray-900'
+                          : 'text-gray-500'
+                        }`}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                     >
                       {stage.label}
                     </p>
@@ -224,9 +311,14 @@ export function OrderStatusTracker({
                 {!isLast && (
                   <div className="flex items-center justify-center" style={{ marginTop: '28px', flex: '0 0 40px' }}>
                     <div
+<<<<<<< HEAD
                       className={`h-1 w-full transition-all ${
                         index < currentStageIndex ? 'bg-green-500' : 'bg-gray-300'
                       }`}
+=======
+                      className={`h-1 w-full transition-all ${index < currentStageIndex ? 'bg-green-500' : 'bg-gray-300'
+                        }`}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                     />
                   </div>
                 )}

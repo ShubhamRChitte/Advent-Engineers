@@ -1,12 +1,25 @@
+<<<<<<< HEAD
 import { useState } from 'react';
+=======
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { toast } from 'sonner';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+<<<<<<< HEAD
 import { 
   Bell, 
   Package, 
   Users, 
+=======
+import {
+  Bell,
+  Package,
+  Users,
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   Calendar,
   Edit,
   CheckCircle,
@@ -20,15 +33,25 @@ import {
 } from 'lucide-react';
 
 interface Employee {
+<<<<<<< HEAD
   id: string;
   name: string;
   role: string;
+=======
+  _id: string; // Changed to match API
+  fullName: string; // Changed to match API
+  designation: string; // Changed to match API
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   department: string;
 }
 
 interface TestAssignment {
   testStage: 'Core Test' | 'Secondary Test' | 'After Primary Test' | 'Final Test';
+<<<<<<< HEAD
   assignedEmployee: Employee;
+=======
+  assignedEmployees: Employee[]; // Changed to Array to support split assignments
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   status: 'Pending' | 'In Progress' | 'Completed';
   icon: any;
   color: string;
@@ -50,6 +73,7 @@ interface OrderNotification {
   testAssignments: TestAssignment[];
 }
 
+<<<<<<< HEAD
 export function NotificationsModule() {
   const [notifications, setNotifications] = useState<OrderNotification[]>([
     {
@@ -185,12 +209,109 @@ export function NotificationsModule() {
       ],
     },
   ]);
+=======
+
+
+export function NotificationsModule() {
+  const [notifications, setNotifications] = useState<OrderNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+
+  // Fetch Data
+  useEffect(() => {
+    fetchTesters();
+    fetchNotifications();
+  }, []);
+
+  const fetchTesters = async () => {
+    try {
+      const response = await axios.get('http://localhost:3002/auth/testers');
+      if (response.data.success) {
+        setEmployees(response.data.users);
+      }
+    } catch (error) {
+      console.error("Failed to fetch testers", error);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await axios.get('http://localhost:3002/api/admin/notifications', {
+        withCredentials: true
+      });
+
+      const pendingOrders = response.data || [];
+      const transformed: OrderNotification[] = pendingOrders.map((order: any) => ({
+        id: order._id,
+        orderId: order.jobId,
+        message: 'A new order has been added',
+        clientName: order.clientName,
+        transformerName: `Transformer (x${order.noOfCores || order.numberOfCores || '?'})`,
+        transformerType: order.isStandard,
+        quantity: order.quantity || 1,
+        orderDate: new Date(order.createdAt).toLocaleDateString(),
+        addedBy: 'Entry Operator',
+        timestamp: new Date(order.createdAt).toLocaleString(),
+        isRead: order.isRead || false,
+        isApproved: order.status !== 'Pending Approval',
+        testAssignments: (() => {
+          const stages = ['Core Test', 'Secondary Test', 'After Primary Test', 'Final Test'] as const;
+          const stageMap: Record<string, string> = {
+            'core': 'Core Test',
+            'secondary': 'Secondary Test',
+            'primary': 'After Primary Test',
+            'final': 'Final Test'
+          };
+
+          return stages.map(stageName => {
+            // Find ALL assignments for this stage (Split Assignments Support)
+            const stageKey = Object.keys(stageMap).find(key => stageMap[key] === stageName);
+            const foundAssignments = order.assignments?.filter((a: any) => stageMap[a.stage] === stageName) || [];
+
+            let assignedEmps: Employee[] = [];
+
+            if (foundAssignments.length > 0) {
+              assignedEmps = foundAssignments.map((a: any) => ({
+                _id: a.testerName, // Using name as ID if ID not present, mainly for display
+                fullName: a.testerName,
+                designation: stageName.replace('Test', 'Tester'),
+                department: 'Testing'
+              }));
+            } else {
+              assignedEmps = [{ _id: 'unassigned', fullName: 'Unassigned', designation: 'Tester', department: 'Testing' }];
+            }
+
+            let icon = Zap;
+            let color = 'purple';
+            if (stageName === 'Secondary Test') { icon = Shield; color = 'blue'; }
+            if (stageName === 'After Primary Test') { icon = Clock; color = 'orange'; }
+            if (stageName === 'Final Test') { icon = Award; color = 'green'; }
+
+            return {
+              testStage: stageName,
+              assignedEmployees: assignedEmps,
+              status: foundAssignments.length > 0 ? 'Assigned' : 'Pending',
+              icon,
+              color
+            };
+          });
+        })()
+      }));
+      setNotifications(transformed);
+    } catch (error) {
+      console.error("Failed to fetch notifications", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
   const [selectedNotification, setSelectedNotification] = useState<OrderNotification | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<TestAssignment | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<string>('');
 
+<<<<<<< HEAD
   // Available employees by role
   const availableEmployees: { [key: string]: Employee[] } = {
     'Core Test': [
@@ -217,6 +338,12 @@ export function NotificationsModule() {
 
   const handleMarkAsRead = (notificationId: string) => {
     setNotifications(notifications.map(n => 
+=======
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const handleMarkAsRead = (notificationId: string) => {
+    setNotifications(notifications.map(n =>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       n.id === notificationId ? { ...n, isRead: true } : n
     ));
   };
@@ -224,6 +351,7 @@ export function NotificationsModule() {
   const handleEditAssignment = (notification: OrderNotification, assignment: TestAssignment) => {
     setSelectedNotification(notification);
     setEditingAssignment(assignment);
+<<<<<<< HEAD
     setSelectedEmployee(assignment.assignedEmployee.id);
     setIsEditDialogOpen(true);
   };
@@ -237,13 +365,63 @@ export function NotificationsModule() {
 
     if (!newEmployee) return;
 
+=======
+    // If multiple, just select the first one or empty? Default to empty to force selection
+    setSelectedEmployee('');
+    setIsEditDialogOpen(true);
+  };
+
+  // Save Assignment Change
+  const handleSaveAssignment = async () => {
+    if (!selectedNotification || !editingAssignment || !selectedEmployee) return;
+
+    const newEmployee = employees.find(e => e._id === selectedEmployee);
+
+    if (!newEmployee) return;
+
+    const stageKeyMap: Record<string, string> = {
+      'Core Test': 'core_tester',
+      'Secondary Test': 'secondary_tester',
+      'After Primary Test': 'primary_tester',
+      'Final Test': 'final_tester'
+    };
+
+    const assignKey = stageKeyMap[editingAssignment.testStage];
+
+    // NOTE: This currently updates the "Legacy" single assignment field if the backend supports it,
+    // OR it might need to update the array. 
+    // Given the previous code used `assignments.${assignKey}`, it likely targets the object structure.
+    // If we want to support split assignments fully in EDIT, we'd need a more complex UI.
+    // For now, this acts as "Override all with this single tester" or "Add to legacy field".
+
+    if (assignKey) {
+      try {
+        await axios.put(`http://localhost:3002/api/orders/${selectedNotification.id}`, {
+          [`assignments.${assignKey}`]: newEmployee.fullName // Store Name
+        }, { withCredentials: true });
+
+        toast.success("Assignment updated!");
+      } catch (e) {
+        console.error("Failed to update assignment", e);
+        toast.error("Failed to update assignment");
+      }
+    }
+
+    // Optimistic Update
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     setNotifications(notifications.map(n => {
       if (n.id === selectedNotification.id) {
         return {
           ...n,
+<<<<<<< HEAD
           testAssignments: n.testAssignments.map(a => 
             a.testStage === editingAssignment.testStage
               ? { ...a, assignedEmployee: newEmployee }
+=======
+          testAssignments: n.testAssignments.map(a =>
+            a.testStage === editingAssignment.testStage
+              ? { ...a, assignedEmployees: [newEmployee] } // Replaces list with single new user
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
               : a
           ),
         };
@@ -256,10 +434,30 @@ export function NotificationsModule() {
     setSelectedEmployee('');
   };
 
+<<<<<<< HEAD
   const handleApproveOrder = (notificationId: string) => {
     setNotifications(notifications.map(n => 
       n.id === notificationId ? { ...n, isApproved: true, isRead: true } : n
     ));
+=======
+  const handleApproveOrder = async (notificationId: string) => {
+    try {
+      const response = await axios.put(`http://localhost:3002/api/orders/${notificationId}/approve`, {}, {
+        withCredentials: true
+      });
+
+      if (response.data.success) {
+        toast.success("Order approved and transformers generated!");
+        setNotifications(notifications.map(n =>
+          n.id === notificationId ? { ...n, isApproved: true, isRead: true } : n
+        ));
+        fetchNotifications(); // Refresh entire list
+      }
+    } catch (error: any) {
+      console.error("Approval failed", error);
+      toast.error("Approval failed: " + (error.response?.data?.message || error.message));
+    }
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   };
 
   const getStatusColor = (status: string) => {
@@ -348,8 +546,13 @@ export function NotificationsModule() {
       {/* Notifications List */}
       <div className="space-y-4">
         {notifications.map((notification) => (
+<<<<<<< HEAD
           <Card 
             key={notification.id} 
+=======
+          <Card
+            key={notification.id}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
             className={`p-6 ${!notification.isRead ? 'border-l-4 border-l-blue-600 bg-blue-50/30' : ''}`}
           >
             <div className="space-y-4">
@@ -423,7 +626,11 @@ export function NotificationsModule() {
                   {notification.testAssignments.map((assignment, index) => {
                     const Icon = assignment.icon;
                     return (
+<<<<<<< HEAD
                       <div 
+=======
+                      <div
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                         key={index}
                         className="p-4 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow"
                       >
@@ -449,12 +656,27 @@ export function NotificationsModule() {
                             Change
                           </Button>
                         </div>
+<<<<<<< HEAD
                         <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                           <User className="w-4 h-4 text-gray-500" />
                           <div>
                             <p className="text-sm font-medium text-gray-900">{assignment.assignedEmployee.name}</p>
                             <p className="text-xs text-gray-500">{assignment.assignedEmployee.role}</p>
                           </div>
+=======
+
+                        {/* List all assigned employees */}
+                        <div className="space-y-1">
+                          {assignment.assignedEmployees.map((emp, i) => (
+                            <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                              <User className="w-4 h-4 text-gray-500" />
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{emp.fullName}</p>
+                                <p className="text-xs text-gray-500">{emp.designation}</p>
+                              </div>
+                            </div>
+                          ))}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                         </div>
                       </div>
                     );
@@ -533,6 +755,7 @@ export function NotificationsModule() {
                 <p className="text-sm text-gray-600">Client: {selectedNotification.clientName}</p>
               </div>
 
+<<<<<<< HEAD
               {/* Current Assignment */}
               <div>
                 <label className="text-sm text-gray-700 mb-2 block">Current Employee</label>
@@ -546,6 +769,25 @@ export function NotificationsModule() {
                       {editingAssignment.assignedEmployee.role}
                     </p>
                   </div>
+=======
+              {/* Current Assignments */}
+              <div>
+                <label className="text-sm text-gray-700 mb-2 block">Current Employee(s)</label>
+                <div className="space-y-2">
+                  {editingAssignment.assignedEmployees.map((emp, i) => (
+                    <div key={i} className="p-3 bg-gray-50 rounded-lg flex items-center gap-2">
+                      <User className="w-5 h-5 text-gray-500" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {emp.fullName}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {emp.designation}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                 </div>
               </div>
 
@@ -558,12 +800,24 @@ export function NotificationsModule() {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Choose an employee...</option>
+<<<<<<< HEAD
                   {availableEmployees[editingAssignment.testStage].map((employee) => (
                     <option key={employee.id} value={employee.id}>
                       {employee.name} - {employee.role}
                     </option>
                   ))}
                 </select>
+=======
+                  {employees.map((employee) => (
+                    <option key={employee._id} value={employee._id}>
+                      {employee.fullName} - {employee.designation}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Note: This will override existing assignments for this stage (Legacy Mode).
+                </p>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
               </div>
 
               {/* Actions */}

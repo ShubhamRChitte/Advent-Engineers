@@ -112,6 +112,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         <div className="mt-6 pt-6 border-t border-gray-200">
           <p className="text-sm text-gray-600 mb-3">Demo Credentials:</p>
           <div className="space-y-2 text-xs">
+<<<<<<< HEAD
             <div className="bg-slate-50 p-2 rounded border border-slate-200 flex justify-between">
               <span className="font-semibold text-gray-700">Admin:</span>
               <span className="text-gray-600 font-mono">EMP001 / admin</span>
@@ -131,6 +132,31 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             <div className="bg-slate-50 p-2 rounded border border-slate-200 flex justify-between">
               <span className="font-semibold text-gray-700">Final Tester:</span>
               <span className="text-gray-600 font-mono">EMP008 / password123</span>
+=======
+            <div className="bg-slate-50 p-2 rounded border border-slate-200">
+              <p>Admin:</p>
+              <p className="text-gray-600">EMP-1001 / password123</p>
+            </div>
+            <div className="bg-slate-50 p-2 rounded border border-slate-200">
+              <p>Entry Operator:</p>
+              <p className="text-gray-600">EMP-1002 / password123</p>
+            </div>
+            <div className="bg-slate-50 p-2 rounded border border-slate-200">
+              <p>Core Tester:</p>
+              <p className="text-gray-600">EMP-2001 / password123</p>
+            </div>
+            <div className="bg-slate-50 p-2 rounded border border-slate-200">
+              <p>Secondary Tester:</p>
+              <p className="text-gray-600">EMP-2002 / password123</p>
+            </div>
+            <div className="bg-slate-50 p-2 rounded border border-slate-200">
+              <p>After Primary Tester:</p>
+              <p className="text-gray-600">EMP-2003 / password123</p>
+            </div>
+            <div className="bg-slate-50 p-2 rounded border border-slate-200">
+              <p>Final Tester:</p>
+              <p className="text-gray-600">EMP-2004 / password123</p>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
             </div>
           </div>
         </div>

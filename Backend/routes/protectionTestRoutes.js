@@ -30,18 +30,40 @@ router.get('/protection-tests/:orderId', async (req, res) => {
 
 router.post('/protection-tests', async (req, res) => {
   try {
-    const { orderId, coreType } = req.body;
+    const { orderId, coreType, readings, ...otherData } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(orderId)) {
       return res.status(400).json({ message: 'Invalid Parent Order ID' });
     }
 
-    // Use findOneAndUpdate with upsert: true
-    const testRecord = await ProtectionCoreTestModel.findOneAndUpdate(
-      { orderId: orderId, coreType: coreType },
-      req.body,
-      { upsert: true, new: true, runValidators: true }
-    );
+    // 1. Check if document exists
+    let testRecord = await ProtectionCoreTestModel.findOne({ orderId, coreType });
+
+    if (testRecord) {
+      // 2. MERGE LOGIC
+      // Update header info
+      Object.assign(testRecord, otherData);
+
+      const existingReadings = testRecord.readings || [];
+      const incomingReadings = readings || [];
+      const mergedReadings = [...existingReadings];
+
+      incomingReadings.forEach(newReading => {
+        const index = mergedReadings.findIndex(r => r.internalCoreNo === newReading.internalCoreNo);
+        if (index > -1) {
+          mergedReadings[index] = newReading;
+        } else {
+          mergedReadings.push(newReading);
+        }
+      });
+
+      testRecord.readings = mergedReadings;
+      await testRecord.save();
+    } else {
+      // 3. Create New
+      testRecord = new ProtectionCoreTestModel(req.body);
+      await testRecord.save();
+    }
 
     await OrderModel.findByIdAndUpdate(orderId, {
       $set: { status: `${coreType} Testing Completed` }

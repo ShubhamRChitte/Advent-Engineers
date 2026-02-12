@@ -581,6 +581,7 @@ interface SecondaryPSReportProps {
   testerName: string;
   onBack: () => void;
   readOnly?: boolean;
+<<<<<<< HEAD
 }
 
 export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName, onBack, readOnly = false }: any) {
@@ -594,6 +595,20 @@ export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName,
   const [psData, setPsData] = useState<PSRow[]>(
     initialRatios.map((r: string) => ({
       ratioValue: r,
+=======
+  stage?: 'secondary' | 'primary' | 'final';
+}
+
+export function SecondaryPSReport({ transformer, coreId, testerName, onBack, readOnly = false, stage = 'secondary' }: SecondaryPSReportProps) {
+  // Use dynamic ratios from transformer, fallback if missing
+  const dynamicRatios = (transformer as any).ratios && (transformer as any).ratios.length > 0
+    ? (transformer as any).ratios
+    : ((transformer as any).orderId?.ratio || ['200/1']);
+
+  const [psData, setPsData] = useState<PSRow[]>(
+    dynamicRatios.map((ratio: string) => ({
+      ratioValue: ratio,
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       turnRatioError: '',
       resistance: '',
       vk: '',
@@ -603,6 +618,7 @@ export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName,
     }))
   );
 
+<<<<<<< HEAD
   // Load existing data
   React.useEffect(() => {
     const loadData = async () => {
@@ -632,16 +648,89 @@ export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName,
     };
     loadData();
   }, [transformer.uniqueId, coreId]);
+=======
+  // ✅ LOAD DATA EFFECT
+  React.useEffect(() => {
+    const fetchLatestData = async () => {
+      try {
+        const res = await axios.get(`http://localhost:3002/api/transformers/${(transformer as any).uniqueId}`, { withCredentials: true });
+        const freshTransformer = res.data;
+
+        // Dynamic Path
+        const stageKey = `${stage}_test` as keyof typeof freshTransformer.testHistory;
+        const stageHistory = freshTransformer?.testHistory?.[stageKey];
+
+        if (stageHistory?.ps_results?.length > 0) {
+          console.log(`Found saved PS results for ${stage}, loading...`, stageHistory.ps_results);
+
+          // Filter results for THIS specific core ID
+          const myResults = stageHistory.ps_results.filter((res: any) =>
+            res.internalCoreNo === coreId || res.coreId === coreId
+          );
+
+          // Map saved results back to state
+          // We need to match by ratioValue to ensure order
+          setPsData((prevData: PSRow[]) => {
+            return prevData.map((row: PSRow) => {
+              // 1. Try Exact Match
+              let savedRow = myResults.find((r: any) => r.ratioValue === row.ratioValue);
+
+              // 2. Fallback for "N/A"
+              if (!savedRow && dynamicRatios.length === 1) {
+                savedRow = myResults.find((r: any) => !r.ratioValue || r.ratioValue === 'N/A');
+              }
+
+              if (savedRow) {
+                console.log("Loading PS Row Data:", savedRow); // DEBUG LOG
+                return {
+                  ...row,
+                  turnRatioError: savedRow.turnRatioError,
+                  resistance: savedRow.resistance,
+                  vk: savedRow.vk,
+                  // Auto-calculate 1.1Vk if missing but Vk exists
+                  vkVal: savedRow.vkVal || (savedRow.vk && !isNaN(parseFloat(savedRow.vk)) ? (parseFloat(savedRow.vk) * 1.1).toFixed(2) : ''),
+                  iexVk: savedRow.iexVk,
+                  iex11Vk: savedRow.iex11Vk
+                };
+              }
+              return row;
+            });
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load existing PS data", err);
+      }
+    };
+
+    fetchLatestData();
+  }, [(transformer as any).uniqueId, coreId]);
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
   const handleUpdate = (idx: number, field: string, val: string) => {
     if (readOnly) return;
     const updated = [...psData];
     updated[idx] = { ...updated[idx], [field]: val };
+<<<<<<< HEAD
+=======
+
+    // Auto-calculate 1.1Vk if Vk changes
+    if (field === 'vk') {
+      const num = parseFloat(val);
+      if (!isNaN(num)) {
+        // Use roughly 2 decimals for voltage
+        updated[idx].vkVal = (num * 1.1).toFixed(2).replace(/\.00$/, '');
+      } else {
+        updated[idx].vkVal = '';
+      }
+    }
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     setPsData(updated);
   };
 
   const handleDatabaseSave = async () => {
     if (readOnly) return;
+<<<<<<< HEAD
     try {
       const payload = {
         uniqueId: transformer.uniqueId,
@@ -660,6 +749,54 @@ export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName,
     }
   };
 
+=======
+    console.log("handleDatabaseSave (PS): STARTED");
+    try {
+      // 1. Prepare the payload based on PSBlockSchema
+      const payload = {
+        uniqueId: (transformer as any).uniqueId,
+        tester: testerName, // Use prop directly
+        coreId: coreId,
+        stage: stage, // Add stage info if helpful for backend logging
+        ps_results: psData.map((row: any) => ({
+          internalCoreNo: coreId, // Inject Core ID for persistence
+          ratioValue: row.ratioValue,
+          turnRatioError: row.turnRatioError,
+          resistance: row.resistance,
+          vk: row.vk,
+          vkVal: row.vkVal,
+          iexVk: row.iexVk,
+          iex11Vk: row.iex11Vk
+        }))
+      };
+
+      console.log("handleDatabaseSave (PS): Payload ready", payload);
+
+      const endpoint = `http://localhost:3002/transformer-${stage}-ps-tests`;
+
+      // 2. Execute POST request
+      const response = await axios.post(
+        endpoint,
+        payload,
+        { withCredentials: true }
+      );
+
+      console.log("handleDatabaseSave (PS): Response received", response);
+      toast.success("Secondary PS Test results saved successfully!");
+
+    } catch (error: any) {
+      console.error("handleDatabaseSave (PS): ERROR", error);
+      toast.error(error.response?.data?.message || "Failed to save PS data to database.");
+    }
+  };
+
+  // Check Completion
+  const isComplete = psData.length > 0 && psData.every(row =>
+    row.turnRatioError && row.resistance && row.vk &&
+    row.vkVal && row.iexVk && row.iex11Vk
+  );
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   return (
     <div className="space-y-6 p-4 bg-white">
       <div className="flex items-center justify-between no-print">
@@ -671,9 +808,15 @@ export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName,
         </Button>
       </div>
 
+<<<<<<< HEAD
       <Card className="p-0 border border-gray-400 overflow-hidden shadow-none rounded-none">
         <div className="bg-[#92d050] border-b border-gray-400 p-2 text-center">
           <h2 className="text-sm font-bold uppercase">Pretest After Secondary Winding</h2>
+=======
+      <Card className={`p-0 border overflow-hidden shadow-none rounded-none ${isComplete ? 'border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]' : 'border-gray-400'}`}>
+        <div className={`border-b p-2 text-center ${isComplete ? 'bg-green-100 border-green-500' : 'bg-[#92d050] border-gray-400'}`}>
+          <h2 className="text-sm font-bold uppercase">Pretest After Secondary Winding {isComplete && '(Completed)'}</h2>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
         </div>
 
         <div className="flex justify-between items-center p-3 border-b border-gray-400">
@@ -696,7 +839,11 @@ export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName,
                 <th className="border border-gray-400 p-2 text-center" colSpan={3}>Excitation Current Details</th>
               </tr>
               <tr className="bg-gray-100">
+<<<<<<< HEAD
                 <th className="border border-gray-400 p-2 text-center">Vk / 1.1Vk (V)</th>
+=======
+                <th className="border border-gray-400 p-2 text-center w-[180px]">Vk / 1.1Vk (V)</th>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                 <th className="border border-gray-400 p-2 text-center">lex at Vk</th>
                 <th className="border border-gray-400 p-2 text-center">lex at 1.1Vk</th>
               </tr>
@@ -724,6 +871,7 @@ export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName,
                         disabled={readOnly}
                       />
                     </td>
+<<<<<<< HEAD
                     <td className="border border-gray-400 p-1 bg-white border-b-0 h-8 flex items-center">
                       <span className="font-bold text-[#0070c0]">Vk :</span>
                       <Input
@@ -732,6 +880,18 @@ export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName,
                         onChange={e => handleUpdate(i, 'vk', e.target.value)}
                         disabled={readOnly}
                       />
+=======
+                    <td className="border border-gray-400 p-1 bg-white border-b-0 h-8">
+                      <div className="flex items-center w-full h-full">
+                        <span className="font-bold text-[#0070c0] mr-2 whitespace-nowrap">Vk :</span>
+                        <Input
+                          className="border-none text-[#0070c0] font-bold h-6 shadow-none flex-1 min-w-[60px] disabled:opacity-100 disabled:cursor-not-allowed"
+                          value={row.vk || ''}
+                          onChange={e => handleUpdate(i, 'vk', e.target.value)}
+                          disabled={readOnly}
+                        />
+                      </div>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                     </td>
                     <td className="border border-gray-400 p-0" rowSpan={2}>
                       <Input
@@ -751,6 +911,7 @@ export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName,
                     </td>
                   </tr>
                   <tr className="border-b border-gray-400">
+<<<<<<< HEAD
                     <td className="border border-gray-400 p-1 bg-white h-8 flex items-center">
                       <span className="font-bold text-[#0070c0]">1.1Vk :</span>
                       <Input
@@ -759,6 +920,18 @@ export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName,
                         onChange={e => handleUpdate(i, 'vkVal', e.target.value)}
                         disabled={readOnly}
                       />
+=======
+                    <td className="border border-gray-400 p-1 bg-white h-8">
+                      <div className="flex items-center w-full h-full">
+                        <span className="font-bold text-[#0070c0] mr-2 whitespace-nowrap">1.1Vk :</span>
+                        <Input
+                          className="border-none text-[#0070c0] font-bold h-6 shadow-none flex-1 min-w-[60px] disabled:opacity-100 disabled:cursor-not-allowed"
+                          value={row.vkVal || ''}
+                          onChange={e => handleUpdate(i, 'vkVal', e.target.value)}
+                          disabled={readOnly}
+                        />
+                      </div>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                     </td>
                   </tr>
                 </React.Fragment>

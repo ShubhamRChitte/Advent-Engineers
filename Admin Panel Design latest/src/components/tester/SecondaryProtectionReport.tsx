@@ -243,6 +243,10 @@ interface SecondaryProtectionReportProps {
   testerName: string;
   onBack: () => void;
   readOnly?: boolean;
+<<<<<<< HEAD
+=======
+  stage?: 'secondary' | 'primary' | 'final';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 }
 
 interface ProtectionTestRow {
@@ -250,10 +254,16 @@ interface ProtectionTestRow {
   burden100_1: string;
   burden100_2: string;
   resistance: string;
+<<<<<<< HEAD
   alf: string; // User Input
   secondaryLimitingVtg: string; // Calculated
   excitationCurrent: string;
   compositeError: string; // Calculated
+=======
+  secondaryLimitingVtg: string;
+  excitationCurrent: string;
+  compositeError: string;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 }
 
 export function SecondaryProtectionReport({
@@ -263,6 +273,7 @@ export function SecondaryProtectionReport({
   testerName,
   onBack,
   readOnly = false,
+<<<<<<< HEAD
 }: SecondaryProtectionReportProps) {
 
   // Parse VA from transformer rating (e.g., "30VA")
@@ -280,10 +291,33 @@ export function SecondaryProtectionReport({
 
   const [testResults, setTestResults] = useState<ProtectionTestRow[]>(
     ratiosToUse.map(ratio => ({
+=======
+  stage = 'secondary',
+}: SecondaryProtectionReportProps) {
+
+  // Use ratios from the transformer object, falling back to a default if empty
+  const ratiosToUse = (transformer.ratios && transformer.ratios.length > 0)
+    ? transformer.ratios
+    : (transformer.orderId?.ratio || ['N/A']);
+
+
+  const [testResults, setTestResults] = useState<ProtectionTestRow[]>([]);
+
+  // Initialize Data
+  useEffect(() => {
+    // 1. Determine Ratios
+    const dynamicRatios = (transformer.ratios && transformer.ratios.length > 0)
+      ? transformer.ratios
+      : (transformer.orderId?.ratio || ['N/A']);
+
+    // 2. Create Initial State
+    const initialData = dynamicRatios.map(ratio => ({
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       ratio,
       burden100_1: '',
       burden100_2: '',
       resistance: '',
+<<<<<<< HEAD
       alf: '',
       secondaryLimitingVtg: '', 
       excitationCurrent: '',
@@ -344,19 +378,42 @@ export function SecondaryProtectionReport({
   };
 
   // ✅ LOAD DATA EFFECT for Read Only viewing
+=======
+      secondaryLimitingVtg: '',
+      excitationCurrent: '',
+      compositeError: ''
+    }));
+
+    setTestResults(initialData);
+
+  }, [transformer]);
+
+
+  // ✅ LOAD DATA EFFECT for Read Only viewing OR Consistency
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   useEffect(() => {
     const fetchLatestData = async () => {
       try {
         const res = await axios.get(`http://localhost:3002/api/transformers/${transformer.uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
 
+<<<<<<< HEAD
         if (freshTransformer?.testHistory?.secondary_test?.protection_results?.length > 0) {
           const myResults = freshTransformer.testHistory.secondary_test.protection_results.filter((res: any) =>
+=======
+        // Dynamic Path
+        const stageKey = `${stage}_test` as keyof typeof freshTransformer.testHistory;
+        const stageHistory = freshTransformer?.testHistory?.[stageKey];
+
+        if (stageHistory?.protection_results?.length > 0) {
+          const myResults = stageHistory.protection_results.filter((res: any) =>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
             res.internalCoreNo === coreId || res.coreId === coreId
           );
 
           if (myResults.length > 0) {
             setTestResults(prev => prev.map(row => {
+<<<<<<< HEAD
               const saved = myResults.find((r: any) => r.ratioValue === row.ratio);
               if (saved) {
                 return {
@@ -368,6 +425,25 @@ export function SecondaryProtectionReport({
                   secondaryLimitingVtg: saved.secondaryLimitingVtg || '',
                   excitationCurrent: saved.excitationCurrent || '',
                   compositeError: saved.compositeError || ''
+=======
+              // 1. Try Exact Match
+              let saved = myResults.find((r: any) => r.ratioValue === row.ratio);
+
+              // 2. Fallback for "N/A" if checking against the single available ratio
+              if (!saved && ratiosToUse.length === 1) {
+                saved = myResults.find((r: any) => !r.ratioValue || r.ratioValue === 'N/A');
+              }
+
+              if (saved) {
+                return {
+                  ...row,
+                  burden100_1: saved.burden100_1,
+                  burden100_2: saved.burden100_2,
+                  resistance: saved.resistance,
+                  secondaryLimitingVtg: saved.secondaryLimitingVtg,
+                  excitationCurrent: saved.excitationCurrent,
+                  compositeError: saved.compositeError
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                 };
               }
               return row;
@@ -379,6 +455,7 @@ export function SecondaryProtectionReport({
       }
     };
     fetchLatestData();
+<<<<<<< HEAD
   }, [transformer.uniqueId, coreId]);
 
   const handleDatabaseSave = async () => {
@@ -399,10 +476,75 @@ export function SecondaryProtectionReport({
       toast.success("Protection Test Saved!");
     } catch (err: any) {
       toast.error("Failed to save: " + (err.response?.data?.message || err.message));
+=======
+  }, [transformer.uniqueId, coreId, stage]);
+
+  const handleInputChange = (index: number, field: keyof ProtectionTestRow, value: string) => {
+    if (readOnly) return;
+    const updated = [...testResults];
+    updated[index] = { ...updated[index], [field]: value };
+    setTestResults(updated);
+  };
+
+
+
+  const handleDatabaseSave = async () => {
+    if (readOnly) return;
+    console.log("handleDatabaseSave: STARTED (Protection)");
+    try {
+      // 1. Build the array based on your ProtectionBlockSchema
+      const protectionResults = testResults.map(row => ({
+        internalCoreNo: coreId, // Inject Core ID for persistence
+        ratioValue: row.ratio,
+        burden100_1: row.burden100_1,
+        burden100_2: row.burden100_2,
+        resistance: row.resistance,
+        secondaryLimitingVtg: row.secondaryLimitingVtg,
+        excitationCurrent: row.excitationCurrent,
+        compositeError: row.compositeError
+      }));
+
+      console.log("handleDatabaseSave: protectionResults built", protectionResults);
+
+      const payload = {
+        uniqueId: transformer.uniqueId,
+        loginType: `${stage}_login`, // Consistent with your schema path
+        tester: testerName,
+        coreId: coreId,
+        protection_results: protectionResults
+      };
+
+      console.log("handleDatabaseSave: Payload ready", payload);
+      const endpoint = `http://localhost:3002/transformer-${stage}-protection-tests`;
+      console.log(`handleDatabaseSave: Sending Request to ${endpoint}...`);
+
+      const response = await axios.post(
+        endpoint,
+        payload,
+        { withCredentials: true }
+      );
+
+      console.log("handleDatabaseSave: Response received", response);
+      toast.success("Protection data saved to database successfully!");
+
+    } catch (error) {
+      console.error("handleDatabaseSave: ERROR CAUGHT", error);
+      toast.error("Failed to save protection data.");
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     }
   };
 
 
+<<<<<<< HEAD
+=======
+  // Check Completion
+  const isComplete = testResults.length > 0 && testResults.every(row =>
+    row.burden100_1 && row.burden100_2 && row.resistance &&
+    row.secondaryLimitingVtg && row.excitationCurrent && row.compositeError
+  );
+
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   return (
     <div className="space-y-6 p-4">
       {/* Top Navigation */}
@@ -417,10 +559,17 @@ export function SecondaryProtectionReport({
         </div>
       </div>
 
+<<<<<<< HEAD
       <Card className="p-0 border border-gray-400 overflow-hidden">
         {/* Main Title Header */}
         <div className="bg-[#92d050] border-b border-gray-400 p-2 text-center">
           <h2 className="text-sm font-bold uppercase">Pretest After Secondary Winding</h2>
+=======
+      <Card className={`p-0 border overflow-hidden ${isComplete ? 'border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]' : 'border-gray-400'}`}>
+        {/* Main Title Header */}
+        <div className={`border-b p-2 text-center ${isComplete ? 'bg-green-100 border-green-500' : 'bg-[#92d050] border-gray-400'}`}>
+          <h2 className="text-sm font-bold uppercase">Pretest After Secondary Winding {isComplete && '(Completed)'}</h2>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
         </div>
 
         {/* Advent Engineers Sub-Header */}
@@ -440,6 +589,7 @@ export function SecondaryProtectionReport({
 
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-[11px]">
+<<<<<<< HEAD
              <thead>
               <tr className="bg-gray-50 text-[11px] border-b border-gray-400">
                   <th className="border border-gray-400 p-2 w-[140px]"></th>
@@ -509,11 +659,62 @@ export function SecondaryProtectionReport({
 
                   {/* Row 3: Values: Resistance, ALF, Excitation, Calculated */}
                   <tr key={`${index}-row3`}>
+=======
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="border border-gray-400 p-2 w-[140px]" rowSpan={2}>Core Ratio</th>
+                <th className="border border-gray-400 p-2 w-[80px]" rowSpan={2}>100%</th>
+                <th className="border border-gray-400 p-2 text-center" colSpan={4}>Protection Analysis Results</th>
+              </tr>
+              <tr className="bg-gray-50">
+                <th className="border border-gray-400 p-2 text-center font-semibold">Resistance (Ω)</th>
+                <th className="border border-gray-400 p-2 text-center font-semibold">Secondary Limiting Voltage</th>
+                <th className="border border-gray-400 p-2 text-center font-semibold">Excitation Current</th>
+                <th className="border border-gray-400 p-2 text-center font-semibold">Composite Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              {testResults.map((row, index) => (
+                <React.Fragment key={index}>
+                  {/* First row of the block: Handling the ratio label and burden error */}
+                  <tr key={`${index}-row1`}>
+                    <td rowSpan={2} className="border border-gray-400 p-2 bg-[#ffff00] font-bold text-center align-middle">
+                      Protection Core<br />Ratio - {row.ratio}
+                    </td>
+
+
+                    <td className="border border-gray-400 bg-gray-100">100%</td>
+                    <td className="border border-gray-400 bg-gray-100"></td>
+                    <td className="border border-gray-400 p-0">
+                      <Input
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-medium disabled:opacity-100 disabled:cursor-not-allowed"
+                        value={row.burden100_1}
+                        onChange={(e) => handleInputChange(index, 'burden100_1', e.target.value)}
+                        placeholder=""
+                        disabled={readOnly}
+                      />
+                    </td>
+                    <td className="border border-gray-400 p-0">
+                      <Input
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-medium disabled:opacity-100 disabled:cursor-not-allowed"
+                        value={row.burden100_2}
+                        onChange={(e) => handleInputChange(index, 'burden100_2', e.target.value)}
+                        placeholder=""
+                        disabled={readOnly}
+                      />
+                    </td>
+                    <td className="border border-gray-400 bg-gray-100"></td>
+                  </tr>
+                  {/* Second row of the block: The "Value" row with primary data */}
+                  <tr key={`${index}-row2`}>
+                    <td className="border border-gray-400 p-2 text-center font-bold bg-gray-50 uppercase text-[9px]">Value</td>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                     <td className="border border-gray-400 p-0">
                       <Input
                         className="border-none text-center h-8 bg-transparent text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
                         value={row.resistance}
                         onChange={(e) => handleInputChange(index, 'resistance', e.target.value)}
+<<<<<<< HEAD
                         placeholder="R_ct"
                         disabled={readOnly}
                       />
@@ -529,11 +730,25 @@ export function SecondaryProtectionReport({
                       />
                     </td>
 
+=======
+                        disabled={readOnly}
+                      />
+                    </td>
+                    <td className="border border-gray-400 p-0">
+                      <Input
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
+                        value={row.secondaryLimitingVtg}
+                        onChange={(e) => handleInputChange(index, 'secondaryLimitingVtg', e.target.value)}
+                        disabled={readOnly}
+                      />
+                    </td>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                     <td className="border border-gray-400 p-0">
                       <Input
                         className="border-none text-center h-8 bg-transparent text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
                         value={row.excitationCurrent}
                         onChange={(e) => handleInputChange(index, 'excitationCurrent', e.target.value)}
+<<<<<<< HEAD
                         placeholder="I_e"
                         disabled={readOnly}
                       />
@@ -548,6 +763,18 @@ export function SecondaryProtectionReport({
                                {row.compositeError || '-'}
                            </span>
                        </div>
+=======
+                        disabled={readOnly}
+                      />
+                    </td>
+                    <td className="border border-gray-400 p-0">
+                      <Input
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
+                        value={row.compositeError}
+                        onChange={(e) => handleInputChange(index, 'compositeError', e.target.value)}
+                        disabled={readOnly}
+                      />
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                     </td>
                   </tr>
                 </React.Fragment>

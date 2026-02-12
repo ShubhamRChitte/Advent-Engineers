@@ -1,4 +1,9 @@
 import { useState } from 'react';
+<<<<<<< HEAD
+=======
+import axios from 'axios';
+import { toast } from 'sonner';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 import { FinalOrdersList } from './FinalOrdersList';
 import { FinalTransformersList, FinalTransformer } from './FinalTransformersList';
 import { FinalCoreSelection } from './FinalCoreSelection';
@@ -18,12 +23,25 @@ interface Order {
   assignedDate: string;
   status: string;
   priority: string;
+<<<<<<< HEAD
+=======
+  // Sync with FinalTransformersList
+  assignedUnitIds?: string[];
+  transformerName?: string;
+  ratio?: string[];
+  nominalSystemVoltage?: number | string;
+  coreDetails?: any[];
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 }
 
 interface CoreConfig {
   coreNumber: number;
   coreType: 'metering' | 'ps' | 'protection';
+<<<<<<< HEAD
   coreId: string;
+=======
+  coreId?: string; // Optional to match other files
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 }
 
 type ViewType = 'orders' | 'transformers' | 'cores' | 'core-report' | 'comprehensive-report';
@@ -76,6 +94,39 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
     setSelectedCore(null);
   };
 
+<<<<<<< HEAD
+=======
+  const handleApproveTransformer = async (t?: FinalTransformer) => {
+    const target = t || selectedTransformer;
+    if (!target) return;
+
+    try {
+      // Updated to use the real endpoint
+      console.log('Approving transformer:', target.uniqueId);
+
+      const response = await axios.put(`http://localhost:3002/api/transformers/${target.uniqueId}/approve-stage`, {
+        stage: 'final',
+        nextStage: 'shipped' // or 'completed' depending on workflow
+      }, {
+        withCredentials: true
+      });
+
+      if (response.data.success) {
+        toast.success(`Transformer ${target.uniqueId} approved successfully!`);
+        // Return to list to refresh data
+        handleBackToTransformers();
+      } else {
+        toast.error('Approval failed: ' + response.data.message);
+      }
+
+    } catch (error: any) {
+      console.error('Approval failed:', error);
+      toast.error(error.response?.data?.message || 'Failed to approve transformer');
+    }
+
+  };
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   const testerName = userName || 'Final Tester';
 
   // Orders List View
@@ -90,6 +141,10 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
         order={selectedOrder}
         onStartTest={handleStartTest}
         onBack={handleBackToOrders}
+<<<<<<< HEAD
+=======
+        onApprove={handleApproveTransformer}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       />
     );
   }
@@ -99,10 +154,21 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
     return (
       <FinalCoreSelection
         transformer={selectedTransformer}
+<<<<<<< HEAD
         order={selectedOrder}
         onSelectCore={handleSelectCore}
         onOpenComprehensiveReport={handleOpenComprehensiveReport}
         onBack={handleBackToTransformers}
+=======
+        order={{
+          ...selectedOrder,
+          client: selectedOrder.clientName || selectedOrder.client || ''
+        } as any}
+        onSelectCore={handleSelectCore}
+        onOpenComprehensiveReport={handleOpenComprehensiveReport}
+        onBack={handleBackToTransformers}
+        onApprove={() => handleApproveTransformer()}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       />
     );
   }
@@ -115,7 +181,11 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
       return (
         <FinalMeteringReport
           transformer={selectedTransformer}
+<<<<<<< HEAD
           core={selectedCore}
+=======
+          core={selectedCore as any} // Cast if minor type mismatch occurs from optional ID
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
           testerName={testerName}
           onBack={handleBackToCores}
         />
@@ -126,7 +196,11 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
       return (
         <FinalPSReport
           transformer={selectedTransformer}
+<<<<<<< HEAD
           core={selectedCore}
+=======
+          core={selectedCore as any}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
           testerName={testerName}
           onBack={handleBackToCores}
         />
@@ -137,7 +211,11 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
       return (
         <FinalProtectionReport
           transformer={selectedTransformer}
+<<<<<<< HEAD
           core={selectedCore}
+=======
+          core={selectedCore as any}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
           testerName={testerName}
           onBack={handleBackToCores}
         />

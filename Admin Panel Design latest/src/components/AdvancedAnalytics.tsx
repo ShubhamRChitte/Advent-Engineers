@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useEffect, useState } from 'react';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -44,6 +45,30 @@ export function AdvancedAnalytics() {
     };
     fetchData();
   }, []);
+=======
+import { Card } from './ui/card';
+import { Badge } from './ui/badge';
+import { TrendingUp, TrendingDown, DollarSign, Clock, Award, AlertCircle } from 'lucide-react';
+import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+
+export function AdvancedAnalytics() {
+  const performanceData = [
+    { month: 'Jan', orders: 45, revenue: 450, efficiency: 85 },
+    { month: 'Feb', orders: 52, revenue: 520, efficiency: 88 },
+    { month: 'Mar', orders: 48, revenue: 480, efficiency: 82 },
+    { month: 'Apr', orders: 61, revenue: 610, efficiency: 90 },
+    { month: 'May', orders: 55, revenue: 550, efficiency: 87 },
+    { month: 'Jun', orders: 67, revenue: 670, efficiency: 92 },
+  ];
+
+  const workerPerformance = [
+    { name: 'John Doe', completed: 156, efficiency: 95, quality: 98 },
+    { name: 'Jane Smith', completed: 98, efficiency: 92, quality: 96 },
+    { name: 'Mike Johnson', completed: 67, efficiency: 88, quality: 94 },
+    { name: 'Sarah Wilson', completed: 234, efficiency: 97, quality: 99 },
+    { name: 'Tom Brown', completed: 89, efficiency: 85, quality: 92 },
+  ];
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
   const qualityMetrics = [
     { metric: 'Visual Inspection', score: 95 },
@@ -53,6 +78,40 @@ export function AdvancedAnalytics() {
     { metric: 'Documentation', score: 90 },
   ];
 
+<<<<<<< HEAD
+=======
+  const kpis = [
+    {
+      label: 'Average Order Value',
+      value: '$12,500',
+      change: '+18%',
+      trending: 'up',
+      icon: DollarSign,
+    },
+    {
+      label: 'Avg. Testing Time',
+      value: '14.2 hrs',
+      change: '-12%',
+      trending: 'up',
+      icon: Clock,
+    },
+    {
+      label: 'Quality Score',
+      value: '96.5%',
+      change: '+5%',
+      trending: 'up',
+      icon: Award,
+    },
+    {
+      label: 'Defect Rate',
+      value: '2.1%',
+      change: '-8%',
+      trending: 'up',
+      icon: AlertCircle,
+    },
+  ];
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   const testingEfficiency = [
     { stage: 'Visual', avgTime: 2.5, target: 3 },
     { stage: 'Electrical', avgTime: 5.2, target: 6 },
@@ -60,8 +119,11 @@ export function AdvancedAnalytics() {
     { stage: 'QC', avgTime: 1.8, target: 2 },
   ];
 
+<<<<<<< HEAD
   if (loading) return <div className="p-6">Loading analytics...</div>;
 
+=======
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   return (
     <div className="space-y-6">
       <div>
@@ -72,7 +134,11 @@ export function AdvancedAnalytics() {
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {kpis.map((kpi) => {
+<<<<<<< HEAD
           const Icon = iconMap[kpi.icon] || AlertCircle;
+=======
+          const Icon = kpi.icon;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
           const TrendIcon = kpi.trending === 'up' ? TrendingUp : TrendingDown;
           const isPositive = kpi.trending === 'up';
           
@@ -123,8 +189,13 @@ export function AdvancedAnalytics() {
               <YAxis />
               <Tooltip />
               <Legend />
+<<<<<<< HEAD
               <Area type="monotone" dataKey="production" stroke="#ef4444" fillOpacity={1} fill="url(#colorOrders)" name="Orders" />
                {/* Revenue is not yet fully dynamically mapped in productionData for this chart, using orders as proxy for now or need to updating aggregation */}
+=======
+              <Area type="monotone" dataKey="orders" stroke="#ef4444" fillOpacity={1} fill="url(#colorOrders)" name="Orders" />
+              <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fillOpacity={1} fill="url(#colorRevenue)" name="Revenue (K)" />
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
             </AreaChart>
           </ResponsiveContainer>
         </Card>
@@ -138,8 +209,12 @@ export function AdvancedAnalytics() {
               <YAxis />
               <Tooltip />
               <Legend />
+<<<<<<< HEAD
               {/* Mocking efficiency as it's not yet in the production endpoint */}
               <Line type="monotone" dataKey="production" stroke="#10b981" strokeWidth={3} name="Efficiency (Proxy)" />
+=======
+              <Line type="monotone" dataKey="efficiency" stroke="#10b981" strokeWidth={3} name="Efficiency %" />
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
             </LineChart>
           </ResponsiveContainer>
         </Card>
@@ -158,7 +233,11 @@ export function AdvancedAnalytics() {
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
                     <p className="font-medium">{worker.name}</p>
+<<<<<<< HEAD
                     <Badge variant="outline">{worker.completed} tasks</Badge>
+=======
+                    <Badge variant="outline">{worker.completed} tests</Badge>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                   </div>
                   <div className="flex gap-4 text-sm text-gray-500">
                     <span>Efficiency: {worker.efficiency}%</span>

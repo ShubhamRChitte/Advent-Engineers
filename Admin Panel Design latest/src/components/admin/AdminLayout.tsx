@@ -6,7 +6,11 @@ import { AdminDashboard } from './AdminDashboard';
 import { EmployeeManagement } from './EmployeeManagement';
 import { EmployeePerformance } from './EmployeePerformance';
 import { EnhancedStockManagement } from './EnhancedStockManagement';
+<<<<<<< HEAD
 import { CreateOrderView } from '../CreateOrderView';
+=======
+import { OrderManagementModule } from '../entry/OrderManagementModule';
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 import { OrdersListViewEnhanced } from '../entry/OrdersListViewEnhanced';
 import { ReportsModule } from '../entry/ReportsModule';
 import { NotificationsModule } from './NotificationsModule';
@@ -28,7 +32,11 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
       case 'performance':
         return <EmployeePerformance />;
       case 'add-order':
+<<<<<<< HEAD
         return <CreateOrderView />;
+=======
+        return <OrderManagementModule isAdmin={true} />;
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       case 'view-orders':
         return <OrdersListViewEnhanced />;
       case 'stock':

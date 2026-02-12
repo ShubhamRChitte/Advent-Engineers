@@ -28,11 +28,16 @@ interface EnhancedOrderFormProps {
   onBack: () => void;
 }
 
+<<<<<<< HEAD
 export function EnhancedOrderForm({ transformer, onSubmit, onBack }: EnhancedOrderFormProps) {
+=======
+export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperator = false }: EnhancedOrderFormProps & { isEntryOperator?: boolean }) {
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   const [clientName, setClientName] = useState('');
   const [clientContact, setClientContact] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [isStandard, setIsStandard] = useState('');
+<<<<<<< HEAD
   const [numberOfCores, setNumberOfCores] = useState(transformer.cores.toString());
   
   // Core configurations
@@ -41,6 +46,26 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack }: EnhancedOrd
   );
 
   // Transformer Parameters
+=======
+
+  // Initialize from transformer prop if available, else empty
+  const [transformerName, setTransformerName] = useState(transformer?.name || '');
+  const [transformerType, setTransformerType] = useState(transformer?.type || '');
+  const [numberOfCores, setNumberOfCores] = useState(transformer?.cores.toString() || '1');
+  const [capacity, setCapacity] = useState(transformer?.capacity || '');
+  const [voltageRating, setVoltageRating] = useState(transformer?.voltageRating || '');
+
+
+  // Core configurations
+  const [coreTypes, setCoreTypes] = useState<string[]>(
+    Array(parseInt(numberOfCores) || 1).fill('metering')
+  );
+
+  // Transformer Parameters
+  const [ratios, setRatios] = useState<string[]>([]);
+  const [isCustomRatio, setIsCustomRatio] = useState(false);
+  const [customRatioInput, setCustomRatioInput] = useState('');
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   const [nominalVoltage, setNominalVoltage] = useState('');
   const [burden, setBurden] = useState('');
   const [ratedPrimaryCurrent, setRatedPrimaryCurrent] = useState('');
@@ -58,6 +83,19 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack }: EnhancedOrd
     setCoreTypes(newCoreTypes);
   };
 
+<<<<<<< HEAD
+=======
+  const handleAddRatio = (value: string) => {
+    if (value && !ratios.includes(value)) {
+      setRatios([...ratios, value]);
+    }
+  };
+
+  const handleRemoveRatio = (value: string) => {
+    setRatios(ratios.filter(r => r !== value));
+  };
+
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
   const handleAddParameter = () => {
     const newParam: AdditionalParameter = {
       id: Date.now().toString(),
@@ -83,10 +121,19 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack }: EnhancedOrd
       orderDate: new Date().toLocaleDateString(),
       clientName,
       clientContact,
+<<<<<<< HEAD
       transformer: {
         ...transformer,
         quantity: parseInt(quantity),
       },
+=======
+      transformerName, // Use state
+      transformerType, // Use state
+      quantity: parseInt(quantity),
+      capacity,       // Added
+      voltageRating,  // Added
+      ratio: ratios,  // Changed to Array
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
       isStandard,
       numberOfCores: parseInt(numberOfCores),
       coreTypes,
@@ -100,6 +147,10 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack }: EnhancedOrd
         overallDimensions,
       },
       additionalParams,
+<<<<<<< HEAD
+=======
+      bypassApproval: !isEntryOperator, // If Entry Operator, do NOT bypass approval
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
     };
     onSubmit(orderData);
   };
@@ -123,6 +174,7 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack }: EnhancedOrd
 
       <Card className="p-6">
         <div className="space-y-6">
+<<<<<<< HEAD
           {/* Selected Transformer Display */}
           <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
             <p className="text-sm text-gray-600 mb-2">Selected Transformer</p>
@@ -135,6 +187,64 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack }: EnhancedOrd
               <span>Voltage: {transformer.voltageRating}</span>
             </div>
           </div>
+=======
+          {/* Selected Transformer Display OR Manual Entry */}
+          {transformer ? (
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-gray-600 mb-2">Selected Transformer</p>
+              <h3 className="mb-1">{transformer.name}</h3>
+              <div className="flex gap-4 text-sm text-gray-600 mt-2">
+                <span>Type: {transformer.type}</span>
+                <span>•</span>
+                <span>Capacity: {transformer.capacity}</span>
+                <span>•</span>
+                <span>Voltage: {transformer.voltageRating}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 border-b-2 border-gray-200 pb-6">
+              <h3 className="font-semibold mb-4 text-blue-700">Transformer Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Transformer Name *</Label>
+                  <Input
+                    value={transformerName}
+                    onChange={e => setTransformerName(e.target.value)}
+                    placeholder="e.g. Outdoor Epoxy Resin Cast"
+                  />
+                </div>
+                <div>
+                  <Label>Type *</Label>
+                  <select
+                    value={transformerType}
+                    onChange={(e) => setTransformerType(e.target.value)}
+                    className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                  >
+                    <option value="">Select Type</option>
+                    <option value="CT">Current Transformer (CT)</option>
+                    <option value="PT">Potential Transformer (PT)</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Capacity</Label>
+                  <Input
+                    value={capacity}
+                    onChange={e => setCapacity(e.target.value)}
+                    placeholder="e.g. 500 kVA"
+                  />
+                </div>
+                <div>
+                  <Label>Voltage Rating</Label>
+                  <Input
+                    value={voltageRating}
+                    onChange={e => setVoltageRating(e.target.value)}
+                    placeholder="e.g. 33/11 kV"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
 
           {/* Client Details Section */}
           <div className="space-y-4">
@@ -197,7 +307,18 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack }: EnhancedOrd
                     const value = e.target.value;
                     setNumberOfCores(value);
                     const numCores = parseInt(value) || 0;
+<<<<<<< HEAD
                     setCoreTypes(Array(numCores).fill('metering'));
+=======
+                    // Only update config if expanding, or reset? Let's just resize array
+                    setCoreTypes(prev => {
+                      const newTypes = [...prev];
+                      if (numCores > prev.length) {
+                        return [...newTypes, ...Array(numCores - prev.length).fill('metering')];
+                      }
+                      return newTypes.slice(0, numCores);
+                    });
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                   }}
                   className="mt-1"
                 />
@@ -233,6 +354,85 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack }: EnhancedOrd
             <h3 className="pb-2 border-b-2 border-gray-200">Transformer Parameters</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
+<<<<<<< HEAD
+=======
+                <Label>Ratio *</Label>
+                <div className="space-y-2">
+                  {/* Selected Tags */}
+                  <div className="flex flex-wrap gap-2">
+                    {ratios.map(r => (
+                      <span key={r} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                        {r}
+                        <button onClick={() => handleRemoveRatio(r)} className="hover:text-blue-900"><X className="w-3 h-3" /></button>
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Selection Controls */}
+                  <div className="flex gap-2">
+                    {!isCustomRatio ? (
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value === 'custom') setIsCustomRatio(true);
+                          else if (e.target.value) handleAddRatio(e.target.value);
+                        }}
+                        className="w-full h-10 px-3 rounded-md border border-gray-300 bg-white"
+                      >
+                        <option value="">Add Ratio...</option>
+                        <option value="200/1">200/1</option>
+                        <option value="400/1">400/1</option>
+                        <option value="800/1">800/1</option>
+                        <option value="200/5">200/5</option>
+                        <option value="400/5">400/5</option>
+                        <option value="800/5">800/5</option>
+                        <option value="custom">Custom...</option>
+                      </select>
+                    ) : (
+                      <div className="flex gap-2 w-full">
+                        <Input
+                          autoFocus
+                          placeholder="Enter ratio"
+                          value={customRatioInput}
+                          onChange={(e) => setCustomRatioInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (customRatioInput.trim()) {
+                                handleAddRatio(customRatioInput);
+                                setCustomRatioInput('');
+                                setIsCustomRatio(false);
+                              }
+                            }
+                          }}
+                          className="flex-1"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (customRatioInput.trim()) {
+                              handleAddRatio(customRatioInput);
+                              setCustomRatioInput('');
+                              setIsCustomRatio(false);
+                            }
+                          }}
+                        >
+                          Add
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => { setIsCustomRatio(false); setCustomRatioInput(''); }}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div>
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
                 <Label>Nominal System Voltage</Label>
                 <Input
                   placeholder="e.g., 33 kV"
@@ -370,10 +570,17 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack }: EnhancedOrd
             </Button>
             <Button
               onClick={handleSubmit}
+<<<<<<< HEAD
               className="flex-1 bg-blue-600 hover:bg-blue-700"
               disabled={!clientName || !clientContact || !quantity || !numberOfCores}
             >
               Continue to Assign Testing
+=======
+              className={`flex-1 ${isEntryOperator ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+              disabled={!clientName || !clientContact || !quantity || !numberOfCores || !transformerName || !transformerType}
+            >
+              {isEntryOperator ? "Submit for Approval" : "Continue to Assign Testing"}
+>>>>>>> dd2b983ae0fe7022e4ed6b0d051300ff7bf8bcb1
             </Button>
           </div>
         </div>

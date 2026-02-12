@@ -4,6 +4,82 @@ const { TransformerModel } = require('../models/TransformerModel');
 const { OrderModel } = require('../models/OrderModel');
 const { isAuthenticated } = require('../middlewares/authMiddleware');
 
+
+// GET /api/transformers/order/:orderId
+// Returns all transformers for a specific order with their Core Test Readings attached
+router.get('/order/:orderId', isAuthenticated, async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { MeteringCoreTestModel } = require('../models/MeteringCoreTestModel');
+        const { ProtectionCoreTestModel } = require('../models/ProtectionCoreTestModel');
+
+        // 1. Fetch Transformers
+        const transformers = await TransformerModel.find({ orderId }).lean();
+
+        // 2. Fetch Core Test Data
+        const meteringTests = await MeteringCoreTestModel.find({ orderId }).lean();
+        const protectionTests = await ProtectionCoreTestModel.find({ orderId }).lean();
+
+        // 3. Attach Readings to Transformers
+        const transformersWithReadings = transformers.map(transformer => {
+            // Find matching test data based on internalCoreNo matching uniqueId
+            // Note: uniqueId format is typically TR-JOB-xxxx-yyy, internalCoreNo in tests might vary
+            // We'll try exact match first, then check if uniqueId contains internalCoreNo
+
+            let coreTestReadings = null;
+            let testType = null;
+
+            // Check Metering
+            const meteringMatch = meteringTests.find(test =>
+                test.readings.some(r => r.internalCoreNo === transformer.uniqueId || transformer.uniqueId.includes(r.internalCoreNo))
+            );
+
+            if (meteringMatch) {
+                // Extract the specific reading for this transformer
+                const reading = meteringMatch.readings.find(r => r.internalCoreNo === transformer.uniqueId || transformer.uniqueId.includes(r.internalCoreNo));
+                if (reading) {
+                    coreTestReadings = {
+                        type: 'Metering',
+                        ...reading,
+                        testLimits: meteringMatch.testLimits // Include limits for context
+                    };
+                    testType = 'Metering';
+                }
+            }
+
+            // Check Protection (if not found in Metering)
+            if (!coreTestReadings) {
+                const protectionMatch = protectionTests.find(test =>
+                    test.readings.some(r => r.internalCoreNo === transformer.uniqueId || transformer.uniqueId.includes(r.internalCoreNo))
+                );
+
+                if (protectionMatch) {
+                    const reading = protectionMatch.readings.find(r => r.internalCoreNo === transformer.uniqueId || transformer.uniqueId.includes(r.internalCoreNo));
+                    if (reading) {
+                        coreTestReadings = {
+                            type: 'Protection',
+                            ...reading,
+                            testSpecification: protectionMatch.testSpecification // Include specs
+                        };
+                        testType = 'Protection';
+                    }
+                }
+            }
+
+            return {
+                ...transformer,
+                coreTestReadings,
+                coreTestType: testType
+            };
+        });
+
+        res.json(transformersWithReadings);
+    } catch (error) {
+        console.error("Error fetching transformers:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // PUT /api/transformers/:uniqueId/approve-stage
 // Moves transformer to next stage and checks if the Tester's assignment is complete
 router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
@@ -30,6 +106,21 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
             transformer.testHistory.secondary_test.status = 'Completed';
             transformer.testHistory.secondary_test.timestamp = new Date();
             transformer.testHistory.secondary_test.tester = testerName;
+        } else if (stage === 'primary') {
+            if (!transformer.testHistory.primary_test) {
+                transformer.testHistory.primary_test = {};
+            }
+            transformer.testHistory.primary_test.status = 'Completed';
+            transformer.testHistory.primary_test.timestamp = new Date();
+            transformer.testHistory.primary_test.tester = testerName;
+        } else if (stage === 'final') {
+            if (!transformer.testHistory.final_test) {
+                transformer.testHistory.final_test = {};
+            }
+            transformer.testHistory.final_test.status = 'Completed';
+            transformer.testHistory.final_test.timestamp = new Date();
+            transformer.testHistory.final_test.tester = testerName;
+
         }
 
         await transformer.save();
