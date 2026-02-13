@@ -248,10 +248,11 @@ interface SecondaryProtectionReportProps {
 
 interface ProtectionTestRow {
   ratio: string;
-  burden100_1: string;
-  burden100_2: string;
+  ratioError100: string; // Was burden100_1
+  phaseError: string;    // Was burden100_2
   resistance: string;
-  secondaryLimitingVtg: string;
+  alf: string;
+  secondaryLimitingVoltage: string;
   excitationCurrent: string;
   compositeError: string;
 }
@@ -282,12 +283,13 @@ export function SecondaryProtectionReport({
       : (transformer.orderId?.ratio || ['N/A']);
 
     // 2. Create Initial State
-    const initialData = dynamicRatios.map(ratio => ({
+    const initialData = dynamicRatios.map((ratio: string) => ({
       ratio,
-      burden100_1: '',
-      burden100_2: '',
+      ratioError100: '',
+      phaseError: '',
       resistance: '',
-      secondaryLimitingVtg: '',
+      alf: '',
+      secondaryLimitingVoltage: '',
       excitationCurrent: '',
       compositeError: ''
     }));
@@ -324,14 +326,20 @@ export function SecondaryProtectionReport({
               }
 
               if (saved) {
+                // Formatting helper for safe string conversion
+                const safeStr = (val: any) => (val !== undefined && val !== null) ? String(val) : '';
+                
                 return {
                   ...row,
-                  burden100_1: saved.burden100_1,
-                  burden100_2: saved.burden100_2,
-                  resistance: saved.resistance,
-                  secondaryLimitingVtg: saved.secondaryLimitingVtg,
-                  excitationCurrent: saved.excitationCurrent,
-                  compositeError: saved.compositeError
+                  // Map legacy burden fields to new error fields if necessary, or use new fields
+                  ratioError100: safeStr(saved.ratioError100 || saved.burden100_1),
+                  phaseError: safeStr(saved.phaseError || saved.burden100_2),
+                  
+                  resistance: safeStr(saved.resistance),
+                  alf: safeStr(saved.alf), 
+                  secondaryLimitingVoltage: safeStr(saved.secondaryLimitingVoltage || saved.secondaryLimitingVtg),
+                  excitationCurrent: safeStr(saved.excitationCurrent),
+                  compositeError: safeStr(saved.compositeError)
                 };
               }
               return row;
@@ -345,11 +353,79 @@ export function SecondaryProtectionReport({
     fetchLatestData();
   }, [transformer.uniqueId, coreId, stage]);
 
+  // Robust Parsing Helpers
+  const parseRatedCurrent = (ratio: string): number => {
+    if (!ratio) return 1;
+    // Extract number immediately after the first forward slash
+    // Works for "1000/5", "1000/5A", "1000/5/1-1-1A"
+    const parts = ratio.split('/');
+    if (parts.length >= 2) {
+      const val = parseFloat(parts[1]);
+      // Return 1 if NaN or 0 to avoid division by zero in formulas using iRated
+      return (isNaN(val) || val === 0) ? 1 : val;
+    }
+    return 1;
+  };
+
+  const parseBurden = (burdenStr: string): number => {
+    // Robust regex parsing: extract digits and dots only
+    const val = parseFloat(burdenStr?.replace(/[^\d.]/g, '') || '0');
+    return isNaN(val) ? 0 : val;
+  };
+
   const handleInputChange = (index: number, field: keyof ProtectionTestRow, value: string) => {
     if (readOnly) return;
-    const updated = [...testResults];
-    updated[index] = { ...updated[index], [field]: value };
-    setTestResults(updated);
+
+    // Immutable State Update
+    setTestResults(prev => prev.map((row, i) => {
+      // 1. Return unchanged rows
+      if (i !== index) return row;
+
+      // 2. Create updated row copy
+      const updatedRow = { ...row, [field]: value };
+
+      // 3. Auto-Calculate Logic
+      // Only recalculate if relevant fields change
+      if (['resistance', 'alf', 'excitationCurrent'].includes(field as string)) {
+        
+        const iRated = parseRatedCurrent(updatedRow.ratio);
+        // Ensure accurate parsing of Burden from Order ID (e.g. "30VA" -> 30)
+        const burdenVal = parseBurden(transformer.orderId?.burden || '0');
+
+        // Force Parsing: Wrap all table inputs in parseFloat()
+        const r = parseFloat(updatedRow.resistance) || 0;
+        const alf = parseFloat(updatedRow.alf) || 0; 
+        const ex = parseFloat(updatedRow.excitationCurrent) || 0;
+
+        // Debug inputs for calculation verification
+        console.log("Values used:", { burdenVal, iRated, resistance: r, alf });
+
+        // Safety Constraint: If ALF or I_Rated is 0, results default to 0 to avoid Infinity/NaN
+        if (alf === 0 || iRated === 0) {
+           return {
+             ...updatedRow,
+             secondaryLimitingVoltage: '0.000',
+             compositeError: '0.000'
+           };
+        }
+
+        // Formula: SLV = ((Burden / (I_Rated * I_Rated)) + Resistance) * ALF
+        // Strict order of operations: Burden divided by I_Rated squared, add Resistance, then multiply by ALF
+        const calculatedSLV = ((burdenVal / (iRated * iRated)) + r) * alf;
+
+        // Formula: Composite Error = (ExcitationCurrent / (I_Rated * ALF)) * 100
+        const compErr = (ex / (iRated * alf)) * 100;
+
+        // Update derived fields with precision
+        return {
+          ...updatedRow,
+          secondaryLimitingVoltage: calculatedSLV.toFixed(3),
+          compositeError: compErr.toFixed(3)
+        };
+      }
+
+      return updatedRow;
+    }));
   };
 
 
@@ -362,12 +438,22 @@ export function SecondaryProtectionReport({
       const protectionResults = testResults.map(row => ({
         internalCoreNo: coreId, // Inject Core ID for persistence
         ratioValue: row.ratio,
-        burden100_1: row.burden100_1,
-        burden100_2: row.burden100_2,
-        resistance: row.resistance,
-        secondaryLimitingVtg: row.secondaryLimitingVtg,
-        excitationCurrent: row.excitationCurrent,
-        compositeError: row.compositeError
+        
+        // New Schema Mapping - Ensure Numeric Integrity
+        // parseFloat parses "123.456" back to number. || 0 handles NaN or empty string.
+        ratioError100: parseFloat(row.ratioError100) || 0,
+        phaseError: parseFloat(row.phaseError) || 0,
+        
+        resistance: parseFloat(row.resistance) || 0,
+        alf: parseFloat(row.alf) || 0,
+        excitationCurrent: parseFloat(row.excitationCurrent) || 0,
+        
+        // Calculated fields (stored as fixed-point strings in state, convert back to number)
+        secondaryLimitingVoltage: parseFloat(row.secondaryLimitingVoltage) || 0,
+        compositeError: parseFloat(row.compositeError) || 0,
+
+        // Legacy Field Mapping (Map new SLV to old field name for backward compatibility)
+        secondaryLimitingVtg: parseFloat(row.secondaryLimitingVoltage) || 0
       }));
 
       console.log("handleDatabaseSave: protectionResults built", protectionResults);
@@ -402,8 +488,8 @@ export function SecondaryProtectionReport({
 
   // Check Completion
   const isComplete = testResults.length > 0 && testResults.every(row =>
-    row.burden100_1 && row.burden100_2 && row.resistance &&
-    row.secondaryLimitingVtg && row.excitationCurrent && row.compositeError
+    row.ratioError100 && row.phaseError && row.resistance &&
+    row.secondaryLimitingVoltage && row.excitationCurrent && row.compositeError && row.alf
   );
 
 
@@ -434,100 +520,156 @@ export function SecondaryProtectionReport({
             <p className="text-[10px] text-gray-500 font-medium tracking-tighter">TRANSFORMER TESTING REPORT</p>
           </div>
           <div className="text-right flex flex-col items-end">
-            <div className="flex items-center gap-1 text-xs">
-              <span className="font-bold">protection core no.</span>
-              <span className="border-b border-gray-600 px-4 min-w-[80px] italic text-blue-700">{coreId}</span>
-            </div>
             <p className="text-[10px] text-gray-400 mt-1 uppercase">Date: {new Date().toLocaleDateString()}</p>
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-[11px]">
+            {/* NEW TABLE STRUCTURE MATCHING HANDWRITTEN REFERENCE */}
             <thead>
-              <tr className="bg-gray-50">
-                <th className="border border-gray-400 p-2 w-[140px]" rowSpan={2}>Core Ratio</th>
-                <th className="border border-gray-400 p-2 w-[80px]" rowSpan={2}>100%</th>
-                <th className="border border-gray-400 p-2 text-center" colSpan={4}>Protection Analysis Results</th>
+              {/* HEADER BOX ROW 1: DYNAMIC SPECS */}
+              <tr className="bg-white">
+                <th className="border border-gray-400 p-2 text-center font-bold text-sm" colSpan={6}>
+                  {/* Constructing dynamic string: Voltage, Type, Ratio, Burden, protection */}
+                  {`${transformer.orderId?.voltage || '33KV'}, ${transformer.orderId?.type || 'CT'}, ${(Array.isArray(transformer.ratios) ? transformer.ratios.join('-') : transformer.orderId?.ratio?.join('-')) || '800-400-200'}/${transformer.orderId?.secondaryCurrent || '1-1-1A'}, ${transformer.orderId?.burden || '30VA'}, protection`}
+                </th>
               </tr>
-              <tr className="bg-gray-50">
-                <th className="border border-gray-400 p-2 text-center font-semibold">Resistance (Ω)</th>
-                <th className="border border-gray-400 p-2 text-center font-semibold">Secondary Limiting Voltage</th>
-                <th className="border border-gray-400 p-2 text-center font-semibold">Excitation Current</th>
-                <th className="border border-gray-400 p-2 text-center font-semibold">Composite Error</th>
+
+              {/* HEADER BOX ROW 2: SUB-HEADERS */}
+              <tr className="bg-white">
+                 {/* Left Space (Aligns with Ratio & 100% cols) */}
+                <th className="border border-gray-400 p-2" colSpan={2}></th>
+                
+                {/* Middle: 100% Burden (Aligns with Burden input cols) */}
+                <th className="border border-gray-400 p-2 text-center font-bold text-sm" colSpan={2}>
+                  100 % Burden
+                </th>
+
+                {/* Right: Protection Core No (Aligns with Result cols) */}
+                <th className="border border-gray-400 p-2 text-right" colSpan={2}>
+                  <div className="flex justify-end items-center gap-2">
+                    <span className="font-bold text-sm">protection core no.</span>
+                    <span className="border-b border-gray-600 px-2 min-w-[60px] text-blue-700 font-medium">{coreId}</span>
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>
               {testResults.map((row, index) => (
                 <React.Fragment key={index}>
-                  {/* First row of the block: Handling the ratio label and burden error */}
-                  <tr key={`${index}-row1`}>
-                    <td rowSpan={2} className="border border-gray-400 p-2 bg-[#ffff00] font-bold text-center align-middle">
+                  {/* --- ROW 1: Ratio (Span 3), 100% Label, Burden 1, Burden 2, Empty --- */}
+                  <tr className="border-t-2 border-gray-800"> {/* Thicker top border for separation between groups */}
+                    {/* COL 1: Ratio (Spans 3 Rows) */}
+                    <td rowSpan={3} className="border border-gray-400 p-2 bg-white font-bold text-center align-middle w-[150px]">
                       Protection Core<br />Ratio - {row.ratio}
                     </td>
 
+                    {/* COL 2: "100%" Label */}
+                    <td className="border border-gray-400 p-2 text-center bg-white font-bold text-xs w-[120px]">
+                      100%
+                    </td>
 
-                    <td className="border border-gray-400 bg-gray-100">100%</td>
-                    <td className="border border-gray-400 bg-gray-100"></td>
-                    <td className="border border-gray-400 p-0">
-                      <Input
-                        className="border-none text-center h-8 bg-transparent text-blue-800 font-medium disabled:opacity-100 disabled:cursor-not-allowed"
-                        value={row.burden100_1}
-                        onChange={(e) => handleInputChange(index, 'burden100_1', e.target.value)}
+                    {/* COL 3: Ratio Error (was Burden 1) */}
+                    <td className="border border-gray-400 p-0 w-[120px]">
+                       <Input
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full"
+                        value={row.ratioError100}
+                        onChange={(e) => handleInputChange(index, 'ratioError100', e.target.value)}
                         placeholder=""
                         disabled={readOnly}
                       />
                     </td>
-                    <td className="border border-gray-400 p-0">
-                      <Input
-                        className="border-none text-center h-8 bg-transparent text-blue-800 font-medium disabled:opacity-100 disabled:cursor-not-allowed"
-                        value={row.burden100_2}
-                        onChange={(e) => handleInputChange(index, 'burden100_2', e.target.value)}
+
+                    {/* COL 4: Phase Error (was Burden 2) */}
+                    <td className="border border-gray-400 p-0 w-[120px]">
+                       <Input
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full"
+                        value={row.phaseError}
+                        onChange={(e) => handleInputChange(index, 'phaseError', e.target.value)}
                         placeholder=""
                         disabled={readOnly}
                       />
                     </td>
-                    <td className="border border-gray-400 bg-gray-100"></td>
+
+                    {/* COL 5 & 6: Empty Cells */}
+                    <td className="border border-gray-400 bg-white"></td>
+                    <td className="border border-gray-400 bg-white"></td>
                   </tr>
-                  {/* Second row of the block: The "Value" row with primary data */}
-                  <tr key={`${index}-row2`}>
-                    <td className="border border-gray-400 p-2 text-center font-bold bg-gray-50 uppercase text-[9px]">Value</td>
+
+                  {/* --- ROW 2: Labels Only --- */}
+                  <tr>
+                    {/* Ratio occupied above */}
+                    <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
+                      Resistance
+                    </td>
+                    <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
+                      ALF
+                    </td>
+                    <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
+                      Excitation Current
+                    </td>
+                    <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
+                      Secondary<br/>Limiting Voltage
+                    </td>
+                    <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
+                      Composite Error
+                    </td>
+                  </tr>
+
+                  {/* --- ROW 3: Values Inputs --- */}
+                  <tr>
+                    {/* Ratio occupied above */}
                     <td className="border border-gray-400 p-0">
                       <Input
-                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
                         value={row.resistance}
                         onChange={(e) => handleInputChange(index, 'resistance', e.target.value)}
                         disabled={readOnly}
                       />
                     </td>
                     <td className="border border-gray-400 p-0">
+                      {/* ALF Input BOUND TO NEW FIELD */}
                       <Input
-                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
-                        value={row.secondaryLimitingVtg}
-                        onChange={(e) => handleInputChange(index, 'secondaryLimitingVtg', e.target.value)}
-                        disabled={readOnly}
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
+                        value={row.alf}
+                        onChange={(e) => handleInputChange(index, 'alf', e.target.value)}
+                        placeholder=""
+                        disabled={readOnly} 
                       />
                     </td>
                     <td className="border border-gray-400 p-0">
                       <Input
-                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
                         value={row.excitationCurrent}
                         onChange={(e) => handleInputChange(index, 'excitationCurrent', e.target.value)}
                         disabled={readOnly}
                       />
                     </td>
                     <td className="border border-gray-400 p-0">
+                      {/* MAPPED to secondaryLimitingVoltage */}
                       <Input
-                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50"
+                        value={row.secondaryLimitingVoltage}
+                        // onChange handler removed/ignored since it's auto-calculated
+                        onChange={() => {}}
+                        readOnly={true} // Strictly derived
+                        disabled={readOnly} // Keeps styling consistent if whole form is readOnly
+                      />
+                    </td>
+                    <td className="border border-gray-400 p-0">
+                       <Input
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50"
                         value={row.compositeError}
-                        onChange={(e) => handleInputChange(index, 'compositeError', e.target.value)}
+                        // onChange handler removed/ignored
+                        onChange={() => {}}
+                        readOnly={true} // Strictly derived
                         disabled={readOnly}
                       />
                     </td>
                   </tr>
                 </React.Fragment>
               ))}
-
             </tbody>
           </table>
         </div>
