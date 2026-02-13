@@ -144,13 +144,22 @@ const MeteringBlockSchema = new Schema({
 }, { strict: false });
 
 const ProtectionBlockSchema = new Schema({
-  ratioValue: String,
-  burden100_1: String,
-  burden100_2: String,
-  resistance: String,
-  secondaryLimitingVtg: String,
-  excitationCurrent: String,
-  compositeError: String
+  ratioValue: String, // e.g., "200/1"
+  // Map the top-row measurements specifically
+  ratioError100: { type: Number, default: 0 }, // Was burden100_1
+  phaseError: { type: Number, default: 0 },    // Was burden100_2
+  
+  // Test Parameters
+  resistance: { type: Number, default: 0 },
+  alf: { type: Number, default: 0 },
+  excitationCurrent: { type: Number, default: 0 },
+  
+  // Automated Result Fields
+  secondaryLimitingVoltage: { type: Number, default: 0 },
+  compositeError: { type: Number, default: 0 },
+  
+  // Maintain legacy field to prevent breaking old reports
+  secondaryLimitingVtg: Schema.Types.Mixed 
 }, { strict: false });
 
 const PSBlockSchema = new Schema({

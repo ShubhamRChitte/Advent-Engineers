@@ -3,6 +3,8 @@ const router = express.Router();
 const { isAuthenticated } = require('../middlewares/authMiddleware');
 const { TransformerModel } = require('../models/TransformerModel');
 const { CounterModel } = require('../models/CounterModel'); // Adjust path if needed
+const path = require('path');
+
 
 // router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
 //     console.log("Session:", req.session);
@@ -380,7 +382,7 @@ router.get('/orders/:orderId/transformers', isAuthenticated, async (req, res) =>
       $or: [
         { orderId: order._id },
         { orderId: order._id.toString() },
-        { orderId: order.jobId } // covering bases
+        { jobId: order.jobId } // covering bases: match string jobId against string field
       ]
     });
 
@@ -434,7 +436,8 @@ router.get('/secondary/reports', isAuthenticated, async (req, res) => {
     const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 }).populate('orderId');
 
     const fs = require('fs');
-    fs.appendFileSync('d:/Advent/Backend/debug_api_log.txt',
+    const logPath = path.join(__dirname, '../debug_api_log.txt');
+    fs.appendFileSync(logPath,
       `\n[${new Date().toISOString()}] User: '${currentUserName}' | Found: ${transformers.length} reports | Query: ${JSON.stringify(query)}`
     );
 
