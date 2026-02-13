@@ -10,6 +10,7 @@ import { OrderManagementModule } from '../entry/OrderManagementModule';
 import { OrdersListViewEnhanced } from '../entry/OrdersListViewEnhanced';
 import { ReportsModule } from '../entry/ReportsModule';
 import { NotificationsModule } from './NotificationsModule';
+import { FailedCoresPage } from '../../pages/FailedCoresPage';
 
 interface AdminLayoutProps {
   user: User;
@@ -37,6 +38,8 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
         return <ReportsModule />;
       case 'notifications':
         return <NotificationsModule />;
+      case 'failed-cores':
+        return <FailedCoresPage />;
       default:
         return <AdminDashboard setActiveView={setActiveView} />;
     }

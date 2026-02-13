@@ -20,6 +20,8 @@ import { FailedCoresManager } from './FailedCoresManager';
 import { CoreLabelsPrint } from './CoreLabelsPrint';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Label } from '../ui/label';
+import { ReportHeader } from '../reports';
+import { getSafeOrderId, getSafeClientName, getSafeBatchId } from '../../utils/orderUtils';
 import axios from 'axios';
 
 
@@ -61,6 +63,7 @@ export interface FailedCore {
   coreType: string;
   internalCoreNo: string;
   coreVendorNo: string;
+  vendorCoreNo?: string; // Added to match backend schema
   date: string;
   failureReason: string;
   value1000: string;
@@ -109,7 +112,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
 
     const numbers = existingIds.map(id => {
       const parts = id.split('-');
-      return parseInt(parts[parts.length - 1]) || 0;
+      return parseInt(parts[parts.length - 1] ?? '') || 0;
     });
 
     return Math.max(...numbers) + 1;
@@ -155,7 +158,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
             internalCoreNo: r.internalCoreNo || '',
             dynamicValues: isMeteringCheck
               ? Object.fromEntries(bsatColumns.map((col, i) => [col.id, String(r.measuredMa?.[i] || '')]))
-              : ((r.value !== undefined && protectionBColumns.length > 0) ? { [protectionBColumns[0].id]: String(r.value) } : {}),
+              : ((r.value !== undefined && protectionBColumns[0]) ? { [protectionBColumns[0]?.id ?? '']: String(r.value) } : {}),
             singleValue: r.value !== undefined ? String(r.value) : '',
             remark: r.result || ''
           }));
@@ -173,7 +176,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
               internalCoreNo: r.internalCoreNo || '',
               dynamicValues: isMeteringCheck
                 ? Object.fromEntries(bsatColumns.map((col, i) => [col.id, String(r.measuredMa?.[i] || '')]))
-                : ((r.value !== undefined && protectionBColumns.length > 0) ? { [protectionBColumns[0].id]: String(r.value) } : {}),
+                : ((r.value !== undefined && protectionBColumns[0]) ? { [protectionBColumns[0]?.id ?? '']: String(r.value) } : {}),
               singleValue: r.value !== undefined ? String(r.value) : '',
               remark: r.result || ''
             }))
@@ -216,7 +219,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
       // Expecting format like "TR-2025-001/01" -> 1 
       // OR "TR-2025-001-01" -> 1
       const match = id.match(/[/\-](\d+)$/);
-      return match ? parseInt(match[1]) : null;
+      return match ? parseInt(match[1] ?? '') : null;
     }).filter((n: any): n is number => n !== null);
 
     // Any valid indices? If not, return NULL to trigger fallback to Quantity-based rows.
@@ -476,11 +479,20 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
   const handleReplaceCore = (index: number) => {
     if (isReadOnly) return;
     const failedRow = rows[index];
+
+    // Guard against undefined row
+    if (!failedRow) {
+      console.error('Failed to find row at index:', index);
+      return;
+    }
+
     const systemDate = getSystemDate();
 
-    // Archive the failure to the FailedCores state
+    // Use safe resolver instead of unsafe type casting
+    const txnOrderId = getSafeOrderId(order);
+
     const failedCore: FailedCore = {
-      orderId: order.orderId,
+      orderId: txnOrderId,
       jobId: order.jobId,
       clientName: order.clientName,
       coreType: coreType,
@@ -489,6 +501,11 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
       date: failedRow.date || systemDate,
       failureReason: getFailureReason(failedRow),
       dynamicValues: failedRow.dynamicValues,
+      value1000: failedRow.value1000 || '',
+      value3000: failedRow.value3000 || '',
+      value5000: failedRow.value5000 || '',
+      value7000: failedRow.value7000 || '',
+      singleValue: failedRow.singleValue || '',
     };
     setFailedCores([...failedCores, failedCore]);
 
@@ -621,9 +638,9 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
             od: parseFloat(specs.coreSize2) || 0,
             height: parseFloat(specs.coreSize3) || 0
           },
-          turnsUsed: parseInt(specs.turnUsed) || 0,
-          areaSqCm: parseFloat(specs.area) || 0,
-          mmp: parseFloat(specs.mmp) || 0
+          turnsUsed: parseInt(specs.turnUsed || '0') || 0,
+          areaSqCm: parseFloat(specs.area || '0') || 0,
+          mmp: parseFloat(specs.mmp || '0') || 0
         },
         readings: validReadings.map(row => ({
           date: formattedDate,
@@ -631,8 +648,8 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
           internalCoreNo: row.internalCoreNo,
           // For Protection/PS, use value; for Metering, use measuredMa
           ...(isMetering
-            ? { measuredMa: bsatColumns.map(col => parseFloat(row.dynamicValues[col.id]) || 0) }
-            : { value: parseFloat(row.singleValue || Object.values(row.dynamicValues)[0] || 0) }
+            ? { measuredMa: bsatColumns.map(col => parseFloat(row.dynamicValues[col.id] || '0') || 0) }
+            : { value: parseFloat(row.singleValue || Object.values(row.dynamicValues)[0] || '0') }
           ),
           result: row.remark || "F"
         }))
@@ -648,7 +665,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
         finalPayload.testSpecification = {
           fluxTesla: parseFloat(specs.bFlux) || 0,
           voltageV: parseFloat(specs.voltage) || 0,
-          iexLimitMa: isPS ? parseFloat(specs.iexLimit) : 600
+          iexLimitMa: isPS ? parseFloat(specs.iexLimit || '0') : 600
         };
       }
 
@@ -818,7 +835,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
             <div className="grid grid-cols-2 gap-6 mb-6">
               <div className="space-y-2">
                 <Label htmlFor="protectionCoreType">M4CRGO</Label>
-                <Select value={protectionCoreTypeM4CRGO} onValueChange={(value: any) => setProtectionCoreTypeM4CRGO(value)}>
+                <Select value={protectionCoreTypeM4CRGO} onValueChange={(value: string) => setProtectionCoreTypeM4CRGO(value as 'M4CRGO')}>
                   <SelectTrigger id="protectionCoreType">
                     <SelectValue />
                   </SelectTrigger>
@@ -830,7 +847,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
 
               <div className="space-y-2">
                 <Label htmlFor="turnUsed">TURN USED FOR TESTING</Label>
-                <Select value={specs.turnUsed} onValueChange={(value) => handleSpecChange('turnUsed', value)}>
+                <Select value={specs.turnUsed} onValueChange={(value: string) => handleSpecChange('turnUsed', value)}>
                   <SelectTrigger id="turnUsed">
                     <SelectValue />
                   </SelectTrigger>
@@ -1052,10 +1069,6 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
               <Save className="w-3 h-3" />
               Save All
             </Button>
-            <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={handleSave}>
-              <Save className="w-3 h-3" />
-              Save All
-            </Button>
           </div>
         </div>
 
@@ -1083,12 +1096,25 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
         </Card>
 
         {/* Protection Core Testing Form */}
-        <Card className="overflow-x-auto shadow-sm">
+        <Card id="printable-report" className="overflow-x-auto shadow-sm print-content">
           <div className="min-w-full">
             <table className="w-full border-collapse text-sm">
               <tbody>
+                {/* PRINT ONLY HEADER */}
+                <tr className="print-only">
+                  <td colSpan={3 + protectionBColumns.length + 1} className="border-0 p-0">
+                    <ReportHeader
+                      title={`Core Testing Report - ${coreType}`}
+                      orderId={getSafeOrderId(order)}
+                      clientName={getSafeClientName(order)}
+                      reportDate={testDate}
+                      batchId={getSafeBatchId(order)}
+                    />
+                  </td>
+                </tr>
+
                 {/* Title Row */}
-                <tr>
+                <tr className="screen-only">
                   <td colSpan={3} className="bg-gradient-to-r from-cyan-100 to-blue-100 p-4 border border-gray-400 text-center font-bold text-base">
                     Toroidal Core Testing
                   </td>
@@ -1102,7 +1128,9 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                   <td className="bg-amber-50 p-3 border border-gray-400 font-semibold text-gray-700">
                     Description
                   </td>
-                  <td colSpan={protectionBColumns.length + 3} className="bg-white p-3 border border-gray-400"></td>
+                  <td colSpan={protectionBColumns.length + 3} className="bg-white p-3 border border-gray-400">
+                    <span className="print-only font-bold">{protectionCoreTypeM4CRGO}</span>
+                  </td>
                 </tr>
 
                 {/* Core Size Row */}
@@ -1265,7 +1293,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                         <Input
                           value={String(row.dynamicValues[column.id] || '')}
                           onChange={(e) => handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: e.target.value })}
-                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id]) > parseFloat(column.leLimitValue) ? 'bg-red-50 text-red-700' : ''
+                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue) ? 'bg-red-50 text-red-700' : ''
                             }`}
                           placeholder="9.5"
                         />
@@ -1325,6 +1353,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                 <tr>
                   <td colSpan={protectionBColumns.length + 5} className="p-3 border border-gray-400 text-right font-semibold text-sm text-gray-700 bg-slate-50">
                     For Advent Engineers
+                    <div className="h-16"></div> {/* Space for stamps */}
                   </td>
                 </tr>
               </tbody>
@@ -1427,7 +1456,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
             <div className="grid grid-cols-2 gap-6 mb-6">
               <div className="space-y-2">
                 <Label htmlFor="psCoreType">M4CRGO</Label>
-                <Select value={psCoreTypeM4CRGO} onValueChange={(value: any) => setPsCoreTypeM4CRGO(value)}>
+                <Select value={psCoreTypeM4CRGO} onValueChange={(value: string) => setPsCoreTypeM4CRGO(value as 'M4CRGO')}>
                   <SelectTrigger id="psCoreType">
                     <SelectValue />
                   </SelectTrigger>
@@ -1439,7 +1468,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
 
               <div className="space-y-2">
                 <Label htmlFor="turnUsed">TURN USED FOR TESTING</Label>
-                <Select value={specs.turnUsed} onValueChange={(value) => handleSpecChange('turnUsed', value)}>
+                <Select value={specs.turnUsed} onValueChange={(value: string) => handleSpecChange('turnUsed', value)}>
                   <SelectTrigger id="turnUsed">
                     <SelectValue />
                   </SelectTrigger>
@@ -1688,12 +1717,25 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
         </Card>
 
         {/* PS Core Testing Form */}
-        <Card className="overflow-x-auto shadow-sm">
+        <Card id="printable-report" className="overflow-x-auto shadow-sm print-content">
           <div className="min-w-full">
             <table className="w-full border-collapse text-sm">
               <tbody>
+                {/* PRINT ONLY HEADER */}
+                <tr className="print-only">
+                  <td colSpan={3 + psBColumns.length + 1} className="border-0 p-0">
+                    <ReportHeader
+                      title={`Core Testing Report - ${coreType}`}
+                      orderId={getSafeOrderId(order)}
+                      clientName={getSafeClientName(order)}
+                      reportDate={testDate}
+                      batchId={getSafeBatchId(order)}
+                    />
+                  </td>
+                </tr>
+
                 {/* Title Row */}
-                <tr>
+                <tr className="screen-only">
                   <td colSpan={3} className="bg-gradient-to-r from-cyan-100 to-blue-100 p-4 border border-gray-400 text-center font-bold text-base">
                     Toroidal Core Testing
                   </td>
@@ -1707,7 +1749,9 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                   <td className="bg-amber-50 p-3 border border-gray-400 font-semibold text-gray-700">
                     Description
                   </td>
-                  <td colSpan={psBColumns.length + 3} className="bg-white p-3 border border-gray-400"></td>
+                  <td colSpan={psBColumns.length + 3} className="bg-white p-3 border border-gray-400">
+                    <span className="print-only font-bold">{psCoreTypeM4CRGO}</span>
+                  </td>
                 </tr>
 
                 {/* Core Size Row */}
@@ -1871,7 +1915,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                         <Input
                           value={String(row.dynamicValues[column.id] || '')}
                           onChange={(e) => handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: e.target.value })}
-                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id]) > parseFloat(column.leLimitValue) ? 'bg-red-50 text-red-700' : ''
+                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue ?? '0') ? 'bg-red-50 text-red-700' : ''
                             }`}
                           placeholder="9.5"
                         />
@@ -2031,7 +2075,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
           <div className="grid grid-cols-2 gap-6 mb-6">
             <div className="space-y-2">
               <Label htmlFor="coreTypeNano">TOROIDAL CORE NANO CRYSTALLINE</Label>
-              <Select value={coreTypeNano} onValueChange={(value: any) => setCoreTypeNano(value)}>
+              <Select value={coreTypeNano} onValueChange={(value: string) => setCoreTypeNano(value as any)}>
                 <SelectTrigger id="coreTypeNano">
                   <SelectValue />
                 </SelectTrigger>
@@ -2044,7 +2088,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
 
             <div className="space-y-2">
               <Label htmlFor="turnUsed">TURN USED FOR TESTING</Label>
-              <Select value={specs.turnUsed} onValueChange={(value) => handleSpecChange('turnUsed', value)}>
+              <Select value={specs.turnUsed} onValueChange={(value: string) => handleSpecChange('turnUsed', value)}>
                 <SelectTrigger id="turnUsed">
                   <SelectValue />
                 </SelectTrigger>
@@ -2265,10 +2309,6 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
             <Save className="w-3 h-3" />
             Save All
           </Button>
-          <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={handleSave}>
-            <Save className="w-3 h-3" />
-            Save All
-          </Button>
         </div>
       </div>
 
@@ -2296,12 +2336,26 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
       </Card>
 
       {/* Testing Form - Table Layout */}
-      <Card className="overflow-x-auto">
+      <Card id="printable-report" className="overflow-x-auto print-content">
         <div className="min-w-full">
           <table className="w-full border-collapse text-sm">
             <tbody>
+              {/* PRINT ONLY HEADER */}
+              <tr className="print-only">
+                {/* Total Cols = 5 + bsatColumns.length */}
+                <td colSpan={5 + bsatColumns.length} className="border-0 p-0">
+                  <ReportHeader
+                    title={`Core Testing Report - ${coreType}`}
+                    orderId={getSafeOrderId(order)}
+                    clientName={getSafeClientName(order)}
+                    reportDate={testDate}
+                    batchId={getSafeBatchId(order)}
+                  />
+                </td>
+              </tr>
+
               {/* Title Row with Date */}
-              <tr>
+              <tr className="screen-only">
                 <td colSpan={3} className="bg-gray-100 p-3 border border-gray-400 text-center font-medium text-gray-700">
                   Toroidal Core Testing
                 </td>
@@ -2315,40 +2369,26 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                     />
                   </div>
                 </td>
-                <td colSpan={5} className="bg-gray-100 p-3 border border-gray-400 font-medium text-center text-gray-700">
+                {/* DYNAMIC COL SPAN calculation */}
+                <td colSpan={bsatColumns.length + 1} className="bg-gray-100 p-3 border border-gray-400 font-medium text-center text-gray-700">
                   {coreTypeNano}
                 </td>
               </tr>
 
-              {/* Description and Core Size Row */}
+              {/* Description and Core Size Row - DYNAMIC COLSPANS */}
               <tr>
                 <td className="bg-gray-50 p-3 border border-gray-400 font-medium text-gray-600">
                   Description
                 </td>
-                <td colSpan={3} className="bg-white p-2 border border-gray-400">
-
+                {/* Spacer calculates dynamically: Total(5+N) - First(1) - Cores(3) - ID/OD(2) = N - 1 ?? No.. */}
+                {/* Let's align it simpler: Description(1) + Spacer(Var) + CoreSizes(3) + Label(N+1) */}
+                <td colSpan={bsatColumns.length} className="bg-white p-2 border border-gray-400">
+                  <span className="print-only font-bold">{coreTypeNano}</span>
+                  <div className="screen-only flex items-center gap-2">
+                    <span className="font-medium text-gray-700">Date -</span>
+                    <span className="font-bold">{testDate}</span>
+                  </div>
                 </td>
-                {/* <td className="bg-white p-2 border border-gray-400 text-center font-medium">
-                  <Input
-                    value={specs.coreSize1}
-                    onChange={(e) => handleSpecChange('coreSize1', e.target.value)}
-                    className="w-16 h-7 text-center border-gray-300 bg-white"
-                  />
-                </td>
-                <td className="bg-white p-2 border border-gray-400 text-center font-medium">
-                  <Input
-                    value={specs.coreSize2}
-                    onChange={(e) => handleSpecChange('coreSize2', e.target.value)}
-                    className="w-16 h-7 text-center border-gray-300 bg-white"
-                  />
-                </td> */}
-                {/* <td className="bg-white p-2 border border-gray-400 text-center font-medium">
-                  <Input
-                    value={specs.coreSize3}
-                    onChange={(e) => handleSpecChange('coreSize3', e.target.value)}
-                    className="w-16 h-7 text-center border-gray-300 bg-white"
-                  />
-                </td> */}
                 <td className="bg-white p-3 border border-gray-400 text-center font-medium">
                   {specs.coreSize1}
                 </td>
@@ -2358,6 +2398,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                 <td className="bg-white p-3 border border-gray-400 text-center font-medium">
                   {specs.coreSize3}
                 </td>
+                {/* Spans remaining columns */}
                 <td colSpan={2} className="bg-white p-2 border border-gray-400 text-center font-medium text-gray-700">
                   ID-OD-HT
                 </td>
@@ -2368,8 +2409,8 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                 <td className="bg-gray-50 p-3 border border-gray-400 font-medium text-gray-600">
                   CORE SIZE IN MM
                 </td>
-                <td colSpan={8} className="bg-white p-2 border border-gray-400">
-
+                <td colSpan={4 + bsatColumns.length} className="bg-white p-2 border border-gray-400">
+                  {/* Empty spacer to fill row */}
                 </td>
               </tr>
 
@@ -2378,7 +2419,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                 <td className="bg-gray-50 p-3 border border-gray-400 font-medium text-gray-600">
                   TURN USED FOR TESTING
                 </td>
-                <td colSpan={8} className="bg-white p-3 border border-gray-400 font-medium">
+                <td colSpan={4 + bsatColumns.length} className="bg-white p-3 border border-gray-400 font-medium">
                   {specs.turnUsed} TURN
                 </td>
               </tr>
@@ -2388,7 +2429,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                 <td className="bg-gray-50 p-3 border border-gray-400 font-medium text-gray-600">
                   Area (Sq cm)
                 </td>
-                <td colSpan={8} className="bg-white p-3 border border-gray-400 font-medium">
+                <td colSpan={4 + bsatColumns.length} className="bg-white p-3 border border-gray-400 font-medium">
                   {specs.area}
                 </td>
               </tr>
@@ -2398,7 +2439,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                 <td className="bg-gray-50 p-3 border border-gray-400 font-medium text-gray-600">
                   MMP (cm)
                 </td>
-                <td colSpan={8} className="bg-white p-3 border border-gray-400 font-medium">
+                <td colSpan={4 + bsatColumns.length} className="bg-white p-3 border border-gray-400 font-medium">
                   {specs.mmp}
                 </td>
               </tr>
@@ -2531,7 +2572,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                       <Input
                         value={String(row.dynamicValues[column.id] || '')}
                         onChange={(e) => handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: e.target.value })}
-                        className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id]) > parseFloat(column.leLimitValue) ? 'bg-red-50 text-red-700' : ''
+                        className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue || '0') ? 'bg-red-50 text-red-700' : ''
                           }`}
                         placeholder="9.5"
                       />
