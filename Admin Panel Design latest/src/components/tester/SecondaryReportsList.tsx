@@ -26,11 +26,10 @@ interface CompletedTransformer {
 }
 
 interface SecondaryReportsListProps {
-    onViewReport: (transformer: any) => void;
     onBack: () => void;
 }
 
-export function SecondaryReportsList({ onViewReport, onBack }: SecondaryReportsListProps) {
+export function SecondaryReportsList({ onBack }: SecondaryReportsListProps) {
     // Data State
     const [reports, setReports] = useState<CompletedTransformer[]>([]);
     const [loading, setLoading] = useState(true);

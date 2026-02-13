@@ -6,9 +6,8 @@ import { ArrowLeft, FileText, CheckCircle } from 'lucide-react';
 
 interface Transformer {
     _id: string;
+    jobId: string;
     uniqueId: string;
-    name?: string;
-    rating?: string;
     currentStage: string;
     testHistory?: {
         secondary_test?: {
@@ -17,6 +16,8 @@ interface Transformer {
             tester: string;
         };
     };
+    cores: any[];
+    orderId?: any;
 }
 
 interface SecondaryCompletedTransformersListProps {
@@ -93,8 +94,8 @@ export function SecondaryCompletedTransformersList({
                                         <td className="p-4 text-center">
                                             <Button
                                                 size="sm"
-                                                variant="ghost" // Use ghost or outline to distinguish from primary actions
-                                                className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 gap-2 border border-blue-200"
+                                                variant="outline"
+                                                className="border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-600 hover:text-blue-900 gap-2 shadow-sm bg-white"
                                                 onClick={() => onViewReport(t)}
                                             >
                                                 <FileText className="w-4 h-4" />

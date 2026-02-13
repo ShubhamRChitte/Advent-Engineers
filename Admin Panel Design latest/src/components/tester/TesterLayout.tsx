@@ -13,6 +13,7 @@ import { Card } from '../ui/card';
 import { ClipboardCheck, FileText, Activity } from 'lucide-react';
 import { AfterPrimaryReportsList } from './reports/AfterPrimaryReportsList';
 import { FinalReportsList } from './reports/FinalReportsList';
+import { FailedCoresPage } from '../../pages/FailedCoresPage';
 
 interface TesterLayoutProps {
   user: User;
@@ -85,6 +86,8 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return <CoreTestingModule user={user} />;
       } else if (activeView === 'core-tracking') {
         return <CoreTrackingDashboard user={user} />;
+      } else if (activeView === 'failed-cores') {
+        return <FailedCoresPage />;
       }
     }
 
@@ -144,7 +147,9 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
       } else if (activeView === 'testing') {
         return <SecondaryTestingModule userName={user.name} />;
       } else if (activeView === 'reports') {
-        return <SecondaryReportsList userName={user.name} />;
+        return <SecondaryReportsList onBack={() => setActiveView('home')} />;
+      } else if (activeView === 'failed-cores') {
+        return <FailedCoresPage />;
       }
     }
 
@@ -205,6 +210,8 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return <FinalTestingModule userName={user.name} />;
       } else if (activeView === 'reports') {
         return <FinalReportsList />;
+      } else if (activeView === 'failed-cores') {
+        return <FailedCoresPage />;
       }
     }
 
@@ -265,6 +272,8 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return <AfterPrimaryTestingModule userName={user.name} />;
       } else if (activeView === 'reports') {
         return <AfterPrimaryReportsList />;
+      } else if (activeView === 'failed-cores') {
+        return <FailedCoresPage />;
       }
     }
 
