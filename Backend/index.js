@@ -85,6 +85,7 @@ app.use('/api', protectionTestRoutes); // Mounted at /api/protection-tests
 app.use('/api/core-tests', require('./routes/coreTestRoutes')); // Generic Route
 app.use('/api/transformers', require('./routes/transformerRoutes')); // New Transformer Approval Routes
 app.use('/api/final', require('./routes/finalTestRoutes')); // New Final Test Routes
+app.use('/api/dashboard', require('./routes/dashboardRoutes')); // New Dashboard Stats Route
 // ----------------------------
 
 

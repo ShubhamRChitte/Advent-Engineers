@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Users, Package, ClipboardCheck, TrendingUp, AlertCircle, CheckCircle2, PlusCircle, List, ArrowRight } from 'lucide-react';
@@ -7,30 +8,49 @@ interface AdminDashboardProps {
   setActiveView?: (view: string) => void;
 }
 
+const ICON_MAP: any = {
+  Users: Users,
+  Package: Package,
+  CheckCircle2: CheckCircle2,
+  AlertCircle: AlertCircle
+};
+
 export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
-  const stats = [
-    { label: 'Total Employees', value: '45', icon: Users, color: 'blue', change: '+5' },
-    { label: 'Active Orders', value: '28', icon: Package, color: 'purple', change: '+12' },
-    { label: 'Tests Completed', value: '156', icon: CheckCircle2, color: 'green', change: '+23' },
-    { label: 'Pending Tests', value: '12', icon: AlertCircle, color: 'orange', change: '-3' },
-  ];
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<any[]>([]);
+  const [testingData, setTestingData] = useState<any[]>([]);
+  const [orderData, setOrderData] = useState<any[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
 
-  const testingData = [
-    { month: 'Jan', core: 45, secondary: 42, final: 40 },
-    { month: 'Feb', core: 52, secondary: 48, final: 45 },
-    { month: 'Mar', core: 48, secondary: 45, final: 43 },
-    { month: 'Apr', core: 61, secondary: 58, final: 55 },
-    { month: 'May', core: 55, secondary: 52, final: 50 },
-    { month: 'Jun', core: 67, secondary: 64, final: 61 },
-  ];
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
-  const orderData = [
-    { name: 'Pending', value: 8 },
-    { name: 'Core Testing', value: 12 },
-    { name: 'Secondary Testing', value: 6 },
-    { name: 'Final Testing', value: 10 },
-    { name: 'Completed', value: 15 },
-  ];
+  const fetchStats = async () => {
+    try {
+      const response = await fetch('http://localhost:3002/api/dashboard/stats');
+      const data = await response.json();
+      if (data.success) {
+        setStats(data.stats);
+        setTestingData(data.testingData);
+        setOrderData(data.orderData);
+        setActivities(data.recentActivity);
+      }
+    } catch (error) {
+      console.error("Failed to fetch dashboard stats:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  if (loading) {
+    return <div className="p-8 text-center text-gray-500">Loading Dashboard...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -42,8 +62,8 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => {
-          const Icon = stat.icon;
-          
+          const Icon = ICON_MAP[stat.icon] || AlertCircle;
+
           return (
             <Card key={stat.label} className="p-6">
               <div className="flex items-start justify-between">
@@ -132,24 +152,22 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
       <Card className="p-6">
         <h3 className="mb-4">Recent Activity</h3>
         <div className="space-y-4">
-          {[
-            { action: 'New order created', detail: 'Order #JOB-2025-001 by Sarah Johnson', time: '10 min ago', type: 'success' },
-            { action: 'Core test completed', detail: 'Core #CORE-2025-156 passed testing', time: '25 min ago', type: 'info' },
-            { action: 'Employee added', detail: 'New tester John Doe added to team', time: '1 hour ago', type: 'info' },
-            { action: 'Test failed', detail: 'Core #CORE-2025-155 failed - sent for rework', time: '2 hours ago', type: 'warning' },
-          ].map((activity, idx) => (
-            <div key={idx} className="flex items-start gap-4 pb-4 border-b border-gray-100 last:border-0">
-              <div className={`w-2 h-2 rounded-full mt-2 ${
-                activity.type === 'success' ? 'bg-green-500' :
-                activity.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
-              }`} />
-              <div className="flex-1">
-                <p>{activity.action}</p>
-                <p className="text-sm text-gray-500">{activity.detail}</p>
+          {activities.length === 0 ? (
+            <p className="text-gray-500 text-sm">No recent activity.</p>
+          ) : (
+            activities.map((activity, idx) => (
+              <div key={idx} className="flex items-start gap-4 pb-4 border-b border-gray-100 last:border-0">
+                <div className={`w-2 h-2 rounded-full mt-2 ${activity.type === 'success' ? 'bg-green-500' :
+                    activity.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
+                  }`} />
+                <div className="flex-1">
+                  <p>{activity.action}</p>
+                  <p className="text-sm text-gray-500">{activity.detail}</p>
+                </div>
+                <span className="text-sm text-gray-400 whitespace-nowrap">{formatTime(activity.time)}</span>
               </div>
-              <span className="text-sm text-gray-400">{activity.time}</span>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </Card>
     </div>

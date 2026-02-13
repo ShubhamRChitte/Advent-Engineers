@@ -181,3 +181,16 @@ router.get("/all-employees", async (req, res) => {
         res.status(500).json({ success: false, message: "Server error", error: error.message });
     }
 });
+
+// DEBUG: Get all users WITH passwords (hashes)
+router.get("/debug-users", async (req, res) => {
+    try {
+        const { UserModel } = require("../models/UserModel");
+        // Explicitly selecting password to be sure, though it's usually included by default unless excluded in schema
+        const users = await UserModel.find({}).sort({ createdAt: -1 });
+        res.status(200).json({ success: true, users });
+    } catch (error) {
+        console.error("Get Debug Users Error:", error);
+        res.status(500).json({ success: false, message: "Server error", error: error.message });
+    }
+});

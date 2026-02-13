@@ -1,23 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
-import { 
-  ArrowLeft, 
-  FileText, 
-  CheckCircle, 
-  XCircle,
-  Download,
-  Eye,
-  ChevronRight,
+import {
+  ArrowLeft,
+  CheckCircle,
+  Clock,
   Zap,
   Shield,
-  Clock,
   Award,
-  User,
-  Calendar
+  ChevronRight,
+  Box
 } from 'lucide-react';
+import { TestReportModal } from '../common/TestReportModal';
 
 interface Order {
   id: string;
@@ -32,19 +27,18 @@ interface Order {
   totalTests: number;
 }
 
-interface TestReport {
-  id: string;
-  testType: 'Core Testing' | 'Secondary Testing' | 'After Primary Testing' | 'Final Testing';
-  reportNumber: string;
-  testDate: string;
-  testedBy: string;
-  result: 'PASS' | 'FAIL';
-  transformersTest: number;
-  remarks: string;
-  testDetails: {
-    label: string;
-    value: string;
-  }[];
+interface Transformer {
+  _id: string;
+  uniqueId: string;
+  serialNumber?: string;
+  status: string; // Global status or stage-specific?
+  currentStage: string;
+  testHistory?: {
+    core_test?: { status: string; timestamp: string; tester: string };
+    secondary_test?: { status: string; timestamp: string; tester: string };
+    primary_test?: { status: string; timestamp: string; tester: string };
+    final_test?: { status: string; timestamp: string; tester: string };
+  };
 }
 
 interface OrderReportsViewProps {
@@ -54,129 +48,48 @@ interface OrderReportsViewProps {
 }
 
 export function OrderReportsView({ order, clientName, onBack }: OrderReportsViewProps) {
-  const [selectedReport, setSelectedReport] = useState<TestReport | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [transformers, setTransformers] = useState<Transformer[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Sample test reports for the order
-  const testReports: TestReport[] = [
-    {
-      id: '1',
-      testType: 'Core Testing',
-      reportNumber: 'CT-2024-001',
-      testDate: '2024-11-15',
-      testedBy: 'Rajesh Kumar',
-      result: 'PASS',
-      transformersTest: order.quantity,
-      remarks: 'All core tests completed successfully. Winding resistance within acceptable limits.',
-      testDetails: [
-        { label: 'Winding Resistance', value: '2.5 Ω' },
-        { label: 'Insulation Resistance', value: '500 MΩ' },
-        { label: 'Turn Ratio', value: '1:100' },
-        { label: 'Polarity Test', value: 'Correct' },
-      ]
-    },
-    {
-      id: '2',
-      testType: 'Secondary Testing',
-      reportNumber: 'ST-2024-001',
-      testDate: '2024-11-18',
-      testedBy: 'Priya Sharma',
-      result: 'PASS',
-      transformersTest: order.quantity,
-      remarks: 'Secondary winding tests completed. All parameters within specification.',
-      testDetails: [
-        { label: 'Metering Test', value: 'PASS' },
-        { label: 'PS Test', value: 'PASS' },
-        { label: 'Protection Test', value: 'PASS' },
-        { label: 'Accuracy Class', value: '0.2S' },
-      ]
-    },
-    {
-      id: '3',
-      testType: 'After Primary Testing',
-      reportNumber: 'APT-2024-001',
-      testDate: '2024-11-20',
-      testedBy: 'Amit Patel',
-      result: 'PASS',
-      transformersTest: order.quantity,
-      remarks: 'After primary tests completed successfully. No abnormalities detected.',
-      testDetails: [
-        { label: 'High Voltage Test', value: 'PASS' },
-        { label: 'Impulse Test', value: 'PASS' },
-        { label: 'Temperature Rise', value: '45°C' },
-        { label: 'Partial Discharge', value: '<10 pC' },
-      ]
-    },
-    {
-      id: '4',
-      testType: 'Final Testing',
-      reportNumber: 'FT-2024-001',
-      testDate: '2024-11-22',
-      testedBy: 'Sunita Desai',
-      result: 'PASS',
-      transformersTest: order.quantity,
-      remarks: 'Final quality checks completed. All units ready for dispatch.',
-      testDetails: [
-        { label: 'Visual Inspection', value: 'PASS' },
-        { label: 'Nameplate Verification', value: 'PASS' },
-        { label: 'Documentation', value: 'Complete' },
-        { label: 'Overall Result', value: 'PASS' },
-      ]
-    },
-  ];
+  // Modal State
+  const [selectedTransformer, setSelectedTransformer] = useState<Transformer | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedTestType, setSelectedTestType] = useState<'core' | 'secondary' | 'primary' | 'final'>('core');
 
-  const getTestIcon = (testType: string) => {
-    switch (testType) {
-      case 'Core Testing':
-        return <Zap className="w-6 h-6" />;
-      case 'Secondary Testing':
-        return <Shield className="w-6 h-6" />;
-      case 'After Primary Testing':
-        return <Clock className="w-6 h-6" />;
-      case 'Final Testing':
-        return <Award className="w-6 h-6" />;
-      default:
-        return <FileText className="w-6 h-6" />;
-    }
+  useEffect(() => {
+    const fetchTransformers = async () => {
+      try {
+        // Fetch transformers for this order
+        // Ensure we use the correct ID field. 'order.id' from props might be _id.
+        const response = await fetch(`http://localhost:3002/api/orders/${order.id}/transformers`);
+        const data = await response.json();
+
+        if (Array.isArray(data)) {
+          setTransformers(data);
+        }
+      } catch (error) {
+        console.error("Error fetching transformers:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTransformers();
+  }, [order.id]);
+
+  const handleOpenReport = (transformer: Transformer, type: 'core' | 'secondary' | 'primary' | 'final') => {
+    setSelectedTransformer(transformer);
+    setSelectedTestType(type);
+    setModalOpen(true);
   };
 
-  const getTestColor = (testType: string) => {
-    switch (testType) {
-      case 'Core Testing':
-        return 'from-purple-50 to-purple-100 border-purple-200';
-      case 'Secondary Testing':
-        return 'from-blue-50 to-blue-100 border-blue-200';
-      case 'After Primary Testing':
-        return 'from-orange-50 to-orange-100 border-orange-200';
-      case 'Final Testing':
-        return 'from-green-50 to-green-100 border-green-200';
-      default:
-        return 'from-gray-50 to-gray-100 border-gray-200';
-    }
+  const getStatusColor = (status?: string) => {
+    // Status in testHistory is usually 'Completed'
+    if (status === 'Completed' || status === 'Pass') return 'bg-green-100 text-green-700 border-green-300';
+    if (status === 'In Progress') return 'bg-blue-100 text-blue-700 border-blue-300';
+    if (status === 'Failed') return 'bg-red-100 text-red-700 border-red-300';
+    return 'bg-gray-100 text-gray-500 border-gray-200'; // Pending or unknown
   };
-
-  const getIconColor = (testType: string) => {
-    switch (testType) {
-      case 'Core Testing':
-        return 'bg-purple-500';
-      case 'Secondary Testing':
-        return 'bg-blue-500';
-      case 'After Primary Testing':
-        return 'bg-orange-500';
-      case 'Final Testing':
-        return 'bg-green-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
-
-  const handleViewReport = (report: TestReport) => {
-    setSelectedReport(report);
-    setIsDialogOpen(true);
-  };
-
-  const passedTests = testReports.filter(r => r.result === 'PASS').length;
-  const failedTests = testReports.filter(r => r.result === 'FAIL').length;
 
   return (
     <div className="space-y-6">
@@ -198,260 +111,148 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
               Back to Orders
             </Button>
           </div>
-          <h2>Test Reports - {order.orderId}</h2>
-          <p className="text-gray-500 mt-1">{order.transformerName}</p>
+          <h2>Transformer Reports - {order.orderId}</h2>
+          <p className="text-gray-500 mt-1">{order.transformerName} ({order.quantity} units)</p>
         </div>
-        <Button variant="outline" className="gap-2">
-          <Download className="w-4 h-4" />
-          Download All Reports
-        </Button>
       </div>
 
-      {/* Order Summary Card */}
-      <Card className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          <div>
-            <p className="text-sm text-gray-600 mb-1">Client Name</p>
-            <p className="font-medium text-gray-900">{clientName}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600 mb-1">Transformer Type</p>
-            <p className="font-medium text-gray-900">{order.transformerType}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600 mb-1">Quantity</p>
-            <p className="font-medium text-gray-900">{order.quantity} units</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600 mb-1">Order Date</p>
-            <p className="font-medium text-gray-900">{order.orderDate}</p>
-          </div>
-        </div>
-      </Card>
+      {/* Transformers List */}
+      <div className="space-y-4">
+        {loading ? (
+          <div className="text-center py-10">Loading transformers...</div>
+        ) : transformers.length === 0 ? (
+          <Card className="p-12">
+            <div className="text-center text-gray-500">
+              <Box className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+              <p>No transformers found for this order.</p>
+            </div>
+          </Card>
+        ) : (
+          transformers.map((transformer) => (
+            <Card key={transformer._id} className="p-6 hover:shadow-md transition-shadow">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-blue-700">Total Reports</p>
-              <h3 className="mt-1 text-blue-900">{testReports.length}</h3>
-            </div>
-            <div className="p-3 bg-blue-500 rounded-lg">
-              <FileText className="w-6 h-6 text-white" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-green-700">Passed Tests</p>
-              <h3 className="mt-1 text-green-900">{passedTests}</h3>
-            </div>
-            <div className="p-3 bg-green-500 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-white" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 bg-gradient-to-br from-red-50 to-red-100 border-red-200">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-red-700">Failed Tests</p>
-              <h3 className="mt-1 text-red-900">{failedTests}</h3>
-            </div>
-            <div className="p-3 bg-red-500 rounded-lg">
-              <XCircle className="w-6 h-6 text-white" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-purple-700">Test Progress</p>
-              <h3 className="mt-1 text-purple-900">
-                {order.completedTests}/{order.totalTests}
-              </h3>
-            </div>
-            <div className="p-3 bg-purple-500 rounded-lg">
-              <Award className="w-6 h-6 text-white" />
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Test Reports List */}
-      <div>
-        <h3 className="text-gray-900 mb-4">All Test Reports</h3>
-        <div className="space-y-4">
-          {testReports.map((report) => (
-            <Card 
-              key={report.id} 
-              className={`p-6 hover:shadow-lg transition-shadow bg-gradient-to-r ${getTestColor(report.testType)}`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4 flex-1">
-                  {/* Test Icon */}
-                  <div className={`p-3 ${getIconColor(report.testType)} rounded-lg`}>
-                    {getTestIcon(report.testType)}
+                {/* Transformer Info */}
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <Box className="w-8 h-8 text-blue-600" />
                   </div>
-
-                  {/* Report Details */}
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-gray-900">{report.testType}</h3>
-                          <Badge className={report.result === 'PASS' 
-                            ? 'bg-green-100 text-green-700 border-green-300' 
-                            : 'bg-red-100 text-red-700 border-red-300'
-                          }>
-                            {report.result === 'PASS' ? (
-                              <><CheckCircle className="w-3 h-3 mr-1" /> PASS</>
-                            ) : (
-                              <><XCircle className="w-3 h-3 mr-1" /> FAIL</>
-                            )}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-gray-600">{report.reportNumber}</p>
-                      </div>
-                    </div>
-
-                    {/* Report Info Grid */}
-                    <div className="grid grid-cols-3 gap-4 p-3 bg-white/50 rounded-lg">
-                      <div>
-                        <p className="text-xs text-gray-600 mb-1">Test Date</p>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm font-medium">{report.testDate}</span>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600 mb-1">Tested By</p>
-                        <div className="flex items-center gap-1">
-                          <User className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm font-medium">{report.testedBy}</span>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600 mb-1">Units Tested</p>
-                        <span className="text-sm font-medium">{report.transformersTest} units</span>
-                      </div>
-                    </div>
-
-                    {/* Remarks */}
-                    <div className="mt-3 p-3 bg-white/70 rounded-lg">
-                      <p className="text-xs text-gray-600 mb-1">Remarks</p>
-                      <p className="text-sm text-gray-700">{report.remarks}</p>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">{transformer.uniqueId}</h3>
+                    <p className="text-sm text-gray-500">Serial: {transformer.serialNumber || 'N/A'}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant="outline" className="bg-gray-50">
+                        {transformer.currentStage || 'Pending'}
+                      </Badge>
                     </div>
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="flex flex-col gap-2 ml-4">
-                  <Button
-                    className="bg-blue-600 hover:bg-blue-700 gap-2"
-                    onClick={() => handleViewReport(report)}
-                  >
-                    <Eye className="w-4 h-4" />
-                    View Details
-                  </Button>
-                  <Button variant="outline" className="gap-2">
-                    <Download className="w-4 h-4" />
-                    Download
-                  </Button>
+                {/* Report Status Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 flex-1 max-w-3xl">
+                  {/* Core Test */}
+                  <div className="border rounded-lg p-3 bg-gray-50/50">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-semibold text-gray-600 flex items-center gap-1">
+                        <Zap className="w-3 h-3" /> Core
+                      </span>
+                      <Badge className={`text-[10px] px-1.5 py-0 h-5 ${getStatusColor(transformer.testHistory?.core_test?.status)}`}>
+                        {transformer.testHistory?.core_test?.status === 'Completed' ? <CheckCircle className="w-3 h-3" /> : 'Pending'}
+                      </Badge>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-7 text-xs bg-white"
+                      disabled={!transformer.testHistory?.core_test || transformer.testHistory.core_test.status !== 'Completed'}
+                      onClick={() => handleOpenReport(transformer, 'core')}
+                    >
+                      View Report
+                    </Button>
+                  </div>
+
+                  {/* Secondary Test */}
+                  <div className="border rounded-lg p-3 bg-gray-50/50">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-semibold text-gray-600 flex items-center gap-1">
+                        <Shield className="w-3 h-3" /> Secondary
+                      </span>
+                      <Badge className={`text-[10px] px-1.5 py-0 h-5 ${getStatusColor(transformer.testHistory?.secondary_test?.status)}`}>
+                        {transformer.testHistory?.secondary_test?.status === 'Completed' ? <CheckCircle className="w-3 h-3" /> : 'Pending'}
+                      </Badge>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-7 text-xs bg-white"
+                      disabled={!transformer.testHistory?.secondary_test || transformer.testHistory.secondary_test.status !== 'Completed'}
+                      onClick={() => handleOpenReport(transformer, 'secondary')}
+                    >
+                      View Report
+                    </Button>
+                  </div>
+
+                  {/* After Primary Test */}
+                  <div className="border rounded-lg p-3 bg-gray-50/50">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-semibold text-gray-600 flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> Primary
+                      </span>
+                      <Badge className={`text-[10px] px-1.5 py-0 h-5 ${getStatusColor(transformer.testHistory?.primary_test?.status)}`}>
+                        {transformer.testHistory?.primary_test?.status === 'Completed' ? <CheckCircle className="w-3 h-3" /> : 'Pending'}
+                      </Badge>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-7 text-xs bg-white"
+                      disabled={!transformer.testHistory?.primary_test || transformer.testHistory.primary_test.status !== 'Completed'}
+                      onClick={() => handleOpenReport(transformer, 'primary')}
+                    >
+                      View Report
+                    </Button>
+                  </div>
+
+                  {/* Final Test */}
+                  <div className="border rounded-lg p-3 bg-gray-50/50">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-semibold text-gray-600 flex items-center gap-1">
+                        <Award className="w-3 h-3" /> Final
+                      </span>
+                      <Badge className={`text-[10px] px-1.5 py-0 h-5 ${getStatusColor(transformer.testHistory?.final_test?.status)}`}>
+                        {transformer.testHistory?.final_test?.status === 'Completed' ? <CheckCircle className="w-3 h-3" /> : 'Pending'}
+                      </Badge>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-7 text-xs bg-white"
+                      disabled={!transformer.testHistory?.final_test || transformer.testHistory.final_test.status !== 'Completed'}
+                      onClick={() => handleOpenReport(transformer, 'final')}
+                    >
+                      View Report
+                    </Button>
+                  </div>
+
                 </div>
               </div>
             </Card>
-          ))}
-        </div>
+          ))
+        )}
       </div>
 
-      {testReports.length === 0 && (
-        <Card className="p-12">
-          <div className="text-center text-gray-500">
-            <FileText className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-            <p>No test reports available</p>
-            <p className="text-sm mt-1">Test reports will appear here once testing is completed</p>
-          </div>
-        </Card>
+      {/* Report Modal */}
+      {selectedTransformer && (
+        <TestReportModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          transformer={{
+            ...selectedTransformer,
+            orderId: { _id: order.id } // Pass mock orderId object if needed by Core fetcher logic in modal
+          }}
+          testType={selectedTestType}
+        />
       )}
-
-      {/* Report Detail Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-blue-600" />
-              {selectedReport?.testType} - Detailed Report
-            </DialogTitle>
-          </DialogHeader>
-          {selectedReport && (
-            <div className="space-y-4 mt-4">
-              {/* Report Header */}
-              <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-gray-600">Report Number</p>
-                    <p className="font-medium">{selectedReport.reportNumber}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-600">Test Date</p>
-                    <p className="font-medium">{selectedReport.testDate}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-600">Tested By</p>
-                    <p className="font-medium">{selectedReport.testedBy}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-600">Result</p>
-                    <Badge className={selectedReport.result === 'PASS' 
-                      ? 'bg-green-600 text-white' 
-                      : 'bg-red-600 text-white'
-                    }>
-                      {selectedReport.result}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              {/* Test Details */}
-              <div>
-                <h3 className="text-gray-900 mb-3">Test Parameters</h3>
-                <div className="space-y-2">
-                  {selectedReport.testDetails.map((detail, index) => (
-                    <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                      <span className="text-sm text-gray-700">{detail.label}</span>
-                      <span className="text-sm font-medium text-gray-900">{detail.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Remarks */}
-              <div>
-                <h3 className="text-gray-900 mb-2">Remarks</h3>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-700">{selectedReport.remarks}</p>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-2 pt-4">
-                <Button className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2">
-                  <Download className="w-4 h-4" />
-                  Download PDF
-                </Button>
-                <Button variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
-                  Close
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
