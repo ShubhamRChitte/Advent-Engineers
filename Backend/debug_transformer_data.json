@@ -1,0 +1,275 @@
+{
+  "_id": "698f28996448632c9823f022",
+  "uniqueId": "TR-JOB-2026-073-002",
+  "orderId": "698f28996448632c9823f008",
+  "jobId": "JOB-2026-073",
+  "currentStage": "shipped",
+  "testHistory": {
+    "core_test": {
+      "status": "Pending",
+      "_id": "698f28996448632c9823f023",
+      "timestamp": "2026-02-13T13:35:21.706Z",
+      "metering_results": [],
+      "protection_results": [],
+      "ps_results": []
+    },
+    "secondary_test": {
+      "status": "Completed",
+      "_id": "698f28996448632c9823f024",
+      "timestamp": "2026-02-13T13:56:06.300Z",
+      "metering_results": [
+        {
+          "ratioValue": "200/1",
+          "rows": [
+            {
+              "current": "120%",
+              "r100": "12",
+              "p100": "12",
+              "r25": "12",
+              "p25": "12",
+              "_id": "698f2d4b6448632c9823f86f"
+            },
+            {
+              "current": "100%",
+              "r100": "12",
+              "p100": "13",
+              "r25": "13",
+              "p25": "13",
+              "_id": "698f2d4b6448632c9823f870"
+            },
+            {
+              "current": "20%",
+              "r100": "123",
+              "p100": "12",
+              "r25": "121",
+              "p25": "121",
+              "_id": "698f2d4b6448632c9823f871"
+            },
+            {
+              "current": "5%",
+              "r100": "12",
+              "p100": "12",
+              "r25": "12",
+              "p25": "1",
+              "_id": "698f2d4b6448632c9823f872"
+            },
+            {
+              "current": "1%",
+              "r100": "11",
+              "p100": "111",
+              "r25": "1",
+              "p25": "1",
+              "_id": "698f2d4b6448632c9823f873"
+            }
+          ],
+          "_id": "698f2d4b6448632c9823f86e",
+          "internalCoreNo": "M-073-002"
+        }
+      ],
+      "protection_results": [
+        {
+          "ratioValue": "200/1",
+          "ratioError100": 1,
+          "phaseError": 1,
+          "resistance": 1,
+          "alf": 1,
+          "excitationCurrent": 1,
+          "secondaryLimitingVoltage": 1,
+          "compositeError": 100,
+          "secondaryLimitingVtg": 1,
+          "_id": "698f2d686448632c9823f8ab",
+          "internalCoreNo": "P-073-002"
+        }
+      ],
+      "ps_results": [
+        {
+          "ratioValue": "200/1",
+          "turnRatioError": "1",
+          "resistance": "1",
+          "vk": "11",
+          "vkVal": "12.10",
+          "iexVk": "1",
+          "iex11Vk": "1",
+          "_id": "698f2d5a6448632c9823f88f",
+          "internalCoreNo": "PS-073-003"
+        }
+      ],
+      "tester": "Amit Verma"
+    },
+    "primary_test": {
+      "status": "Completed",
+      "_id": "698f28996448632c9823f025",
+      "timestamp": "2026-02-13T14:33:19.424Z",
+      "metering_results": [
+        {
+          "ratioValue": "200/1",
+          "rows": [
+            {
+              "current": "120%",
+              "r100": "12",
+              "p100": "12",
+              "r25": "12",
+              "p25": "12",
+              "_id": "698f360defeca270d1358ad9"
+            },
+            {
+              "current": "100%",
+              "r100": "12",
+              "p100": "13",
+              "r25": "13",
+              "p25": "13",
+              "_id": "698f360defeca270d1358ada"
+            },
+            {
+              "current": "20%",
+              "r100": "13",
+              "p100": "13",
+              "r25": "13",
+              "p25": "13",
+              "_id": "698f360defeca270d1358adb"
+            },
+            {
+              "current": "5%",
+              "r100": "13",
+              "p100": "1",
+              "r25": "1",
+              "p25": "1",
+              "_id": "698f360defeca270d1358adc"
+            },
+            {
+              "current": "1%",
+              "r100": "2",
+              "p100": "1",
+              "r25": "2",
+              "p25": "2",
+              "_id": "698f360defeca270d1358add"
+            }
+          ],
+          "_id": "698f360defeca270d1358ad8",
+          "internalCoreNo": "M-073-002"
+        }
+      ],
+      "protection_results": [
+        {
+          "ratioValue": "200/1",
+          "ratioError100": 12,
+          "phaseError": 12,
+          "resistance": 12,
+          "alf": 12,
+          "excitationCurrent": 12,
+          "secondaryLimitingVoltage": 144,
+          "compositeError": 100,
+          "secondaryLimitingVtg": 144,
+          "_id": "698f3626efeca270d1358b88",
+          "internalCoreNo": "P-073-002"
+        }
+      ],
+      "ps_results": [
+        {
+          "ratioValue": "200/1",
+          "turnRatioError": "12",
+          "resistance": "12",
+          "vk": "12",
+          "vkVal": "13.20",
+          "iexVk": "12",
+          "iex11Vk": "12",
+          "_id": "698f3617efeca270d1358b1a",
+          "internalCoreNo": "PS-073-003"
+        }
+      ],
+      "tester": "Neha Patil"
+    },
+    "final_test": {
+      "status": "Completed",
+      "_id": "698f28996448632c9823f026",
+      "timestamp": "2026-02-13T15:02:37.774Z",
+      "metering_results": [
+        {
+          "ratioValue": "200/1",
+          "rows": [
+            {
+              "current": "120%",
+              "r100": "21",
+              "p100": "21",
+              "r25": "21",
+              "p25": "21",
+              "_id": "698f3c6a17849ccf8fdad2c6"
+            },
+            {
+              "current": "100%",
+              "r100": "1",
+              "p100": "1",
+              "r25": "1",
+              "p25": "1",
+              "_id": "698f3c6a17849ccf8fdad2c7"
+            },
+            {
+              "current": "20%",
+              "r100": "21",
+              "p100": "21",
+              "r25": "21",
+              "p25": "21",
+              "_id": "698f3c6a17849ccf8fdad2c8"
+            },
+            {
+              "current": "5%",
+              "r100": "1",
+              "p100": "1",
+              "r25": "1",
+              "p25": "1",
+              "_id": "698f3c6a17849ccf8fdad2c9"
+            },
+            {
+              "current": "1%",
+              "r100": "21",
+              "p100": "21",
+              "r25": "21",
+              "p25": "21",
+              "_id": "698f3c6a17849ccf8fdad2ca"
+            }
+          ],
+          "_id": "698f3c6a17849ccf8fdad2c5",
+          "internalCoreNo": "M-073-002"
+        }
+      ],
+      "protection_results": [
+        {
+          "ratioValue": "200/1",
+          "ratioError100": 12,
+          "phaseError": 12,
+          "resistance": 12,
+          "alf": 12,
+          "excitationCurrent": 12,
+          "secondaryLimitingVoltage": 324,
+          "compositeError": 100,
+          "secondaryLimitingVtg": 324,
+          "_id": "698f3c8017849ccf8fdad33e",
+          "internalCoreNo": "P-073-002"
+        }
+      ],
+      "ps_results": [
+        {
+          "ratioValue": "200/1",
+          "turnRatioError": "12",
+          "resistance": "12",
+          "vk": "12",
+          "vkVal": "13.20",
+          "iexVk": "12",
+          "iex11Vk": "12",
+          "_id": "698f3c7417849ccf8fdad303",
+          "internalCoreNo": "PS-073-003"
+        }
+      ],
+      "tester": "Suresh Kulkarni"
+    }
+  },
+  "assignments": {
+    "core_tester": "Rahul Sharma",
+    "secondary_tester": "Amit Verma",
+    "primary_tester": "Neha Patil",
+    "final_tester": "Suresh Kulkarni"
+  },
+  "__v": 4,
+  "createdAt": "2026-02-13T13:35:21.730Z",
+  "updatedAt": "2026-02-13T15:02:37.789Z"
+}

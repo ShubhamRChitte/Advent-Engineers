@@ -6,19 +6,44 @@ interface EntryDashboardProps {
   onAddOrder?: () => void;
 }
 
-export function EntryDashboard({ onAddOrder }: EntryDashboardProps) {
-  const stats = [
-    { label: 'Orders Created', value: '28', icon: Package, color: 'blue' },
-    { label: 'Registered Vendors', value: '12', icon: Users, color: 'purple' },
-    { label: 'Active Orders', value: '156', icon: CheckCircle2, color: 'green' },
-    { label: 'Pending Assignment', value: '8', icon: Package, color: 'orange' },
-  ];
+/* 
+  Updated to fetch dynamic data from Backend 
+*/
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 
-  const recentOrders = [
-    { jobId: 'JOB-2025-001', client: 'PowerGrid Corporation', voltage: '11kV', cores: 3, status: 'Assigned' },
-    { jobId: 'JOB-2025-002', client: 'City Electric Ltd', voltage: '33kV', cores: 2, status: 'Pending' },
-    { jobId: 'JOB-2025-003', client: 'National Grid', voltage: '22kV', cores: 4, status: 'Assigned' },
-    { jobId: 'JOB-2025-004', client: 'Metro Power', voltage: '11kV', cores: 3, status: 'Assigned' },
+export function EntryDashboard({ onAddOrder }: EntryDashboardProps) {
+  const [statsData, setStatsData] = useState({
+    totalOrders: 0,
+    vendorCount: 0,
+    activeOrders: 0,
+    pendingAssignment: 0
+  });
+
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        // Use withCredentials to ensure auth cookie is sent if needed, 
+        // though dashboard routes might not require it if not strict, but usually they do.
+        const res = await axios.get('http://localhost:3002/api/dashboard/entry-stats', { withCredentials: true });
+        if (res.data.success) {
+          setStatsData(res.data.stats);
+          setRecentOrders(res.data.recentOrders);
+        }
+      } catch (err) {
+        console.error("Error fetching entry dashboard:", err);
+      }
+    };
+    fetchDashboardData();
+  }, []);
+
+  const stats = [
+    { label: 'Orders Created', value: statsData.totalOrders.toString(), icon: Package, color: 'blue' },
+    { label: 'Registered Vendors', value: statsData.vendorCount.toString(), icon: Users, color: 'purple' },
+    { label: 'Active Orders', value: statsData.activeOrders.toString(), icon: CheckCircle2, color: 'green' },
+    { label: 'Pending Assignment', value: statsData.pendingAssignment.toString(), icon: Package, color: 'orange' },
   ];
 
   return (

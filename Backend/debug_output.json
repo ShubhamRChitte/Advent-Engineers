@@ -1,0 +1,118 @@
+{
+  "connection": "Connected",
+  "order": {
+    "_id": "698f08869174aef4f04295ce",
+    "jobId": "JOB-2026-072",
+    "assignments": [
+      {
+        "unitRange": {
+          "from": 1,
+          "to": 2
+        },
+        "testerName": "Rahul Sharma",
+        "stage": "core",
+        "status": "Assigned",
+        "_id": "698f08869174aef4f04295d2"
+      },
+      {
+        "unitRange": {
+          "from": 3,
+          "to": 4
+        },
+        "testerName": "Pranav Godse",
+        "stage": "core",
+        "status": "Assigned",
+        "_id": "698f08869174aef4f04295d3"
+      },
+      {
+        "unitRange": {
+          "from": 1,
+          "to": 2
+        },
+        "testerName": "Amit Verma",
+        "stage": "secondary",
+        "status": "Assigned",
+        "_id": "698f08869174aef4f04295d4"
+      },
+      {
+        "unitRange": {
+          "from": 3,
+          "to": 4
+        },
+        "testerName": "Pooja Joshi",
+        "stage": "secondary",
+        "status": "Assigned",
+        "_id": "698f08869174aef4f04295d5"
+      },
+      {
+        "unitRange": {
+          "from": 1,
+          "to": 2
+        },
+        "testerName": "Neha Patil",
+        "stage": "primary",
+        "status": "Assigned",
+        "_id": "698f08869174aef4f04295d6"
+      },
+      {
+        "unitRange": {
+          "from": 3,
+          "to": 4
+        },
+        "testerName": "Sai Ghumare",
+        "stage": "primary",
+        "status": "Assigned",
+        "_id": "698f08869174aef4f04295d7"
+      },
+      {
+        "unitRange": {
+          "from": 1,
+          "to": 2
+        },
+        "testerName": "Suresh Kulkarni",
+        "stage": "final",
+        "status": "Assigned",
+        "_id": "698f08869174aef4f04295d8"
+      },
+      {
+        "unitRange": {
+          "from": 3,
+          "to": 4
+        },
+        "testerName": "YD",
+        "stage": "final",
+        "status": "Assigned",
+        "_id": "698f08869174aef4f04295d9"
+      }
+    ]
+  },
+  "transformersCount": 4,
+  "testCounts": {
+    "metering": 1,
+    "protection": 2
+  },
+  "uniqueTestedBy": [
+    "Pranav Godse"
+  ],
+  "rawTestedByValues": [
+    {
+      "id": "698f08b99174aef4f0429798",
+      "testedBy": "Pranav Godse",
+      "type": "Metering"
+    },
+    {
+      "id": "698f08d69174aef4f04297c0",
+      "testedBy": "Pranav Godse",
+      "type": "PS"
+    },
+    {
+      "id": "698f08e89174aef4f04297de",
+      "testedBy": "Pranav Godse",
+      "type": "Protection"
+    }
+  ],
+  "sampleMeteringOrderId": "698f08869174aef4f04295ce",
+  "sampleMeteringOrderIdType": "object",
+  "userTestsCount": 0,
+  "orderIdMatchCount": 3
+}

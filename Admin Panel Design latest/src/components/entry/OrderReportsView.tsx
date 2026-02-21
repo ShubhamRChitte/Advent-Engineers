@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -10,71 +11,113 @@ import {
   Shield,
   Award,
   ChevronRight,
-  Box
+  Box,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
+  FileText,
+  Download,
+  Search
 } from 'lucide-react';
 import { TestReportModal } from '../common/TestReportModal';
+import { Input } from '../ui/input';
 
-interface Order {
+interface TransformerUnit {
   id: string;
-  orderId: string;
-  transformerName: string;
-  transformerType: string;
-  quantity: number;
-  orderDate: string;
-  testStatus: string;
-  testingStage: string;
-  completedTests: number;
-  totalTests: number;
-}
-
-interface Transformer {
-  _id: string;
-  uniqueId: string;
-  serialNumber?: string;
-  status: string; // Global status or stage-specific?
-  currentStage: string;
-  testHistory?: {
-    core_test?: { status: string; timestamp: string; tester: string };
-    secondary_test?: { status: string; timestamp: string; tester: string };
-    primary_test?: { status: string; timestamp: string; tester: string };
-    final_test?: { status: string; timestamp: string; tester: string };
-  };
+  transformerId: string;
+  coreTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
+  secondaryTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
+  primaryTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
+  finalTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
+  reportStatus: 'Open' | 'In Progress' | 'Pending';
+  raw: any;
 }
 
 interface OrderReportsViewProps {
-  order: Order;
+  order: any;
   clientName: string;
   onBack: () => void;
 }
 
 export function OrderReportsView({ order, clientName, onBack }: OrderReportsViewProps) {
-  const [transformers, setTransformers] = useState<Transformer[]>([]);
+  const [transformerUnits, setTransformerUnits] = useState<TransformerUnit[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modal State
-  const [selectedTransformer, setSelectedTransformer] = useState<Transformer | null>(null);
+  const [selectedTransformer, setSelectedTransformer] = useState<any | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedTestType, setSelectedTestType] = useState<'core' | 'secondary' | 'primary' | 'final'>('core');
 
   useEffect(() => {
     const fetchTransformers = async () => {
       try {
-        // Fetch transformers for this order
-        // Ensure we use the correct ID field. 'order.id' from props might be _id.
-        const response = await fetch(`http://localhost:3002/api/orders/${order.id}/transformers`);
-        const data = await response.json();
+        console.log("Fetching transformers for order:", order.id, order.orderId);
+        // Use the same endpoint as OrderDetailView
+        // Note: order.id is used here. Ensure it's the correct ID (ObjectId).
+        const response = await axios.get(`http://localhost:3002/api/transformers/order/${order.id}`, {
+          withCredentials: true
+        });
 
-        if (Array.isArray(data)) {
-          setTransformers(data);
-        }
-      } catch (error) {
+        // Define the progression of stages
+        const stageOrder = ['core', 'secondary', 'primary', 'final', 'completed', 'shipped'];
+
+        const getStatusForStage = (targetStage: string, currentStage: string, historyStatus?: string) => {
+          // 1. Explicit History Check
+          if (historyStatus === 'Rejected') return 'Rejected';
+          if (historyStatus === 'Completed') return 'Complete';
+
+          // Legacy/Alternative status check
+          if (historyStatus === 'Pass') return 'Complete';
+          if (historyStatus === 'Fail') return 'Rejected';
+
+          // 2. Stage Progression Check
+          const targetIndex = stageOrder.indexOf(targetStage);
+          const currentIndex = stageOrder.indexOf(currentStage);
+
+          if (targetIndex === -1 || currentIndex === -1) return 'Pending'; // Safety fallback
+
+          if (currentIndex > targetIndex) {
+            return 'Complete'; // If we are passed this stage, it's done
+          }
+          if (currentIndex === targetIndex) {
+            // If we are IN this stage, it's In Progress
+            return 'In Progress';
+          }
+
+          return 'Pending'; // Not reached yet
+        };
+
+        const mappedUnits: TransformerUnit[] = response.data.map((t: any) => ({
+          id: t._id,
+          // Use the uniqueId from DB (TR-JOB-...), fallback to constructing it if missing
+          transformerId: t.uniqueId || `TR-${t.jobId || 'UNKNOWN'}-${String(t.internalCoreNo || '').split('-').pop() || '???'}`,
+          coreTestStatus: getStatusForStage('core', t.currentStage, t.testHistory?.core_test?.status),
+          secondaryTestStatus: getStatusForStage('secondary', t.currentStage, t.testHistory?.secondary_test?.status),
+          primaryTestStatus: getStatusForStage('primary', t.currentStage, t.testHistory?.primary_test?.status),
+          finalTestStatus: getStatusForStage('final', t.currentStage, t.testHistory?.final_test?.status),
+          reportStatus: (t.currentStage === 'completed' || t.currentStage === 'shipped') ? 'Open' : 'Pending',
+          raw: t
+        }));
+
+        setTransformerUnits(mappedUnits);
+      } catch (error: any) {
         console.error("Error fetching transformers:", error);
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          alert("Session expired or unauthorized. Please log in again.");
+          // Optional: window.location.href = '/login'; 
+        } else {
+          // Fallback on other errors
+          console.warn("API Request failed. Using STATIC MOCK DATA as fallback.");
+          // setTransformerUnits(MOCK_TRANSFORMERS); // If we had mock data adapted for this
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTransformers();
+    if (order.id) {
+      fetchTransformers();
+    }
   }, [order.id]);
 
   const handleOpenReport = (transformer: Transformer, type: 'core' | 'secondary' | 'primary' | 'final') => {
@@ -84,11 +127,47 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
   };
 
   const getStatusColor = (status?: string) => {
-    // Status in testHistory is usually 'Completed'
-    if (status === 'Completed' || status === 'Pass') return 'bg-green-100 text-green-700 border-green-300';
-    if (status === 'In Progress') return 'bg-blue-100 text-blue-700 border-blue-300';
-    if (status === 'Failed') return 'bg-red-100 text-red-700 border-red-300';
-    return 'bg-gray-100 text-gray-500 border-gray-200'; // Pending or unknown
+    switch (status) {
+      case 'Completed':
+      case 'Complete':
+      case 'Pass':
+        return 'bg-green-100 text-green-700 border-green-300';
+      case 'Pending':
+        return 'bg-red-100 text-red-700 border-red-300';
+      case 'In Progress':
+        return 'bg-blue-100 text-blue-700 border-blue-300';
+      case 'Rejected':
+      case 'Fail':
+        return 'bg-gray-100 text-gray-700 border-gray-300';
+      case 'Open':
+        return 'bg-green-100 text-green-700 border-green-300';
+      default:
+        return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+    }
+  };
+
+  const getStatusIcon = (status?: string) => {
+    switch (status) {
+      case 'Completed':
+      case 'Complete':
+      case 'Pass':
+        return <CheckCircle2 className="w-3 h-3" />;
+      case 'Pending':
+        return <Clock className="w-3 h-3" />;
+      case 'In Progress':
+        return <AlertCircle className="w-3 h-3" />;
+      case 'Rejected':
+      case 'Fail':
+        return <XCircle className="w-3 h-3" />;
+      default:
+        return <Clock className="w-3 h-3" />;
+    }
+  };
+
+
+
+  const handleDownloadFullReport = (transformerId: string) => {
+    alert(`Downloading complete report for ${transformerId}`);
   };
 
   return (
@@ -117,129 +196,155 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
       </div>
 
       {/* Transformers List */}
-      <div className="space-y-4">
-        {loading ? (
-          <div className="text-center py-10">Loading transformers...</div>
-        ) : transformers.length === 0 ? (
-          <Card className="p-12">
-            <div className="text-center text-gray-500">
-              <Box className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-              <p>No transformers found for this order.</p>
-            </div>
-          </Card>
-        ) : (
-          transformers.map((transformer) => (
-            <Card key={transformer._id} className="p-6 hover:shadow-md transition-shadow">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      {/* Transformers Table */}
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b-2 border-gray-200">
+              <tr>
+                <th className="text-left p-4 font-medium text-gray-700">Transformer Id ⬆</th>
+                <th className="text-center p-4 font-medium text-gray-700">Core Testing</th>
+                <th className="text-center p-4 font-medium text-gray-700">After Secondary Testing</th>
+                <th className="text-center p-4 font-medium text-gray-700">After Primary Testing</th>
+                <th className="text-center p-4 font-medium text-gray-700">Final Testing</th>
+                <th className="text-center p-4 font-medium text-gray-700">Report</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transformerUnits.map((unit, index) => {
+                // Check if all tests are complete for Report generation logic
+                const allComplete =
+                  unit.coreTestStatus === 'Complete' &&
+                  unit.secondaryTestStatus === 'Complete' &&
+                  unit.primaryTestStatus === 'Complete' &&
+                  unit.finalTestStatus === 'Complete';
 
-                {/* Transformer Info */}
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-blue-50 rounded-lg">
-                    <Box className="w-8 h-8 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">{transformer.uniqueId}</h3>
-                    <p className="text-sm text-gray-500">Serial: {transformer.serialNumber || 'N/A'}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge variant="outline" className="bg-gray-50">
-                        {transformer.currentStage || 'Pending'}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
+                return (
+                  <tr
+                    key={unit.id}
+                    className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+                  >
+                    {/* Transformer ID */}
+                    <td className="p-4">
+                      <p className="font-medium font-mono">{unit.transformerId}</p>
+                    </td>
 
-                {/* Report Status Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 flex-1 max-w-3xl">
-                  {/* Core Test */}
-                  <div className="border rounded-lg p-3 bg-gray-50/50">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-semibold text-gray-600 flex items-center gap-1">
-                        <Zap className="w-3 h-3" /> Core
-                      </span>
-                      <Badge className={`text-[10px] px-1.5 py-0 h-5 ${getStatusColor(transformer.testHistory?.core_test?.status)}`}>
-                        {transformer.testHistory?.core_test?.status === 'Completed' ? <CheckCircle className="w-3 h-3" /> : 'Pending'}
-                      </Badge>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full h-7 text-xs bg-white"
-                      disabled={!transformer.testHistory?.core_test || transformer.testHistory.core_test.status !== 'Completed'}
-                      onClick={() => handleOpenReport(transformer, 'core')}
-                    >
-                      View Report
-                    </Button>
-                  </div>
+                    {/* Core Test */}
+                    <td className="p-4">
+                      <div className="flex flex-col items-center gap-2">
+                        <Badge className={`${getStatusColor(unit.coreTestStatus)} flex items-center gap-1`}>
+                          {getStatusIcon(unit.coreTestStatus)}
+                          {unit.coreTestStatus}
+                        </Badge>
+                        {unit.coreTestStatus === 'Complete' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 gap-1"
+                            onClick={() => handleOpenReport(unit.raw, 'core')}
+                          >
+                            <FileText className="w-3 h-3" />
+                            View Report
+                          </Button>
+                        )}
+                      </div>
+                    </td>
 
-                  {/* Secondary Test */}
-                  <div className="border rounded-lg p-3 bg-gray-50/50">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-semibold text-gray-600 flex items-center gap-1">
-                        <Shield className="w-3 h-3" /> Secondary
-                      </span>
-                      <Badge className={`text-[10px] px-1.5 py-0 h-5 ${getStatusColor(transformer.testHistory?.secondary_test?.status)}`}>
-                        {transformer.testHistory?.secondary_test?.status === 'Completed' ? <CheckCircle className="w-3 h-3" /> : 'Pending'}
-                      </Badge>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full h-7 text-xs bg-white"
-                      disabled={!transformer.testHistory?.secondary_test || transformer.testHistory.secondary_test.status !== 'Completed'}
-                      onClick={() => handleOpenReport(transformer, 'secondary')}
-                    >
-                      View Report
-                    </Button>
-                  </div>
+                    {/* After Secondary Test */}
+                    <td className="p-4">
+                      <div className="flex flex-col items-center gap-2">
+                        <Badge className={`${getStatusColor(unit.secondaryTestStatus)} flex items-center gap-1`}>
+                          {getStatusIcon(unit.secondaryTestStatus)}
+                          {unit.secondaryTestStatus}
+                        </Badge>
+                        {unit.secondaryTestStatus === 'Complete' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 gap-1"
+                            onClick={() => handleOpenReport(unit.raw, 'secondary')}
+                          >
+                            <FileText className="w-3 h-3" />
+                            View Report
+                          </Button>
+                        )}
+                      </div>
+                    </td>
 
-                  {/* After Primary Test */}
-                  <div className="border rounded-lg p-3 bg-gray-50/50">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-semibold text-gray-600 flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> Primary
-                      </span>
-                      <Badge className={`text-[10px] px-1.5 py-0 h-5 ${getStatusColor(transformer.testHistory?.primary_test?.status)}`}>
-                        {transformer.testHistory?.primary_test?.status === 'Completed' ? <CheckCircle className="w-3 h-3" /> : 'Pending'}
-                      </Badge>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full h-7 text-xs bg-white"
-                      disabled={!transformer.testHistory?.primary_test || transformer.testHistory.primary_test.status !== 'Completed'}
-                      onClick={() => handleOpenReport(transformer, 'primary')}
-                    >
-                      View Report
-                    </Button>
-                  </div>
+                    {/* After Primary Test */}
+                    <td className="p-4">
+                      <div className="flex flex-col items-center gap-2">
+                        <Badge className={`${getStatusColor(unit.primaryTestStatus)} flex items-center gap-1`}>
+                          {getStatusIcon(unit.primaryTestStatus)}
+                          {unit.primaryTestStatus}
+                        </Badge>
+                        {unit.primaryTestStatus === 'Complete' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 gap-1"
+                            onClick={() => handleOpenReport(unit.raw, 'primary')}
+                          >
+                            <FileText className="w-3 h-3" />
+                            View Report
+                          </Button>
+                        )}
+                      </div>
+                    </td>
 
-                  {/* Final Test */}
-                  <div className="border rounded-lg p-3 bg-gray-50/50">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-semibold text-gray-600 flex items-center gap-1">
-                        <Award className="w-3 h-3" /> Final
-                      </span>
-                      <Badge className={`text-[10px] px-1.5 py-0 h-5 ${getStatusColor(transformer.testHistory?.final_test?.status)}`}>
-                        {transformer.testHistory?.final_test?.status === 'Completed' ? <CheckCircle className="w-3 h-3" /> : 'Pending'}
-                      </Badge>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full h-7 text-xs bg-white"
-                      disabled={!transformer.testHistory?.final_test || transformer.testHistory.final_test.status !== 'Completed'}
-                      onClick={() => handleOpenReport(transformer, 'final')}
-                    >
-                      View Report
-                    </Button>
-                  </div>
+                    {/* Final Test */}
+                    <td className="p-4">
+                      <div className="flex flex-col items-center gap-2">
+                        <Badge className={`${getStatusColor(unit.finalTestStatus)} flex items-center gap-1`}>
+                          {getStatusIcon(unit.finalTestStatus)}
+                          {unit.finalTestStatus}
+                        </Badge>
+                        {unit.finalTestStatus === 'Complete' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 gap-1"
+                            onClick={() => handleOpenReport(unit.raw, 'final')}
+                          >
+                            <FileText className="w-3 h-3" />
+                            View Report
+                          </Button>
+                        )}
+                      </div>
+                    </td>
 
-                </div>
-              </div>
-            </Card>
-          ))
+                    {/* Report Status & Full Report */}
+                    <td className="p-4">
+                      <div className="flex flex-col items-center gap-2">
+                        <Badge className={`${getStatusColor(unit.reportStatus)} flex items-center gap-1`}>
+                          {unit.reportStatus}
+                        </Badge>
+                        {allComplete && (
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-xs h-8 gap-1"
+                            onClick={() => handleDownloadFullReport(unit.transformerId)}
+                          >
+                            <Download className="w-3 h-3" />
+                            Download Full Report
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {transformerUnits.length === 0 && (
+          <div className="text-center py-12 text-gray-500">
+            <Search className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+            <p>No transformers found for this order.</p>
+          </div>
         )}
-      </div>
+      </Card>
 
       {/* Report Modal */}
       {selectedTransformer && (

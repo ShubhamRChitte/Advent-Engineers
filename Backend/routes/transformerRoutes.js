@@ -125,7 +125,21 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
 
         // 3. Check Order Assignment Completion
         // We need to check if ALL units assigned to this tester for this stage are now completed.
-        const order = await OrderModel.findById(transformer.orderId);
+
+        // FIX: Handle potential string orderId (CastError)
+        let order = null;
+        const mongoose = require('mongoose');
+
+        if (mongoose.Types.ObjectId.isValid(transformer.orderId)) {
+            order = await OrderModel.findById(transformer.orderId);
+        }
+
+        if (!order) {
+            // Fallback: If orderId is a string (e.g. "JOB-2026-...") or findById failed
+            // Try to find by jobId
+            order = await OrderModel.findOne({ jobId: transformer.orderId });
+        }
+
         if (order && order.assignments) {
 
             // Find the specific assignment entry for this tester and stage

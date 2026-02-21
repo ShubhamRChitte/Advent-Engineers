@@ -1,4 +1,6 @@
-import { useState } from 'react';
+/* Updated to use Real API */
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -6,7 +8,7 @@ import { Label } from '../ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '../ui/dialog';
 import { UserPlus, Edit, Trash2, Building2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface Vendor {
   id: string;
@@ -20,28 +22,24 @@ interface Vendor {
 }
 
 export function VendorManagement() {
-  const [vendors, setVendors] = useState<Vendor[]>([
-    {
-      id: 'vendor-1',
-      name: 'ABC Cores Ltd',
-      contactPerson: 'Rajesh Kumar',
-      email: 'rajesh@abccores.com',
-      phone: '+91 98765 43210',
-      address: 'Mumbai, Maharashtra',
-      coresSupplied: 125,
-      status: 'active',
-    },
-    {
-      id: 'vendor-2',
-      name: 'XYZ Transformers',
-      contactPerson: 'Amit Shah',
-      email: 'amit@xyztrans.com',
-      phone: '+91 98765 43211',
-      address: 'Delhi, India',
-      coresSupplied: 98,
-      status: 'active',
-    },
-  ]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchVendors = async () => {
+    try {
+      const res = await axios.get('http://localhost:3002/api/vendors', { withCredentials: true });
+      setVendors(res.data);
+    } catch (error) {
+      console.error("Error fetching vendors:", error);
+      toast.error("Failed to load vendors");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVendors();
+  }, []);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newVendor, setNewVendor] = useState({
@@ -52,28 +50,33 @@ export function VendorManagement() {
     address: '',
   });
 
-  const handleAddVendor = () => {
+  const handleAddVendor = async () => {
     if (!newVendor.name || !newVendor.contactPerson || !newVendor.email || !newVendor.phone) {
       toast.error('Please fill in all required fields');
       return;
     }
 
-    const vendor: Vendor = {
-      id: `vendor-${vendors.length + 1}`,
-      ...newVendor,
-      coresSupplied: 0,
-      status: 'active',
-    };
-
-    setVendors([...vendors, vendor]);
-    setNewVendor({ name: '', contactPerson: '', email: '', phone: '', address: '' });
-    setIsAddDialogOpen(false);
-    toast.success('Vendor registered successfully!');
+    try {
+      await axios.post('http://localhost:3002/api/vendors', newVendor, { withCredentials: true });
+      toast.success('Vendor registered successfully!');
+      setNewVendor({ name: '', contactPerson: '', email: '', phone: '', address: '' });
+      setIsAddDialogOpen(false);
+      fetchVendors(); // Refresh list
+    } catch (error) {
+      console.error("Error adding vendor:", error);
+      toast.error('Failed to add vendor');
+    }
   };
 
-  const handleDeleteVendor = (id: string) => {
-    setVendors(vendors.filter(v => v.id !== id));
-    toast.success('Vendor deleted successfully!');
+  const handleDeleteVendor = async (id: string) => {
+    try {
+      await axios.delete(`http://localhost:3002/api/vendors/${id}`, { withCredentials: true });
+      setVendors(vendors.filter(v => v.id !== id));
+      toast.success('Vendor deleted successfully!');
+    } catch (error) {
+      console.error("Error deleting vendor:", error);
+      toast.error('Failed to delete vendor');
+    }
   };
 
   return (
