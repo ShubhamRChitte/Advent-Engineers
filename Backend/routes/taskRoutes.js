@@ -398,7 +398,7 @@ router.get('/transformers/:uniqueId', isAuthenticated, async (req, res) => {
   try {
     const { TransformerModel } = require('../models/TransformerModel');
     // Find by uniqueId (string ID)
-    const transformer = await TransformerModel.findOne({ uniqueId: req.params.uniqueId });
+    const transformer = await TransformerModel.findOne({ uniqueId: req.params.uniqueId }).populate('orderId');
     if (!transformer) return res.status(404).json({ message: "Transformer not found" });
 
     res.json(transformer);

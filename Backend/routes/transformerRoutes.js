@@ -13,7 +13,7 @@ router.get('/order/:orderId', isAuthenticated, async (req, res) => {
         const { ProtectionCoreTestModel } = require('../models/ProtectionCoreTestModel');
 
         // 1. Fetch Transformers
-        const transformers = await TransformerModel.find({ orderId }).lean();
+        const transformers = await TransformerModel.find({ orderId }).populate('orderId').lean();
 
         // 2. Fetch Core Test Data
         const meteringTests = await MeteringCoreTestModel.find({ orderId }).lean();

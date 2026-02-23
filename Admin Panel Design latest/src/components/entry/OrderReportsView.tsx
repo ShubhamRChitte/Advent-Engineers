@@ -353,7 +353,7 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
           onClose={() => setModalOpen(false)}
           transformer={{
             ...selectedTransformer,
-            orderId: { _id: order.id } // Pass mock orderId object if needed by Core fetcher logic in modal
+            orderId: order
           }}
           testType={selectedTestType}
         />

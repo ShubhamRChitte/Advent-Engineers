@@ -144,8 +144,9 @@ export function SecondaryTransformersList({ order, onStartTest, onBack }: Second
               );
             } else if (type === 'protection') {
               return results.every((res: any) =>
-                res.burden100_1 && res.burden100_2 && res.resistance &&
-                res.secondaryLimitingVtg && res.excitationCurrent && res.compositeError
+                res.ratioError100 && res.phaseError && res.resistance &&
+                (res.secondaryLimitingVoltage || res.secondaryLimitingVtg) &&
+                res.excitationCurrent && res.compositeError && res.alf
               );
             } else if (type === 'ps') {
               return results.every((res: any) =>
@@ -298,16 +299,6 @@ export function SecondaryTransformersList({ order, onStartTest, onBack }: Second
   };
 
 
-  // Helper to check if all necessary tests are done
-  const checkCompletion = (t: any) => {
-    // We need to check the raw DB object or the mapped one if we included the test details?
-    // The mapped one 't' currently doesn't reflect the granular test results existence, only 'status'.
-    // BUT, we can infer from the `dbTransformers` fetch. 
-    // Wait, `mappedTransformers` loop above has access to the raw `dbTransformers` item `t`.
-    // I need to add `testHistory` to the `Transformer` interface or the mapped object to check this here.
-    // Or, move this logic into the map function and set a `canApprove` flag.
-    return false;
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -462,8 +453,9 @@ export function SecondaryTransformersList({ order, onStartTest, onBack }: Second
                               );
                             } else if (core.coreType === 'protection') {
                               isCompleted = coreResults.every((res: any) =>
-                                res.burden100_1 && res.burden100_2 && res.resistance &&
-                                res.secondaryLimitingVtg && res.excitationCurrent && res.compositeError
+                                res.ratioError100 && res.phaseError && res.resistance &&
+                                (res.secondaryLimitingVoltage || res.secondaryLimitingVtg) &&
+                                res.excitationCurrent && res.compositeError && res.alf
                               );
                             } else if (core.coreType === 'ps') {
                               isCompleted = coreResults.every((res: any) =>

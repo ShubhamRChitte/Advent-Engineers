@@ -238,7 +238,6 @@ import { toast } from 'sonner';
 
 interface SecondaryProtectionReportProps {
   transformer: Transformer;
-  coreNumber: number;
   coreId: string;
   testerName: string;
   onBack: () => void;
@@ -259,7 +258,6 @@ interface ProtectionTestRow {
 
 export function SecondaryProtectionReport({
   transformer,
-  coreNumber,
   coreId,
   testerName,
   onBack,
@@ -328,15 +326,15 @@ export function SecondaryProtectionReport({
               if (saved) {
                 // Formatting helper for safe string conversion
                 const safeStr = (val: any) => (val !== undefined && val !== null) ? String(val) : '';
-                
+
                 return {
                   ...row,
                   // Map legacy burden fields to new error fields if necessary, or use new fields
                   ratioError100: safeStr(saved.ratioError100 || saved.burden100_1),
                   phaseError: safeStr(saved.phaseError || saved.burden100_2),
-                  
+
                   resistance: safeStr(saved.resistance),
-                  alf: safeStr(saved.alf), 
+                  alf: safeStr(saved.alf),
                   secondaryLimitingVoltage: safeStr(saved.secondaryLimitingVoltage || saved.secondaryLimitingVtg),
                   excitationCurrent: safeStr(saved.excitationCurrent),
                   compositeError: safeStr(saved.compositeError)
@@ -354,22 +352,23 @@ export function SecondaryProtectionReport({
   }, [transformer.uniqueId, coreId, stage]);
 
   // Robust Parsing Helpers
-  const parseRatedCurrent = (ratio: string): number => {
+  const parseRatedCurrent = (ratio: any): number => {
     if (!ratio) return 1;
+    const str = String(ratio);
     // Extract number immediately after the first forward slash
-    // Works for "1000/5", "1000/5A", "1000/5/1-1-1A"
-    const parts = ratio.split('/');
+    const parts = str.split('/');
     if (parts.length >= 2) {
-      const val = parseFloat(parts[1]);
-      // Return 1 if NaN or 0 to avoid division by zero in formulas using iRated
+      const val = parseFloat(parts[1] || '0');
       return (isNaN(val) || val === 0) ? 1 : val;
     }
     return 1;
   };
 
-  const parseBurden = (burdenStr: string): number => {
+  const parseBurden = (burden: any): number => {
+    if (burden === undefined || burden === null) return 0;
+    const str = String(burden);
     // Robust regex parsing: extract digits and dots only
-    const val = parseFloat(burdenStr?.replace(/[^\d.]/g, '') || '0');
+    const val = parseFloat(str.replace(/[^\d.]/g, '') || '0');
     return isNaN(val) ? 0 : val;
   };
 
@@ -387,14 +386,14 @@ export function SecondaryProtectionReport({
       // 3. Auto-Calculate Logic
       // Only recalculate if relevant fields change
       if (['resistance', 'alf', 'excitationCurrent'].includes(field as string)) {
-        
+
         const iRated = parseRatedCurrent(updatedRow.ratio);
         // Ensure accurate parsing of Burden from Order ID (e.g. "30VA" -> 30)
         const burdenVal = parseBurden(transformer.orderId?.burden || '0');
 
         // Force Parsing: Wrap all table inputs in parseFloat()
         const r = parseFloat(updatedRow.resistance) || 0;
-        const alf = parseFloat(updatedRow.alf) || 0; 
+        const alf = parseFloat(updatedRow.alf) || 0;
         const ex = parseFloat(updatedRow.excitationCurrent) || 0;
 
         // Debug inputs for calculation verification
@@ -402,11 +401,11 @@ export function SecondaryProtectionReport({
 
         // Safety Constraint: If ALF or I_Rated is 0, results default to 0 to avoid Infinity/NaN
         if (alf === 0 || iRated === 0) {
-           return {
-             ...updatedRow,
-             secondaryLimitingVoltage: '0.000',
-             compositeError: '0.000'
-           };
+          return {
+            ...updatedRow,
+            secondaryLimitingVoltage: '0.000',
+            compositeError: '0.000'
+          };
         }
 
         // Formula: SLV = ((Burden / (I_Rated * I_Rated)) + Resistance) * ALF
@@ -438,16 +437,16 @@ export function SecondaryProtectionReport({
       const protectionResults = testResults.map(row => ({
         internalCoreNo: coreId, // Inject Core ID for persistence
         ratioValue: row.ratio,
-        
+
         // New Schema Mapping - Ensure Numeric Integrity
         // parseFloat parses "123.456" back to number. || 0 handles NaN or empty string.
         ratioError100: parseFloat(row.ratioError100) || 0,
         phaseError: parseFloat(row.phaseError) || 0,
-        
+
         resistance: parseFloat(row.resistance) || 0,
         alf: parseFloat(row.alf) || 0,
         excitationCurrent: parseFloat(row.excitationCurrent) || 0,
-        
+
         // Calculated fields (stored as fixed-point strings in state, convert back to number)
         secondaryLimitingVoltage: parseFloat(row.secondaryLimitingVoltage) || 0,
         compositeError: parseFloat(row.compositeError) || 0,
@@ -538,9 +537,9 @@ export function SecondaryProtectionReport({
 
               {/* HEADER BOX ROW 2: SUB-HEADERS */}
               <tr className="bg-white">
-                 {/* Left Space (Aligns with Ratio & 100% cols) */}
+                {/* Left Space (Aligns with Ratio & 100% cols) */}
                 <th className="border border-gray-400 p-2" colSpan={2}></th>
-                
+
                 {/* Middle: 100% Burden (Aligns with Burden input cols) */}
                 <th className="border border-gray-400 p-2 text-center font-bold text-sm" colSpan={2}>
                   100 % Burden
@@ -572,7 +571,7 @@ export function SecondaryProtectionReport({
 
                     {/* COL 3: Ratio Error (was Burden 1) */}
                     <td className="border border-gray-400 p-0 w-[120px]">
-                       <Input
+                      <Input
                         className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full"
                         value={row.ratioError100}
                         onChange={(e) => handleInputChange(index, 'ratioError100', e.target.value)}
@@ -583,7 +582,7 @@ export function SecondaryProtectionReport({
 
                     {/* COL 4: Phase Error (was Burden 2) */}
                     <td className="border border-gray-400 p-0 w-[120px]">
-                       <Input
+                      <Input
                         className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full"
                         value={row.phaseError}
                         onChange={(e) => handleInputChange(index, 'phaseError', e.target.value)}
@@ -610,7 +609,7 @@ export function SecondaryProtectionReport({
                       Excitation Current
                     </td>
                     <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
-                      Secondary<br/>Limiting Voltage
+                      Secondary<br />Limiting Voltage
                     </td>
                     <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
                       Composite Error
@@ -635,7 +634,7 @@ export function SecondaryProtectionReport({
                         value={row.alf}
                         onChange={(e) => handleInputChange(index, 'alf', e.target.value)}
                         placeholder=""
-                        disabled={readOnly} 
+                        disabled={readOnly}
                       />
                     </td>
                     <td className="border border-gray-400 p-0">
@@ -652,17 +651,17 @@ export function SecondaryProtectionReport({
                         className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50"
                         value={row.secondaryLimitingVoltage}
                         // onChange handler removed/ignored since it's auto-calculated
-                        onChange={() => {}}
+                        onChange={() => { }}
                         readOnly={true} // Strictly derived
                         disabled={readOnly} // Keeps styling consistent if whole form is readOnly
                       />
                     </td>
                     <td className="border border-gray-400 p-0">
-                       <Input
+                      <Input
                         className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50"
                         value={row.compositeError}
                         // onChange handler removed/ignored
-                        onChange={() => {}}
+                        onChange={() => { }}
                         readOnly={true} // Strictly derived
                         disabled={readOnly}
                       />

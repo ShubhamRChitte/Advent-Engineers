@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { ArrowLeft, CheckCircle } from 'lucide-react';
 import { Transformer } from './SecondaryTransformersList';
+import axios from 'axios';
+import { toast } from 'sonner';
 
 interface SecondaryCoreSelectionProps {
   transformer: Transformer;
@@ -134,6 +135,65 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
     }
   };
 
+  const handleApproveTransformer = async () => {
+    try {
+      if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Primary Testing?`)) return;
+
+      const response = await axios.put(`http://localhost:3002/api/transformers/${transformer.uniqueId}/approve-stage`, {
+        stage: 'secondary',
+        nextStage: 'primary'
+      }, { withCredentials: true });
+
+      if (response.data.success) {
+        toast.success("Transformer Approved successfully!");
+        onBack(); // Go back to the list as it's now completed
+      }
+    } catch (err) {
+      console.error("Approval failed", err);
+      toast.error("Failed to approve transformer");
+    }
+  };
+
+  // Helper to check if ALL cores are done
+  const isAllCoresCompleted = transformer.cores.every(core => {
+    const results = transformer.testHistory?.secondary_test?.[`${core.coreType}_results`] || [];
+
+    const typeCores = transformer.cores.filter(c => c.coreType === core.coreType);
+    const typeIndex = typeCores.findIndex(c => c.coreNumber === core.coreNumber);
+    const expectedId = transformer.availableCoreIdsPool?.[core.coreType as keyof typeof transformer.availableCoreIdsPool]?.[typeIndex];
+    const suffix = `-${String(core.coreNumber).padStart(3, '0')}`;
+    const typeSeq = typeIndex + 1;
+    const typeSuffix = `-${String(typeSeq).padStart(3, '0')}`;
+
+    const coreResults = results.filter((r: any) => {
+      const id = r.internalCoreNo || r.coreId || '';
+      return (expectedId && id === expectedId) ||
+        id.endsWith(suffix) || id.includes(suffix) ||
+        id.endsWith(typeSuffix) || id.includes(typeSuffix);
+    });
+
+    if (coreResults.length === 0) return false;
+
+    if (core.coreType === 'metering') {
+      return coreResults.every((res: any) =>
+        res.rows && res.rows.length > 0 && res.rows.every((row: any) =>
+          row.r100 && row.p100 && row.r25 && row.p25
+        )
+      );
+    } else if (core.coreType === 'protection') {
+      return coreResults.every((res: any) =>
+        res.ratioError100 && res.phaseError && res.resistance &&
+        (res.secondaryLimitingVoltage || res.secondaryLimitingVtg) && res.excitationCurrent && res.compositeError && res.alf
+      );
+    } else if (core.coreType === 'ps') {
+      return coreResults.every((res: any) =>
+        res.turnRatioError && res.resistance && res.vk &&
+        res.vkVal && res.iexVk && res.iex11Vk
+      );
+    }
+    return true;
+  });
+
   const selectedCoreConfig = transformer.cores.find(c => c.coreNumber === selectedCore);
 
   return (
@@ -222,8 +282,9 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
               } else if (core.coreType === 'protection') {
                 // Protection: Check all main test fields
                 isCompleted = coreResults.every((res: any) =>
-                  res.burden100_1 && res.burden100_2 && res.resistance &&
-                  res.secondaryLimitingVtg && res.excitationCurrent && res.compositeError
+                  res.ratioError100 && res.phaseError && res.resistance &&
+                  (res.secondaryLimitingVoltage || res.secondaryLimitingVtg) &&
+                  res.excitationCurrent && res.compositeError && res.alf
                 );
               } else if (core.coreType === 'ps') {
                 // PS: Check all ps fields
@@ -312,7 +373,6 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
           {/* Helper Text if Pre-Selected */}
           {(() => {
             const typeFn = transformer.cores.find(c => c.coreNumber === selectedCore)?.coreType;
-            const targetSuffix = `-${String(selectedCore).padStart(3, '0')}`;
 
             const isExisting = transformer.testHistory?.secondary_test?.[(typeFn || 'metering') + '_results']?.some((r: any) =>
               (r.internalCoreNo === enteredCoreId) || (r.coreId === enteredCoreId)
@@ -359,8 +419,9 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
                     );
                   } else if (type === 'protection') {
                     isCompleted = coreResults.every((res: any) =>
-                      res.burden100_1 && res.burden100_2 && res.resistance &&
-                      res.secondaryLimitingVtg && res.excitationCurrent && res.compositeError
+                      res.ratioError100 && res.phaseError && res.resistance &&
+                      (res.secondaryLimitingVoltage || res.secondaryLimitingVtg) &&
+                      res.excitationCurrent && res.compositeError && res.alf
                     );
                   } else if (type === 'ps') {
                     isCompleted = coreResults.every((res: any) =>
@@ -373,6 +434,25 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
                 }
                 return `Start New ${type.toUpperCase()} Test`;
               })()}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Approval Section */}
+      {isAllCoresCompleted && (
+        <Card className="p-6 bg-green-50 border-green-200">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+              <h4 className="font-semibold text-green-900">Transformer Ready for Approval</h4>
+              <p className="text-sm text-green-700">All {transformer.cores.length} core(s) have been successfully tested and verified.</p>
+            </div>
+            <Button
+              className="bg-green-600 hover:bg-green-700 text-white gap-2 px-8"
+              onClick={handleApproveTransformer}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Approve Transformer
             </Button>
           </div>
         </Card>

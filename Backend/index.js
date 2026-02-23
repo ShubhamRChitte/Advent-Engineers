@@ -1986,34 +1986,36 @@ app.post("/transformer-primary-metering-tests", async (req, res) => {
 //primary protection test handle
 app.post("/transformer-primary-protection-tests", async (req, res) => {
   try {
-    const { uniqueId, tester, protection_results } = req.body;
+    const { uniqueId, tester, coreId, protection_results } = req.body;
+    console.log(`[DEBUG] POST /transformer-primary-protection-tests. Core: ${coreId}`);
 
-    const transformer = await TransformerModel.findOneAndUpdate(
-      { uniqueId: uniqueId },
-      {
-        $set: {
-          "testHistory.primary_test.tester": tester,
-          "testHistory.primary_test.protection_results": protection_results,
-          "testHistory.primary_test.status": "Completed",
-          "testHistory.primary_test.timestamp": new Date()
-        }
-      },
-      { new: true, runValidators: true }
-    );
+    const transformer = await TransformerModel.findOne({ uniqueId: uniqueId });
 
-    // ✅ CHECK: If transformer doesn't exist
     if (!transformer) {
-      return res.status(404).json({
-        success: false,
-        message: `Transformer ID [${uniqueId}] not found. Ensure it exists in the database first.`
-      });
+      return res.status(404).json({ success: false, message: `Transformer ID [${uniqueId}] not found.` });
     }
 
-    // ✅ SUCCESS: Response
+    if (!transformer.testHistory.primary_test) transformer.testHistory.primary_test = {};
+
+    transformer.testHistory.primary_test.tester = tester;
+
+    // Merge logic for Protection (Primary)
+    const newResults = protection_results.map(r => ({ ...r, internalCoreNo: coreId }));
+    const existingResults = transformer.testHistory.primary_test.protection_results || [];
+    const otherCoresResults = existingResults.filter(r =>
+      r.internalCoreNo !== coreId && r.coreId !== coreId
+    );
+    transformer.testHistory.primary_test.protection_results = [...otherCoresResults, ...newResults];
+    transformer.testHistory.primary_test.status = "Completed";
+    transformer.testHistory.primary_test.timestamp = new Date();
+
+    transformer.markModified('testHistory');
+    const savedTransformer = await transformer.save();
+
     res.status(201).json({
       success: true,
       message: "Primary Protection Test Saved Successfully",
-      transformerId: transformer._id
+      transformerId: savedTransformer._id
     });
 
   } catch (err) {
@@ -2107,34 +2109,36 @@ app.post("/transformer-final-metering-tests", async (req, res) => {
 //final protection test handle
 app.post("/transformer-final-protection-tests", async (req, res) => {
   try {
-    const { uniqueId, tester, protection_results } = req.body;
+    const { uniqueId, tester, coreId, protection_results } = req.body;
+    console.log(`[DEBUG] POST /transformer-final-protection-tests. Core: ${coreId}`);
 
-    const transformer = await TransformerModel.findOneAndUpdate(
-      { uniqueId: uniqueId },
-      {
-        $set: {
-          "testHistory.final_test.tester": tester,
-          "testHistory.final_test.protection_results": protection_results,
-          "testHistory.final_test.status": "Completed",
-          "testHistory.final_test.timestamp": new Date()
-        }
-      },
-      { new: true, runValidators: true }
-    );
+    const transformer = await TransformerModel.findOne({ uniqueId: uniqueId });
 
-    // ✅ CHECK: If transformer doesn't exist
     if (!transformer) {
-      return res.status(404).json({
-        success: false,
-        message: `Transformer ID [${uniqueId}] not found. Ensure it exists in the database first.`
-      });
+      return res.status(404).json({ success: false, message: `Transformer ID [${uniqueId}] not found.` });
     }
 
-    // ✅ SUCCESS: Response
+    if (!transformer.testHistory.final_test) transformer.testHistory.final_test = {};
+
+    transformer.testHistory.final_test.tester = tester;
+
+    // Merge logic for Protection (Final)
+    const newResults = protection_results.map(r => ({ ...r, internalCoreNo: coreId }));
+    const existingResults = transformer.testHistory.final_test.protection_results || [];
+    const otherCoresResults = existingResults.filter(r =>
+      r.internalCoreNo !== coreId && r.coreId !== coreId
+    );
+    transformer.testHistory.final_test.protection_results = [...otherCoresResults, ...newResults];
+    transformer.testHistory.final_test.status = "Completed";
+    transformer.testHistory.final_test.timestamp = new Date();
+
+    transformer.markModified('testHistory');
+    const savedTransformer = await transformer.save();
+
     res.status(201).json({
       success: true,
       message: "Final Protection Test Saved Successfully",
-      transformerId: transformer._id
+      transformerId: savedTransformer._id
     });
 
   } catch (err) {
