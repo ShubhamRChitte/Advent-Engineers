@@ -1,9 +1,8 @@
-
 import { useState } from 'react';
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'; // Make sure these exist in ui/tabs
-import { ArrowLeft, Download, FileText } from 'lucide-react';
+import { ArrowLeft, Download, FileText, Printer } from 'lucide-react';
 import { ReadOnlyCoreTable } from './ReadOnlyCoreTable';
 import { generateCertificate } from './CertificateGenerator';
 
@@ -26,21 +25,27 @@ export function ReportDetails({ transformer, onBack }: ReportDetailsProps) {
     const hasPS = psData.length > 0;
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="space-y-6" id="printable-report">
+            <div className="flex items-center justify-between no-print">
                 <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
                     <ArrowLeft className="w-4 h-4" />
                     Back to Reports
                 </Button>
                 <h2 className="text-xl font-bold text-gray-800">Test Report: {transformer.uniqueId}</h2>
-                <Button onClick={() => generateCertificate(transformer)} className="bg-blue-600 hover:bg-blue-700 gap-2">
-                    <Download className="w-4 h-4" />
-                    Generate Certificate
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
+                        <Printer className="w-4 h-4" />
+                        Print Report
+                    </Button>
+                    <Button onClick={() => generateCertificate(transformer)} className="bg-blue-600 hover:bg-blue-700 gap-2">
+                        <Download className="w-4 h-4" />
+                        Generate Certificate
+                    </Button>
+                </div>
             </div>
 
             <Tabs defaultValue="info" value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
+                <TabsList className="grid w-full grid-cols-4 lg:w-[600px] no-print">
                     <TabsTrigger value="info">Info</TabsTrigger>
                     <TabsTrigger value="metering" disabled={!hasMetering}>Metering</TabsTrigger>
                     <TabsTrigger value="protection" disabled={!hasProtection}>Protection</TabsTrigger>

@@ -167,7 +167,10 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
 
 
   const handleDownloadFullReport = (transformerId: string) => {
-    alert(`Downloading complete report for ${transformerId}`);
+    const unit = transformerUnits.find(u => u.transformerId === transformerId);
+    if (unit && unit.raw) {
+      handleOpenReport(unit.raw, 'all' as any);
+    }
   };
 
   return (
@@ -236,6 +239,9 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
                           {getStatusIcon(unit.coreTestStatus)}
                           {unit.coreTestStatus}
                         </Badge>
+                        {unit.raw?.testHistory?.core_test?.tester && unit.coreTestStatus === 'Complete' && (
+                          <span className="text-[10px] text-gray-500 font-medium">By: {unit.raw.testHistory.core_test.tester}</span>
+                        )}
                         {unit.coreTestStatus === 'Complete' && (
                           <Button
                             size="sm"
@@ -257,6 +263,9 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
                           {getStatusIcon(unit.secondaryTestStatus)}
                           {unit.secondaryTestStatus}
                         </Badge>
+                        {unit.raw?.testHistory?.secondary_test?.tester && unit.secondaryTestStatus === 'Complete' && (
+                          <span className="text-[10px] text-gray-500 font-medium">By: {unit.raw.testHistory.secondary_test.tester}</span>
+                        )}
                         {unit.secondaryTestStatus === 'Complete' && (
                           <Button
                             size="sm"
@@ -278,6 +287,9 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
                           {getStatusIcon(unit.primaryTestStatus)}
                           {unit.primaryTestStatus}
                         </Badge>
+                        {unit.raw?.testHistory?.primary_test?.tester && unit.primaryTestStatus === 'Complete' && (
+                          <span className="text-[10px] text-gray-500 font-medium">By: {unit.raw.testHistory.primary_test.tester}</span>
+                        )}
                         {unit.primaryTestStatus === 'Complete' && (
                           <Button
                             size="sm"
@@ -299,6 +311,9 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
                           {getStatusIcon(unit.finalTestStatus)}
                           {unit.finalTestStatus}
                         </Badge>
+                        {unit.raw?.testHistory?.final_test?.tester && unit.finalTestStatus === 'Complete' && (
+                          <span className="text-[10px] text-gray-500 font-medium">By: {unit.raw.testHistory.final_test.tester}</span>
+                        )}
                         {unit.finalTestStatus === 'Complete' && (
                           <Button
                             size="sm"

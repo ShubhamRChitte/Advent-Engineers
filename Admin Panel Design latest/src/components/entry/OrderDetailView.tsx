@@ -55,7 +55,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
   // Generate transformer units based on quantity
   const [transformerUnits, setTransformerUnits] = useState<TransformerUnit[]>([]);
   const [rawTransformers, setRawTransformers] = useState<any[]>([]);
-  const [reportModal, setReportModal] = useState<{ isOpen: boolean; transformer: any; type: 'core' | 'secondary' | 'primary' | 'final' }>({
+  const [reportModal, setReportModal] = useState<{ isOpen: boolean; transformer: any; type: 'core' | 'secondary' | 'primary' | 'final' | 'all' }>({
     isOpen: false,
     transformer: null,
     type: 'core'
@@ -176,7 +176,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
     );
 
     if (transformer) {
-      let type: 'core' | 'secondary' | 'primary' | 'final' = 'core';
+      let type: 'core' | 'secondary' | 'primary' | 'final' | 'all' = 'core';
       if (testType.includes('Core')) type = 'core';
       else if (testType.includes('Secondary')) type = 'secondary';
       else if (testType.includes('Primary')) type = 'primary';
@@ -193,7 +193,18 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
   };
 
   const handleDownloadFullReport = (transformerId: string) => {
-    alert(`Downloading complete report for ${transformerId}\n\nThis will include all 4 test reports:\n- Core Test Report\n- After Secondary Test Report\n- After Primary Test Report\n- Final Test Report`);
+    const transformer = rawTransformers.find(t =>
+      t.uniqueId === transformerId ||
+      `TR-${t.jobId || 'UNKNOWN'}-${String(t.internalCoreNo || '').split('-').pop() || '???'}` === transformerId
+    );
+
+    if (transformer) {
+      setReportModal({
+        isOpen: true,
+        transformer,
+        type: 'all'
+      });
+    }
   };
 
   const completedCount = transformerUnits.filter(isAllTestsComplete).length;

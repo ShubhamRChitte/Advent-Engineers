@@ -9,7 +9,7 @@ interface TestReportModalProps {
     isOpen: boolean;
     onClose: () => void;
     transformer: any;
-    testType: 'core' | 'secondary' | 'primary' | 'final';
+    testType: 'core' | 'secondary' | 'primary' | 'final' | 'all';
 }
 
 export function TestReportModal({ isOpen, onClose, transformer, testType }: TestReportModalProps) {
@@ -19,7 +19,7 @@ export function TestReportModal({ isOpen, onClose, transformer, testType }: Test
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (isOpen && testType === 'core' && transformer?.orderId) {
+        if (isOpen && (testType === 'core' || testType === 'all') && transformer?.orderId) {
             fetchCoreData();
         }
     }, [isOpen, testType, transformer]);
@@ -59,8 +59,21 @@ export function TestReportModal({ isOpen, onClose, transformer, testType }: Test
             case 'secondary': return `Secondary Test Report - ${transformer.uniqueId}`;
             case 'primary': return `Primary Test Report - ${transformer.uniqueId}`;
             case 'final': return `Final Test Report - ${transformer.uniqueId}`;
+            case 'all': return `Combined Test Report - ${transformer.uniqueId}`;
             default: return 'Test Report';
         }
+    };
+
+    const getTesterName = () => {
+        let tester = 'Unknown';
+        if (testType === 'core') {
+            tester = transformer.testHistory?.core_test?.tester || 'Unknown';
+        } else if (testType === 'all') {
+            tester = 'Multiple Testers';
+        } else {
+            tester = transformer.testHistory?.[`${testType}_test`]?.tester || 'Unknown';
+        }
+        return tester;
     };
 
     const renderCoreReport = () => {
@@ -295,12 +308,36 @@ export function TestReportModal({ isOpen, onClose, transformer, testType }: Test
         );
     }
 
+    const renderAllReports = () => {
+        return (
+            <div className="flex flex-col">
+                <div className="mb-4">
+                    {renderCoreReport()}
+                </div>
+                <div className="print-break-before mt-8 pt-8 border-t-2 border-gray-400 border-dashed">
+                    <SecondaryReportView transformer={transformer} onBack={() => { }} stage="secondary" />
+                </div>
+                <div className="print-break-before mt-8 pt-8 border-t-2 border-gray-400 border-dashed">
+                    <SecondaryReportView transformer={transformer} onBack={() => { }} stage="primary" />
+                </div>
+                {transformer.testHistory?.final_test && (
+                    <div className="print-break-before mt-8 pt-8 border-t-2 border-gray-400 border-dashed relative">
+                        {/* We hide the back button and toolbar for inner final report view since it's stacked */}
+                        <div className="absolute top-8 right-0 left-0 h-16 bg-white z-10 opacity-0 pointer-events-none no-print"></div>
+                        <SecondaryReportView transformer={transformer} onBack={() => { }} stage="final" />
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const renderContent = () => {
         switch (testType) {
             case 'core': return renderCoreReport();
             case 'secondary': return <SecondaryReportView transformer={transformer} onBack={onClose} stage="secondary" />;
             case 'primary': return <SecondaryReportView transformer={transformer} onBack={onClose} stage="primary" />;
             case 'final': return <SecondaryReportView transformer={transformer} onBack={onClose} stage="final" />;
+            case 'all': return renderAllReports();
             default: return <div>Unknown Report Type</div>;
         }
     };
@@ -308,10 +345,11 @@ export function TestReportModal({ isOpen, onClose, transformer, testType }: Test
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-                <DialogHeader>
+                <DialogHeader className="no-print">
                     <DialogTitle>{getTitle()}</DialogTitle>
+                    <p className="text-sm text-gray-500 font-medium mt-1">Tested By: <span className="text-blue-600">{getTesterName()}</span></p>
                 </DialogHeader>
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto" id="printable-report">
                     {renderContent()}
                 </div>
             </DialogContent>
