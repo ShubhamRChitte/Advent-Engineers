@@ -21,6 +21,7 @@ import { CoreLabelsPrint } from './CoreLabelsPrint';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Label } from '../ui/label';
 import { ReportHeader } from '../reports';
+import { CoreReportPrint } from './CoreReportPrint';
 import { getSafeOrderId, getSafeClientName, getSafeBatchId } from '../../utils/orderUtils';
 import axios from 'axios';
 
@@ -95,6 +96,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
 
   // ----------------------
 
+  const isMetering = coreType === 'Metering';
   const isProtectionCore = coreType === 'Protection';
   const isPSCore = coreType === 'PS';
 
@@ -281,10 +283,10 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
   const [failedCores, setFailedCores] = useState<FailedCore[]>([]);
   const [showFailedCores, setShowFailedCores] = useState(false);
   const [showPrintLabels, setShowPrintLabels] = useState(false);
-  const [currentDate] = useState(new Date().toISOString().split('T')[0]);
   const [testDate, setTestDate] = useState(new Date().toLocaleDateString('en-GB'));
   const [testBy, setTestBy] = useState(user?.fullName || user?.name || '');
   const [authorizedSignatory, setAuthorizedSignatory] = useState(user?.fullName || user?.name || '');
+  const [tataRef, setTataRef] = useState('TR-2024-001');
 
   // Metering configuration state
   const [meteringConfigured, setMeteringConfigured] = useState(false);
@@ -463,7 +465,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
   const handleRowChange = (index: number, field: keyof CoreTestRow, value: string | any) => {
     if (isReadOnly) return;
     const updatedRows = [...rows];
-    updatedRows[index] = { ...updatedRows[index], [field]: value };
+    updatedRows[index] = { ...updatedRows[index], [field]: value } as CoreTestRow;
 
     // Auto-calculate remark when values change
     if (field === 'dynamicValues' || field === 'singleValue') {
@@ -1096,7 +1098,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
         </Card>
 
         {/* Protection Core Testing Form */}
-        <Card id="printable-report" className="overflow-x-auto shadow-sm print-content">
+        <Card className="overflow-x-auto shadow-sm">
           <div className="min-w-full">
             <table className="w-full border-collapse text-sm">
               <tbody>
@@ -1110,6 +1112,20 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                       reportDate={testDate}
                       batchId={getSafeBatchId(order)}
                     />
+                    {/* DEDICATED PRINT COMPONENT (HIDDEN ON SCREEN) */}
+                    <div className="print-only">
+                      <CoreReportPrint
+                        order={order}
+                        coreType={coreType}
+                        specs={specs}
+                        rows={rows}
+                        bsatColumns={protectionBColumns}
+                        testDate={testDate}
+                        testBy={testBy}
+                        authorizedSignatory={authorizedSignatory}
+                        materialType={protectionCoreTypeM4CRGO}
+                      />
+                    </div>
                   </td>
                 </tr>
 
@@ -1717,7 +1733,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
         </Card>
 
         {/* PS Core Testing Form */}
-        <Card id="printable-report" className="overflow-x-auto shadow-sm print-content">
+        <Card className="overflow-x-auto shadow-sm">
           <div className="min-w-full">
             <table className="w-full border-collapse text-sm">
               <tbody>
@@ -1731,6 +1747,19 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                       reportDate={testDate}
                       batchId={getSafeBatchId(order)}
                     />
+                    <div className="print-only">
+                      <CoreReportPrint
+                        order={order}
+                        coreType={coreType}
+                        specs={specs}
+                        rows={rows}
+                        bsatColumns={psBColumns}
+                        testDate={testDate}
+                        testBy={testBy}
+                        authorizedSignatory={authorizedSignatory}
+                        materialType={psCoreTypeM4CRGO || "M4CRGO"}
+                      />
+                    </div>
                   </td>
                 </tr>
 
@@ -2336,7 +2365,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
       </Card>
 
       {/* Testing Form - Table Layout */}
-      <Card id="printable-report" className="overflow-x-auto print-content">
+      <Card className="overflow-x-auto print-content">
         <div className="min-w-full">
           <table className="w-full border-collapse text-sm">
             <tbody>
@@ -2632,6 +2661,20 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
           )}
         </div>
       </Card>
+
+      {/* DEDICATED PRINT COMPONENT (HIDDEN ON SCREEN) */}
+      <CoreReportPrint
+        order={order}
+        coreType={coreType}
+        specs={specs}
+        rows={rows}
+        bsatColumns={isProtectionCore ? protectionBColumns : (isPSCore ? psBColumns : bsatColumns)}
+        testDate={testDate}
+        testBy={testBy}
+        authorizedSignatory={authorizedSignatory}
+        tataRef={tataRef}
+        materialType={isMetering ? coreTypeNano : (isProtectionCore ? protectionCoreTypeM4CRGO : (psCoreTypeM4CRGO || "M4CRGO"))}
+      />
     </div>
   );
 }

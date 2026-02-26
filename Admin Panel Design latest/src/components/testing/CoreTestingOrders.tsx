@@ -1,5 +1,4 @@
-import React, { useEffect } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -38,6 +37,7 @@ export interface CoreTestingOrder {
   assignedBy?: string;
   priority: 'High' | 'Medium' | 'Low';
   status: 'Pending' | 'In Progress' | 'Completed' | 'Core Testing In Progress' | 'Pending Approval';
+  approved?: boolean;
   instructions?: string;
   assignedUnitIds?: string[]; // Granular visibility: specific Transformer IDs assigned to user
   [key: string]: any; // Allow loose typing to prevent crashes on extra fields
@@ -49,7 +49,7 @@ interface CoreTestingOrdersProps {
   type?: 'active' | 'history';
 }
 
-export function CoreTestingOrders({ onStartTesting, user, type = 'active' }: CoreTestingOrdersProps) {
+export function CoreTestingOrders({ onStartTesting, user: _user, type = 'active' }: CoreTestingOrdersProps) {
 
 
 
@@ -128,63 +128,69 @@ export function CoreTestingOrders({ onStartTesting, user, type = 'active' }: Cor
     }
   };
 
+  // Hide orders that are strictly meant to be in the completed tab (approved === true)
+  const activeOrders = orders.filter(o => !o.approved);
+
   return (
     <div className="space-y-4">
       {/* Header */}
       <div>
-        <h2 className="text-xl">Core Testing Orders</h2>
-        <p className="text-sm text-gray-600 mt-1">{orders.filter(o => o.status !== 'Completed').length} active orders</p>
+        <h2 className="text-xl font-semibold">Active Core Testing Orders</h2>
+        <p className="text-sm text-gray-600 mt-1">{activeOrders.length} active orders pending testing</p>
       </div>
 
       {/* Orders List */}
       <div className="space-y-3">
-        {orders.map((order) => (
-          <Card key={order._id} className="p-4 hover:shadow-md transition-shadow">
-            <div className="space-y-3">
-              {/* Header Row */}
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    {/* <h3 className="text-base font-medium text-gray-900 truncate">{order.jobId}</h3> */}
-                    <Badge className={`${getPriorityColor(order.priority)} text-xs px-2 py-0`}>
-                      {order.priority}
-                    </Badge>
-                    <Badge className={`${getStatusColor(order.status)} text-xs px-2 py-0`}>
-                      {order.status}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-600">{order.clientName}</p>
-                  <p className="text-sm text-gray-600">{order.jobId}</p>
-                </div>
-                <Button
-                  size="sm"
-                  className="bg-[#003a70] hover:bg-[#002850] gap-1 shrink-0"
-                  onClick={() => onStartTesting(order)}
-                  disabled={order.status === 'Completed'}
-                >
-                  {order.status === 'In Progress' ? 'Continue' : 'Start'}
-                  <ChevronRight className="w-3 h-3" />
-                </Button>
-              </div>
+        {activeOrders.map((order) => {
+          const isStarted = order.status?.includes('In Progress');
 
-              {/* Details Grid */}
-              <div className="grid grid-cols-4 gap-4 text-sm border-t pt-3">
-                <div>
-                  <p className="text-xs text-gray-500">Transformer</p>
-                  <p className="text-gray-900 mt-0.5">{order.transformerName}</p>
+          return (
+            <Card key={order._id} className="p-4 hover:shadow-md transition-shadow">
+              <div className="space-y-3">
+                {/* Header Row */}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      {/* <h3 className="text-base font-medium text-gray-900 truncate">{order.jobId}</h3> */}
+                      <Badge className={`${getPriorityColor(order.priority)} text-xs px-2 py-0`}>
+                        {order.priority}
+                      </Badge>
+                      <Badge className={`${getStatusColor(order.status)} text-xs px-2 py-0`}>
+                        {order.status}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-gray-600">{order.clientName}</p>
+                    <p className="text-sm text-gray-600">{order.jobId}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="bg-[#003a70] hover:bg-[#002850] gap-1 shrink-0"
+                    onClick={() => onStartTesting(order)}
+                    disabled={order.approved}
+                  >
+                    {isStarted ? 'Continue' : 'Start'}
+                    <ChevronRight className="w-3 h-3" />
+                  </Button>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500">
-                    {order.assignedUnitIds?.length ? 'Assigned Qty' : 'Quantity'}
-                  </p>
-                  <p className="text-gray-900 mt-0.5">
-                    {order.assignedUnitIds?.length || order.quantity} units
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Cores</p>
-                  <div className="flex gap-1 mt-0.5 flex-wrap">
-                    {/* {order.coreConfiguration.map((config, idx) => (
+
+                {/* Details Grid */}
+                <div className="grid grid-cols-4 gap-4 text-sm border-t pt-3">
+                  <div>
+                    <p className="text-xs text-gray-500">Transformer</p>
+                    <p className="text-gray-900 mt-0.5">{order.transformerName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      {order.assignedUnitIds?.length ? 'Assigned Qty' : 'Quantity'}
+                    </p>
+                    <p className="text-gray-900 mt-0.5">
+                      {order.assignedUnitIds?.length || order.quantity} units
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Cores</p>
+                    <div className="flex gap-1 mt-0.5 flex-wrap">
+                      {/* {order.coreConfiguration.map((config, idx) => (
                       <Badge key={idx} className={`${getCoreTypeColor(config.type)} text-xs px-1.5 py-0 gap-1`}>
                         {getCoreTypeIcon(config.type)}
                         {config.type}
@@ -193,48 +199,49 @@ export function CoreTestingOrders({ onStartTesting, user, type = 'active' }: Cor
 
 
 
-                    {order.coreDetails?.map((core, idx) => (
-                      <Badge
-                        key={idx}
-                        className={`${getCoreTypeColor(core.coreType)} text-xs px-1.5 py-0 gap-1`}
-                      >
-                        {getCoreTypeIcon(core.coreType)}
-                        {core.coreType}
-                      </Badge>
-                    ))}
+                      {order.coreDetails?.map((core, idx) => (
+                        <Badge
+                          key={idx}
+                          className={`${getCoreTypeColor(core.coreType)} text-xs px-1.5 py-0 gap-1`}
+                        >
+                          {getCoreTypeIcon(core.coreType)}
+                          {core.coreType}
+                        </Badge>
+                      ))}
 
 
 
 
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Deadline</p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <Clock className="w-3 h-3 text-gray-400" />
+                      {/* <span className="text-gray-900 text-xs">{order.deadline}</span> */}
+
+
+                      <span>{new Date(order.deadline).toLocaleDateString()}</span>
+
+
+
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500">Deadline</p>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <Clock className="w-3 h-3 text-gray-400" />
-                    {/* <span className="text-gray-900 text-xs">{order.deadline}</span> */}
 
-
-                    <span>{new Date(order.deadline).toLocaleDateString()}</span>
-
-
-
+                {/* Instructions */}
+                {order.instructions && (
+                  <div className="bg-blue-50 rounded p-2 border-l-2 border-blue-400">
+                    <p className="text-xs text-gray-700">{order.instructions}</p>
                   </div>
-                </div>
+                )}
               </div>
-
-              {/* Instructions */}
-              {order.instructions && (
-                <div className="bg-blue-50 rounded p-2 border-l-2 border-blue-400">
-                  <p className="text-xs text-gray-700">{order.instructions}</p>
-                </div>
-              )}
-            </div>
-          </Card>
-        ))}
+            </Card>
+          )
+        })}
       </div>
 
-      {orders.length === 0 && (
+      {activeOrders.length === 0 && (
         <Card className="p-8">
           <div className="text-center text-gray-500">
             <Package className="w-8 h-8 mx-auto mb-2 text-gray-400" />

@@ -5,7 +5,7 @@
 // import { ArrowLeft, Save, Download, Printer } from 'lucide-react';
 // import { Transformer } from './SecondaryTransformersList';
 // import { exportSecondaryProtectionReport } from '../../utils/pdfExport';
-// import { toast } from 'sonner@2.0.3';
+// import { toast } from 'sonner';
 
 // interface SecondaryProtectionReportProps {
 //   transformer: Transformer;
@@ -229,10 +229,9 @@
 
 import axios from 'axios';
 import React, { useState, useEffect } from 'react';
-import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { ArrowLeft, Save, Download, Printer } from 'lucide-react';
+import { ArrowLeft, Save, Printer } from 'lucide-react';
 import { Transformer } from './SecondaryTransformersList';
 import { toast } from 'sonner';
 
@@ -349,7 +348,7 @@ export function SecondaryProtectionReport({
       }
     };
     fetchLatestData();
-  }, [transformer.uniqueId, coreId, stage]);
+  }, [transformer.uniqueId, coreId, stage, ratiosToUse]);
 
   // Robust Parsing Helpers
   const parseRatedCurrent = (ratio: any): number => {
@@ -485,15 +484,157 @@ export function SecondaryProtectionReport({
   };
 
 
-  // Check Completion
-  const isComplete = testResults.length > 0 && testResults.every(row =>
-    row.ratioError100 && row.phaseError && row.resistance &&
-    row.secondaryLimitingVoltage && row.excitationCurrent && row.compositeError && row.alf
-  );
-
-
   return (
     <div className="space-y-6 p-4">
+      <style>{`
+        #print-section {
+          background: white;
+          padding: 5mm 10mm;
+          min-height: 297mm;
+          width: 100%;
+          box-sizing: border-box;
+          color: black;
+          font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        .report-header-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          border: 1.5px solid #000;
+          margin-bottom: 0;
+        }
+        
+        .header-left {
+          padding: 10px;
+          border-right: 1.5px solid #000;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+        
+        .header-right {
+          display: grid;
+          grid-template-rows: repeat(5, 1fr);
+        }
+        
+        .header-field {
+          display: grid;
+          grid-template-columns: 100px 1fr;
+          border-bottom: 1px solid #000;
+          font-size: 11px;
+        }
+        
+        .header-field:last-child {
+          border-bottom: none;
+        }
+        
+        .field-label {
+          padding: 4px 8px;
+          border-right: 1px solid #000;
+          text-align: right;
+          font-weight: 600;
+        }
+        
+        .field-value {
+          padding: 4px 8px;
+          font-weight: 500;
+        }
+        
+        .report-title-banner {
+          background-color: #ffffff !important; /* White */
+          border-left: 1.5px solid #000;
+          border-right: 1.5px solid #000;
+          border-bottom: 2px solid #000;
+          text-align: center;
+          padding: 6px;
+          font-weight: bold;
+          font-size: 18px;
+          text-transform: uppercase;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        
+        .description-banner {
+          background-color: #f8fafc !important; /* Minimalist Light Gray */
+          border-left: 1.5px solid #000;
+          border-right: 1.5px solid #000;
+          border-bottom: 1px solid #000;
+          text-align: center;
+          padding: 4px;
+          font-weight: bold;
+          font-size: 14px;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .nested-table {
+          width: 100%;
+          border-collapse: collapse;
+          border: 1.5px solid #000;
+          table-layout: fixed;
+        }
+        
+        .nested-table td, .nested-table th {
+          border: 1px solid #000;
+          padding: 4px;
+          text-align: center;
+          font-size: 11px;
+          height: 24px;
+        }
+        
+        .bg-yellow { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .bg-blue { background-color: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .bg-green { background-color: #ffffff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .bg-cyan { background-color: #ffffff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+        .footer-sig {
+          margin-top: 40px;
+          display: flex;
+          justify-content: space-between;
+          padding: 0 40px;
+        }
+        
+        .sig-item {
+          text-align: center;
+          width: 200px;
+        }
+        
+        .sig-line {
+          border-top: 1.5px solid #000;
+          margin-top: 60px;
+          padding-top: 5px;
+          font-weight: bold;
+          font-size: 13px;
+        }
+
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+          body * {
+            visibility: hidden;
+          }
+          #print-section, #print-section * {
+            visibility: visible;
+          }
+          #print-section {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 190mm;
+          }
+          input, select {
+            border: none !important;
+            background: transparent !important;
+            outline: none !important;
+            font-weight: 500 !important;
+            text-align: center !important;
+            width: 100% !important;
+            color: black !important;
+          }
+        }
+      `}</style>
       {/* Top Navigation */}
       <div className="flex items-center justify-between no-print">
         <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
@@ -506,182 +647,213 @@ export function SecondaryProtectionReport({
         </div>
       </div>
 
-      <Card className={`p-0 border overflow-hidden ${isComplete ? 'border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]' : 'border-gray-400'}`}>
-        {/* Main Title Header */}
-        <div className={`border-b p-2 text-center ${isComplete ? 'bg-green-100 border-green-500' : 'bg-[#92d050] border-gray-400'}`}>
-          <h2 className="text-sm font-bold uppercase">Pretest After Secondary Winding {isComplete && '(Completed)'}</h2>
-        </div>
-
-        {/* Advent Engineers Sub-Header */}
-        <div className="flex justify-between items-center p-3 border-b border-gray-400">
-          <div>
-            <h3 className="text-red-600 font-bold uppercase italic text-lg leading-tight">Advent Engineers</h3>
-            <p className="text-[10px] text-gray-500 font-medium tracking-tighter">TRANSFORMER TESTING REPORT</p>
+      <div id="print-section">
+        {/* Header Grid */}
+        <div className="report-header-grid">
+          <div className="header-left">
+            <h1 className="text-2xl font-bold italic text-red-600 leading-tight">ADVENT ENGINEERS</h1>
           </div>
-          <div className="text-right flex flex-col items-end">
-            <p className="text-[10px] text-gray-400 mt-1 uppercase">Date: {new Date().toLocaleDateString()}</p>
+          <div className="header-right">
+            <div className="header-field">
+              <span className="field-label">Date :</span>
+              <span className="field-value">{new Date().toLocaleDateString('en-GB')}</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Order No :</span>
+              <span className="field-value">{transformer.uniqueId}</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Client :</span>
+              <span className="field-value">N/A</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Unit No :</span>
+              <span className="field-value">{transformer.uniqueId}</span>
+            </div>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[11px]">
-            {/* NEW TABLE STRUCTURE MATCHING HANDWRITTEN REFERENCE */}
-            <thead>
-              {/* HEADER BOX ROW 1: DYNAMIC SPECS */}
-              <tr className="bg-white">
-                <th className="border border-gray-400 p-2 text-center font-bold text-sm" colSpan={6}>
-                  {/* Constructing dynamic string: Voltage, Type, Ratio, Burden, protection */}
-                  {`${transformer.orderId?.voltage || '33KV'}, ${transformer.orderId?.type || 'CT'}, ${(Array.isArray(transformer.ratios) ? transformer.ratios.join('-') : transformer.orderId?.ratio?.join('-')) || '800-400-200'}/${transformer.orderId?.secondaryCurrent || '1-1-1A'}, ${transformer.orderId?.burden || '30VA'}, protection`}
-                </th>
-              </tr>
-
-              {/* HEADER BOX ROW 2: SUB-HEADERS */}
-              <tr className="bg-white">
-                {/* Left Space (Aligns with Ratio & 100% cols) */}
-                <th className="border border-gray-400 p-2" colSpan={2}></th>
-
-                {/* Middle: 100% Burden (Aligns with Burden input cols) */}
-                <th className="border border-gray-400 p-2 text-center font-bold text-sm" colSpan={2}>
-                  100 % Burden
-                </th>
-
-                {/* Right: Protection Core No (Aligns with Result cols) */}
-                <th className="border border-gray-400 p-2 text-right" colSpan={2}>
-                  <div className="flex justify-end items-center gap-2">
-                    <span className="font-bold text-sm">protection core no.</span>
-                    <span className="border-b border-gray-600 px-2 min-w-[60px] text-blue-700 font-medium">{coreId}</span>
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {testResults.map((row, index) => (
-                <React.Fragment key={index}>
-                  {/* --- ROW 1: Ratio (Span 3), 100% Label, Burden 1, Burden 2, Empty --- */}
-                  <tr className="border-t-2 border-gray-800"> {/* Thicker top border for separation between groups */}
-                    {/* COL 1: Ratio (Spans 3 Rows) */}
-                    <td rowSpan={3} className="border border-gray-400 p-2 bg-white font-bold text-center align-middle w-[150px]">
-                      Protection Core<br />Ratio - {row.ratio}
-                    </td>
-
-                    {/* COL 2: "100%" Label */}
-                    <td className="border border-gray-400 p-2 text-center bg-white font-bold text-xs w-[120px]">
-                      100%
-                    </td>
-
-                    {/* COL 3: Ratio Error (was Burden 1) */}
-                    <td className="border border-gray-400 p-0 w-[120px]">
-                      <Input
-                        className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full"
-                        value={row.ratioError100}
-                        onChange={(e) => handleInputChange(index, 'ratioError100', e.target.value)}
-                        placeholder=""
-                        disabled={readOnly}
-                      />
-                    </td>
-
-                    {/* COL 4: Phase Error (was Burden 2) */}
-                    <td className="border border-gray-400 p-0 w-[120px]">
-                      <Input
-                        className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full"
-                        value={row.phaseError}
-                        onChange={(e) => handleInputChange(index, 'phaseError', e.target.value)}
-                        placeholder=""
-                        disabled={readOnly}
-                      />
-                    </td>
-
-                    {/* COL 5 & 6: Empty Cells */}
-                    <td className="border border-gray-400 bg-white"></td>
-                    <td className="border border-gray-400 bg-white"></td>
-                  </tr>
-
-                  {/* --- ROW 2: Labels Only --- */}
-                  <tr>
-                    {/* Ratio occupied above */}
-                    <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
-                      Resistance
-                    </td>
-                    <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
-                      ALF
-                    </td>
-                    <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
-                      Excitation Current
-                    </td>
-                    <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
-                      Secondary<br />Limiting Voltage
-                    </td>
-                    <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
-                      Composite Error
-                    </td>
-                  </tr>
-
-                  {/* --- ROW 3: Values Inputs --- */}
-                  <tr>
-                    {/* Ratio occupied above */}
-                    <td className="border border-gray-400 p-0">
-                      <Input
-                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
-                        value={row.resistance}
-                        onChange={(e) => handleInputChange(index, 'resistance', e.target.value)}
-                        disabled={readOnly}
-                      />
-                    </td>
-                    <td className="border border-gray-400 p-0">
-                      {/* ALF Input BOUND TO NEW FIELD */}
-                      <Input
-                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
-                        value={row.alf}
-                        onChange={(e) => handleInputChange(index, 'alf', e.target.value)}
-                        placeholder=""
-                        disabled={readOnly}
-                      />
-                    </td>
-                    <td className="border border-gray-400 p-0">
-                      <Input
-                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
-                        value={row.excitationCurrent}
-                        onChange={(e) => handleInputChange(index, 'excitationCurrent', e.target.value)}
-                        disabled={readOnly}
-                      />
-                    </td>
-                    <td className="border border-gray-400 p-0">
-                      {/* MAPPED to secondaryLimitingVoltage */}
-                      <Input
-                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50"
-                        value={row.secondaryLimitingVoltage}
-                        // onChange handler removed/ignored since it's auto-calculated
-                        onChange={() => { }}
-                        readOnly={true} // Strictly derived
-                        disabled={readOnly} // Keeps styling consistent if whole form is readOnly
-                      />
-                    </td>
-                    <td className="border border-gray-400 p-0">
-                      <Input
-                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50"
-                        value={row.compositeError}
-                        // onChange handler removed/ignored
-                        onChange={() => { }}
-                        readOnly={true} // Strictly derived
-                        disabled={readOnly}
-                      />
-                    </td>
-                  </tr>
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
+        {/* Banners */}
+        <div className="report-title-banner">
+          PROTECTION CORE TEST REPORT
         </div>
-      </Card>
+        <div className="description-banner">
+          Secondary Verification - {coreId}
+        </div>
+
+        <div className="mt-4">
+
+          <div className="overflow-x-auto">
+            <table className="nested-table">
+              <thead>
+                <tr className="bg-yellow">
+                  <th className="text-center font-bold" colSpan={6}>
+                    {`${transformer.orderId?.voltage || '33KV'}, ${transformer.orderId?.type || 'CT'}, ${(Array.isArray(transformer.ratios) ? transformer.ratios.join('-') : transformer.orderId?.ratio?.join('-')) || '800-400-200'}/${transformer.orderId?.secondaryCurrent || '1-1-1A'}, ${transformer.orderId?.burden || '30VA'}, protection`}
+                  </th>
+                </tr>
+
+                {/* HEADER BOX ROW 2: SUB-HEADERS */}
+                <tr className="bg-white">
+                  {/* Left Space (Aligns with Ratio & 100% cols) */}
+                  <th className="border border-gray-400 p-2" colSpan={2}></th>
+
+                  {/* Middle: 100% Burden (Aligns with Burden input cols) */}
+                  <th className="border border-gray-400 p-2 text-center font-bold text-sm" colSpan={2}>
+                    100 % Burden
+                  </th>
+
+                  {/* Right: Protection Core No (Aligns with Result cols) */}
+                  <th className="border border-gray-400 p-2 text-right" colSpan={2}>
+                    <div className="flex justify-end items-center gap-2">
+                      <span className="font-bold text-sm">protection core no.</span>
+                      <span className="border-b border-gray-600 px-2 min-w-[60px] text-blue-700 font-medium">{coreId}</span>
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {testResults.map((row, index) => (
+                  <React.Fragment key={index}>
+                    {/* --- ROW 1: Ratio (Span 3), 100% Label, Burden 1, Burden 2, Empty --- */}
+                    <tr className="border-t-2 border-gray-800"> {/* Thicker top border for separation between groups */}
+                      {/* COL 1: Ratio (Spans 3 Rows) */}
+                      <td rowSpan={3} className="bg-yellow font-bold text-center align-middle w-[150px]">
+                        Protection Core<br />Ratio - {row.ratio}
+                      </td>
+
+                      {/* COL 2: "100%" Label */}
+                      <td className="border border-gray-400 p-2 text-center bg-white font-bold text-xs w-[120px]">
+                        100%
+                      </td>
+
+                      {/* COL 3: Ratio Error (was Burden 1) */}
+                      <td className="border border-gray-400 p-0 w-[120px]">
+                        <Input
+                          className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full"
+                          value={row.ratioError100}
+                          onChange={(e) => handleInputChange(index, 'ratioError100', e.target.value)}
+                          placeholder=""
+                          disabled={readOnly}
+                        />
+                      </td>
+
+                      {/* COL 4: Phase Error (was Burden 2) */}
+                      <td className="border border-gray-400 p-0 w-[120px]">
+                        <Input
+                          className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full"
+                          value={row.phaseError}
+                          onChange={(e) => handleInputChange(index, 'phaseError', e.target.value)}
+                          placeholder=""
+                          disabled={readOnly}
+                        />
+                      </td>
+
+                      {/* COL 5 & 6: Empty Cells */}
+                      <td className="border border-gray-400 bg-white"></td>
+                      <td className="border border-gray-400 bg-white"></td>
+                    </tr>
+
+                    {/* --- ROW 2: Labels Only --- */}
+                    <tr>
+                      {/* Ratio occupied above */}
+                      <td className="bg-gray-50 font-bold text-[10px]">
+                        Resistance
+                      </td>
+                      <td className="bg-gray-50 font-bold text-[10px]">
+                        ALF
+                      </td>
+                      <td className="bg-gray-50 font-bold text-[10px]">
+                        Excitation Current
+                      </td>
+                      <td className="bg-gray-50 font-bold text-[10px]">
+                        Secondary<br />Limiting Voltage
+                      </td>
+                      <td className="bg-gray-50 font-bold text-[10px]">
+                        Composite Error
+                      </td>
+                    </tr>
+
+                    {/* --- ROW 3: Values Inputs --- */}
+                    <tr>
+                      {/* Ratio occupied above */}
+                      <td className="border border-gray-400 p-0">
+                        <Input
+                          className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
+                          value={row.resistance}
+                          onChange={(e) => handleInputChange(index, 'resistance', e.target.value)}
+                          disabled={readOnly}
+                        />
+                      </td>
+                      <td className="border border-gray-400 p-0">
+                        {/* ALF Input BOUND TO NEW FIELD */}
+                        <Input
+                          className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
+                          value={row.alf}
+                          onChange={(e) => handleInputChange(index, 'alf', e.target.value)}
+                          placeholder=""
+                          disabled={readOnly}
+                        />
+                      </td>
+                      <td className="border border-gray-400 p-0">
+                        <Input
+                          className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
+                          value={row.excitationCurrent}
+                          onChange={(e) => handleInputChange(index, 'excitationCurrent', e.target.value)}
+                          disabled={readOnly}
+                        />
+                      </td>
+                      <td className="border border-gray-400 p-0">
+                        {/* MAPPED to secondaryLimitingVoltage */}
+                        <Input
+                          className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50"
+                          value={row.secondaryLimitingVoltage}
+                          // onChange handler removed/ignored since it's auto-calculated
+                          onChange={() => { }}
+                          readOnly={true} // Strictly derived
+                          disabled={readOnly} // Keeps styling consistent if whole form is readOnly
+                        />
+                      </td>
+                      <td className="border border-gray-400 p-0">
+                        <Input
+                          className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50"
+                          value={row.compositeError}
+                          // onChange handler removed/ignored
+                          onChange={() => { }}
+                          readOnly={true} // Strictly derived
+                          disabled={readOnly}
+                        />
+                      </td>
+                    </tr>
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Footer Signatures */}
+        <div className="footer-sig">
+          <div className="sig-item">
+            <div className="sig-line">Tested by</div>
+            <div className="text-xs mt-1 font-bold">{testerName || 'Tester'}</div>
+          </div>
+          <div className="sig-item">
+            <div className="sig-line">Authorised Signatory</div>
+            <div className="text-[10px] mt-1 italic italic-bold text-gray-500">Stamp & Signature</div>
+          </div>
+        </div>
+      </div>
 
       {/* Database Actions */}
-      <div className="flex gap-3 no-print">
+      <div className="flex gap-3 no-print pt-4">
         {!readOnly && (
           <Button
+            variant="outline"
+            size="sm"
             onClick={handleDatabaseSave}
-            className="bg-red-600 hover:bg-red-700 gap-2"
+            className="gap-2"
           >
-            <Save className="w-4 h-4" /> Save to Database
+            <Save className="w-4 h-4" /> Save
           </Button>
         )}
       </div>

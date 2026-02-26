@@ -67,6 +67,9 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
     const adminDepartments = ["Management", "Office", "Admin"];
     if (adminDepartments.includes(user.department) || user.designation === "Admin") {
       const query = req.query.stage ? { currentStage: req.query.stage } : { currentStage: "core" };
+      if (req.query.type === 'active') {
+        query.approved = { $ne: true };
+      }
       const orders = await OrderModel.find(query).sort({ updatedAt: -1 });
       return res.json(orders);
     }
@@ -183,9 +186,14 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
 
       // Combine: Show order if (Transformers are assigned OR Order says I'm assigned)
       finalOrderQuery = {
-        $or: [
-          transformerBasedQuery,
-          directAssignmentQuery
+        $and: [
+          {
+            $or: [
+              transformerBasedQuery,
+              directAssignmentQuery
+            ]
+          },
+          { approved: { $ne: true } }
         ]
       };
 

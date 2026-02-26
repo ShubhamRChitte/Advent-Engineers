@@ -2,7 +2,7 @@ import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Download, FileText, Calendar, Filter } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export function ReportsView() {
   const handleExport = (reportType: string, format: string) => {

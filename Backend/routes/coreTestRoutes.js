@@ -42,13 +42,66 @@ router.put('/approve/:orderId', isAuthenticated, async (req, res) => {
         // If remaining == 0, then we can mark Order as Core Testing Completed.
         let orderUpdate = null;
         if (remainingCoreUnits === 0) {
+
+            // --- AGGREGATE CORE TEST DATA FOR REPORT ---
+            const { MeteringCoreTestModel } = require('../models/MeteringCoreTestModel');
+            const { ProtectionCoreTestModel } = require('../models/ProtectionCoreTestModel');
+
+            const [meteringTests, protectionTests] = await Promise.all([
+                MeteringCoreTestModel.find({ orderId: orderId }).lean(),
+                ProtectionCoreTestModel.find({ orderId: orderId }).lean()
+            ]);
+
+            const allCores = [];
+
+            // Helper to format Date
+            const formatDate = (date) => date ? new Date(date).toLocaleDateString('en-GB') : '';
+
+            // Map Metering Tests
+            meteringTests.forEach(test => {
+                allCores.push({
+                    coreName: 'Metering',
+                    coreType: 'Metering',
+                    testSetup: test.testSetup || {},
+                    testLimits: test.testLimits || {},
+                    testedBy: test.testedBy,
+                    tableData: (test.readings || []).map(r => ({
+                        date: formatDate(r.date),
+                        vendorCoreNo: r.vendorCoreNo,
+                        internalCoreNo: r.internalCoreNo,
+                        measuredMa: r.measuredMa || [],
+                        result: r.result
+                    }))
+                });
+            });
+
+            // Map Protection and PS Tests
+            protectionTests.forEach(test => {
+                allCores.push({
+                    coreName: test.coreType, // Protection or PS
+                    coreType: test.coreType,
+                    testSetup: test.testSetup || {},
+                    testSpecification: test.testSpecification || {},
+                    testedBy: test.testedBy,
+                    tableData: (test.readings || []).map(r => ({
+                        date: formatDate(r.date),
+                        vendorCoreNo: r.vendorCoreNo,
+                        internalCoreNo: r.internalCoreNo,
+                        value: r.value,
+                        result: r.result
+                    }))
+                });
+            });
+
             orderUpdate = await OrderModel.findByIdAndUpdate(
                 orderId,
                 {
                     $set: {
                         currentStage: "secondary",
                         status: "Core Testing Completed",
-                        "completionStages.core": true
+                        "completionStages.core": true,
+                        reportData: allCores, // Save the aggregated array!
+                        approved: true // Set approved to true here to move to Orders tab
                     }
                 },
                 { new: true }
@@ -63,6 +116,40 @@ router.put('/approve/:orderId', isAuthenticated, async (req, res) => {
         });
 
     } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/core-tests/orders/completed
+// Fetch all orders that have completed core testing
+router.get('/orders/completed', isAuthenticated, async (req, res) => {
+    try {
+        // Find orders where approved is true
+        const completedOrders = await OrderModel.find({
+            approved: true
+        }).sort({ updatedAt: -1 });
+
+        res.status(200).json(completedOrders);
+    } catch (err) {
+        console.error("Error fetching completed orders:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/core-tests/report/:jobId
+// Fetch a specific order report by jobId
+router.get('/report/:jobId', isAuthenticated, async (req, res) => {
+    try {
+        const { jobId } = req.params;
+        const order = await OrderModel.findOne({ jobId });
+
+        if (!order) {
+            return res.status(404).json({ error: "Order not found" });
+        }
+
+        res.status(200).json(order);
+    } catch (err) {
+        console.error("Error fetching report:", err);
         res.status(500).json({ error: err.message });
     }
 });

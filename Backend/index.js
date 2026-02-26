@@ -1692,6 +1692,14 @@ app.put('/api/core-tests/approve-batch', async (req, res) => {
     const results = await Promise.all(updatePromises);
     const successCount = results.filter(r => r !== null).length;
 
+    // Update the parent Order to reflect approval for the new Tab workflow
+    try {
+      const { OrderModel } = require('./models/OrderModel');
+      await OrderModel.findOneAndUpdate({ jobId: jobId }, { approved: true });
+    } catch (e) {
+      console.error("[Batch Approve] Failed to update OrderModel approved status:", e);
+    }
+
     res.status(200).json({
       success: true,
       message: `Batch processed. Approved ${successCount} / ${internalCoreNos.length} cores.`,

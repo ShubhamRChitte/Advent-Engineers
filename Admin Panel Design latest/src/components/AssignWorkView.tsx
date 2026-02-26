@@ -4,7 +4,7 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { UserPlus, CheckCircle2 } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface Order {
   id: string;

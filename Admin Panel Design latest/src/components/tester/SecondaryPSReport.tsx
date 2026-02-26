@@ -5,7 +5,7 @@
 // import { ArrowLeft, Save, Download, Printer } from 'lucide-react';
 // import { Transformer } from './SecondaryTransformersList';
 // import { exportSecondaryPSReport } from '../../utils/pdfExport';
-// import { toast } from 'sonner@2.0.3';
+// import { toast } from 'sonner';
 
 // interface SecondaryPSReportProps {
 //   transformer: Transformer;
@@ -293,7 +293,7 @@
 // import { ArrowLeft, Save, Download, Printer } from 'lucide-react';
 // import { Transformer } from './SecondaryTransformersList';
 // import { exportSecondaryPSReport } from '../../utils/pdfExport';
-// import { toast } from 'sonner@2.0.3';
+// import { toast } from 'sonner';
 
 // interface SecondaryPSReportProps {
 //   transformer: Transformer;
@@ -557,11 +557,11 @@
 
 import axios from 'axios';
 import React, { useState } from 'react';
-import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { ArrowLeft, Save, Download, Printer } from 'lucide-react';
+import { ArrowLeft, Save, Printer } from 'lucide-react';
 import { toast } from 'sonner';
+import { Transformer } from './SecondaryTransformersList';
 
 interface PSRow {
   ratioValue: string;
@@ -727,6 +727,155 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
 
   return (
     <div className="space-y-6 p-4 bg-white">
+      <style>{`
+        #print-section {
+          background: white;
+          padding: 5mm 10mm;
+          min-height: 297mm;
+          width: 100%;
+          box-sizing: border-box;
+          color: black;
+          font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        .report-header-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          border: 1.5px solid #000;
+          margin-bottom: 0;
+        }
+        
+        .header-left {
+          padding: 10px;
+          border-right: 1.5px solid #000;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+        
+        .header-right {
+          display: grid;
+          grid-template-rows: repeat(5, 1fr);
+        }
+        
+        .header-field {
+          display: grid;
+          grid-template-columns: 100px 1fr;
+          border-bottom: 1px solid #000;
+          font-size: 11px;
+        }
+        
+        .header-field:last-child {
+          border-bottom: none;
+        }
+        
+        .field-label {
+          padding: 4px 8px;
+          border-right: 1px solid #000;
+          text-align: right;
+          font-weight: 600;
+        }
+        
+        .field-value {
+          padding: 4px 8px;
+          font-weight: 500;
+        }
+        
+        .report-title-banner {
+          background-color: #ffffff !important; /* White */
+          border-left: 1.5px solid #000;
+          border-right: 1.5px solid #000;
+          border-bottom: 2px solid #000;
+          text-align: center;
+          padding: 6px;
+          font-weight: bold;
+          font-size: 18px;
+          text-transform: uppercase;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        
+        .description-banner {
+          background-color: #f8fafc !important; /* Minimalist Light Gray */
+          border-left: 1.5px solid #000;
+          border-right: 1.5px solid #000;
+          border-bottom: 1px solid #000;
+          text-align: center;
+          padding: 4px;
+          font-weight: bold;
+          font-size: 14px;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .nested-table {
+          width: 100%;
+          border-collapse: collapse;
+          border: 1.5px solid #000;
+          table-layout: fixed;
+        }
+        
+        .nested-table td, .nested-table th {
+          border: 1px solid #000;
+          padding: 4px;
+          text-align: center;
+          font-size: 11px;
+          height: 24px;
+        }
+        
+        .bg-yellow { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .bg-blue { background-color: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .bg-green { background-color: #ffffff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .bg-cyan { background-color: #ffffff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+        .footer-sig {
+          margin-top: 40px;
+          display: flex;
+          justify-content: space-between;
+          padding: 0 40px;
+        }
+        
+        .sig-item {
+          text-align: center;
+          width: 200px;
+        }
+        
+        .sig-line {
+          border-top: 1.5px solid #000;
+          margin-top: 60px;
+          padding-top: 5px;
+          font-weight: bold;
+          font-size: 13px;
+        }
+
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+          body * {
+            visibility: hidden;
+          }
+          #print-section, #print-section * {
+            visibility: visible;
+          }
+          #print-section {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 190mm;
+          }
+          input, select {
+            border: none !important;
+            background: transparent !important;
+            outline: none !important;
+            font-weight: 500 !important;
+            text-align: center !important;
+            width: 100% !important;
+            color: black !important;
+          }
+        }
+      `}</style>
       <div className="flex items-center justify-between no-print">
         <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
           <ArrowLeft className="w-4 h-4" /> Back
@@ -736,111 +885,145 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
         </Button>
       </div>
 
-      <Card className={`p-0 border overflow-hidden shadow-none rounded-none ${isComplete ? 'border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]' : 'border-gray-400'}`}>
-        <div className={`border-b p-2 text-center ${isComplete ? 'bg-green-100 border-green-500' : 'bg-[#92d050] border-gray-400'}`}>
-          <h2 className="text-sm font-bold uppercase">Pretest After Secondary Winding {isComplete && '(Completed)'}</h2>
+      <div id="print-section">
+        {/* Header Grid */}
+        <div className="report-header-grid">
+          <div className="header-left">
+            <h1 className="text-2xl font-bold italic text-red-600 leading-tight">ADVENT ENGINEERS</h1>
+          </div>
+          <div className="header-right">
+            <div className="header-field">
+              <span className="field-label">Date :</span>
+              <span className="field-value">{new Date().toLocaleDateString('en-GB')}</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Order No :</span>
+              <span className="field-value">{transformer.uniqueId}</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Client :</span>
+              <span className="field-value">N/A</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Unit No :</span>
+              <span className="field-value">{transformer.uniqueId}</span>
+            </div>
+          </div>
         </div>
 
-        <div className="flex justify-between items-center p-3 border-b border-gray-400">
-          <div>
-            <h3 className="text-red-600 font-bold uppercase italic text-xl">Advent Engineers</h3>
-            <span className="text-[10px] font-bold text-gray-500 uppercase">PS Core Test Report</span>
-          </div>
-          <div className="text-right">
-            <p className="text-xs font-bold uppercase">PS Core No: <span className="border-b border-black px-2 text-blue-700 italic">{coreId}</span></p>
-          </div>
+        {/* Banners */}
+        <div className="report-title-banner">
+          PS CORE TEST REPORT
+        </div>
+        <div className="description-banner">
+          Secondary Winding Verification - {coreId}
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[11px]">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="border border-gray-400 p-2 w-[160px]" rowSpan={2}>PS Core Ratio</th>
-                <th className="border border-gray-400 p-2 w-[120px]" rowSpan={2}>Turn Ratio Error at 100%</th>
-                <th className="border border-gray-400 p-2 w-[100px]" rowSpan={2}>Resistance (Ω)</th>
-                <th className="border border-gray-400 p-2 text-center" colSpan={3}>Excitation Current Details</th>
-              </tr>
-              <tr className="bg-gray-100">
-                <th className="border border-gray-400 p-2 text-center w-[180px]">Vk / 1.1Vk (V)</th>
-                <th className="border border-gray-400 p-2 text-center">lex at Vk</th>
-                <th className="border border-gray-400 p-2 text-center">lex at 1.1Vk</th>
-              </tr>
-            </thead>
-            <tbody>
-              {psData.map((row: PSRow, i: number) => (
-                <React.Fragment key={i}>
-                  <tr>
-                    <td rowSpan={2} className="border border-gray-400 p-2 bg-[#ffff00] font-bold text-center align-middle">
-                      PS Core Ratio - {row.ratioValue}
-                    </td>
-                    <td className="border border-gray-400 p-0" rowSpan={2}>
-                      <Input
-                        className="border-none text-center h-16 shadow-none text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
-                        value={row.turnRatioError}
-                        onChange={e => handleUpdate(i, 'turnRatioError', e.target.value)}
-                        disabled={readOnly}
-                      />
-                    </td>
-                    <td className="border border-gray-400 p-0" rowSpan={2}>
-                      <Input
-                        className="border-none text-center h-16 shadow-none text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
-                        value={row.resistance}
-                        onChange={e => handleUpdate(i, 'resistance', e.target.value)}
-                        disabled={readOnly}
-                      />
-                    </td>
-                    <td className="border border-gray-400 p-1 bg-white border-b-0 h-8">
-                      <div className="flex items-center w-full h-full">
-                        <span className="font-bold text-[#0070c0] mr-2 whitespace-nowrap">Vk :</span>
+        <div className="mt-4">
+
+          <div className="overflow-x-auto">
+            <table className="nested-table">
+              <thead>
+                <tr className="bg-yellow">
+                  <th className="w-[160px]" rowSpan={2}>PS Core Ratio</th>
+                  <th className="w-[120px]" rowSpan={2}>Turn Ratio Error at 100%</th>
+                  <th className="w-[100px]" rowSpan={2}>Resistance (Ω)</th>
+                  <th className="text-center" colSpan={3}>Excitation Current Details</th>
+                </tr>
+                <tr className="bg-yellow">
+                  <th className="text-center w-[180px]">Vk / 1.1Vk (V)</th>
+                  <th className="text-center">lex at Vk</th>
+                  <th className="text-center">lex at 1.1Vk</th>
+                </tr>
+              </thead>
+              <tbody>
+                {psData.map((row: PSRow, i: number) => (
+                  <React.Fragment key={i}>
+                    <tr>
+                      <td rowSpan={2} className="border border-gray-400 p-2 bg-[#ffff00] font-bold text-center align-middle">
+                        PS Core Ratio - {row.ratioValue}
+                      </td>
+                      <td className="border border-gray-400 p-0" rowSpan={2}>
                         <Input
-                          className="border-none text-[#0070c0] font-bold h-6 shadow-none flex-1 min-w-[60px] disabled:opacity-100 disabled:cursor-not-allowed"
-                          value={row.vk || ''}
-                          onChange={e => handleUpdate(i, 'vk', e.target.value)}
+                          className="border-none text-center h-16 shadow-none text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
+                          value={row.turnRatioError}
+                          onChange={e => handleUpdate(i, 'turnRatioError', e.target.value)}
                           disabled={readOnly}
                         />
-                      </div>
-                    </td>
-                    <td className="border border-gray-400 p-0" rowSpan={2}>
-                      <Input
-                        className="border-none text-center h-16 shadow-none text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
-                        value={row.iexVk}
-                        onChange={e => handleUpdate(i, 'iexVk', e.target.value)}
-                        disabled={readOnly}
-                      />
-                    </td>
-                    <td className="border border-gray-400 p-0" rowSpan={2}>
-                      <Input
-                        className="border-none text-center h-16 shadow-none text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
-                        value={row.iex11Vk}
-                        onChange={e => handleUpdate(i, 'iex11Vk', e.target.value)}
-                        disabled={readOnly}
-                      />
-                    </td>
-                  </tr>
-                  <tr className="border-b border-gray-400">
-                    <td className="border border-gray-400 p-1 bg-white h-8">
-                      <div className="flex items-center w-full h-full">
-                        <span className="font-bold text-[#0070c0] mr-2 whitespace-nowrap">1.1Vk :</span>
+                      </td>
+                      <td className="border border-gray-400 p-0" rowSpan={2}>
                         <Input
-                          className="border-none text-[#0070c0] font-bold h-6 shadow-none flex-1 min-w-[60px] disabled:opacity-100 disabled:cursor-not-allowed"
-                          value={row.vkVal || ''}
-                          onChange={e => handleUpdate(i, 'vkVal', e.target.value)}
+                          className="border-none text-center h-16 shadow-none text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
+                          value={row.resistance}
+                          onChange={e => handleUpdate(i, 'resistance', e.target.value)}
                           disabled={readOnly}
                         />
-                      </div>
-                    </td>
-                  </tr>
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
+                      </td>
+                      <td className="border border-gray-400 p-1 bg-white border-b-0 h-8">
+                        <div className="flex items-center w-full h-full">
+                          <span className="font-bold text-[#0070c0] mr-2 whitespace-nowrap">Vk :</span>
+                          <Input
+                            className="border-none text-[#0070c0] font-bold h-6 shadow-none flex-1 min-w-[60px] disabled:opacity-100 disabled:cursor-not-allowed"
+                            value={row.vk || ''}
+                            onChange={e => handleUpdate(i, 'vk', e.target.value)}
+                            disabled={readOnly}
+                          />
+                        </div>
+                      </td>
+                      <td className="border border-gray-400 p-0" rowSpan={2}>
+                        <Input
+                          className="border-none text-center h-16 shadow-none text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
+                          value={row.iexVk}
+                          onChange={e => handleUpdate(i, 'iexVk', e.target.value)}
+                          disabled={readOnly}
+                        />
+                      </td>
+                      <td className="border border-gray-400 p-0" rowSpan={2}>
+                        <Input
+                          className="border-none text-center h-16 shadow-none text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
+                          value={row.iex11Vk}
+                          onChange={e => handleUpdate(i, 'iex11Vk', e.target.value)}
+                          disabled={readOnly}
+                        />
+                      </td>
+                    </tr>
+                    <tr className="border-b border-gray-400">
+                      <td className="border border-gray-400 p-1 bg-white h-8">
+                        <div className="flex items-center w-full h-full">
+                          <span className="font-bold text-[#0070c0] mr-2 whitespace-nowrap">1.1Vk :</span>
+                          <Input
+                            className="border-none text-[#0070c0] font-bold h-6 shadow-none flex-1 min-w-[60px] disabled:opacity-100 disabled:cursor-not-allowed"
+                            value={row.vkVal || ''}
+                            onChange={e => handleUpdate(i, 'vkVal', e.target.value)}
+                            disabled={readOnly}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer Signatures */}
+          <div className="footer-sig">
+            <div className="sig-item">
+              <div className="sig-line">Tested by</div>
+              <div className="text-xs mt-1 font-bold">{testerName || 'Tester'}</div>
+            </div>
+            <div className="sig-item">
+              <div className="sig-line">Authorised Signatory</div>
+              <div className="text-[10px] mt-1 italic italic-bold text-gray-500">Stamp & Signature</div>
+            </div>
+          </div>
         </div>
-      </Card>
+      </div>
 
       <div className="flex gap-3 no-print pt-4">
         {!readOnly && (
-          <Button onClick={handleDatabaseSave} variant="outline" className="gap-2">
-            <Save className="w-4 h-4" /> Save to Database
+          <Button onClick={handleDatabaseSave} variant="outline" size="sm" className="gap-2">
+            <Save className="w-4 h-4" /> Save
           </Button>
         )}
       </div>

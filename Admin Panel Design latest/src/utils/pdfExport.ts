@@ -31,23 +31,23 @@ export const PDF_STYLES = {
 // Helper function to add company header
 export function addCompanyHeader(doc: jsPDF, reportTitle: string) {
   const pageWidth = doc.internal.pageSize.getWidth();
-  
+
   // Company Name
   doc.setFontSize(20);
   doc.setTextColor(220, 38, 38); // Red color
   doc.setFont('helvetica', 'bold');
   doc.text('ADVENT ENGINEERS', pageWidth / 2, 20, { align: 'center' });
-  
+
   // Report Title
   doc.setFontSize(14);
   doc.setTextColor(0, 58, 112); // Navy blue
   doc.text(reportTitle, pageWidth / 2, 28, { align: 'center' });
-  
+
   // Divider line
   doc.setDrawColor(220, 38, 38);
   doc.setLineWidth(0.5);
   doc.line(20, 32, pageWidth - 20, 32);
-  
+
   return 38; // Return Y position after header
 }
 
@@ -56,7 +56,7 @@ export function addPageFooter(doc: jsPDF) {
   const pageCount = doc.getNumberOfPages();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  
+
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
@@ -98,8 +98,8 @@ interface CoreTestReportData {
   coreSize2: string;
   coreSize3: string;
   tataRef: string;
-  bsatSpec: string;
-  setMvSpec: string;
+  bsatSpecs: string[];
+  setMvSpecs: string[];
   leLimitSpec: string;
   coreTests: CoreTestData[];
 }
@@ -107,9 +107,9 @@ interface CoreTestReportData {
 export function exportCoreTestingReport(data: CoreTestReportData) {
   const doc = new jsPDF();
   let yPos = addCompanyHeader(doc, 'CORE TESTING REPORT');
-  
+
   yPos += 8;
-  
+
   // Order Information
   doc.setFontSize(11);
   doc.setTextColor(0, 0, 0);
@@ -120,13 +120,13 @@ export function exportCoreTestingReport(data: CoreTestReportData) {
   doc.setFont('helvetica', 'normal');
   doc.text(`Transformer Type: ${data.transformerType}`, 20, yPos);
   yPos += 10;
-  
+
   // Configuration Section
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.text('Configuration', 20, yPos);
   yPos += 6;
-  
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   doc.text(`Toroidal Core Testing: ${data.toroidalType}`, 20, yPos);
@@ -135,20 +135,22 @@ export function exportCoreTestingReport(data: CoreTestReportData) {
   doc.text(`Core Size (mm): OD=${data.coreSize1}, ID=${data.coreSize2}, HT=${data.coreSize3}`, 20, yPos);
   doc.text(`Tata Ref: ${data.tataRef}`, 120, yPos);
   yPos += 10;
-  
+
   // Specifications
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.text('Specifications', 20, yPos);
   yPos += 6;
-  
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.text(`BSAT (G): ${data.bsatSpec}`, 20, yPos);
-  doc.text(`SET mV: ${data.setMvSpec}`, 80, yPos);
-  doc.text(`LE Limit (mA): ${data.leLimitSpec}`, 140, yPos);
+  doc.text(`BSAT (G): ${data.bsatSpecs.join(', ')}`, 20, yPos);
+  yPos += 5;
+  doc.text(`SET mV: ${data.setMvSpecs.join(', ')}`, 20, yPos);
+  yPos += 5;
+  doc.text(`LE Limit (mA): ${data.leLimitSpec}`, 20, yPos);
   yPos += 8;
-  
+
   // Testing Data Table
   const tableData = data.coreTests.map(test => [
     test.date,
@@ -160,10 +162,10 @@ export function exportCoreTestingReport(data: CoreTestReportData) {
     test.bsat4,
     test.remark,
   ]);
-  
+
   doc.autoTable({
     startY: yPos,
-    head: [['Date', 'Vendor Core No', 'Internal Core No', 'BSAT 1', 'BSAT 2', 'BSAT 3', 'BSAT 4', 'Result']],
+    head: [['Date', 'Vendor Core No', 'Internal Core No', ...data.bsatSpecs, 'Result']],
     body: tableData,
     theme: 'grid',
     headStyles: {
@@ -183,7 +185,7 @@ export function exportCoreTestingReport(data: CoreTestReportData) {
         fontStyle: 'bold',
       },
     },
-    didParseCell: function(data: any) {
+    didParseCell: function (data: any) {
       if (data.column.index === 7 && data.section === 'body') {
         if (data.cell.raw === 'P') {
           data.cell.styles.textColor = [22, 163, 74]; // Green
@@ -195,7 +197,7 @@ export function exportCoreTestingReport(data: CoreTestReportData) {
       }
     },
   });
-  
+
   addPageFooter(doc);
   doc.save(`Core_Testing_Report_${data.jobId}_${new Date().getTime()}.pdf`);
 }
@@ -227,15 +229,15 @@ interface SecondaryMeteringReportData {
 export function exportSecondaryMeteringReport(data: SecondaryMeteringReportData) {
   const doc = new jsPDF();
   let yPos = addCompanyHeader(doc, 'METERING TEST REPORT');
-  
+
   yPos += 5;
-  
+
   // Report Info
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.text(`${data.rating}, METERING`, doc.internal.pageSize.getWidth() / 2, yPos, { align: 'center' });
   yPos += 8;
-  
+
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text(`Metering Core No: ${data.coreId}`, 20, yPos);
@@ -246,7 +248,7 @@ export function exportSecondaryMeteringReport(data: SecondaryMeteringReportData)
   doc.text(`Tester: ${data.testerName}`, 20, yPos);
   doc.text(`Date: ${new Date().toLocaleDateString()}`, 80, yPos);
   yPos += 10;
-  
+
   // Helper function to create metering table
   const createMeteringTable = (title: string, tableData: MeteringTestRow[], startY: number) => {
     const rows = tableData.map(row => [
@@ -256,7 +258,7 @@ export function exportSecondaryMeteringReport(data: SecondaryMeteringReportData)
       row.burden25Ratio,
       row.burden25Phase,
     ]);
-    
+
     doc.autoTable({
       startY: startY,
       head: [
@@ -280,17 +282,17 @@ export function exportSecondaryMeteringReport(data: SecondaryMeteringReportData)
         cellPadding: 2,
       },
     });
-    
+
     return (doc as any).lastAutoTable.finalY;
   };
-  
+
   // Add all three tables
   yPos = createMeteringTable(`Metering Core - Ratio ${data.ratio1}`, data.testData1, yPos);
   yPos += 5;
   yPos = createMeteringTable(`Metering Core - Ratio ${data.ratio2}`, data.testData2, yPos);
   yPos += 5;
   createMeteringTable(`Metering Core - Ratio ${data.ratio3}`, data.testData3, yPos);
-  
+
   addPageFooter(doc);
   doc.save(`Metering_Test_Report_${data.transformerId}_${new Date().getTime()}.pdf`);
 }
@@ -317,14 +319,14 @@ interface SecondaryPSReportData {
 export function exportSecondaryPSReport(data: SecondaryPSReportData) {
   const doc = new jsPDF();
   let yPos = addCompanyHeader(doc, 'PS TEST REPORT');
-  
+
   yPos += 5;
-  
+
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.text(`${data.rating}, PS`, doc.internal.pageSize.getWidth() / 2, yPos, { align: 'center' });
   yPos += 8;
-  
+
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text(`PS Core No: ${data.coreId}`, 20, yPos);
@@ -335,7 +337,7 @@ export function exportSecondaryPSReport(data: SecondaryPSReportData) {
   doc.text(`Tester: ${data.testerName}`, 20, yPos);
   doc.text(`Date: ${new Date().toLocaleDateString()}`, 100, yPos);
   yPos += 10;
-  
+
   const tableData = data.testData.map(row => [
     row.ratio,
     row.test1,
@@ -344,7 +346,7 @@ export function exportSecondaryPSReport(data: SecondaryPSReportData) {
     row.test4,
     row.test5,
   ]);
-  
+
   doc.autoTable({
     startY: yPos,
     head: [['Ratio', 'Test 1', 'Test 2', 'Test 3', 'Test 4', 'Test 5']],
@@ -361,7 +363,7 @@ export function exportSecondaryPSReport(data: SecondaryPSReportData) {
       cellPadding: 3,
     },
   });
-  
+
   addPageFooter(doc);
   doc.save(`PS_Test_Report_${data.transformerId}_${new Date().getTime()}.pdf`);
 }
@@ -387,14 +389,14 @@ interface SecondaryProtectionReportData {
 export function exportSecondaryProtectionReport(data: SecondaryProtectionReportData) {
   const doc = new jsPDF();
   let yPos = addCompanyHeader(doc, 'PROTECTION TEST REPORT');
-  
+
   yPos += 5;
-  
+
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.text(`${data.rating}, PROTECTION`, doc.internal.pageSize.getWidth() / 2, yPos, { align: 'center' });
   yPos += 8;
-  
+
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text(`Protection Core No: ${data.coreId}`, 20, yPos);
@@ -405,7 +407,7 @@ export function exportSecondaryProtectionReport(data: SecondaryProtectionReportD
   doc.text(`Tester: ${data.testerName}`, 20, yPos);
   doc.text(`Date: ${new Date().toLocaleDateString()}`, 100, yPos);
   yPos += 10;
-  
+
   const tableData = data.testData.map(row => [
     row.ratio,
     row.burden100,
@@ -413,7 +415,7 @@ export function exportSecondaryProtectionReport(data: SecondaryProtectionReportD
     row.excitationCurrent,
     row.compositeError,
   ]);
-  
+
   doc.autoTable({
     startY: yPos,
     head: [['Ratio', '100% Burden', 'Secondary Limiting Vtg', 'Excitation Current', 'Composite Error']],
@@ -437,7 +439,7 @@ export function exportSecondaryProtectionReport(data: SecondaryProtectionReportD
       4: { cellWidth: 35 },
     },
   });
-  
+
   addPageFooter(doc);
   doc.save(`Protection_Test_Report_${data.transformerId}_${new Date().getTime()}.pdf`);
 }
@@ -465,9 +467,9 @@ interface FinalTestReportData {
 export function exportFinalTestReport(data: FinalTestReportData) {
   const doc = new jsPDF();
   let yPos = addCompanyHeader(doc, 'FINAL TESTING RECORD OF CURRENT TRANSFORMER');
-  
+
   yPos += 5;
-  
+
   // Transformer Information Table
   doc.autoTable({
     startY: yPos,
@@ -488,9 +490,9 @@ export function exportFinalTestReport(data: FinalTestReportData) {
       3: { cellWidth: 50 },
     },
   });
-  
+
   yPos = (doc as any).lastAutoTable.finalY + 10;
-  
+
   // Final Testing Header
   doc.setFillColor(134, 239, 172);
   doc.rect(20, yPos, 170, 8, 'F');
@@ -498,7 +500,7 @@ export function exportFinalTestReport(data: FinalTestReportData) {
   doc.setFont('helvetica', 'bold');
   doc.text('FINAL TESTING', doc.internal.pageSize.getWidth() / 2, yPos + 5.5, { align: 'center' });
   yPos += 12;
-  
+
   // Test Results
   const testSections = [
     { title: '2. Polarity Testing', value: data.polarityResult },
@@ -509,18 +511,18 @@ export function exportFinalTestReport(data: FinalTestReportData) {
     { title: '7. O.V.I.T. Test', value: data.ovitTest },
     { title: '8. Accuracy Test', isMulti: true },
   ];
-  
+
   doc.setFontSize(10);
-  
+
   testSections.forEach(section => {
     doc.setFillColor(243, 244, 246);
     doc.rect(20, yPos, 170, 7, 'F');
     doc.setFont('helvetica', 'bold');
     doc.text(section.title, 22, yPos + 5);
     yPos += 9;
-    
+
     doc.setFont('helvetica', 'normal');
-    
+
     if (section.title === '3. Meggar Test') {
       const meggarData = [
         ['a) Primary to Secondary', data.meggarPrimaryToSecondary],
@@ -554,7 +556,7 @@ export function exportFinalTestReport(data: FinalTestReportData) {
       yPos += 7;
     }
   });
-  
+
   // Signature Section
   yPos += 5;
   doc.autoTable({
@@ -573,7 +575,7 @@ export function exportFinalTestReport(data: FinalTestReportData) {
       1: { cellWidth: 85 },
     },
   });
-  
+
   addPageFooter(doc);
   doc.save(`Final_Test_Report_${data.transformerId}_${new Date().getTime()}.pdf`);
 }

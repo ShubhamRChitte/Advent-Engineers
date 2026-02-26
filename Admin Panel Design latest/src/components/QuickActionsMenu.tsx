@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { Button } from './ui/button';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export function QuickActionsMenu() {
   const handleQuickAction = (action: string) => {

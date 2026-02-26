@@ -97,8 +97,18 @@
 
   @page {
     size: A4 portrait;
-    margin: 10mm;
-    /* Standard industrial margin */
+    margin: 0; /* Removes browser headers/footers */
+  }
+
+  body {
+    margin: 0 !important;
+  }
+
+  #printable-report {
+    visibility: visible !important;
+    padding: 15mm !important; /* Professional internal margin for content */
+    margin: 0 !important;
+    box-sizing: border-box !important;
   }
 
   /* ------------------------------------------------
@@ -108,8 +118,10 @@
   /* Hide buttons, inputs that look like forms, and icons */
   #printable-report button,
   #printable-report .no-print,
+  #printable-report .lucide,
   #printable-report input[type="file"],
-  #printable-report [role="button"] {
+  #printable-report [role="button"],
+  [data-slot="select-trigger"] svg {
     display: none !important;
   }
 
@@ -199,7 +211,9 @@
   */
   #printable-report input,
   #printable-report textarea,
-  #printable-report select {
+  #printable-report select,
+  #printable-report [data-slot="select-trigger"],
+  #printable-report [data-slot="select-value"] {
     border: none !important;
     background: transparent !important;
     box-shadow: none !important;
@@ -215,6 +229,7 @@
     -webkit-appearance: none;
     appearance: none;
     text-align: inherit;
+    display: inline-block !important;
   }
 
   /* Make sure disabled inputs are fully opaque for printing */
@@ -261,6 +276,24 @@
   .report-header {
     display: block !important;
     width: 100% !important;
+  }
+
+  /* Force background colors if desired (e.g. for P/F badges) */
+  .bg-green-100 {
+    background-color: #dcfce7 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .bg-red-100 {
+    background-color: #fee2e2 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Specific Card Print Fix */
+  #printable-report.bg-white {
+    background-color: white !important;
   }
 }
 
