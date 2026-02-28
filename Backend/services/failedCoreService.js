@@ -108,7 +108,117 @@ class FailedCoreService {
         }
     }
 
-    // ... (getFailures logic moved here later)
+    /**
+     * Processes the return of a failed core to the vendor.
+     * Updates FailedCore and the original Test Record.
+     * @param {string} failedCoreId 
+     * @param {string} returnedBy 
+     */
+    async returnToVendor(failedCoreId, returnedBy) {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+
+        try {
+            const failedCore = await FailedCoreModel.findById(failedCoreId).session(session);
+            if (!failedCore) {
+                throw new AppError("Failed core not found", 404, "NOT_FOUND");
+            }
+
+            if (failedCore.status === "RETURNED" || failedCore.returnStatus === "RETURNED") {
+                await session.abortTransaction();
+                session.endSession();
+                return failedCore;
+            }
+
+            // Update FailedCore Document
+            failedCore.status = "RETURNED";
+            failedCore.returnStatus = "RETURNED";
+            failedCore.returnedDate = new Date();
+            failedCore.returnedBy = returnedBy;
+            await failedCore.save({ session });
+
+            // Update Main Test Record
+            const { orderId, internalCoreNo, coreType } = failedCore;
+
+            if (coreType === "METERING") {
+                await MeteringCoreTestModel.updateOne(
+                    { orderId, "readings.internalCoreNo": internalCoreNo },
+                    { $set: { "readings.$.status": "RETURNED" } },
+                    { session }
+                );
+            } else {
+                await ProtectionCoreTestModel.updateOne(
+                    { orderId, "readings.internalCoreNo": internalCoreNo },
+                    { $set: { "readings.$.status": "RETURNED" } },
+                    { session }
+                );
+            }
+
+            await session.commitTransaction();
+            session.endSession();
+            return failedCore;
+
+        } catch (error) {
+            await session.abortTransaction();
+            session.endSession();
+            throw error;
+        }
+    }
+
+    /**
+     * Undoes the return of a failed core, moving it back to FAILED state.
+     * @param {string} failedCoreId 
+     */
+    async undoReturnToVendor(failedCoreId) {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+
+        try {
+            const failedCore = await FailedCoreModel.findById(failedCoreId).session(session);
+            if (!failedCore) {
+                throw new AppError("Failed core not found", 404, "NOT_FOUND");
+            }
+
+            if (failedCore.status !== "RETURNED" && failedCore.returnStatus !== "RETURNED") {
+                await session.abortTransaction();
+                session.endSession();
+                return failedCore; // Already not returned
+            }
+
+            // Revert FailedCore Document
+            failedCore.status = "FAILED";
+            failedCore.returnStatus = "PENDING";
+            failedCore.returnedDate = undefined;
+            failedCore.returnedBy = undefined;
+            await failedCore.save({ session });
+
+            // Revert Main Test Record
+            const { orderId, internalCoreNo, coreType } = failedCore;
+
+            if (coreType === "METERING") {
+                await MeteringCoreTestModel.updateOne(
+                    { orderId, "readings.internalCoreNo": internalCoreNo },
+                    { $set: { "readings.$.status": "FAIL" } },
+                    { session }
+                );
+            } else {
+                await ProtectionCoreTestModel.updateOne(
+                    { orderId, "readings.internalCoreNo": internalCoreNo },
+                    { $set: { "readings.$.status": "FAIL" } },
+                    { session }
+                );
+            }
+
+            await session.commitTransaction();
+            session.endSession();
+            return failedCore;
+
+        } catch (error) {
+            await session.abortTransaction();
+            session.endSession();
+            throw error;
+        }
+    }
 }
 
 module.exports = new FailedCoreService();

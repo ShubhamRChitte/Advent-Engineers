@@ -58,6 +58,7 @@ interface BSATColumn {
 }
 
 export interface FailedCore {
+  _id?: string;
   orderId: string;
   jobId: string;
   clientName: string;
@@ -172,7 +173,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
           const initializedSkeleton = initializeRows();
           const validInternalNos = new Set(initializedSkeleton.map(r => r.internalCoreNo));
 
-          // 2. Map saved rows, but only keep if they match our assignment
+          // 2. Map saved rows, but only keep if they match our assignment and aren't rejected
           const filteredSavedRows = response.data.readings
             .map((r: any) => ({
               date: r.date ? new Date(r.date).toLocaleDateString('en-GB') : getSystemDate(),
@@ -182,9 +183,14 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                 ? Object.fromEntries(bsatColumns.map((col, i) => [col.id, String(r.measuredMa?.[i] || '')]))
                 : ((r.value !== undefined && protectionBColumns[0]) ? { [protectionBColumns[0]?.id ?? '']: String(r.value) } : {}),
               singleValue: r.value !== undefined ? String(r.value) : '',
-              remark: r.result || ''
+              remark: r.result || '',
+              status: r.status || 'PENDING'
             }))
-            .filter((r: { internalCoreNo: string }) => validInternalNos.has(r.internalCoreNo));
+            .filter((r: { internalCoreNo: string, status: string }) =>
+              validInternalNos.has(r.internalCoreNo) &&
+              r.status !== 'FAIL' &&
+              r.status !== 'RETURNED'
+            );
 
           // 3. Merge: Use saved row if exists, else use skeleton default
           const mergedRows = initializedSkeleton.map(skel => {

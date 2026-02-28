@@ -52,6 +52,93 @@ router.post('/', isAuthenticated, async (req, res, next) => {
     }
 });
 
+// PUT /api/failed-cores/:id/return
+// Marks a failed core as returned to vendor
+router.put('/:id/return', isAuthenticated, async (req, res, next) => {
+    try {
+        const failedCoreId = req.params.id;
+        const returnedBy = req.user.name || req.user.fullName || "User"; // Assuming auth sets req.user
+
+        const updatedCore = await failedCoreService.returnToVendor(failedCoreId, returnedBy);
+
+        res.status(200).json({
+            success: true,
+            message: "Core marked as returned to vendor",
+            data: updatedCore
+        });
+    } catch (error) {
+        if (error instanceof AppError) {
+            return res.status(error.statusCode).json({
+                success: false,
+                error: error.errorCode,
+                message: error.message
+            });
+        }
+        console.error("Return to Vendor Error:", error);
+        res.status(500).json({ success: false, message: "Internal Server Error during core return." });
+    }
+});
+
+// POST /api/failed-cores/bulk-return
+// Marks multiple failed cores as returned to vendor
+router.post('/bulk-return', isAuthenticated, async (req, res, next) => {
+    try {
+        const { coreIds } = req.body;
+        if (!Array.isArray(coreIds) || coreIds.length === 0) {
+            return res.status(400).json({ success: false, message: "No core IDs provided." });
+        }
+
+        const returnedBy = req.user.name || req.user.fullName || "User";
+
+        const results = [];
+        const errors = [];
+
+        for (const id of coreIds) {
+            try {
+                const updatedCore = await failedCoreService.returnToVendor(id, returnedBy);
+                results.push(updatedCore);
+            } catch (err) {
+                errors.push({ id, error: err.message });
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Successfully returned ${results.length} cores.`,
+            data: results,
+            errors: errors.length > 0 ? errors : undefined
+        });
+    } catch (error) {
+        console.error("Bulk Return to Vendor Error:", error);
+        res.status(500).json({ success: false, message: "Internal Server Error during bulk core return." });
+    }
+});
+
+// PUT /api/failed-cores/:id/undo-return
+// Undoes the return of a failed core
+router.put('/:id/undo-return', isAuthenticated, async (req, res, next) => {
+    try {
+        const failedCoreId = req.params.id;
+        const updatedCore = await failedCoreService.undoReturnToVendor(failedCoreId);
+
+        res.status(200).json({
+            success: true,
+            message: "Core return undone successfully",
+            data: updatedCore
+        });
+    } catch (error) {
+        if (error instanceof AppError) {
+            return res.status(error.statusCode).json({
+                success: false,
+                error: error.errorCode,
+                message: error.message
+            });
+        }
+        console.error("Undo Return Error:", error);
+        res.status(500).json({ success: false, message: "Internal Server Error during core return undo." });
+    }
+});
+
 // GET /api/failed-cores
 // Fetch failed cores with filtering
 // GET /api/failed-cores
