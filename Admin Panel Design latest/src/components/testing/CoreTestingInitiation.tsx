@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { PrintableCoreLabels } from './PrintableCoreLabels';
 import { ToroidalCoreTestingForm } from './ToroidalCoreTestingForm';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface CoreConfiguration {
   type: 'Metering' | 'PS' | 'Protection';

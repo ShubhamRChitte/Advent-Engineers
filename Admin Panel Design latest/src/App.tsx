@@ -4,6 +4,7 @@ import { AdminLayout } from './components/admin/AdminLayout';
 import { EntryOperatorLayout } from './components/entry/EntryOperatorLayout';
 import { TesterLayout } from './components/tester/TesterLayout';
 import { Toaster } from 'sonner';
+import { ReportPage } from './pages/ReportPage';
 
 export interface User {
   id: string;
@@ -24,6 +25,16 @@ export default function App() {
   const handleLogout = () => {
     setUser(null);
   };
+
+  // Manual route for the Report Page (accessible without strict tester login depending on needs)
+  if (window.location.pathname.startsWith('/report/')) {
+    return (
+      <>
+        <ReportPage />
+        <Toaster />
+      </>
+    );
+  }
 
   if (!user) {
     return <LoginPage onLogin={handleLogin} />;

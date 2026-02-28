@@ -8,6 +8,7 @@ interface ReportHeaderProps {
     clientName?: string;
     reportDate?: string;
     batchId?: string;
+    tataRef?: string;
 }
 
 export const ReportHeader: React.FC<ReportHeaderProps> = ({
@@ -15,62 +16,154 @@ export const ReportHeader: React.FC<ReportHeaderProps> = ({
     orderId = '',
     clientName = '',
     reportDate = new Date().toLocaleDateString(),
-    batchId = ''
+    batchId = '',
+    tataRef = ''
 }) => {
     return (
-        <div className="report-header mb-6 pb-4 border-b-2 border-gray-800">
-            <div className="flex justify-between items-start">
-                {/* Left: Brand */}
-                <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 relative">
+        <div className="report-header">
+            <style>{`
+                @media print {
+                    .report-header {
+                        width: 100%;
+                        margin-bottom: 10px;
+                        border-bottom: 2px solid black;
+                        padding-bottom: 6px;
+                    }
+
+                    /* TOP PART */
+                    .header-top {
+                        display: table;
+                        width: 100%;
+                    }
+
+                    .header-logo {
+                        display: table-cell;
+                        width: 20%;
+                        vertical-align: middle;
+                    }
+
+                    .header-logo img {
+                        width: 85px;
+                        height: 85px;
+                        object-fit: contain;
+                        vertical-align: middle;
+                    }
+
+                    .header-title-section {
+                        display: table-cell;
+                        width: 80%;
+                        text-align: center;
+                        vertical-align: middle;
+                        padding-right: 20%; /* Offset logo space to truly center */
+                    }
+
+                    .header-title-section h1 {
+                        margin: 0 !important;
+                        font-size: 18px !important;
+                        font-weight: bold !important;
+                        color: #003a70 !important;
+                    }
+
+                    .header-title-section p {
+                        margin: 2px 0 !important;
+                        font-size: 11px !important;
+                        color: #4b5563 !important;
+                    }
+
+                    /* BOTTOM PART */
+                    .header-bottom {
+                        display: table;
+                        width: 100%;
+                        margin-top: 5px;
+                    }
+
+                    .left-info {
+                        display: table-cell;
+                        width: 60%;
+                        font-size: 11px;
+                        vertical-align: top;
+                    }
+
+                    .right-info {
+                        display: table-cell;
+                        width: 40%;
+                        text-align: right;
+                        font-size: 11px;
+                        vertical-align: top;
+                    }
+
+                    .left-info p,
+                    .right-info p {
+                        margin: 2px 0;
+                    }
+                    
+                    /* Screen support for centering the Title Banner below header */
+                    .header-banner-title {
+                         text-align: center;
+                    }
+                }
+                
+                /* Screen styles for development consistency */
+                .report-header {
+                    margin-bottom: 1.5rem;
+                    padding-bottom: 1rem;
+                    border-bottom: 2px solid #000;
+                }
+                .header-top {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                }
+                .header-title-section {
+                    text-align: center;
+                    flex-grow: 1;
+                }
+                .header-title-section h1 {
+                    font-size: 1.5rem;
+                    font-weight: bold;
+                    margin: 0;
+                    color: #003a70;
+                }
+                .header-bottom {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-top: 1rem;
+                    font-size: 0.875rem;
+                }
+            `}</style>
+
+            <div className="header-top">
+                <div className="header-logo">
+                    <div className="w-32 h-32 relative">
                         <ImageWithFallback
                             src={logoImage}
                             alt="Advent Engineers Logo"
                             className="w-full h-full object-contain"
                         />
                     </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-[#003a70] m-0 leading-none">
-                            ADVENT ENGINEERS
-                        </h1>
-                        <p className="text-sm text-gray-600 font-medium mt-1">
-                            Excellence in Transformer Core Testing
-                        </p>
-                    </div>
                 </div>
 
-                {/* Right: Metadata */}
-                <div className="text-right text-sm">
-                    <div className="grid grid-cols-[auto_auto] gap-x-3 gap-y-1 text-gray-700">
-                        <span className="font-semibold text-gray-900">Date:</span>
-                        <span>{reportDate}</span>
-
-                        {orderId && (
-                            <>
-                                <span className="font-semibold text-gray-900">Order No:</span>
-                                <span>{orderId}</span>
-                            </>
-                        )}
-
-                        {clientName && (
-                            <>
-                                <span className="font-semibold text-gray-900">Client:</span>
-                                <span>{clientName}</span>
-                            </>
-                        )}
-
-                        {batchId && (
-                            <>
-                                <span className="font-semibold text-gray-900">Batch ID:</span>
-                                <span>{batchId}</span>
-                            </>
-                        )}
-                    </div>
+                <div className="header-title-section">
+                    <h1>ADVENT ENGINEERS</h1>
+                    <p>Excellence in Transformer Core Testing</p>
                 </div>
             </div>
 
-            {/* Title */}
-            <h2 className="text-xl font-bold text-center text-gray-900 mt-6 uppercase tracking-wide border-2 border-gray-200 py-2 bg-gray-50">
+            <div className="header-bottom">
+                <div className="left-info">
+                    <p><strong>Date:</strong> {reportDate}</p>
+                    {orderId && <p><strong>Order No:</strong> {orderId}</p>}
+                    {clientName && <p><strong>Client:</strong> {clientName}</p>}
+                </div>
+
+                <div className="right-info">
+                    {batchId && <p><strong>Batch ID:</strong> {batchId}</p>}
+                    {tataRef && <p><strong>Tata Ref:</strong> {tataRef}</p>}
+                </div>
+            </div>
+
+            {/* Centered Main Report Title */}
+            <h2 className="text-xl font-bold text-center text-gray-900 mt-6 uppercase tracking-wide border-2 border-gray-200 py-2 bg-gray-50 header-banner-title">
                 {title}
             </h2>
         </div>

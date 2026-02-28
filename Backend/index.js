@@ -1638,8 +1638,6 @@ app.put('/api/core-tests/approve-batch', async (req, res) => {
     // BATCH APPROVAL LOGIC
     // -----------------------------------------------------------
     console.log(`[Batch Approve] JobId: ${jobId}, Cores:`, internalCoreNos);
-    const fs = require('fs');
-    fs.writeFileSync('d:/Advent/Backend/debug_payload.txt', `Job: ${jobId}\nCores: ${pkg_JSON.stringify(internalCoreNos)}\nDate: ${new Date().toISOString()}`);
 
     const updatePromises = internalCoreNos.map(async (coreId) => {
       // Extract sequence: M-007-001 -> 001
@@ -1691,6 +1689,14 @@ app.put('/api/core-tests/approve-batch', async (req, res) => {
 
     const results = await Promise.all(updatePromises);
     const successCount = results.filter(r => r !== null).length;
+
+    // Update the parent Order to reflect approval for the new Tab workflow
+    try {
+      const { OrderModel } = require('./models/OrderModel');
+      await OrderModel.findOneAndUpdate({ jobId: jobId }, { approved: true });
+    } catch (e) {
+      console.error("[Batch Approve] Failed to update OrderModel approved status:", e);
+    }
 
     res.status(200).json({
       success: true,

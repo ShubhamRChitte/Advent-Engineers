@@ -3,7 +3,7 @@ import axios from 'axios';
 import { CoreTestingOrders, CoreTestingOrder } from './CoreTestingOrders';
 import { CoreTypeSelection } from './CoreTypeSelection';
 import { CoreTestingForm } from './CoreTestingForm';
-import { CoreOrdersList } from '../tester/CoreOrdersList';
+import { Orders } from './Orders';
 import { Card } from '../ui/card';
 import { User } from '../../App';
 
@@ -18,7 +18,7 @@ export function CoreTrackingDashboard({ user }: CoreTrackingDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabView>('testing');
   const [selectedOrder, setSelectedOrder] = useState<CoreTestingOrder | null>(null);
   const [selectedCoreType, setSelectedCoreType] = useState<CoreType | null>(null);
-  const [stats, setStats] = useState({ active: 0, completed: 0 });
+  const [, setStats] = useState({ active: 0, completed: 0 });
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -27,6 +27,8 @@ export function CoreTrackingDashboard({ user }: CoreTrackingDashboardProps) {
           axios.get('http://localhost:3002/api/assigneed_orders?type=active', { withCredentials: true }),
           axios.get('http://localhost:3002/api/assigneed_orders?type=history', { withCredentials: true })
         ]);
+        // Use stats
+        console.log(`Active: ${activeRes.data.length}, Completed: ${historyRes.data.length}`);
         setStats({
           active: activeRes.data.length,
           completed: historyRes.data.length
@@ -65,7 +67,7 @@ export function CoreTrackingDashboard({ user }: CoreTrackingDashboardProps) {
           coreType={selectedCoreType}
           onBack={handleBack}
           user={user}
-          isReadOnly={selectedOrder.isReadOnly}
+          isReadOnly={selectedOrder['isReadOnly']}
         />
       );
     }
@@ -97,7 +99,7 @@ export function CoreTrackingDashboard({ user }: CoreTrackingDashboardProps) {
                 : 'text-gray-600 hover:bg-gray-100'
                 }`}
             >
-              Testing
+              Active Testing
             </button>
             <button
               onClick={() => setActiveTab('orders')}
@@ -106,14 +108,14 @@ export function CoreTrackingDashboard({ user }: CoreTrackingDashboardProps) {
                 : 'text-gray-600 hover:bg-gray-100'
                 }`}
             >
-              Orders
+              Completed Reports
             </button>
           </div>
         </Card>
       )}
 
       {/* Content */}
-      {activeTab === 'testing' ? renderTestingView() : <CoreOrdersList onStartTesting={handleStartTesting} user={user} type="history" />}
+      {activeTab === 'testing' ? renderTestingView() : <Orders user={user as User} />}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { FailedCoresManager } from '../components/testing/FailedCoresManager';
 import { FailedCore } from '../components/testing/CoreTestingForm';
 import axios from 'axios';
 import { Loader2 } from 'lucide-react';
+import { PrintableFailedCoreReport } from '../components/reports/PrintableFailedCoreReport';
 
 export function FailedCoresPage() {
     const [failedCores, setFailedCores] = useState<FailedCore[]>([]);
@@ -67,14 +68,22 @@ export function FailedCoresPage() {
 
     return (
         <div className="p-6 max-w-[1600px] mx-auto">
-            <FailedCoresManager
-                failedCores={failedCores}
-                onBack={() => {
-                    // In a dedicated page, "Back" might mean go to Dashboard or just do nothing/refresh
-                    // For now, we can just log or refresh
-                    fetchFailedCores();
-                }}
-            />
+            {/* PRINT VIEW */}
+            <div className="print:block hidden">
+                <PrintableFailedCoreReport data={failedCores} />
+            </div>
+
+            {/* NORMAL UI */}
+            <div className="print:hidden">
+                <FailedCoresManager
+                    failedCores={failedCores}
+                    onBack={() => {
+                        // In a dedicated page, "Back" might mean go to Dashboard or just do nothing/refresh
+                        // For now, we can just log or refresh
+                        fetchFailedCores();
+                    }}
+                />
+            </div>
         </div>
     );
 }

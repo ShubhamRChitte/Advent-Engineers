@@ -9,7 +9,7 @@ const ProtectionCoreTestSchema = new Schema({
 
   coreType: {
     type: String,
-    enum: ["Protection","PS"],
+    enum: ["Protection", "PS"],
     default: "Protection"
   },
 
@@ -53,6 +53,11 @@ const ProtectionCoreTestSchema = new Schema({
       result: {
         type: String,
         enum: ["P", "F"]
+      },
+      status: {
+        type: String,
+        enum: ["PENDING", "PASS", "FAIL", "RETURNED"],
+        default: "PENDING"
       }
     }
   ],

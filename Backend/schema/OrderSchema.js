@@ -23,6 +23,7 @@ const OrderSchema = new Schema(
     burden: Number,
     accuracyClass: String,
     deadline: { type: Date, required: true },
+    approved: { type: Boolean, default: false }, // Work-flow field to control visibility in Orders tab
 
     // --- WORKER ASSIGNMENTS ---
     // Add this to your OrderSchema
@@ -56,6 +57,11 @@ const OrderSchema = new Schema(
       final: { type: Boolean, default: false }
     },
 
+    // --- TESTING STATS (Derived from Core Testing) ---
+    testsCompleted: { type: Number, default: 0 },
+    passCount: { type: Number, default: 0 },
+    failCount: { type: Number, default: 0 },
+    reportData: { type: Schema.Types.Mixed }, // Structured data for rendering full report
 
 
     // --- ADMIN APPROVAL & NOTIFICATION ---

@@ -36,6 +36,12 @@ router.post('/protection-tests', async (req, res) => {
       return res.status(400).json({ message: 'Invalid Parent Order ID' });
     }
 
+    // 0. Auto-assign status based on pass/fail and prepare for lock check
+    const processedReadings = (readings || []).map(r => ({
+      ...r,
+      status: r.status || (r.result === "F" ? "FAIL" : (r.result === "P" ? "PASS" : "PENDING"))
+    }));
+
     // 1. Check if document exists
     let testRecord = await ProtectionCoreTestModel.findOne({ orderId, coreType });
 
@@ -45,12 +51,15 @@ router.post('/protection-tests', async (req, res) => {
       Object.assign(testRecord, otherData);
 
       const existingReadings = testRecord.readings || [];
-      const incomingReadings = readings || [];
       const mergedReadings = [...existingReadings];
 
-      incomingReadings.forEach(newReading => {
+      processedReadings.forEach(newReading => {
         const index = mergedReadings.findIndex(r => r.internalCoreNo === newReading.internalCoreNo);
         if (index > -1) {
+          // LOCK MECHANISM: Prevent modifying already FAILED or RETURNED cores
+          if (mergedReadings[index].status === "FAIL" || mergedReadings[index].status === "RETURNED") {
+            return; // Skip update for this specific core
+          }
           mergedReadings[index] = newReading;
         } else {
           mergedReadings.push(newReading);
@@ -61,13 +70,28 @@ router.post('/protection-tests', async (req, res) => {
       await testRecord.save();
     } else {
       // 3. Create New
-      testRecord = new ProtectionCoreTestModel(req.body);
+      testRecord = new ProtectionCoreTestModel({ orderId, coreType, readings: processedReadings, ...otherData });
       await testRecord.save();
     }
 
     await OrderModel.findByIdAndUpdate(orderId, {
       $set: { status: `${coreType} Testing Completed` }
     });
+
+    // AUTO-CREATE FAILED CORES
+    const failedCoreService = require('../services/failedCoreService');
+    const failedReadings = processedReadings.filter(r => r.result === "F" && r.status === "FAIL");
+    for (const r of failedReadings) {
+      try {
+        await failedCoreService.recordFailure(orderId, r.internalCoreNo, {
+          failureReason: `Failed during ${coreType} Core Testing limits check`,
+          failureStage: "INITIAL_TEST",
+          dynamicValues: r.value ? { value: r.value } : {}
+        });
+      } catch (err) {
+        console.error(`Error recording failed core ${r.internalCoreNo}:`, err.message);
+      }
+    }
 
     res.status(201).json({ success: true, id: testRecord._id });
   } catch (err) {

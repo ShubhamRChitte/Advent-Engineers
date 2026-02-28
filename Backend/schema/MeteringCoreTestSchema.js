@@ -1,4 +1,4 @@
-const {Schema} = require("mongoose");
+const { Schema } = require("mongoose");
 
 const MeteringCoreTestSchema = new Schema({
   orderId: {
@@ -36,7 +36,7 @@ const MeteringCoreTestSchema = new Schema({
 
   // ---- LIMITS / RANGES (VERY IMPORTANT) ----
   testLimits: {
-    bsatGauss: [Number], 
+    bsatGauss: [Number],
     // Example: [1000, 3000, 5000, 7000]
 
     setMilliVolt: [Number],
@@ -59,6 +59,11 @@ const MeteringCoreTestSchema = new Schema({
       result: {
         type: String,
         enum: ["P", "F"]
+      },
+      status: {
+        type: String,
+        enum: ["PENDING", "PASS", "FAIL", "RETURNED"],
+        default: "PENDING"
       }
     }
   ],
@@ -69,4 +74,4 @@ const MeteringCoreTestSchema = new Schema({
 }, { timestamps: true });
 
 
-module.exports = {MeteringCoreTestSchema};
+module.exports = { MeteringCoreTestSchema };

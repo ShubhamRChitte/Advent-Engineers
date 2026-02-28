@@ -73,7 +73,7 @@ const FailedCoreSchema = new Schema(
         // --- Replacement Tracking (Future Safe) ---
         status: {
             type: String,
-            enum: ["FAILED", "REPLACED", "SCRAPPED", "UNDER_ANALYSIS"],
+            enum: ["FAILED", "REPLACED", "SCRAPPED", "UNDER_ANALYSIS", "RETURNED"],
             default: "FAILED",
             index: true
         },
@@ -81,6 +81,21 @@ const FailedCoreSchema = new Schema(
             type: Schema.Types.ObjectId
         }, // ID of the new core/order created
         replacementInternalCoreNo: {
+            type: String,
+            trim: true
+        },
+
+        // --- Return to Vendor Tracking ---
+        returnStatus: {
+            type: String,
+            enum: ["PENDING", "RETURNED"],
+            default: "PENDING",
+            index: true
+        },
+        returnedDate: {
+            type: Date
+        },
+        returnedBy: {
             type: String,
             trim: true
         }
