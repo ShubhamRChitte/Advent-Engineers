@@ -1,226 +1,3 @@
-// import { useState } from 'react';
-// import { Card } from '../ui/card';
-// import { Button } from '../ui/button';
-// import { Input } from '../ui/input';
-// import { ArrowLeft, Save, Download, Printer } from 'lucide-react';
-// import { Transformer } from './SecondaryTransformersList';
-// import { exportSecondaryProtectionReport } from '../../utils/pdfExport';
-// import { toast } from 'sonner';
-
-// interface SecondaryProtectionReportProps {
-//   transformer: Transformer;
-//   coreNumber: number;
-//   coreId: string;
-//   testerName: string;
-//   onBack: () => void;
-// }
-
-// interface ProtectionTestRow {
-//   ratio: string;
-//   burden100: string;
-//   secondaryLimitingVtg: string;
-//   excitationCurrent: string;
-//   compositeError: string;
-// }
-
-// export function SecondaryProtectionReport({
-//   transformer,
-//   coreNumber,
-//   coreId,
-//   testerName,
-//   onBack,
-// }: SecondaryProtectionReportProps) {
-//   const [testData, setTestData] = useState<ProtectionTestRow[]>([
-//     { ratio: '200/1', burden100: '', secondaryLimitingVtg: '', excitationCurrent: '', compositeError: '' },
-//     { ratio: '400/1', burden100: '', secondaryLimitingVtg: '', excitationCurrent: '', compositeError: '' },
-//     { ratio: '800/1', burden100: '', secondaryLimitingVtg: '', excitationCurrent: '', compositeError: '' },
-//   ]);
-
-//   const handleInputChange = (rowIndex: number, field: keyof ProtectionTestRow, value: string) => {
-//     const newData = [...testData];
-//     newData[rowIndex][field] = value;
-//     setTestData(newData);
-//   };
-
-//   const handleSave = () => {
-//     alert('Protection Report saved successfully!');
-//   };
-
-//   const handleGenerate = () => {
-//     const reportData = {
-//       transformerId: transformer.uniqueId,
-//       coreNumber,
-//       coreId,
-//       testerName,
-//       rating: transformer.rating,
-//       testData,
-//     };
-
-//     exportSecondaryProtectionReport(reportData);
-//     toast.success('Protection report downloaded successfully!');
-//   };
-
-//   const handlePrint = () => {
-//     window.print();
-//   };
-
-//   return (
-//     <div className="space-y-6">
-//       {/* Header */}
-//       <div className="flex items-center justify-between">
-//         <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
-//           <ArrowLeft className="w-4 h-4" />
-//           Back
-//         </Button>
-//         <div className="flex gap-2">
-//           <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
-//             <Printer className="w-4 h-4" />
-//             Print
-//           </Button>
-//         </div>
-//       </div>
-
-//       <div>
-//         <h2>Protection Test Report</h2>
-//         <p className="text-gray-500 mt-1">Secondary Testing - Protection Core Analysis</p>
-//       </div>
-
-//       {/* Report Header */}
-//       <Card className="p-6">
-//         <div className="text-center mb-6 pb-4 border-b border-gray-200">
-//           <h3 className="text-red-600 mb-2">ADVENT ENGINEERS</h3>
-//           <p className="text-sm text-gray-600">{transformer.rating}, Protection</p>
-//         </div>
-
-//         <div className="mb-4 flex items-center justify-between">
-//           <div>
-//             <p className="text-sm">
-//               <strong>Protection Core No.:</strong> {coreId}
-//             </p>
-//           </div>
-//           <div className="px-4 py-2 bg-red-100 border border-red-300 rounded">
-//             <span className="text-red-700">Core ID: {coreId}</span>
-//           </div>
-//         </div>
-
-//         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-//           <div>
-//             <p className="text-gray-600">Transformer ID:</p>
-//             <p className="font-medium">{transformer.uniqueId}</p>
-//           </div>
-//           <div>
-//             <p className="text-gray-600">Core Number:</p>
-//             <p className="font-medium">Core {coreNumber}</p>
-//           </div>
-//           <div>
-//             <p className="text-gray-600">Tester:</p>
-//             <p className="font-medium">{testerName}</p>
-//           </div>
-//           <div>
-//             <p className="text-gray-600">Date:</p>
-//             <p className="font-medium">{new Date().toLocaleDateString()}</p>
-//           </div>
-//         </div>
-//       </Card>
-
-//       {/* Protection Test Results Table */}
-//       <Card className="p-6">
-//         <h3 className="mb-4">Protection Test Results</h3>
-
-//         <div className="overflow-x-auto">
-//           <table className="w-full border-collapse border border-gray-300">
-//             <thead>
-//               <tr className="bg-gray-100">
-//                 <th className="border border-gray-300 p-3 text-left text-sm" rowSpan={2}></th>
-//                 <th className="border border-gray-300 p-3 text-left text-sm" rowSpan={2}>100%</th>
-//                 <th colSpan={3} className="border border-gray-300 p-3 text-center text-sm">100 % Burden</th>
-//                 <th className="border border-gray-300 p-3 text-left text-sm" rowSpan={2}>Protection Core No.</th>
-//               </tr>
-//               <tr className="bg-gray-100">
-//                 <th className="border border-gray-300 p-3 text-sm">Secondary Limiting Vtg</th>
-//                 <th className="border border-gray-300 p-3 text-sm">Excitation Current</th>
-//                 <th className="border border-gray-300 p-3 text-sm">Composite Error</th>
-//               </tr>
-//             </thead>
-//             <tbody>
-//               {testData.map((row, index) => (
-//                 <tr key={index}>
-//                   <td className="border border-gray-300 p-3 bg-green-100 font-medium text-sm">
-//                     Protection Core<br />Ratio- {row.ratio}
-//                   </td>
-//                   <td className="border border-gray-300 p-2">
-//                     <Input
-//                       className="h-8 text-sm"
-//                       placeholder="100%"
-//                       value={row.burden100}
-//                       onChange={(e) => handleInputChange(index, 'burden100', e.target.value)}
-//                     />
-//                   </td>
-//                   <td className="border border-gray-300 p-2">
-//                     <Input
-//                       className="h-8 text-sm"
-//                       placeholder="Secondary Limiting Vtg"
-//                       value={row.secondaryLimitingVtg}
-//                       onChange={(e) => handleInputChange(index, 'secondaryLimitingVtg', e.target.value)}
-//                     />
-//                   </td>
-//                   <td className="border border-gray-300 p-2">
-//                     <Input
-//                       className="h-8 text-sm"
-//                       placeholder="Excitation Current"
-//                       value={row.excitationCurrent}
-//                       onChange={(e) => handleInputChange(index, 'excitationCurrent', e.target.value)}
-//                     />
-//                   </td>
-//                   <td className="border border-gray-300 p-2">
-//                     <Input
-//                       className="h-8 text-sm"
-//                       placeholder="Composite Error"
-//                       value={row.compositeError}
-//                       onChange={(e) => handleInputChange(index, 'compositeError', e.target.value)}
-//                     />
-//                   </td>
-//                   <td className="border border-gray-300 p-3 bg-gray-50"></td>
-//                 </tr>
-//               ))}
-//             </tbody>
-//           </table>
-//         </div>
-
-//         <div className="mt-6 p-4 bg-green-50 rounded-lg">
-//           <h4 className="mb-2">Test Notes</h4>
-//           <textarea
-//             className="w-full p-3 border border-gray-300 rounded-lg min-h-[100px] resize-y"
-//             placeholder="Enter any observations, notes, or special conditions during protection testing..."
-//           />
-//         </div>
-
-//         <div className="mt-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
-//           <h4 className="mb-2">Important Guidelines</h4>
-//           <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
-//             <li>Ensure all connections are secure before applying test voltage</li>
-//             <li>Verify burden values match specifications</li>
-//             <li>Record excitation current at specified voltage levels</li>
-//             <li>Calculate composite error and compare with acceptable limits</li>
-//           </ul>
-//         </div>
-//       </Card>
-
-//       {/* Actions */}
-//       <div className="flex gap-3">
-//         <Button onClick={handleSave} variant="outline" className="gap-2">
-//           <Save className="w-4 h-4" />
-//           Save Report
-//         </Button>
-//         <Button onClick={handleGenerate} className="bg-red-600 hover:bg-red-700 gap-2">
-//           <Download className="w-4 h-4" />
-//           Generate & Upload
-//         </Button>
-//       </div>
-//     </div>
-//   );
-// }
-
 
 
 
@@ -253,6 +30,9 @@ interface ProtectionTestRow {
   secondaryLimitingVoltage: string;
   excitationCurrent: string;
   compositeError: string;
+  isPass?: boolean;
+  reason?: string;
+  protectionClass?: string;
 }
 
 export function SecondaryProtectionReport({
@@ -271,6 +51,7 @@ export function SecondaryProtectionReport({
 
 
   const [testResults, setTestResults] = useState<ProtectionTestRow[]>([]);
+  const [protectionClass, setProtectionClass] = useState<string>('5P');
 
   // Initialize Data
   useEffect(() => {
@@ -278,6 +59,12 @@ export function SecondaryProtectionReport({
     const dynamicRatios = (transformer.ratios && transformer.ratios.length > 0)
       ? transformer.ratios
       : (transformer.orderId?.ratio || ['N/A']);
+
+    // Determine Protection Class
+    const accClass = transformer.orderId?.accuracyClass || '';
+    if (accClass.includes('15P')) setProtectionClass('15P');
+    else if (accClass.includes('10P')) setProtectionClass('10P');
+    else setProtectionClass('5P');
 
     // 2. Create Initial State
     const initialData = dynamicRatios.map((ratio: string) => ({
@@ -336,7 +123,10 @@ export function SecondaryProtectionReport({
                   alf: safeStr(saved.alf),
                   secondaryLimitingVoltage: safeStr(saved.secondaryLimitingVoltage || saved.secondaryLimitingVtg),
                   excitationCurrent: safeStr(saved.excitationCurrent),
-                  compositeError: safeStr(saved.compositeError)
+                  compositeError: safeStr(saved.compositeError),
+                  isPass: saved.isPass,
+                  reason: saved.reason,
+                  protectionClass: saved.protectionClass
                 };
               }
               return row;
@@ -436,6 +226,7 @@ export function SecondaryProtectionReport({
       const protectionResults = testResults.map(row => ({
         internalCoreNo: coreId, // Inject Core ID for persistence
         ratioValue: row.ratio,
+        protectionClass: protectionClass,
 
         // New Schema Mapping - Ensure Numeric Integrity
         // parseFloat parses "123.456" back to number. || 0 handles NaN or empty string.
@@ -482,6 +273,17 @@ export function SecondaryProtectionReport({
       toast.error("Failed to save protection data.");
     }
   };
+
+
+
+  // Check Completion
+  const isComplete = testResults.length > 0 && testResults.every(row =>
+    row.ratioError100 &&
+    (protectionClass === '10P' || protectionClass === '15P' ? true : row.phaseError) &&
+    row.resistance &&
+    row.secondaryLimitingVoltage && row.excitationCurrent && row.compositeError && row.alf
+  );
+
 
 
   return (
@@ -653,29 +455,184 @@ export function SecondaryProtectionReport({
           <div className="header-left">
             <h1 className="text-2xl font-bold italic text-red-600 leading-tight">ADVENT ENGINEERS</h1>
           </div>
-          <div className="header-right">
-            <div className="header-field">
-              <span className="field-label">Date :</span>
-              <span className="field-value">{new Date().toLocaleDateString('en-GB')}</span>
+
+          <div className="text-right flex flex-col items-end">
+            <div className="mb-2 flex items-center gap-2">
+              <label className="text-xs font-bold text-gray-700">Class:</label>
+              <select
+                value={protectionClass}
+                onChange={(e) => setProtectionClass(e.target.value)}
+                className="border border-gray-400 rounded px-1 py-0.5 text-xs font-bold w-16"
+                disabled={readOnly}
+              >
+                <option value="5P">5P</option>
+                <option value="10P">10P</option>
+                <option value="15P">15P</option>
+              </select>
             </div>
-            <div className="header-field">
-              <span className="field-label">Order No :</span>
-              <span className="field-value">{transformer.uniqueId}</span>
-            </div>
-            <div className="header-field">
-              <span className="field-label">Client :</span>
-              <span className="field-value">N/A</span>
-            </div>
-            <div className="header-field">
-              <span className="field-label">Unit No :</span>
-              <span className="field-value">{transformer.uniqueId}</span>
-            </div>
+            <p className="text-[10px] text-gray-400 mt-1 uppercase">Date: {new Date().toLocaleDateString()}</p>
           </div>
         </div>
 
-        {/* Banners */}
-        <div className="report-title-banner">
-          PROTECTION CORE TEST REPORT
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-[11px]">
+            {/* NEW TABLE STRUCTURE MATCHING HANDWRITTEN REFERENCE */}
+            <thead>
+              {/* HEADER BOX ROW 1: DYNAMIC SPECS */}
+              <tr className="bg-white">
+                <th className="border border-gray-400 p-2 text-center font-bold text-sm" colSpan={6}>
+                  {/* Constructing dynamic string: Voltage, Type, Ratio, Burden, protection */}
+                  {`${transformer.orderId?.voltage || '33KV'}, ${transformer.orderId?.type || 'CT'}, ${(Array.isArray(transformer.ratios) ? transformer.ratios.join('-') : transformer.orderId?.ratio?.join('-')) || '800-400-200'}/${transformer.orderId?.secondaryCurrent || '1-1-1A'}, ${transformer.orderId?.burden || '30VA'}, protection`}
+                </th>
+              </tr>
+
+              {/* HEADER BOX ROW 2: SUB-HEADERS */}
+              <tr className="bg-white">
+                {/* Left Space (Aligns with Ratio & 100% cols) */}
+                <th className="border border-gray-400 p-2" colSpan={2}></th>
+
+                {/* Middle: 100% Burden (Aligns with Burden input cols) */}
+                <th className="border border-gray-400 p-2 text-center font-bold text-sm" colSpan={2}>
+                  100 % Burden
+                </th>
+
+                {/* Right: Protection Core No (Aligns with Result cols) */}
+                <th className="border border-gray-400 p-2 text-right" colSpan={2}>
+                  <div className="flex justify-end items-center gap-2">
+                    <span className="font-bold text-sm">protection core no.</span>
+                    <span className="border-b border-gray-600 px-2 min-w-[60px] text-blue-700 font-medium">{coreId}</span>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {testResults.map((row, index) => (
+                <React.Fragment key={index}>
+                  {/* --- ROW 1: Ratio (Span 3), 100% Label, Burden 1, Burden 2, Empty --- */}
+                  <tr className="border-t-2 border-gray-800"> {/* Thicker top border for separation between groups */}
+                    {/* COL 1: Ratio (Spans 3 Rows) */}
+                    <td rowSpan={3} className="border border-gray-400 p-2 bg-white font-bold text-center align-middle w-[150px]">
+                      Protection Core<br />Ratio - {row.ratio}
+                      {row.isPass !== undefined && row.isPass !== null && (
+                        <div className={`mt-2 text-[10px] font-bold px-2 py-1 rounded ${row.isPass ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {row.isPass ? 'PASS' : 'FAIL'}
+                        </div>
+                      )}
+                      {row.isPass === false && row.reason && (
+                        <div className="text-[9px] text-red-600 mt-1 leading-tight font-normal text-left break-words">
+                          {row.reason}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* COL 2: "100%" Label */}
+                    <td className="border border-gray-400 p-2 text-center bg-white font-bold text-xs w-[120px]">
+                      100%
+                    </td>
+
+                    {/* COL 3: Ratio Error (was Burden 1) */}
+                    <td className="border border-gray-400 p-0 w-[120px]">
+                      <Input
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full"
+                        value={row.ratioError100}
+                        onChange={(e) => handleInputChange(index, 'ratioError100', e.target.value)}
+                        placeholder=""
+                        disabled={readOnly}
+                      />
+                    </td>
+
+                    {/* COL 4: Phase Error (was Burden 2) */}
+                    <td className="border border-gray-400 p-0 w-[120px]">
+                      <Input
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full"
+                        value={protectionClass === '10P' || protectionClass === '15P' ? 'N/A' : row.phaseError}
+                        onChange={(e) => handleInputChange(index, 'phaseError', e.target.value)}
+                        placeholder=""
+                        disabled={readOnly || protectionClass === '10P' || protectionClass === '15P'}
+                      />
+                    </td>
+
+                    {/* COL 5 & 6: Empty Cells */}
+                    <td className="border border-gray-400 bg-white"></td>
+                    <td className="border border-gray-400 bg-white"></td>
+                  </tr>
+
+                  {/* --- ROW 2: Labels Only --- */}
+                  <tr>
+                    {/* Ratio occupied above */}
+                    <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
+                      Resistance
+                    </td>
+                    <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
+                      ALF
+                    </td>
+                    <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
+                      Excitation Current
+                    </td>
+                    <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
+                      Secondary<br />Limiting Voltage
+                    </td>
+                    <td className="border border-gray-400 p-1 text-center bg-gray-50 font-bold text-[10px]">
+                      Composite Error
+                    </td>
+                  </tr>
+
+                  {/* --- ROW 3: Values Inputs --- */}
+                  <tr>
+                    {/* Ratio occupied above */}
+                    <td className="border border-gray-400 p-0">
+                      <Input
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
+                        value={row.resistance}
+                        onChange={(e) => handleInputChange(index, 'resistance', e.target.value)}
+                        disabled={readOnly}
+                      />
+                    </td>
+                    <td className="border border-gray-400 p-0">
+                      {/* ALF Input BOUND TO NEW FIELD */}
+                      <Input
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
+                        value={row.alf}
+                        onChange={(e) => handleInputChange(index, 'alf', e.target.value)}
+                        placeholder=""
+                        disabled={readOnly}
+                      />
+                    </td>
+                    <td className="border border-gray-400 p-0">
+                      <Input
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
+                        value={row.excitationCurrent}
+                        onChange={(e) => handleInputChange(index, 'excitationCurrent', e.target.value)}
+                        disabled={readOnly}
+                      />
+                    </td>
+                    <td className="border border-gray-400 p-0">
+                      {/* MAPPED to secondaryLimitingVoltage */}
+                      <Input
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50"
+                        value={row.secondaryLimitingVoltage}
+                        // onChange handler removed/ignored since it's auto-calculated
+                        onChange={() => { }}
+                        readOnly={true} // Strictly derived
+                        disabled={readOnly} // Keeps styling consistent if whole form is readOnly
+                      />
+                    </td>
+                    <td className="border border-gray-400 p-0">
+                      <Input
+                        className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50"
+                        value={row.compositeError}
+                        // onChange handler removed/ignored
+                        onChange={() => { }}
+                        readOnly={true} // Strictly derived
+                        disabled={readOnly}
+                      />
+                    </td>
+                  </tr>
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+
         </div>
         <div className="description-banner">
           Secondary Verification - {coreId}

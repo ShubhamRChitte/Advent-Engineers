@@ -24,6 +24,7 @@ const { SecondaryMeteringTestModel } = require("./models/SecondaryMeteringTestMo
 // const UsersModel = require("./model/UsersModel");
 const { CounterModel } = require("./models/CounterModel");
 const { isAuthenticated } = require('./middlewares/authMiddleware');
+const { upload, cloudinary } = require('./config/cloudinary'); // Cloudinary upload middleware
 
 
 const app = express();
@@ -50,7 +51,8 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // 2. Session Config
 app.use(session({
@@ -87,6 +89,18 @@ app.use('/api/transformers', require('./routes/transformerRoutes')); // New Tran
 app.use('/api/final', require('./routes/finalTestRoutes')); // New Final Test Routes
 app.use('/api/dashboard', require('./routes/dashboardRoutes')); // New Dashboard Stats Route
 app.use('/api/failed-cores', require('./routes/failedCoreRoutes')); // Failed Core Management
+
+// Provide configuration for Accuracy Classes dynamically to the frontend
+app.get('/api/accuracy-limits', (req, res) => {
+  const { ACCURACY_CLASS_LIMITS } = require('./utils/accuracyLimits');
+  res.json({ success: true, data: ACCURACY_CLASS_LIMITS });
+});
+
+// Provide configuration for Protection Classes dynamically to the frontend
+app.get('/api/protection-limits', (req, res) => {
+  const { PROTECTION_CLASS_LIMITS } = require('./utils/protectionLimits');
+  res.json({ success: true, data: PROTECTION_CLASS_LIMITS });
+});
 // ----------------------------
 
 
@@ -202,11 +216,34 @@ const createOrder = async (req, res) => {
     const currentYear = new Date().getFullYear();
     const jobId = `JOB-${currentYear}-${jobSeq.toString().padStart(3, '0')}`;
 
-    const isDirectApproval = req.body.bypassApproval === true;
+    const isDirectApproval = req.body.bypassApproval === true || req.body.bypassApproval === 'true';
 
-    // 2. Create Order
+    // 2. Extract Cloudinary Images if any
+    const imagesArray = req.files ? req.files.map(file => ({
+      url: file.path,
+      public_id: file.filename
+    })) : [];
+
+    // Parse specific nested JSON objects sent as strings via FormData
+    const parsedBody = { ...req.body };
+    try {
+      if (req.body.coreDetails && typeof req.body.coreDetails === 'string') {
+        parsedBody.coreDetails = JSON.parse(req.body.coreDetails);
+      }
+      if (req.body.assignments && typeof req.body.assignments === 'string') {
+        parsedBody.assignments = JSON.parse(req.body.assignments);
+      }
+      if (req.body.ratio && typeof req.body.ratio === 'string') {
+        parsedBody.ratio = JSON.parse(req.body.ratio);
+      }
+    } catch (e) {
+      console.error("Body parsing error:", e);
+    }
+
+    // 3. Create Order
     const newOrder = new OrderModel({
-      ...req.body,
+      ...parsedBody,
+      images: imagesArray,
       jobId: jobId,
       isApproved: isDirectApproval,
       isRead: !isDirectApproval, // If admin created it, it's already "read"
@@ -233,7 +270,8 @@ const createOrder = async (req, res) => {
       jobId: savedOrder.jobId
     });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error("CREATE ORDER ERROR:", error);
+    res.status(500).json({ success: false, error: error.message, details: error.errors });
   }
 };
 
@@ -289,7 +327,46 @@ const updateOrder = async (req, res) => {
   }
 };
 
-// 3.6 Method: Reassign Tester for a Stage (Admin Notification)
+// 3.6 Method: Delete Order (Admin Only) with Cloudinary Cleanup
+const deleteOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    // Optional: Add admin check here if `isAuthenticated` middleware attaches roles (e.g. `req.user.role === 'Admin'`)
+
+    // 1. Find the order
+    const order = await OrderModel.findById(orderId);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    // 2. Delete Images from Cloudinary
+    if (order.images && order.images.length > 0) {
+      const deletePromises = order.images.map(img => {
+        if (img.public_id) {
+          return cloudinary.uploader.destroy(img.public_id);
+        }
+        return Promise.resolve();
+      });
+      await Promise.all(deletePromises);
+      console.log(`[DeleteOrder] Cleaned up ${order.images.length} images from Cloudinary for order ${orderId}`);
+    }
+
+    // 3. Delete Associated Transformers
+    await TransformerModel.deleteMany({ orderId: order._id });
+
+    // 4. Delete the Order itself
+    await OrderModel.findByIdAndDelete(orderId);
+
+    res.status(200).json({
+      success: true,
+      message: "Order, associated transformers, and images deleted successfully"
+    });
+  } catch (error) {
+    console.error("Delete Order Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 3.7 Method: Reassign Tester for a Stage (Admin Notification)
 const reassignTester = async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -349,10 +426,27 @@ const reassignTester = async (req, res) => {
 };
 
 // Routes for Orders
-app.post('/api/create-order', createOrder);
+// Middleware to handle multer/cloudinary errors gracefully
+const handleUpload = (req, res, next) => {
+  const uploadMiddleware = upload.array('images', 10);
+  uploadMiddleware(req, res, (err) => {
+    if (err) {
+      console.error("Cloudinary Upload Error:", err);
+      return res.status(500).json({
+        success: false,
+        error: "Image upload failed. Please check your Cloudinary credentials.",
+        details: err.message
+      });
+    }
+    next();
+  });
+};
+
+app.post('/api/create-order', handleUpload, createOrder);
 app.put('/api/orders/:orderId/approve', approveOrder);
 app.put('/api/orders/:orderId/reassign', reassignTester); // New Reassign Route
 app.put('/api/orders/:orderId', updateOrder); // Generic Update Route
+app.delete('/api/orders/:orderId', isAuthenticated, deleteOrder); // Delete order with Cloudinary cleanup
 app.get('/api/admin/notifications', getAdminNotifications); // Ensure this one is also mounted if used
 
 // 4. Method: Get Pending Notifications (Admin View)
@@ -1960,8 +2054,33 @@ app.get('/addTransformerReadingData', async (req, res) => {
 //primary Metering test handle
 app.post("/transformer-primary-metering-tests", async (req, res) => {
   try {
-    const { uniqueId, tester, metering_results } = req.body;
+    const { uniqueId, tester, metering_results, coreId } = req.body;
     console.log(`[DEBUG] POST /transformer-primary-metering-tests. Payload:`, req.body);
+    const { validateMeteringReading } = require('./utils/accuracyLimits');
+
+    // Fetch the Transformer to get Accuracy Class
+    const transformerDoc = await TransformerModel.findOne({ uniqueId: uniqueId }).populate('orderId');
+    if (!transformerDoc) {
+      return res.status(404).json({ success: false, message: "Transformer not found" });
+    }
+
+    const accuracyClass = transformerDoc.orderId ? transformerDoc.orderId.accuracyClass : "0.5";
+
+    // Validate Readings
+    const validatedResults = metering_results.map(r => ({ ...r, internalCoreNo: coreId || r.internalCoreNo }));
+    validatedResults.forEach(resultBlock => {
+      if (resultBlock.rows) {
+        resultBlock.rows.forEach(row => {
+          const v100 = validateMeteringReading(accuracyClass, row.current, row.r100, row.p100);
+          row.r100_pass = v100.isPass;
+          row.r100_reason = v100.reason;
+
+          const v25 = validateMeteringReading(accuracyClass, row.current, row.r25, row.p25);
+          row.r25_pass = v25.isPass;
+          row.r25_reason = v25.reason;
+        });
+      }
+    });
 
     const transformer = await TransformerModel.findOneAndUpdate(
       { uniqueId: uniqueId },
@@ -1969,7 +2088,7 @@ app.post("/transformer-primary-metering-tests", async (req, res) => {
         $set: {
           // TARGETING PRIMARY_TEST HERE
           "testHistory.primary_test.tester": tester,
-          "testHistory.primary_test.metering_results": metering_results,
+          "testHistory.primary_test.metering_results": validatedResults,
           "testHistory.primary_test.status": "Completed",
           "testHistory.primary_test.timestamp": new Date()
         }
@@ -2083,8 +2202,33 @@ app.post("/transformer-primary-ps-tests", async (req, res) => {
 //final Metering test handle
 app.post("/transformer-final-metering-tests", async (req, res) => {
   try {
-    const { uniqueId, tester, metering_results } = req.body;
+    const { uniqueId, tester, metering_results, coreId } = req.body;
     console.log(`[DEBUG] POST /transformer-final-metering-tests. Payload:`, req.body);
+    const { validateMeteringReading } = require('./utils/accuracyLimits');
+
+    // Fetch the Transformer to get Accuracy Class
+    const transformerDoc = await TransformerModel.findOne({ uniqueId: uniqueId }).populate('orderId');
+    if (!transformerDoc) {
+      return res.status(404).json({ success: false, message: "Transformer not found" });
+    }
+
+    const accuracyClass = transformerDoc.orderId ? transformerDoc.orderId.accuracyClass : "0.5";
+
+    // Validate Readings
+    const validatedResults = metering_results.map(r => ({ ...r, internalCoreNo: coreId || r.internalCoreNo }));
+    validatedResults.forEach(resultBlock => {
+      if (resultBlock.rows) {
+        resultBlock.rows.forEach(row => {
+          const v100 = validateMeteringReading(accuracyClass, row.current, row.r100, row.p100);
+          row.r100_pass = v100.isPass;
+          row.r100_reason = v100.reason;
+
+          const v25 = validateMeteringReading(accuracyClass, row.current, row.r25, row.p25);
+          row.r25_pass = v25.isPass;
+          row.r25_reason = v25.reason;
+        });
+      }
+    });
 
     const transformer = await TransformerModel.findOneAndUpdate(
       { uniqueId: uniqueId },
@@ -2092,7 +2236,7 @@ app.post("/transformer-final-metering-tests", async (req, res) => {
         $set: {
           // TARGETING FINAL_TEST HERE
           "testHistory.final_test.tester": tester,
-          "testHistory.final_test.metering_results": metering_results,
+          "testHistory.final_test.metering_results": validatedResults,
           "testHistory.final_test.status": "Completed",
           "testHistory.final_test.timestamp": new Date()
         }
@@ -2129,7 +2273,21 @@ app.post("/transformer-final-protection-tests", async (req, res) => {
     transformer.testHistory.final_test.tester = tester;
 
     // Merge logic for Protection (Final)
-    const newResults = protection_results.map(r => ({ ...r, internalCoreNo: coreId }));
+    const { validateProtectionReading } = require('./utils/protectionLimits');
+    const newResults = protection_results.map(r => {
+      const validation = validateProtectionReading(
+        r.protectionClass,
+        r.ratioError100,
+        r.phaseError,
+        r.compositeError
+      );
+      return {
+        ...r,
+        internalCoreNo: coreId,
+        isPass: validation.isPass,
+        reason: validation.reason
+      };
+    });
     const existingResults = transformer.testHistory.final_test.protection_results || [];
     const otherCoresResults = existingResults.filter(r =>
       r.internalCoreNo !== coreId && r.coreId !== coreId
@@ -2217,6 +2375,43 @@ app.post("/transformer-final-ps-tests", async (req, res) => {
 app.post("/transformer-secondary-metering-tests", async (req, res) => {
   try {
     const { uniqueId, coreId, tester, metering_results, remarks } = req.body;
+    const { validateMeteringReading } = require('./utils/accuracyLimits');
+
+    // 0. Fetch the Transformer & Order to get Accuracy Class
+    const transformerDoc = await TransformerModel.findOne({ uniqueId: uniqueId }).populate('orderId');
+    if (!transformerDoc) {
+      console.log(`[ERROR] Transformer not found for uniqueId: "${uniqueId}"`);
+      return res.status(404).json({ success: false, message: "Transformer not found" });
+    }
+
+    const order = transformerDoc.orderId;
+    const accuracyClass = order ? order.accuracyClass : "0.5"; // Default if not found
+
+    // 0.5. Validate Readings
+    let isOverallPass = true;
+    const validatedResults = metering_results.map(r => ({ ...r, internalCoreNo: coreId }));
+
+    validatedResults.forEach(resultBlock => {
+      if (resultBlock.rows) {
+        resultBlock.rows.forEach(row => {
+          // Validate 100% Burden Inputs
+          const v100 = validateMeteringReading(accuracyClass, row.current, row.r100, row.p100);
+          row.r100_pass = v100.isPass;
+          row.r100_reason = v100.reason;
+
+          // Validate 25% Burden Inputs
+          const v25 = validateMeteringReading(accuracyClass, row.current, row.r25, row.p25);
+          row.r25_pass = v25.isPass;
+          row.r25_reason = v25.reason;
+
+          if (!v100.isPass || !v25.isPass) {
+            isOverallPass = false;
+          }
+        });
+      }
+    });
+
+    const finalStatus = isOverallPass ? "Pass" : "Fail";
 
     // 1. Save detailed test report (Upsert)
     const testRecord = await SecondaryMeteringTestModel.findOneAndUpdate(
@@ -2225,10 +2420,10 @@ app.post("/transformer-secondary-metering-tests", async (req, res) => {
         uniqueId,
         coreId,
         tester,
-        metering_results,
+        metering_results: validatedResults,
         remarks,
         testDate: new Date(),
-        status: "Completed"
+        status: finalStatus
       },
       { upsert: true, new: true, runValidators: true }
     );
@@ -2252,8 +2447,8 @@ app.post("/transformer-secondary-metering-tests", async (req, res) => {
     transformer.testHistory.secondary_test.timestamp = new Date();
 
     // Merge logic: Filter out old results for this coreId, then append new ones
-    // Note: metering_results from frontend is an ARRAY of ratios for this core.
-    const newResults = metering_results.map(r => ({ ...r, internalCoreNo: coreId })); // Ensure ID is present
+    // Note: validatedResults from frontend is an ARRAY of ratios for this core, correctly populated with pass/fail statuses.
+    const newResults = validatedResults; // use the array that already has r100_pass etc
 
     const existingResults = transformer.testHistory.secondary_test.metering_results || [];
     const otherCoresResults = existingResults.filter(r =>
@@ -2350,7 +2545,21 @@ app.post("/transformer-secondary-protection-tests", async (req, res) => {
 
     transformer.testHistory.secondary_test.tester = tester;
     // Merge logic for Protection
-    const newResults = protection_results.map(r => ({ ...r, internalCoreNo: coreId }));
+    const { validateProtectionReading } = require('./utils/protectionLimits');
+    const newResults = protection_results.map(r => {
+      const validation = validateProtectionReading(
+        r.protectionClass,
+        r.ratioError100,
+        r.phaseError,
+        r.compositeError
+      );
+      return {
+        ...r,
+        internalCoreNo: coreId,
+        isPass: validation.isPass,
+        reason: validation.reason
+      };
+    });
     const existingResults = transformer.testHistory.secondary_test.protection_results || [];
     const otherCoresResults = existingResults.filter(r =>
       r.internalCoreNo !== coreId && r.coreId !== coreId

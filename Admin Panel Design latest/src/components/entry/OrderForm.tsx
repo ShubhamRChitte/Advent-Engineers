@@ -9,7 +9,6 @@ interface Transformer {
   id: string;
   name: string;
   type: string;
-  capacity: string;
   voltageRating: string;
   hvVoltage: string;
   lvVoltage: string;
@@ -39,11 +38,13 @@ export function OrderForm({ transformer, onSubmit, onCancel }: OrderFormProps) {
   const [numberOfCores, setNumberOfCores] = useState(transformer.cores.toString());
   const [hvVoltage, setHvVoltage] = useState(transformer.hvVoltage);
   const [lvVoltage, setLvVoltage] = useState(transformer.lvVoltage);
-  const [capacity, setCapacity] = useState(transformer.capacity);
   const [coolingType, setCoolingType] = useState(transformer.coolingType);
+  const [indoorOutdoor, setIndoorOutdoor] = useState('');
+  const [insulationType, setInsulationType] = useState('');
+  const [tankType, setTankType] = useState('');
 
-  const [coreTypes, setCoreTypes] = useState<string[]>(
-    Array(transformer.cores).fill('metering')
+  const [coreConfigs, setCoreConfigs] = useState<{ coreType: string; accuracyClass: string }[]>(
+    Array(transformer.cores).fill({ coreType: 'metering', accuracyClass: '' })
   );
 
   const [parameters, setParameters] = useState<Parameter[]>([
@@ -57,6 +58,18 @@ export function OrderForm({ transformer, onSubmit, onCancel }: OrderFormProps) {
   ]);
 
   const orderDate = new Date().toLocaleDateString();
+
+  const [images, setImages] = useState<File[]>([]);
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    setImages(prev => [...prev, ...Array.from(files)]);
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleAddParameter = () => {
     const newParam: Parameter = {
@@ -90,19 +103,32 @@ export function OrderForm({ transformer, onSubmit, onCancel }: OrderFormProps) {
         numberOfCores: parseInt(numberOfCores),
         hvVoltage,
         lvVoltage,
-        capacity,
         coolingType,
-        coreTypes,
+        coreConfigs,
+        indoorOutdoor,
+        insulationType,
+        tankType,
       },
       parameters,
+      images,
     };
     onSubmit(orderData);
   };
 
   const handleCoreTypeChange = (index: number, value: string) => {
-    const newCoreTypes = [...coreTypes];
-    newCoreTypes[index] = value;
-    setCoreTypes(newCoreTypes);
+    setCoreConfigs(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], coreType: value, accuracyClass: '' };
+      return updated;
+    });
+  };
+
+  const handleCoreAccuracyChange = (index: number, value: string) => {
+    setCoreConfigs(prev => {
+      const updated = [...prev];
+      updated[index] = { coreType: updated[index]?.coreType || 'metering', accuracyClass: value };
+      return updated;
+    });
   };
 
   return (
@@ -171,6 +197,47 @@ export function OrderForm({ transformer, onSubmit, onCancel }: OrderFormProps) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
+                <Label>Indoor/Outdoor</Label>
+                <select
+                  value={indoorOutdoor}
+                  onChange={(e) => setIndoorOutdoor(e.target.value)}
+                  className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                >
+                  <option value="">Select location</option>
+                  <option value="Indoor">Indoor</option>
+                  <option value="Outdoor">Outdoor</option>
+                </select>
+              </div>
+              <div>
+                <Label>Insulation Type</Label>
+                <select
+                  value={insulationType}
+                  onChange={(e) => setInsulationType(e.target.value)}
+                  className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                >
+                  <option value="">Select insulation</option>
+                  <option value="Oil Cooled">Oil Cooled</option>
+                  <option value="Epoxy">Epoxy</option>
+                </select>
+              </div>
+              {insulationType === 'Oil Cooled' && (
+                <div>
+                  <Label>Tank Type</Label>
+                  <select
+                    value={tankType}
+                    onChange={(e) => setTankType(e.target.value)}
+                    className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                  >
+                    <option value="">Select tank type</option>
+                    <option value="Live Tank">Live Tank</option>
+                    <option value="Dead Tank">Dead Tank</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
                 <Label>Quantity *</Label>
                 <Input
                   type="number"
@@ -188,7 +255,18 @@ export function OrderForm({ transformer, onSubmit, onCancel }: OrderFormProps) {
                   min="1"
                   placeholder="Number of cores"
                   value={numberOfCores}
-                  onChange={(e) => setNumberOfCores(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setNumberOfCores(value);
+                    const numCores = parseInt(value) || 0;
+                    setCoreConfigs(prev => {
+                      const newTypes = Array.isArray(prev) ? [...prev] : [];
+                      if (numCores > newTypes.length) {
+                        return [...newTypes, ...Array(numCores - newTypes.length).fill({ coreType: 'metering', accuracyClass: '' })];
+                      }
+                      return newTypes.slice(0, numCores);
+                    });
+                  }}
                   className="mt-1"
                 />
               </div>
@@ -211,15 +289,6 @@ export function OrderForm({ transformer, onSubmit, onCancel }: OrderFormProps) {
                 />
               </div>
               <div>
-                <Label>Transformer Capacity (kVA) *</Label>
-                <Input
-                  placeholder="Enter capacity"
-                  value={capacity}
-                  onChange={(e) => setCapacity(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
                 <Label>Cooling Type *</Label>
                 <select
                   value={coolingType}
@@ -238,12 +307,12 @@ export function OrderForm({ transformer, onSubmit, onCancel }: OrderFormProps) {
           {/* Core Configuration Section */}
           <div className="space-y-4">
             <h3 className="pb-2 border-b">Core Configuration</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {Array.from({ length: parseInt(numberOfCores) || 0 }).map((_, index) => (
-                <div key={index}>
+                <div key={index} className="flex flex-col gap-2">
                   <Label>Core {index + 1} Type</Label>
                   <select
-                    value={coreTypes[index] || 'metering'}
+                    value={coreConfigs[index]?.coreType || 'metering'}
                     onChange={(e) => handleCoreTypeChange(index, e.target.value)}
                     className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
                   >
@@ -251,6 +320,41 @@ export function OrderForm({ transformer, onSubmit, onCancel }: OrderFormProps) {
                     <option value="ps">PS (Protective System)</option>
                     <option value="protection">Protection</option>
                   </select>
+
+                  {coreConfigs[index]?.coreType && (
+                    <div className="mt-2">
+                      <Label>Accuracy Class</Label>
+                      <select
+                        value={coreConfigs[index]?.accuracyClass || ''}
+                        onChange={(e) => handleCoreAccuracyChange(index, e.target.value)}
+                        className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                      >
+                        <option value="">Select Accuracy Class</option>
+                        {coreConfigs[index].coreType === 'metering' && (
+                          <>
+                            <option value="0.1">0.1</option>
+                            <option value="0.2">0.2</option>
+                            <option value="0.5">0.5</option>
+                            <option value="1">1</option>
+                            <option value="3">3</option>
+                            <option value="5">5</option>
+                            <option value="0.2s">0.2s</option>
+                            <option value="0.5s">0.5s</option>
+                          </>
+                        )}
+                        {coreConfigs[index].coreType === 'protection' && (
+                          <>
+                            <option value="5P">5P</option>
+                            <option value="10P">10P</option>
+                            <option value="15P">15P</option>
+                          </>
+                        )}
+                        {coreConfigs[index].coreType === 'ps' && (
+                          <option value="0.2s">0.2s</option>
+                        )}
+                      </select>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -317,11 +421,31 @@ export function OrderForm({ transformer, onSubmit, onCancel }: OrderFormProps) {
           {/* Upload Section */}
           <div className="space-y-4">
             <h3 className="pb-2 border-b">Upload Image As per Approved Drawing</h3>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer">
+            <label className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer block">
+              <input type="file" multiple accept="image/*,.pdf" className="hidden" onChange={handleImageUpload} />
               <Upload className="w-12 h-12 mx-auto text-gray-400 mb-2" />
               <p className="text-sm text-gray-600">Click to select or drag and drop</p>
               <p className="text-xs text-gray-400 mt-1">PNG, JPG, PDF up to 10MB</p>
-            </div>
+            </label>
+            {images.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                {images.map((img, idx) => (
+                  <div key={idx} className="relative group border rounded-lg overflow-hidden h-32 flex items-center justify-center bg-gray-50 p-2">
+                    {img.type === 'application/pdf' ? (
+                      <div className="text-center">
+                        <div className="text-red-500 font-bold text-lg">PDF</div>
+                        <div className="text-xs text-gray-500 truncate w-20">{img.name}</div>
+                      </div>
+                    ) : (
+                      <img src={URL.createObjectURL(img)} alt={`Upload ${idx}`} className="w-full h-full object-contain" />
+                    )}
+                    <button type="button" onClick={() => handleRemoveImage(idx)} className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10">
+                      <X className="w-4 h-4 text-red-500" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}
@@ -342,7 +466,7 @@ export function OrderForm({ transformer, onSubmit, onCancel }: OrderFormProps) {
             </Button>
           </div>
         </div>
-      </Card>
-    </div>
+      </Card >
+    </div >
   );
 }

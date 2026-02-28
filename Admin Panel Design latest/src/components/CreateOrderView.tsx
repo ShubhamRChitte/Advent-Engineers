@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Package, Plus, Trash2, AlertCircle, User, CheckCircle2 } from 'lucide-react';
+import { Package, Plus, Trash2, AlertCircle, User } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 
@@ -43,12 +43,14 @@ export function CreateOrderView() {
 
     // Tech Specs
     noOfCores: '1',
+    indoorOutdoor: '',
+    insulationType: '',
+    tankType: '',
     ratedPrimaryCurrent: '',
     ratedSecondaryCurrent: '1',
+    voltageRating: '',
     ratio: '', // Added Ratio
-    mountingDetails: '',
-    overallDimension: '',
-    isStandard: 'Standard'
+    isStandard: ''
   });
 
   // Assignments State [ { id, stage, tester, range } ]
@@ -57,7 +59,9 @@ export function CreateOrderView() {
   const [loading, setLoading] = useState(false);
 
   // Dynamic Core Config State
-  const [coreConfigs, setCoreConfigs] = useState<{ coreType: string }[]>([{ coreType: 'Metering' }]);
+  const [coreConfigs, setCoreConfigs] = useState<{ coreType: string; accuracyClass: string }[]>([{ coreType: 'Metering', accuracyClass: '' }]);
+  const [isCustomVoltage, setIsCustomVoltage] = useState(false);
+  const [isCustomSecCurrent, setIsCustomSecCurrent] = useState(false);
 
   // --- Initial Data Fetching ---
   useEffect(() => {
@@ -99,7 +103,15 @@ export function CreateOrderView() {
   const handleCoreConfigChange = (index: number, newType: string) => {
     setCoreConfigs(prev => {
       const updated = [...prev];
-      updated[index] = { coreType: newType };
+      updated[index] = { coreType: newType, accuracyClass: '' };
+      return updated;
+    });
+  };
+
+  const handleCoreAccuracyChange = (index: number, newAccuracy: string) => {
+    setCoreConfigs(prev => {
+      const updated = [...prev];
+      updated[index] = { coreType: updated[index]?.coreType || '', accuracyClass: newAccuracy };
       return updated;
     });
   };
@@ -233,14 +245,18 @@ export function CreateOrderView() {
           priority: 'Medium',
           specifications: '',
           noOfCores: '1',
+          indoorOutdoor: '',
+          insulationType: '',
+          tankType: '',
           ratedPrimaryCurrent: '',
           ratedSecondaryCurrent: '1',
-          mountingDetails: '',
-          overallDimension: '',
-          isStandard: 'Standard',
+          voltageRating: '',
+          isStandard: '',
           ratio: ''
         });
-        setCoreConfigs([{ coreType: 'Metering' }]);
+        setIsCustomVoltage(false);
+        setIsCustomSecCurrent(false);
+        setCoreConfigs([{ coreType: 'Metering', accuracyClass: '' }]);
       }
 
     } catch (error: any) {
@@ -296,7 +312,10 @@ export function CreateOrderView() {
                 <Label>Type</Label>
                 <Select
                   value={formData.transformerType}
-                  onValueChange={(v: string) => handleInputChange('transformerType', v)}
+                  onValueChange={(v: string) => {
+                    handleInputChange('transformerType', v);
+                    handleInputChange('isStandard', '');
+                  }}
                 >
                   <SelectTrigger><SelectValue placeholder="Select Type" /></SelectTrigger>
                   <SelectContent>
@@ -305,6 +324,23 @@ export function CreateOrderView() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {formData.transformerType && (
+                <div>
+                  <Label>IS Standard *</Label>
+                  <Select
+                    value={formData.isStandard}
+                    onValueChange={(v: string) => handleInputChange('isStandard', v)}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select IS Standard" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="16227">16227</SelectItem>
+                      {formData.transformerType === 'CT' && <SelectItem value="2705">2705</SelectItem>}
+                      {formData.transformerType === 'PT' && <SelectItem value="3156">3156</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </section>
 
@@ -336,21 +372,57 @@ export function CreateOrderView() {
                 </Select>
               </div>
 
-              {/* Dynamic Core Config Inputs */}
               {coreConfigs.map((config, idx) => (
-                <div key={idx} className="border p-2 rounded bg-gray-50">
-                  <Label className="text-xs text-gray-500 font-semibold uppercase mb-1 block">Core {idx + 1} Type</Label>
-                  <Select
-                    value={config.coreType}
-                    onValueChange={(v: string) => handleCoreConfigChange(idx, v)}
-                  >
-                    <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Metering">Metering</SelectItem>
-                      <SelectItem value="Protection">Protection</SelectItem>
-                      <SelectItem value="PS">PS Class</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div key={idx} className="border p-2 rounded bg-gray-50 flex flex-col gap-2">
+                  <div>
+                    <Label className="text-xs text-gray-500 font-semibold uppercase mb-1 block">Core {idx + 1} Type</Label>
+                    <Select
+                      value={config.coreType}
+                      onValueChange={(v: string) => handleCoreConfigChange(idx, v)}
+                    >
+                      <SelectTrigger className="h-8"><SelectValue placeholder="Select type" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Metering">Metering</SelectItem>
+                        <SelectItem value="Protection">Protection</SelectItem>
+                        <SelectItem value="PS">PS Class</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {config.coreType && (
+                    <div>
+                      <Label className="text-xs text-gray-500 font-semibold uppercase mb-1 block">Accuracy Class</Label>
+                      <Select
+                        value={config.accuracyClass}
+                        onValueChange={(v: string) => handleCoreAccuracyChange(idx, v)}
+                      >
+                        <SelectTrigger className="h-8"><SelectValue placeholder="Select Class" /></SelectTrigger>
+                        <SelectContent>
+                          {config.coreType === 'Metering' && (
+                            <>
+                              <SelectItem value="0.1">0.1</SelectItem>
+                              <SelectItem value="0.2">0.2</SelectItem>
+                              <SelectItem value="0.5">0.5</SelectItem>
+                              <SelectItem value="1">1</SelectItem>
+                              <SelectItem value="3">3</SelectItem>
+                              <SelectItem value="5">5</SelectItem>
+                              <SelectItem value="0.2s">0.2s</SelectItem>
+                              <SelectItem value="0.5s">0.5s</SelectItem>
+                            </>
+                          )}
+                          {config.coreType === 'Protection' && (
+                            <>
+                              <SelectItem value="5P">5P</SelectItem>
+                              <SelectItem value="10P">10P</SelectItem>
+                              <SelectItem value="15P">15P</SelectItem>
+                            </>
+                          )}
+                          {config.coreType === 'PS' && (
+                            <SelectItem value="0.2s">0.2s</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               ))}
 
@@ -363,8 +435,74 @@ export function CreateOrderView() {
                 />
               </div>
               {/* Simplified Specs */}
-              <div><Label>Pri. Current</Label><Input value={formData.ratedPrimaryCurrent} onChange={e => handleInputChange('ratedPrimaryCurrent', e.target.value)} /></div>
-              <div><Label>Sec. Current</Label><Input value={formData.ratedSecondaryCurrent} onChange={e => handleInputChange('ratedSecondaryCurrent', e.target.value)} /></div>
+              {formData.transformerType === 'CT' && (
+                <div><Label>Pri. Current</Label><Input value={formData.ratedPrimaryCurrent} onChange={e => handleInputChange('ratedPrimaryCurrent', e.target.value)} /></div>
+              )}
+
+              <div>
+                <Label>Sec. Current</Label>
+                <div className="flex gap-2">
+                  <Select
+                    value={!isCustomSecCurrent ? formData.ratedSecondaryCurrent : 'Custom'}
+                    onValueChange={(v: string) => {
+                      if (v === 'Custom') {
+                        setIsCustomSecCurrent(true);
+                        handleInputChange('ratedSecondaryCurrent', '');
+                      } else {
+                        setIsCustomSecCurrent(false);
+                        handleInputChange('ratedSecondaryCurrent', v);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1</SelectItem>
+                      <SelectItem value="5">5</SelectItem>
+                      <SelectItem value="Custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {isCustomSecCurrent && (
+                    <Input
+                      placeholder="Custom Value"
+                      value={formData.ratedSecondaryCurrent}
+                      onChange={e => handleInputChange('ratedSecondaryCurrent', e.target.value)}
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <Label>Voltage Rating</Label>
+                <div className="flex gap-2">
+                  <Select
+                    value={!isCustomVoltage ? formData.voltageRating : 'Custom'}
+                    onValueChange={(v: string) => {
+                      if (v === 'Custom') {
+                        setIsCustomVoltage(true);
+                        handleInputChange('voltageRating', '');
+                      } else {
+                        setIsCustomVoltage(false);
+                        handleInputChange('voltageRating', v);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="11">11</SelectItem>
+                      <SelectItem value="22">22</SelectItem>
+                      <SelectItem value="33">33</SelectItem>
+                      <SelectItem value="Custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {isCustomVoltage && (
+                    <Input
+                      placeholder="Custom Value"
+                      value={formData.voltageRating}
+                      onChange={e => handleInputChange('voltageRating', e.target.value)}
+                    />
+                  )}
+                </div>
+              </div>
               <div>
                 <Label>Ratio</Label>
                 <div className="flex gap-2">
@@ -373,7 +511,7 @@ export function CreateOrderView() {
                     onChange={e => handleInputChange('ratio', e.target.value)}
                     placeholder="e.g. 100/1, 200/1"
                   />
-                  <Select onValueChange={(v) => {
+                  <Select onValueChange={(v: string) => {
                     const current = formData.ratio ? formData.ratio + ', ' : '';
                     handleInputChange('ratio', current + v);
                   }}>
@@ -386,9 +524,43 @@ export function CreateOrderView() {
                   </Select>
                 </div>
               </div>
-              <div><Label>Dimensions</Label><Input value={formData.overallDimension} onChange={e => handleInputChange('overallDimension', e.target.value)} /></div>
-              <div><Label>Mounting</Label><Input value={formData.mountingDetails} onChange={e => handleInputChange('mountingDetails', e.target.value)} /></div>
-              <div><Label>Standard?</Label><Input value={formData.isStandard} onChange={e => handleInputChange('isStandard', e.target.value)} /></div>
+              {formData.transformerType && (
+                <>
+                  <div>
+                    <Label>Indoor/Outdoor</Label>
+                    <Select value={formData.indoorOutdoor} onValueChange={(v: string) => handleInputChange('indoorOutdoor', v)}>
+                      <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Indoor">Indoor</SelectItem>
+                        <SelectItem value="Outdoor">Outdoor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Insulation Type</Label>
+                    <Select value={formData.insulationType} onValueChange={(v: string) => handleInputChange('insulationType', v)}>
+                      <SelectTrigger><SelectValue placeholder="Select insulation" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Oil Cooled">Oil Cooled</SelectItem>
+                        <SelectItem value="Epoxy">Epoxy</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {formData.insulationType === 'Oil Cooled' && (
+                    <div>
+                      <Label>Tank Type</Label>
+                      <Select value={formData.tankType} onValueChange={(v: string) => handleInputChange('tankType', v)}>
+                        <SelectTrigger><SelectValue placeholder="Select tank type" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Live Tank">Live Tank</SelectItem>
+                          <SelectItem value="Dead Tank">Dead Tank</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </>
+              )}
+
             </div>
           </section>
 

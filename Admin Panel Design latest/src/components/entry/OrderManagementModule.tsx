@@ -13,7 +13,6 @@ interface Transformer {
   id: string;
   name: string;
   type: string;
-  capacity: string;
   voltageRating: string;
   cores: number;
   phase: string;
@@ -89,12 +88,16 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
         return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
       };
 
-      const coreDetails = (orderData.coreTypes || []).map((ct: string) => ({
-        coreType: formatCoreType(ct)
-      }));
+      const configsToUse = orderData.coreConfigs || orderData.coreTypes || [];
+      const coreDetails = configsToUse.map((config: any) => {
+        const typeString = typeof config === 'string' ? config : config.coreType;
+        return {
+          coreType: formatCoreType(typeString)
+        };
+      });
 
       // 3. Construct Final Payload matching OrderSchema
-      const payload = {
+      const payload: Record<string, any> = {
         // ...orderData, // Don't spread first to avoid overwriting strict fields with wrong names
         clientName: orderData.clientName,
         clientContactNo: orderData.clientContact, // Backend expects clientContactNo
@@ -108,26 +111,50 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
         ratio: orderData.ratio && orderData.ratio.length > 0 ? orderData.ratio : ["N/A"],
 
         // Spread parameters to root
+        voltageRating: orderData.voltageRating || '',
         nominalSystemVoltage: parseFloat(orderData.parameters?.nominalVoltage) || 0,
         burden: parseFloat(orderData.parameters?.burden) || 0,
         ratedPrimaryCurrent: parseFloat(orderData.parameters?.ratedPrimaryCurrent) || 0,
         ratedSecondaryCurrent: parseFloat(orderData.parameters?.ratedSecondaryCurrent) || 0,
-        accuracyClass: orderData.parameters?.accuracyClass || 'N/A',
+        // Find accuracy class from core configs (usually attached to Metering cores)
+        accuracyClass: orderData.coreConfigs?.find((c: any) => c.accuracyClass)?.accuracyClass || orderData.parameters?.accuracyClass || 'N/A',
         mountingDetails: orderData.parameters?.mountingDetails || 'N/A',
         overallDimension: orderData.parameters?.overallDimensions || 'N/A', // Schema: overallDimension (singular)
 
+        images: orderData.images || [],
+
         isStandard: orderData.isStandard || 'No',
+        indoorOutdoor: orderData.indoorOutdoor || '',
+        insulationType: orderData.insulationType || '',
+        tankType: orderData.tankType || '',
         instructions: "None",
 
-        deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // Default 14 days
+        deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // Default 14 days constraints via ISO string
 
         assignments: assignmentsByStage,
         bypassApproval: isAdmin // If Admin, bypass approval (Auto-Approve)
       };
 
-      console.log("Sending Order Payload:", payload);
+      console.log("Creating Order FormData:", payload);
 
-      const response = await axios.post('http://localhost:3002/api/create-order', payload);
+      const formData = new FormData();
+      Object.keys(payload).forEach(key => {
+        if (key === 'images') {
+          // Append raw file objects
+          const images = payload[key] as File[];
+          images.forEach(img => formData.append('images', img));
+        } else if (typeof payload[key] === 'object' && payload[key] !== null) {
+          formData.append(key, JSON.stringify(payload[key]));
+        } else {
+          formData.append(key, String(payload[key]));
+        }
+      });
+
+      const response = await axios.post('http://localhost:3002/api/create-order', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
 
       if (response.data.success) {
         toast.success(`Order saved successfully! ID: ${response.data.jobId}`); // Response returns jobId not order.jobId
@@ -139,7 +166,9 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
       }
     } catch (error: any) {
       console.error("Failed to save order:", error);
-      toast.error(error.response?.data?.message || "Failed to save order");
+      const errMsg = error.response?.data?.error || error.response?.data?.message || "Failed to save order";
+      const errDetails = error.response?.data?.details ? JSON.stringify(error.response.data.details) : "";
+      toast.error(`${errMsg} ${errDetails}`);
     }
   };
 

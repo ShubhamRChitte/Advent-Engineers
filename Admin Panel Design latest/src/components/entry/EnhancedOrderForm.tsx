@@ -9,7 +9,6 @@ interface Transformer {
   id: string;
   name: string;
   type: string;
-  capacity: string;
   voltageRating: string;
   cores: number;
   phase: string;
@@ -35,16 +34,21 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
   const [isStandard, setIsStandard] = useState('');
 
   // Initialize from transformer prop if available, else empty
-  const [transformerName, setTransformerName] = useState(transformer?.name || '');
+  const transformerName = transformer?.name || 'Custom Transformer';
   const [transformerType, setTransformerType] = useState(transformer?.type || '');
   const [numberOfCores, setNumberOfCores] = useState(transformer?.cores.toString() || '1');
-  const [capacity, setCapacity] = useState(transformer?.capacity || '');
   const [voltageRating, setVoltageRating] = useState(transformer?.voltageRating || '');
+  const [isCustomVoltage, setIsCustomVoltage] = useState(false);
+  const [isCustomSecCurrent, setIsCustomSecCurrent] = useState(false);
 
+
+  const [indoorOutdoor, setIndoorOutdoor] = useState('');
+  const [insulationType, setInsulationType] = useState('');
+  const [tankType, setTankType] = useState('');
 
   // Core configurations
-  const [coreTypes, setCoreTypes] = useState<string[]>(
-    Array(parseInt(numberOfCores) || 1).fill('metering')
+  const [coreConfigs, setCoreConfigs] = useState<{ coreType: string; accuracyClass: string }[]>(
+    Array(parseInt(numberOfCores) || 1).fill({ coreType: 'metering', accuracyClass: '' })
   );
 
   // Transformer Parameters
@@ -55,17 +59,39 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
   const [burden, setBurden] = useState('');
   const [ratedPrimaryCurrent, setRatedPrimaryCurrent] = useState('');
   const [ratedSecondaryCurrent, setRatedSecondaryCurrent] = useState('');
-  const [accuracyClass, setAccuracyClass] = useState('');
-  const [mountingDetails, setMountingDetails] = useState('');
-  const [overallDimensions, setOverallDimensions] = useState('');
 
   // Additional parameters
   const [additionalParams, setAdditionalParams] = useState<AdditionalParameter[]>([]);
 
+  // Images state
+  const [images, setImages] = useState<File[]>([]);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    // Store actual File objects
+    setImages(prev => [...prev, ...Array.from(files)]);
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleCoreTypeChange = (index: number, value: string) => {
-    const newCoreTypes = [...coreTypes];
-    newCoreTypes[index] = value;
-    setCoreTypes(newCoreTypes);
+    setCoreConfigs(prev => {
+      const updated = [...prev];
+      updated[index] = { coreType: value, accuracyClass: '' }; // reset accuracy class on type change
+      return updated;
+    });
+  };
+
+  const handleCoreAccuracyChange = (index: number, value: string) => {
+    setCoreConfigs(prev => {
+      const updated = [...prev];
+      updated[index] = { coreType: updated[index]?.coreType || 'metering', accuracyClass: value };
+      return updated;
+    });
   };
 
   const handleAddRatio = (value: string) => {
@@ -106,22 +132,22 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
       transformerName, // Use state
       transformerType, // Use state
       quantity: parseInt(quantity),
-      capacity,       // Added
       voltageRating,  // Added
       ratio: ratios,  // Changed to Array
       isStandard,
+      indoorOutdoor,
+      insulationType,
+      tankType,
       numberOfCores: parseInt(numberOfCores),
-      coreTypes,
+      coreConfigs,
       parameters: {
         nominalVoltage,
         burden,
         ratedPrimaryCurrent,
         ratedSecondaryCurrent,
-        accuracyClass,
-        mountingDetails,
-        overallDimensions,
       },
       additionalParams,
+      images,
       bypassApproval: !isEntryOperator, // If Entry Operator, do NOT bypass approval
     };
     onSubmit(orderData);
@@ -154,28 +180,22 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
               <div className="flex gap-4 text-sm text-gray-600 mt-2">
                 <span>Type: {transformer.type}</span>
                 <span>•</span>
-                <span>Capacity: {transformer.capacity}</span>
-                <span>•</span>
                 <span>Voltage: {transformer.voltageRating}</span>
               </div>
             </div>
           ) : (
             <div className="space-y-4 border-b-2 border-gray-200 pb-6">
-              <h3 className="font-semibold mb-4 text-blue-700">Transformer Details</h3>
+              <h3 className="font-semibold mb-4  text-blue-700">Transformer Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Transformer Name *</Label>
-                  <Input
-                    value={transformerName}
-                    onChange={e => setTransformerName(e.target.value)}
-                    placeholder="e.g. Outdoor Epoxy Resin Cast"
-                  />
-                </div>
+
                 <div>
                   <Label>Type *</Label>
                   <select
                     value={transformerType}
-                    onChange={(e) => setTransformerType(e.target.value)}
+                    onChange={(e) => {
+                      setTransformerType(e.target.value);
+                      setIsStandard(''); // Reset standard on type change
+                    }}
                     className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
                   >
                     <option value="">Select Type</option>
@@ -183,21 +203,94 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
                     <option value="PT">Potential Transformer (PT)</option>
                   </select>
                 </div>
-                <div>
-                  <Label>Capacity</Label>
-                  <Input
-                    value={capacity}
-                    onChange={e => setCapacity(e.target.value)}
-                    placeholder="e.g. 500 kVA"
-                  />
-                </div>
+                {transformerType && (
+                  <div>
+                    <Label>IS Standard *</Label>
+                    <select
+                      value={isStandard}
+                      onChange={(e) => setIsStandard(e.target.value)}
+                      className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                    >
+                      <option value="">Select IS Standard</option>
+                      <option value="16227">16227</option>
+                      {transformerType === 'CT' && <option value="2705">2705</option>}
+                      {transformerType === 'PT' && <option value="3156">3156</option>}
+                    </select>
+                  </div>
+                )}
+                {transformerType && (
+                  <>
+                    <div>
+                      <Label>Indoor/Outdoor</Label>
+                      <select
+                        value={indoorOutdoor}
+                        onChange={(e) => setIndoorOutdoor(e.target.value)}
+                        className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                      >
+                        <option value="">Select location</option>
+                        <option value="Indoor">Indoor</option>
+                        <option value="Outdoor">Outdoor</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label>Insulation Type</Label>
+                      <select
+                        value={insulationType}
+                        onChange={(e) => setInsulationType(e.target.value)}
+                        className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                      >
+                        <option value="">Select insulation</option>
+                        <option value="Oil Cooled">Oil Cooled</option>
+                        <option value="Epoxy">Epoxy</option>
+                      </select>
+                    </div>
+                    {insulationType === 'Oil Cooled' && (
+                      <div>
+                        <Label>Tank Type</Label>
+                        <select
+                          value={tankType}
+                          onChange={(e) => setTankType(e.target.value)}
+                          className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                        >
+                          <option value="">Select tank type</option>
+                          <option value="Live Tank">Live Tank</option>
+                          <option value="Dead Tank">Dead Tank</option>
+                        </select>
+                      </div>
+                    )}
+                  </>
+                )}
                 <div>
                   <Label>Voltage Rating</Label>
-                  <Input
-                    value={voltageRating}
-                    onChange={e => setVoltageRating(e.target.value)}
-                    placeholder="e.g. 33/11 kV"
-                  />
+                  <div className="flex gap-2">
+                    <select
+                      value={!isCustomVoltage ? voltageRating : 'Custom'}
+                      onChange={(e) => {
+                        if (e.target.value === 'Custom') {
+                          setIsCustomVoltage(true);
+                          setVoltageRating('');
+                        } else {
+                          setIsCustomVoltage(false);
+                          setVoltageRating(e.target.value);
+                        }
+                      }}
+                      className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                    >
+                      <option value="">Select Voltage</option>
+                      <option value="11">11</option>
+                      <option value="22">22</option>
+                      <option value="33">33</option>
+                      <option value="Custom">Custom...</option>
+                    </select>
+                    {isCustomVoltage && (
+                      <Input
+                        className="mt-1"
+                        placeholder="Custom Voltage"
+                        value={voltageRating}
+                        onChange={e => setVoltageRating(e.target.value)}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -244,15 +337,6 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
                 />
               </div>
               <div>
-                <Label>IS Standard</Label>
-                <Input
-                  placeholder="e.g., IS 2705, IS 3156"
-                  value={isStandard}
-                  onChange={(e) => setIsStandard(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
                 <Label>Number of Cores *</Label>
                 <Input
                   type="number"
@@ -264,11 +348,10 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
                     const value = e.target.value;
                     setNumberOfCores(value);
                     const numCores = parseInt(value) || 0;
-                    // Only update config if expanding, or reset? Let's just resize array
-                    setCoreTypes(prev => {
-                      const newTypes = [...prev];
-                      if (numCores > prev.length) {
-                        return [...newTypes, ...Array(numCores - prev.length).fill('metering')];
+                    setCoreConfigs(prev => {
+                      const newTypes = Array.isArray(prev) ? [...prev] : [];
+                      if (numCores > newTypes.length) {
+                        return [...newTypes, ...Array(numCores - newTypes.length).fill({ coreType: 'metering', accuracyClass: '' })];
                       }
                       return newTypes.slice(0, numCores);
                     });
@@ -283,12 +366,12 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
           {parseInt(numberOfCores) > 0 && (
             <div className="space-y-4">
               <h3 className="pb-2 border-b-2 border-gray-200">Core Configuration</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {coresArray.map((_, index) => (
-                  <div key={index}>
+                  <div key={index} className="flex flex-col gap-2">
                     <Label>Core {index + 1} Type *</Label>
                     <select
-                      value={coreTypes[index] || 'metering'}
+                      value={coreConfigs[index]?.coreType || 'metering'}
                       onChange={(e) => handleCoreTypeChange(index, e.target.value)}
                       className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
                     >
@@ -296,11 +379,47 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
                       <option value="ps">PS</option>
                       <option value="protection">Protection</option>
                     </select>
+
+                    {coreConfigs[index]?.coreType && (
+                      <div className="mt-2">
+                        <Label>Accuracy Class</Label>
+                        <select
+                          value={coreConfigs[index]?.accuracyClass || ''}
+                          onChange={(e) => handleCoreAccuracyChange(index, e.target.value)}
+                          className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                        >
+                          <option value="">Select Accuracy Class</option>
+                          {coreConfigs[index].coreType === 'metering' && (
+                            <>
+                              <option value="0.1">0.1</option>
+                              <option value="0.2">0.2</option>
+                              <option value="0.5">0.5</option>
+                              <option value="1">1</option>
+                              <option value="3">3</option>
+                              <option value="5">5</option>
+                              <option value="0.2s">0.2s</option>
+                              <option value="0.5s">0.5s</option>
+                            </>
+                          )}
+                          {coreConfigs[index].coreType === 'protection' && (
+                            <>
+                              <option value="5P">5P</option>
+                              <option value="10P">10P</option>
+                              <option value="15P">15P</option>
+                            </>
+                          )}
+                          {coreConfigs[index].coreType === 'ps' && (
+                            <option value="0.2s">0.2s</option>
+                          )}
+                        </select>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
-          )}
+          )
+          }
 
           {/* Transformer Parameters Section */}
           <div className="space-y-4">
@@ -400,50 +519,47 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
                   className="mt-1"
                 />
               </div>
-              <div>
-                <Label>Rated Primary Current</Label>
-                <Input
-                  placeholder="e.g., 200 A"
-                  value={ratedPrimaryCurrent}
-                  onChange={(e) => setRatedPrimaryCurrent(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
+              {transformerType === 'CT' && (
+                <div>
+                  <Label>Rated Primary Current</Label>
+                  <Input
+                    placeholder="e.g., 200 A"
+                    value={ratedPrimaryCurrent}
+                    onChange={(e) => setRatedPrimaryCurrent(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+              )}
               <div>
                 <Label>Rated Secondary Current</Label>
-                <Input
-                  placeholder="e.g., 1 A or 5 A"
-                  value={ratedSecondaryCurrent}
-                  onChange={(e) => setRatedSecondaryCurrent(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>Accuracy Class</Label>
-                <Input
-                  placeholder="e.g., 0.2S, 0.5, 5P20"
-                  value={accuracyClass}
-                  onChange={(e) => setAccuracyClass(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>Mounting Details</Label>
-                <Input
-                  placeholder="e.g., Wall mounted, Panel mounted"
-                  value={mountingDetails}
-                  onChange={(e) => setMountingDetails(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Label>Overall Dimensions</Label>
-                <Input
-                  placeholder="e.g., 500mm x 300mm x 400mm"
-                  value={overallDimensions}
-                  onChange={(e) => setOverallDimensions(e.target.value)}
-                  className="mt-1"
-                />
+                <div className="flex gap-2">
+                  <select
+                    value={!isCustomSecCurrent ? ratedSecondaryCurrent : 'Custom'}
+                    onChange={(e) => {
+                      if (e.target.value === 'Custom') {
+                        setIsCustomSecCurrent(true);
+                        setRatedSecondaryCurrent('');
+                      } else {
+                        setIsCustomSecCurrent(false);
+                        setRatedSecondaryCurrent(e.target.value);
+                      }
+                    }}
+                    className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                  >
+                    <option value="">Select Sec. Current</option>
+                    <option value="1">1</option>
+                    <option value="5">5</option>
+                    <option value="Custom">Custom...</option>
+                  </select>
+                  {isCustomSecCurrent && (
+                    <Input
+                      className="mt-1"
+                      placeholder="Custom Value"
+                      value={ratedSecondaryCurrent}
+                      onChange={e => setRatedSecondaryCurrent(e.target.value)}
+                    />
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -501,12 +617,32 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
 
           {/* Upload Image Section */}
           <div className="space-y-4">
-            <h3 className="pb-2 border-b-2 border-gray-200">Upload Image</h3>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer">
+            <h3 className="pb-2 border-b-2 border-gray-200">Upload Images</h3>
+            <label className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer block">
+              <input type="file" multiple accept="image/*,.pdf" className="hidden" onChange={handleImageUpload} />
               <Upload className="w-12 h-12 mx-auto text-gray-400 mb-2" />
               <p className="text-sm text-gray-600">Click to upload or drag and drop</p>
               <p className="text-xs text-gray-400 mt-1">PNG, JPG, PDF up to 10MB</p>
-            </div>
+            </label>
+            {images.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                {images.map((img, idx) => (
+                  <div key={idx} className="relative group border rounded-lg overflow-hidden h-32 flex items-center justify-center bg-gray-50 p-2">
+                    {img.type === 'application/pdf' ? (
+                      <div className="text-center">
+                        <div className="text-red-500 font-bold text-lg">PDF</div>
+                        <div className="text-xs text-gray-500 truncate w-20">{img.name}</div>
+                      </div>
+                    ) : (
+                      <img src={URL.createObjectURL(img)} alt={`Upload ${idx}`} className="w-full h-full object-contain" />
+                    )}
+                    <button type="button" onClick={() => handleRemoveImage(idx)} className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}
@@ -521,13 +657,13 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
             <Button
               onClick={handleSubmit}
               className={`flex-1 ${isEntryOperator ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-              disabled={!clientName || !clientContact || !quantity || !numberOfCores || !transformerName || !transformerType}
+              disabled={!clientName || !clientContact || !quantity || !numberOfCores || !transformerType}
             >
               {isEntryOperator ? "Submit for Approval" : "Continue to Assign Testing"}
             </Button>
           </div>
         </div>
-      </Card>
-    </div>
+      </Card >
+    </div >
   );
 }

@@ -28,6 +28,7 @@ export interface Transformer {
     protection: string[];
   };
   orderId?: any; // Added for ratio fallback
+  accuracyClass?: string; // Added for metering tests dynamic limits
 }
 
 interface Order {
@@ -249,7 +250,8 @@ export function SecondaryTransformersList({ order, onStartTest, onBack }: Second
             ratios: t.ratios || (Array.isArray(order.ratio) ? order.ratio : (order.ratio ? [order.ratio] : ['N/A'])),
             canApprove,
             testHistory: t.testHistory,
-            availableCoreIdsPool: availablePool
+            availableCoreIdsPool: availablePool,
+            accuracyClass: order.accuracyClass || '0.5' // Pass accuracy class from Order
           };
         });
 

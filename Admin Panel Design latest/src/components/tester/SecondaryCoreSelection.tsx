@@ -182,7 +182,9 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
       );
     } else if (core.coreType === 'protection') {
       return coreResults.every((res: any) =>
-        res.ratioError100 && res.phaseError && res.resistance &&
+        res.ratioError100 &&
+        (res.protectionClass === '10P' || res.protectionClass === '15P' ? true : res.phaseError) &&
+        res.resistance &&
         (res.secondaryLimitingVoltage || res.secondaryLimitingVtg) && res.excitationCurrent && res.compositeError && res.alf
       );
     } else if (core.coreType === 'ps') {
@@ -282,7 +284,9 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
               } else if (core.coreType === 'protection') {
                 // Protection: Check all main test fields
                 isCompleted = coreResults.every((res: any) =>
-                  res.ratioError100 && res.phaseError && res.resistance &&
+                  res.ratioError100 &&
+                  (res.protectionClass === '10P' || res.protectionClass === '15P' ? true : res.phaseError) &&
+                  res.resistance &&
                   (res.secondaryLimitingVoltage || res.secondaryLimitingVtg) &&
                   res.excitationCurrent && res.compositeError && res.alf
                 );
@@ -419,7 +423,9 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
                     );
                   } else if (type === 'protection') {
                     isCompleted = coreResults.every((res: any) =>
-                      res.ratioError100 && res.phaseError && res.resistance &&
+                      res.ratioError100 &&
+                      (res.protectionClass === '10P' || res.protectionClass === '15P' ? true : res.phaseError) &&
+                      res.resistance &&
                       (res.secondaryLimitingVoltage || res.secondaryLimitingVtg) &&
                       res.excitationCurrent && res.compositeError && res.alf
                     );

@@ -75,24 +75,16 @@ const OrderSchema = new Schema(
     priority: { type: String, enum: ["High", "Medium", "Low"], default: "Medium" },
     ratedPrimaryCurrent: {
       type: Number,
-      required: true
+      required: false
     },
 
     ratedSecondaryCurrent: {
       type: Number,
       required: true
     },
-    // -------- MECHANICAL DETAILS --------
-    mountingDetails: {
+    voltageRating: {
       type: String,
-      required: true,
-      trim: true
-    },
-
-    overallDimension: {
-      type: String,
-      required: true,
-      trim: true
+      required: false
     },
     instructions: {
       type: String,
@@ -104,6 +96,22 @@ const OrderSchema = new Schema(
       required: true,
       trim: true
     },
+    indoorOutdoor: {
+      type: String,
+      trim: true
+    },
+    insulationType: {
+      type: String,
+      trim: true
+    },
+    tankType: {
+      type: String,
+      trim: true
+    },
+    images: [{
+      url: String, // Cloudinary secure_url
+      public_id: String // Cloudinary public_id for deletion
+    }]
   },
 
   { timestamps: true }
