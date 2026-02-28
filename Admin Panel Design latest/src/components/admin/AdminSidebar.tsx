@@ -62,8 +62,8 @@ export function AdminSidebar({ activeView, setActiveView }: AdminSidebarProps) {
               key={item.id}
               onClick={() => setActiveView(item.id)}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors group ${isActive
-                  ? 'bg-[#003a70] text-white'
-                  : 'text-gray-700 hover:bg-slate-50'
+                ? 'bg-[#003a70] text-white'
+                : 'text-gray-700 hover:bg-slate-50'
                 }`}
             >
               <div className="flex items-center gap-3">

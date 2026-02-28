@@ -205,7 +205,7 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
       finalOrderQuery = {
         $or: [
           { _id: { $in: historyOrderIds } },
-          { "assignments.core_tester": { $in: namesToCheck }, status: "Core Testing Completed" }, // Legacy Object check
+          { "assignments.core_tester": { $in: namesToCheck }, approved: true }, // Legacy Object check
           // Support for Array-based assignments (New Granular System)
           {
             assignments: {
@@ -214,7 +214,7 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
                 stage: "core"
               }
             },
-            status: "Core Testing Completed"
+            approved: true
           }
         ]
       };

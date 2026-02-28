@@ -1,0 +1,174 @@
+/* =========================================
+   Printable Failed Core Report Styles
+   ========================================= */
+
+#printable-failed-core-report {
+    background: white;
+    padding: 8mm 12mm;
+    min-height: 297mm;
+    width: 100%;
+    box-sizing: border-box;
+    color: black;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* ---- HEADER ---- */
+#printable-failed-core-report .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+#printable-failed-core-report .logo-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+#printable-failed-core-report .logo-icon {
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
+}
+#printable-failed-core-report .company-info {
+    text-align: center;
+    flex-grow: 1;
+}
+#printable-failed-core-report .company-name {
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+#printable-failed-core-report .company-sub {
+    font-size: 11px;
+    color: #555;
+}
+#printable-failed-core-report .header-meta {
+    display: flex;
+    flex-direction: column;
+    text-align: right;
+    font-size: 11px;
+}
+#printable-failed-core-report .meta-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 5px;
+    margin-bottom: 3px;
+}
+#printable-failed-core-report .meta-label {
+    font-weight: bold;
+}
+
+/* ---- MAIN TITLE BOX ---- */
+#printable-failed-core-report .main-title-box {
+    border: 1.5px solid #e2e8f0;
+    text-align: center;
+    padding: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05); /* very subtle */
+}
+#printable-failed-core-report .main-title-text {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+#printable-failed-core-report .bg-yellow { 
+    background-color: #fce588 !important; 
+    -webkit-print-color-adjust: exact; 
+    print-color-adjust: exact; 
+}
+
+#printable-failed-core-report .bg-red { 
+    background-color: #fca5a5 !important; 
+    -webkit-print-color-adjust: exact; 
+    print-color-adjust: exact; 
+}
+
+/* ---- TABLE STYLES ---- */
+#printable-failed-core-report .report-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 2px solid #000;
+    table-layout: fixed;
+}
+
+#printable-failed-core-report .report-table tr {
+    page-break-inside: avoid;
+}
+
+#printable-failed-core-report .report-table td, 
+#printable-failed-core-report .report-table th {
+    border: 1px solid #000;
+    padding: 6px;
+    text-align: center;
+    font-size: 11px;
+    height: 24px;
+    vertical-align: middle;
+    word-wrap: break-word;
+    overflow: hidden;
+}
+
+#printable-failed-core-report .bg-header { 
+    background-color: #f0f0f0 !important; 
+    -webkit-print-color-adjust: exact; 
+    print-color-adjust: exact; 
+}
+
+#printable-failed-core-report .font-bold { font-weight: bold; }
+
+/* Data Table specific widths */
+#printable-failed-core-report .col-date { width: 12%; }
+#printable-failed-core-report .col-vendor { width: 18%; }
+#printable-failed-core-report .col-internal { width: 18%; }
+#printable-failed-core-report .col-type { width: 12%; }
+#printable-failed-core-report .col-reason { width: 25%; text-align: left !important; padding-left: 10px !important; }
+#printable-failed-core-report .col-remark { width: 15%; }
+
+/* ---- FOOTER ---- */
+#printable-failed-core-report .footer-sig {
+    margin-top: 50px;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 40px;
+}
+#printable-failed-core-report .sig-box {
+    text-align: center;
+    width: 200px;
+}
+#printable-failed-core-report .sig-title {
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 8px;
+    border-top: 1px solid #000;
+    padding-top: 5px;
+}
+#printable-failed-core-report .sig-name {
+    font-size: 12px;
+    color: #444;
+}
+#printable-failed-core-report .sig-company {
+    font-weight: bold;
+    font-size: 12px;
+    font-style: italic;
+    margin-top: 2px;
+}
+
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 0; 
+    }
+    body * {
+        visibility: hidden;
+    }
+    #printable-failed-core-report, #printable-failed-core-report * {
+        visibility: visible;
+    }
+    #printable-failed-core-report {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        padding: 10mm 15mm;
+    }
+}

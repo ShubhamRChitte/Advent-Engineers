@@ -1638,8 +1638,6 @@ app.put('/api/core-tests/approve-batch', async (req, res) => {
     // BATCH APPROVAL LOGIC
     // -----------------------------------------------------------
     console.log(`[Batch Approve] JobId: ${jobId}, Cores:`, internalCoreNos);
-    const fs = require('fs');
-    fs.writeFileSync('d:/Advent/Backend/debug_payload.txt', `Job: ${jobId}\nCores: ${pkg_JSON.stringify(internalCoreNos)}\nDate: ${new Date().toISOString()}`);
 
     const updatePromises = internalCoreNos.map(async (coreId) => {
       // Extract sequence: M-007-001 -> 001

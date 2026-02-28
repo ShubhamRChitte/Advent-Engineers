@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   Printer,
   Search,
-  Download,
 } from 'lucide-react';
 import { FailedCore } from './CoreTestingForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
@@ -80,231 +79,6 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
 
   return (
     <div className="space-y-4">
-      {/* Print-only styles */}
-      <style>
-        {`
-          #print-section {
-            display: none !important;
-          }
-
-          @media print {
-            @page {
-              size: A4 landscape;
-              margin: 8mm;
-            }
-            body * {
-              visibility: hidden;
-            }
-            #print-section, #print-section * {
-              visibility: visible;
-              display: block !important;
-            }
-            #print-section {
-              display: block !important;
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100%;
-              background: white !important;
-              color: black !important;
-              padding: 0;
-              margin: 0;
-              visibility: visible !important;
-            }
-            .no-print {
-              display: none !important;
-            }
-            
-            /* Strict Table Layout */
-            .report-table {
-              display: table !important;
-              width: 100% !important;
-              border-collapse: collapse !important;
-              border: 1.5px solid #000 !important;
-              table-layout: fixed !important;
-            }
-            .report-table thead {
-              display: table-header-group !important;
-            }
-            .report-table tbody {
-              display: table-row-group !important;
-            }
-            .report-table tr {
-              display: table-row !important;
-              page-break-inside: avoid !important;
-            }
-            .report-table th, .report-table td {
-              display: table-cell !important;
-              border: 1px solid #000 !important;
-              padding: 6px 4px !important;
-              text-align: left !important;
-              font-size: 10px !important;
-              vertical-align: middle !important;
-              word-wrap: break-word !important;
-            }
-            .report-table th {
-              background-color: #f8fafc !important;
-              font-weight: bold !important;
-              text-transform: uppercase !important;
-              font-size: 9px !important;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            
-            /* Enterprise Branding */
-            .report-header-grid {
-              display: grid !important;
-              grid-template-columns: 1fr 1fr !important;
-              border: 1.5px solid #000 !important;
-              margin-bottom: 0px !important;
-            }
-            .header-info-cell {
-              padding: 8px !important;
-              display: flex !important;
-              flex-direction: column !important;
-              justify-content: center !important;
-              border-right: 1.5px solid #000 !important;
-            }
-            .header-info-cell-last {
-              border-right: none !important;
-            }
-            .header-logo-title {
-              font-size: 20px !important;
-              font-weight: 900 !important;
-              color: #000 !important;
-              letter-spacing: -0.5px !important;
-              line-height: 1 !important;
-            }
-            .header-motto {
-              font-size: 8px !important;
-              color: #333 !important;
-              font-style: italic !important;
-              margin-top: 2px !important;
-            }
-            
-            .report-title-banner {
-              background-color: #ffffff !important;
-              border-left: 1.5px solid #000 !important;
-              border-right: 1.5px solid #000 !important;
-              border-bottom: 2.5px solid #000 !important;
-              text-align: center !important;
-              padding: 8px !important;
-              font-weight: bold !important;
-              font-size: 18px !important;
-              text-transform: uppercase !important;
-              letter-spacing: 1px !important;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            
-            .footer-sig {
-              margin-top: 40px !important;
-              display: flex !important;
-              justify-content: space-between !important;
-              padding: 0 50px !important;
-            }
-            .sig-line {
-              border-top: 1.5px solid #000 !important;
-              width: 180px !important;
-              text-align: center !important;
-              font-size: 11px !important;
-              padding-top: 4px !important;
-              font-weight: bold !important;
-            }
-          }
-        `}
-      </style>
-
-      {/* 
-        ======================================================================
-        PRINT SECTION (Visible only during print)
-        ======================================================================
-      */}
-      <div id="print-section" className="hidden print:block font-sans">
-        {/* Enterprise Header */}
-        <div className="report-header-grid">
-          <div className="header-info-cell">
-            <div className="header-logo-title">ADVENT ENGINEERS</div>
-            <div className="header-motto">Excellence in Electrical Infrastructure & Services</div>
-          </div>
-          <div className="header-info-cell header-info-cell-last text-right">
-            <div className="text-[10px] leading-tight">
-              <b>DATE:</b> {new Date().toLocaleDateString()}<br />
-              <b>DOCUMENT:</b> FAILED CORES SUMMARY
-            </div>
-          </div>
-        </div>
-
-        <div className="report-title-banner">
-          FAILED CORES SUMMARY REPORT
-        </div>
-
-        <div className="mt-4 px-1">
-          <div className="flex justify-between items-end mb-2">
-            <p className="text-[11px] text-gray-700 font-medium">
-              SUMMARY OF NON-CONFORMING CORES IDENTIFIED DURING FINAL UNIT TESTING
-            </p>
-            <p className="text-[10px] bg-slate-100 px-2 py-0.5 border border-slate-300">
-              TOTAL RECORDS: <b>{safeCores.length}</b>
-            </p>
-          </div>
-
-          <table className="report-table">
-            <thead>
-              <tr>
-                <th style={{ width: '10%' }}>DATE</th>
-                <th style={{ width: '15%' }}>JOB ID</th>
-                <th style={{ width: '15%' }}>CLIENT NAME</th>
-                <th style={{ width: '10%' }}>CORE TYPE</th>
-                <th style={{ width: '12%' }}>INTERNAL ID</th>
-                <th style={{ width: '13%' }}>VENDOR NO</th>
-                <th style={{ width: '25%' }}>FAILURE RESON / OBSERVATION</th>
-              </tr>
-            </thead>
-            <tbody>
-              {safeCores.map((core, i) => (
-                <tr key={i}>
-                  <td>{core.date || '-'}</td>
-                  <td className="font-mono">{core.jobId || '-'}</td>
-                  <td>{core.clientName || '-'}</td>
-                  <td>{core.coreType || '-'}</td>
-                  <td className="font-bold underline">{core.internalCoreNo || '-'}</td>
-                  <td>{core.coreVendorNo || core.vendorCoreNo || '-'}</td>
-                  <td className="text-[9px] leading-relaxed italic">{core.failureReason || '-'}</td>
-                </tr>
-              ))}
-              {safeCores.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="text-center py-8 text-gray-400 italic">No non-conforming cores recorded in current session.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="mt-8 mx-1 py-3 px-4 bg-slate-50 border border-slate-200">
-          <h5 className="text-[11px] font-bold text-slate-900 mb-1 uppercase underline">Disposition Instructions:</h5>
-          <p className="text-[10px] text-slate-700 leading-normal">
-            The cores listed above have failed specific performance criteria (Ratio, Accuracy, or Excitation) during
-            primary/secondary testing. These components are strictly prohibited from being dispatched.
-            Logistics department to coordinate with the Quality Manager for immediate return-to-vendor (RTV) processing.
-          </p>
-        </div>
-
-        {/* Footer */}
-        <div className="footer-sig">
-          <div>
-            <div className="sig-line">TESTED BY</div>
-            <div className="text-[8px] text-center mt-1 text-gray-400 tracking-tight">Technical Testing Division</div>
-          </div>
-          <div className="text-right">
-            <div className="sig-line">AUTHORISED SIGNATORY</div>
-            <div className="text-[8px] text-center mt-1 text-gray-500 font-bold uppercase tracking-widest leading-none">
-              STAMP & SIGNATURE REQUIRED
-            </div>
-          </div>
-        </div>
-      </div>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -329,10 +103,6 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
           <Button variant="outline" size="sm" className="gap-1" onClick={handlePrint}>
             <Printer className="w-3 h-3" />
             Print Report
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1">
-            <Download className="w-3 h-3" />
-            Export CSV
           </Button>
         </div>
       </div>
@@ -410,7 +180,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                 <tbody>
                   {filteredCores.map((core, index) => (
                     <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
-                      <td className="p-2">{String(core.date || '')}</td>
+                      <td className="p-2">{core.failedAt ? new Date(core.failedAt).toLocaleDateString('en-GB') : (core.createdAt ? new Date(core.createdAt).toLocaleDateString('en-GB') : '-')}</td>
                       <td className="p-2 font-mono text-xs">{String(core.orderId || '')}</td>
                       <td className="p-2 font-mono text-xs">{String(core.jobId || '')}</td>
                       <td className="p-2">{String(core.clientName || '')}</td>
@@ -460,7 +230,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                       <tbody>
                         {cores.map((core, idx) => (
                           <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="p-2">{String(core.date || '')}</td>
+                            <td className="p-2">{core.failedAt ? new Date(core.failedAt).toLocaleDateString('en-GB') : (core.createdAt ? new Date(core.createdAt).toLocaleDateString('en-GB') : '-')}</td>
                             <td className="p-2 font-mono text-xs">{String(core.orderId || '')}</td>
                             <td className="p-2 font-mono text-xs">{String(core.jobId || '')}</td>
                             <td className="p-2">{String(core.clientName || '')}</td>
@@ -508,7 +278,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                       <tbody>
                         {cores.map((core, idx) => (
                           <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="p-2">{String(core.date || '')}</td>
+                            <td className="p-2">{core.failedAt ? new Date(core.failedAt).toLocaleDateString('en-GB') : (core.createdAt ? new Date(core.createdAt).toLocaleDateString('en-GB') : '-')}</td>
                             <td className="p-2">{String(core.coreType || '')}</td>
                             <td className="p-2 font-mono font-medium text-red-700">{String(core.internalCoreNo || '')}</td>
                             <td className="p-2">{String(core.coreVendorNo || core.vendorCoreNo || '')}</td>
@@ -540,7 +310,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
           <li>Keep detailed records of failure reasons for quality control and vendor feedback</li>
           <li>Follow company policy for core handling and vendor communication</li>
         </ul>
-      </Card >
-    </div >
+      </Card>
+    </div>
   );
 }

@@ -9,7 +9,7 @@ const ProtectionCoreTestSchema = new Schema({
 
   coreType: {
     type: String,
-    enum: ["Protection","PS"],
+    enum: ["Protection", "PS"],
     default: "Protection"
   },
 

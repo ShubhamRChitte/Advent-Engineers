@@ -35,7 +35,7 @@ export function Orders(_props: OrdersProps) {
     const fetchCompletedOrders = async () => {
         try {
             setLoading(true);
-            const res = await axios.get('http://localhost:3002/api/core-tests/orders/completed', {
+            const res = await axios.get('http://localhost:3002/api/core-tests/orders/approved', {
                 withCredentials: true,
             });
             setOrders(res.data);

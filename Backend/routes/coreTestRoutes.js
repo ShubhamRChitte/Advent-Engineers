@@ -120,14 +120,16 @@ router.put('/approve/:orderId', isAuthenticated, async (req, res) => {
     }
 });
 
-// GET /api/core-tests/orders/completed
+// GET /api/core-tests/orders/approved
 // Fetch all orders that have completed core testing
-router.get('/orders/completed', isAuthenticated, async (req, res) => {
+router.get('/orders/approved', isAuthenticated, async (req, res) => {
     try {
         // Find orders where approved is true
         const completedOrders = await OrderModel.find({
             approved: true
         }).sort({ updatedAt: -1 });
+
+        console.log("Approved Orders:", completedOrders.length);
 
         res.status(200).json(completedOrders);
     } catch (err) {

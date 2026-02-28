@@ -65,7 +65,9 @@ export interface FailedCore {
   internalCoreNo: string;
   coreVendorNo: string;
   vendorCoreNo?: string; // Added to match backend schema
-  date: string;
+  date?: string; // Legacy frontend date
+  failedAt?: string; // Backend real timestamp
+  createdAt?: string; // Backend fallback timestamp
   failureReason: string;
   value1000: string;
   value3000: string;
