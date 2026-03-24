@@ -177,7 +177,8 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
         assignments: {
           $elemMatch: {
             testerName: { $in: namesToCheck },
-            stage: stageKey
+            stage: stageKey,
+            status: { $ne: "Completed" }
           }
         },
         isApproved: true // Only show orders that have been approved by Admin
@@ -186,14 +187,9 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
 
       // Combine: Show order if (Transformers are assigned OR Order says I'm assigned)
       finalOrderQuery = {
-        $and: [
-          {
-            $or: [
-              transformerBasedQuery,
-              directAssignmentQuery
-            ]
-          },
-          { approved: { $ne: true } }
+        $or: [
+          transformerBasedQuery,
+          directAssignmentQuery
         ]
       };
 
@@ -409,7 +405,14 @@ router.get('/transformers/:uniqueId', isAuthenticated, async (req, res) => {
     const transformer = await TransformerModel.findOne({ uniqueId: req.params.uniqueId }).populate('orderId');
     if (!transformer) return res.status(404).json({ message: "Transformer not found" });
 
-    res.json(transformer);
+    const obj = transformer.toObject();
+    if (obj.orderId) {
+      obj.jobId = obj.orderId.jobId;
+      obj.clientName = obj.orderId.clientName;
+      obj.accuracyClass = obj.orderId.accuracyClass;
+    }
+
+    res.json(obj);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -443,6 +446,17 @@ router.get('/secondary/reports', isAuthenticated, async (req, res) => {
 
     const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 }).populate('orderId');
 
+    const enrichedTransformers = transformers.map(t => {
+      const obj = t.toObject();
+      if (obj.orderId) {
+        obj.jobId = obj.orderId.jobId;
+        obj.clientName = obj.orderId.clientName;
+        // Also attach accuracyClass and ratio if needed later
+        obj.accuracyClass = obj.orderId.accuracyClass;
+      }
+      return obj;
+    });
+
     const fs = require('fs');
     const logPath = path.join(__dirname, '../debug_api_log.txt');
     fs.appendFileSync(logPath,
@@ -450,7 +464,7 @@ router.get('/secondary/reports', isAuthenticated, async (req, res) => {
     );
 
     console.log(`Found ${transformers.length} completed reports for ${currentUserName}`);
-    res.json(transformers);
+    res.json(enrichedTransformers);
   } catch (err) {
     console.error("Error fetching secondary reports:", err);
     res.status(500).json({ error: err.message });
@@ -480,8 +494,18 @@ router.get('/after-primary/reports', isAuthenticated, async (req, res) => {
 
     const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 }).populate('orderId');
 
+    const enrichedTransformers = transformers.map(t => {
+      const obj = t.toObject();
+      if (obj.orderId) {
+        obj.jobId = obj.orderId.jobId;
+        obj.clientName = obj.orderId.clientName;
+        obj.accuracyClass = obj.orderId.accuracyClass;
+      }
+      return obj;
+    });
+
     console.log(`Found ${transformers.length} completed after-primary reports for ${currentUserName}`);
-    res.json(transformers);
+    res.json(enrichedTransformers);
   } catch (err) {
     console.error("Error fetching after-primary reports:", err);
     res.status(500).json({ error: err.message });
@@ -511,8 +535,18 @@ router.get('/final/reports', isAuthenticated, async (req, res) => {
 
     const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 }).populate('orderId');
 
+    const enrichedTransformers = transformers.map(t => {
+      const obj = t.toObject();
+      if (obj.orderId) {
+        obj.jobId = obj.orderId.jobId;
+        obj.clientName = obj.orderId.clientName;
+        obj.accuracyClass = obj.orderId.accuracyClass;
+      }
+      return obj;
+    });
+
     console.log(`Found ${transformers.length} completed final reports for ${currentUserName}`);
-    res.json(transformers);
+    res.json(enrichedTransformers);
   } catch (err) {
     console.error("Error fetching final reports:", err);
     res.status(500).json({ error: err.message });

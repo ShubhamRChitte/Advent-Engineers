@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 interface CoreConfig {
   coreNumber: number;
   coreType: 'metering' | 'ps' | 'protection';
+  coreId?: string;
+  accuracyClass?: string | undefined;
 }
 
 export interface Transformer {
@@ -20,7 +22,7 @@ export interface Transformer {
   cores: CoreConfig[];
   status: 'pending' | 'in-progress' | 'completed';
   ratios: string[]; // Added dynamic ratios
-  canApprove: boolean; // New flag
+  canApprove?: boolean; // New flag
   testHistory?: any;
   availableCoreIdsPool?: {
     metering: string[];
@@ -28,7 +30,10 @@ export interface Transformer {
     protection: string[];
   };
   orderId?: any; // Added for ratio fallback
-  accuracyClass?: string; // Added for metering tests dynamic limits
+  accuracyClass?: string | undefined; // Added for metering tests dynamic limits
+  jobId?: string;
+  clientName?: string;
+  currentStage: string;
 }
 
 interface Order {
@@ -53,9 +58,10 @@ interface SecondaryTransformersListProps {
   order: Order;
   onStartTest: (transformer: Transformer) => void;
   onBack: () => void;
+  onRefreshOrders?: () => void; // Added
 }
 
-export function SecondaryTransformersList({ order, onStartTest, onBack }: SecondaryTransformersListProps) {
+export function SecondaryTransformersList({ order, onStartTest, onBack, onRefreshOrders }: SecondaryTransformersListProps) {
   const [transformers, setTransformers] = useState<Transformer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +112,8 @@ export function SecondaryTransformersList({ order, onStartTest, onBack }: Second
 
               coresList.push({
                 coreNumber: currentCoreNum++,
-                coreType: mappedType
+                coreType: mappedType,
+                accuracyClass: coreGroup.accuracyClass || '0.5'
               });
             });
           }
@@ -251,15 +258,21 @@ export function SecondaryTransformersList({ order, onStartTest, onBack }: Second
             canApprove,
             testHistory: t.testHistory,
             availableCoreIdsPool: availablePool,
-            accuracyClass: order.accuracyClass || '0.5' // Pass accuracy class from Order
+            orderId: order._id, // explicitly passing orderId for failed core requests
+            jobId: order.jobId,
+            clientName: order.clientName,
+            currentStage: t.currentStage
           };
         });
 
-        // Apply Granular Visibility Logic
+        // Filter 1: Only show transformers currently in the 'secondary' stage for this view
+        const activeUnitsOnly = mappedTransformers.filter((t: any) => t.currentStage === 'secondary');
+
+        // Apply Granular Visibility Logic (Filter 2)
         // If assignedUnitIds is present, filter.
         const filtered = (!order.assignedUnitIds || order.assignedUnitIds.length === 0)
-          ? mappedTransformers
-          : mappedTransformers.filter(t => order.assignedUnitIds?.some(assignedId =>
+          ? activeUnitsOnly
+          : activeUnitsOnly.filter(t => order.assignedUnitIds?.some(assignedId =>
             assignedId === t.uniqueId || assignedId.includes(t.uniqueId)
           ));
 
@@ -289,6 +302,9 @@ export function SecondaryTransformersList({ order, onStartTest, onBack }: Second
 
       if (response.data.success) {
         toast.success("Transformer Approved successfully!");
+        // Refresh the parent's orders list
+        if (onRefreshOrders) onRefreshOrders();
+
         // Refresh or update local state
         setTransformers(prev => prev.map(t =>
           t.uniqueId === transformer.uniqueId ? { ...t, status: 'completed' } : t

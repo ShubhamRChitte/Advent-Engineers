@@ -18,6 +18,7 @@ interface Order {
   status: string;
   priority: string;
   assignedUnitIds?: string[];
+  coreDetails?: any[];
 }
 
 interface CoreTestData {
@@ -68,10 +69,14 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
       unitsToTest = Array.from({ length: order.coresRequired }, (_, i) => `M-${2082 + i}`);
     }
 
+    // Find vendor_no for Metering cores (as this report uses 'M-' prefix)
+    const meteringDetail = order.coreDetails?.find((d: any) => d.coreType === 'Metering');
+    const defaultVendorNo = meteringDetail?.vendorNo || '';
+
     const initialTests: CoreTestData[] = unitsToTest.map(unitId => ({
       date: today,
-      vendorCoreNo: '',
-      internalCoreNo: unitId, // Use the real Unit ID / Transformer ID
+      vendorCoreNo: defaultVendorNo,
+      internalCoreNo: unitId,
       bsat1: '',
       bsat2: '',
       bsat3: '',

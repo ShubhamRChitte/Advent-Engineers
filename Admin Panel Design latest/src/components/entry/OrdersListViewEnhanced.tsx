@@ -37,9 +37,10 @@ interface Order {
 interface OrdersListViewEnhancedProps {
   onViewOrder?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
+  userRole?: string;
 }
 
-export function OrdersListViewEnhanced({ onViewOrder, onEditOrder }: OrdersListViewEnhancedProps) {
+export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -131,10 +132,24 @@ export function OrdersListViewEnhanced({ onViewOrder, onEditOrder }: OrdersListV
     const transformerName = order.transformerName || '';
     const status = order.status || ''; // Handle potentially undefined status
 
+    const q = searchQuery.toLowerCase().trim();
+    const normalOrderId = orderId.toLowerCase().replace(/\s+/g, '');
+    const normalQuery = q.replace(/\s+/g, '');
+
+    // Safely extract "JOB-2026-051" from "TR-JOB-2026-051-001" or similar
+    const extractedJobMatch = q.match(/job-?\d{4}-?\d{1,4}/i)?.[0];
+
+    const isTransformerSearch = q.startsWith('tr-') && q.includes(normalOrderId);
+
+    const jobMatch = normalOrderId.includes(normalQuery) ||
+      (normalQuery.length > 5 && normalOrderId.length > 0 && normalQuery.includes(normalOrderId)) ||
+      (extractedJobMatch && normalOrderId.includes(extractedJobMatch.toLowerCase().replace(/\s+/g, '')));
+
     const matchesSearch =
-      orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      transformerName.toLowerCase().includes(searchQuery.toLowerCase());
+      jobMatch ||
+      isTransformerSearch ||
+      clientName.toLowerCase().includes(q) ||
+      transformerName.toLowerCase().includes(q);
 
     // Status Filter Mapping
     if (selectedStatus === 'all') return matchesSearch;
@@ -294,15 +309,15 @@ export function OrdersListViewEnhanced({ onViewOrder, onEditOrder }: OrdersListV
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 ml-4">
-                      {isPending && (
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 min-w-[140px] justify-end">
+                      {isPending && (!userRole || userRole === 'admin') && (
                         <Button
                           size="sm"
-                          className="bg-green-600 hover:bg-green-700 text-white gap-1 shadow-sm"
-                          onClick={(e: React.MouseEvent) => handleApprove(order._id, e)}
+                          className="bg-green-600 hover:bg-green-700 w-full"
+                          onClick={(e) => handleApprove(order._id, e)}
                         >
-                          <CheckCircle className="w-4 h-4" />
+                          <CheckCircle className="w-4 h-4 mr-2" />
                           Approve
                         </Button>
                       )}
@@ -344,7 +359,7 @@ export function OrdersListViewEnhanced({ onViewOrder, onEditOrder }: OrdersListV
                     <OrderStatusTracker
                       currentStage={order.currentStage as any}
                       orderDate={order.createdAt}
-                      expectedCompletion={order.deadline}
+                      expectedCompletion={order.deadline || ''}
                       orderId={order.orderId}
                     />
                   </div>

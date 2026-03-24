@@ -16,94 +16,16 @@ import { Printer, ArrowLeft, Save, AlertTriangle } from 'lucide-react';
 import { Transformer } from './SecondaryTransformersList';
 import { toast } from 'sonner';
 
-export const ACCURACY_CLASS_LIMITS = {
-  "0.1": [
-    { load: "120%", ratioLimit: 0.1, phaseLimit: 5 },
-    { load: "100%", ratioLimit: 0.1, phaseLimit: 5 },
-    { load: "20%", ratioLimit: 0.2, phaseLimit: 8 },
-    { load: "5%", ratioLimit: 0.4, phaseLimit: 15 }
-  ],
-  "0.2": [
-    { load: "120%", ratioLimit: 0.2, phaseLimit: 10 },
-    { load: "100%", ratioLimit: 0.2, phaseLimit: 10 },
-    { load: "20%", ratioLimit: 0.35, phaseLimit: 15 },
-    { load: "5%", ratioLimit: 0.75, phaseLimit: 30 }
-  ],
-  "0.5": [
-    { load: "120%", ratioLimit: 0.5, phaseLimit: 30 },
-    { load: "100%", ratioLimit: 0.5, phaseLimit: 30 },
-    { load: "20%", ratioLimit: 0.75, phaseLimit: 45 },
-    { load: "5%", ratioLimit: 1.5, phaseLimit: 90 }
-  ],
-  "1": [
-    { load: "120%", ratioLimit: 1.0, phaseLimit: 60 },
-    { load: "100%", ratioLimit: 1.0, phaseLimit: 60 },
-    { load: "20%", ratioLimit: 1.5, phaseLimit: 90 },
-    { load: "5%", ratioLimit: 3.0, phaseLimit: 180 }
-  ],
-  "3": [
-    { load: "120%", ratioLimit: 3.0, phaseLimit: null },
-    { load: "50%", ratioLimit: 3.0, phaseLimit: null }
-  ],
-  "5": [
-    { load: "120%", ratioLimit: 5.0, phaseLimit: null },
-    { load: "50%", ratioLimit: 5.0, phaseLimit: null }
-  ],
-  "0.2S": [
-    { load: "120%", ratioLimit: 0.2, phaseLimit: 10 },
-    { load: "100%", ratioLimit: 0.2, phaseLimit: 10 },
-    { load: "20%", ratioLimit: 0.2, phaseLimit: 10 },
-    { load: "5%", ratioLimit: 0.35, phaseLimit: 15 },
-    { load: "1%", ratioLimit: 0.75, phaseLimit: 30 }
-  ],
-  "0.5S": [
-    { load: "120%", ratioLimit: 0.5, phaseLimit: 30 },
-    { load: "100%", ratioLimit: 0.5, phaseLimit: 30 },
-    { load: "20%", ratioLimit: 0.5, phaseLimit: 30 },
-    { load: "5%", ratioLimit: 0.75, phaseLimit: 45 },
-    { load: "1%", ratioLimit: 1.5, phaseLimit: 90 }
-  ]
-};
-
-export function validateMeteringUI(accClass: string, loadStr: string, ratioErrorStr: string, phaseErrorStr: string) {
-  if ((!ratioErrorStr || String(ratioErrorStr).trim() === '') && (!phaseErrorStr || String(phaseErrorStr).trim() === '')) {
-    return { isPass: undefined, reason: null };
-  }
-  const normalizedClass = accClass ? accClass.toUpperCase() : "0.5";
-  const classLimits = ACCURACY_CLASS_LIMITS[normalizedClass as keyof typeof ACCURACY_CLASS_LIMITS] || ACCURACY_CLASS_LIMITS['0.5'];
-  const limitConfig = classLimits.find((c: any) => c.load === loadStr);
-  if (!limitConfig) return { isPass: true, reason: null };
-
-  let isPass = true;
-  let reasons: string[] = [];
-
-  if (ratioErrorStr && String(ratioErrorStr).trim() !== '') {
-    const rVal = parseFloat(String(ratioErrorStr));
-    if (!isNaN(rVal) && Math.abs(rVal) >= limitConfig.ratioLimit) {
-      isPass = false;
-      reasons.push(`Ratio Error (${rVal}%) exceeds ±${limitConfig.ratioLimit}%`);
-    }
-  }
-
-  if (limitConfig.phaseLimit !== null && phaseErrorStr && String(phaseErrorStr).trim() !== '') {
-    const pVal = parseFloat(String(phaseErrorStr));
-    if (!isNaN(pVal) && Math.abs(pVal) >= limitConfig.phaseLimit) {
-      isPass = false;
-      reasons.push(`Phase Error (${pVal}m) exceeds ±${limitConfig.phaseLimit}m`);
-    }
-  }
-
-  return { isPass, reason: reasons.length > 0 ? reasons.join('; ') : null };
-}
-
+import { extractAccuracyClass, getInitialData, validateMeteringUI } from '../../utils/meteringUtils';
 interface SecondaryMeteringReportProps {
   transformer: Transformer;
-  coreNumber: number;
+  coreNumber?: number;
   coreId: string;
   testerName: string;
   onBack: () => void;
   readOnly?: boolean;
   stage?: 'secondary' | 'primary' | 'final';
+  accuracyClass?: string | undefined;
 }
 
 export function SecondaryMeteringReport({
@@ -113,7 +35,22 @@ export function SecondaryMeteringReport({
   onBack,
   readOnly = false,
   stage = 'secondary',
+  accuracyClass: explicitClass,
 }: SecondaryMeteringReportProps) {
+
+  const [dbLimits, setDbLimits] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchLimits = async () => {
+      try {
+        const response = await axios.get('http://localhost:3002/api/accuracy-limits/metering', { withCredentials: true });
+        setDbLimits(response.data);
+      } catch (error) {
+        console.error('Failed to fetch dynamic metering limits', error);
+      }
+    };
+    fetchLimits();
+  }, []);
 
   // Determine ratios from transformer (passed from props)
   // Fallback to Order's hardcoded ratios if for some reason missing, but Transformer interface now has it.
@@ -121,15 +58,41 @@ export function SecondaryMeteringReport({
     ? transformer.ratios
     : (transformer.orderId?.ratio || ['200/1']);
 
+  const [accuracyClass] = useState<string>(() => {
+    if (explicitClass) return extractAccuracyClass(explicitClass);
+
+    // Fallback: Use the granular accuracyClass from transformer.cores or order.coreDetails
+    // Since coreId is likely "Core 1", "Core 2", etc.
+    const coreIndex = parseInt(coreId.replace('Core ', '')) - 1;
+    const orderCores = transformer.orderId?.coreDetails || [];
+    const coreFromOrder = orderCores[coreIndex];
+
+    return extractAccuracyClass(
+      transformer.accuracyClass ||
+      coreFromOrder?.accuracyClass ||
+      '0.5'
+    );
+  });
+
   // State management: Map Ratio -> Array of Rows
   const [dataByRatio, setDataByRatio] = useState<{ [ratio: string]: any[] }>(() => {
     // 1️⃣ Initialize with Defaults first
     const initial: { [ratio: string]: any[] } = {};
-    const accClass = (transformer.accuracyClass && transformer.accuracyClass !== 'N/A') ? transformer.accuracyClass : '0.5';
+
+    const accClass = (() => {
+      if (explicitClass) return extractAccuracyClass(explicitClass);
+      const coreIndex = parseInt(coreId.replace('Core ', '')) - 1;
+      const orderCores = transformer.orderId?.coreDetails || [];
+      const coreFromOrder = orderCores[coreIndex];
+      return extractAccuracyClass(
+        transformer.accuracyClass ||
+        coreFromOrder?.accuracyClass ||
+        '0.5'
+      );
+    })();
 
     dynamicRatios.forEach(ratio => {
-      // initial[ratio] = getInitialData(accClass);
-      initial[ratio] = getInitialData();
+      initial[ratio] = getInitialData(accClass);
     });
 
     // 2️⃣ Attempt to sync with prop if it has history (Fast Load)
@@ -176,15 +139,31 @@ export function SecondaryMeteringReport({
 
           setDataByRatio(prev => {
             const newState = { ...prev };
+            const accClass = accuracyClass;
+
             myResults.forEach((block: any) => {
+              // Apply validation to restored rows so highlights reappear
+              const validatedRows = block.rows.map((row: any) => {
+                const rowCopy = { ...row };
+                const v100 = validateMeteringUI(accClass, rowCopy.current, rowCopy.r100, rowCopy.p100, dbLimits);
+                rowCopy.r100_pass = v100.isPass;
+                rowCopy.r100_reason = v100.reason;
+
+                const v25 = validateMeteringUI(accClass, rowCopy.current, rowCopy.r25, rowCopy.p25, dbLimits);
+                rowCopy.r25_pass = v25.isPass;
+                rowCopy.r25_reason = v25.reason;
+
+                return rowCopy;
+              });
+
               // Upsert the row data.
               // 1. Exact Match
               if (block.ratioValue && newState[block.ratioValue]) {
-                newState[block.ratioValue] = block.rows;
+                newState[block.ratioValue] = validatedRows;
               }
               // 2. Fallback for "N/A" ratio if we only have one expected ratio
               else if ((!block.ratioValue || block.ratioValue === 'N/A') && dynamicRatios.length === 1) {
-                newState[dynamicRatios[0]!] = block.rows;
+                newState[dynamicRatios[0]!] = validatedRows;
               }
             });
             return newState;
@@ -197,7 +176,7 @@ export function SecondaryMeteringReport({
     };
 
     fetchLatestData();
-  }, [transformer.uniqueId, coreId]);
+  }, [transformer.uniqueId, coreId, dbLimits]);
 
   // Helper to update a specific row in a specific ratio table
   const updateTableData = (ratio: string, index: number, field: string, value: string) => {
@@ -207,13 +186,13 @@ export function SecondaryMeteringReport({
       const updatedRow = { ...currentRows[index], [field]: value };
 
       // Real-time Validation
-      const accClass = (transformer.accuracyClass && transformer.accuracyClass !== 'N/A') ? transformer.accuracyClass : '0.5';
+      const accClass = accuracyClass;
 
-      const v100 = validateMeteringUI(accClass, updatedRow.current, updatedRow.r100, updatedRow.p100);
+      const v100 = validateMeteringUI(accClass, updatedRow.current, updatedRow.r100, updatedRow.p100, dbLimits);
       updatedRow.r100_pass = v100.isPass;
       updatedRow.r100_reason = v100.reason;
 
-      const v25 = validateMeteringUI(accClass, updatedRow.current, updatedRow.r25, updatedRow.p25);
+      const v25 = validateMeteringUI(accClass, updatedRow.current, updatedRow.r25, updatedRow.p25, dbLimits);
       updatedRow.r25_pass = v25.isPass;
       updatedRow.r25_reason = v25.reason;
 
@@ -227,6 +206,7 @@ export function SecondaryMeteringReport({
     return dynamicRatios.map((ratio: string) => ({
       internalCoreNo: coreId, // Inject Core ID for persistence
       ratioValue: ratio,
+      accuracyClass: accuracyClass, // SAVE THE SPECIFIC CLASS
       rows: dataByRatio[ratio] || []
     }));
   };
@@ -281,6 +261,9 @@ export function SecondaryMeteringReport({
     const finalReason = reasons.length > 0 ? reasons.join(' | ') : "Test readings exceeded configuration limits.";
 
     try {
+      // Persist the entered test values to the transformer's history first
+      await handleDatabaseSave();
+
       const payload = {
         orderId: transformer.orderId?._id || transformer.orderId,
         internalCoreNo: coreId,
@@ -296,12 +279,6 @@ export function SecondaryMeteringReport({
     }
   };
 
-  // Check Completion
-  const isComplete = dynamicRatios.length > 0 && dynamicRatios.every((ratio: string) => {
-    const rows = dataByRatio[ratio] || [];
-    if (rows.length === 0) return false;
-    return rows.every((row: any) => row.r100 && row.p100 && row.r25 && row.p25);
-  });
 
   const hasAnyFailures = dynamicRatios.some((ratio: string) => {
     const rows = dataByRatio[ratio] || [];
@@ -470,7 +447,7 @@ export function SecondaryMeteringReport({
             </Button>
           )}
           {!readOnly && (
-            <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2">
+            <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2" disabled={hasAnyFailures}>
               <Save className="w-4 h-4" /> Save
             </Button>
           )}
@@ -493,11 +470,11 @@ export function SecondaryMeteringReport({
             </div>
             <div className="header-field">
               <span className="field-label">Order No :</span>
-              <span className="field-value">{transformer.uniqueId}</span>
+              <span className="field-value">{transformer.jobId || transformer.uniqueId}</span>
             </div>
             <div className="header-field">
               <span className="field-label">Client :</span>
-              <span className="field-value">N/A</span>
+              <span className="field-value">{transformer.clientName || 'N/A'}</span>
             </div>
             <div className="header-field">
               <span className="field-label">Unit No :</span>
@@ -509,10 +486,9 @@ export function SecondaryMeteringReport({
         {/* Banners */}
         <div className="report-title-banner">
           METERING CORE TEST REPORT
-
         </div>
         <div className="description-banner">
-          Accuracy Verification - {coreId}
+          Accuracy Verification - {coreId} {transformer.accuracyClass && transformer.accuracyClass !== 'N/A' ? `(Class: ${transformer.accuracyClass})` : ''}
         </div>
 
         <div className="mt-4">
@@ -521,7 +497,7 @@ export function SecondaryMeteringReport({
               <MeteringTable
                 key={ratio}
                 ratio={ratio}
-                rows={dataByRatio[ratio]}
+                rows={dataByRatio[ratio] || []}
                 onUpdate={(idx, field, val) => updateTableData(ratio, idx, field, val)}
                 readOnly={readOnly}
               />
@@ -577,7 +553,7 @@ function MeteringTable({ ratio, rows, onUpdate, readOnly }: { ratio: string, row
               <td className="text-center bg-gray-50">{row.current}</td>
               <td>
 
-              
+
                 <Input
                   className={`h-7 text-xs text-center border-none shadow-none focus-visible:ring-1 disabled:opacity-100 disabled:cursor-not-allowed bg-transparent ${row.r100_pass === false ? 'text-red-700 font-bold' : ''}`}
                   value={row.r100}
@@ -632,14 +608,3 @@ function MeteringTable({ ratio, rows, onUpdate, readOnly }: { ratio: string, row
 //     { current: '5%', r100, p100, r25, p25 },
 //     { current: '1%', r100, p100, r25, p25 },
 //   ];
-// }
-function getInitialData() {
-  return [
-    { current: '120%', r100: '', p100: '', r25: '', p25: '' },
-    { current: '100%', r100: '', p100: '', r25: '', p25: '' },
-    { current: '20%', r100: '', p100: '', r25: '', p25: '' },
-    { current: '5%', r100: '', p100: '', r25: '', p25: '' },
-    { current: '1%', r100: '', p100: '', r25: '', p25: '' },
-  ];
-}
-

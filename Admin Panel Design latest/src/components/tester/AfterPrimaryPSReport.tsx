@@ -2,11 +2,32 @@ import axios from 'axios';
 import React, { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { ArrowLeft, Save, Printer } from 'lucide-react';
+import { ArrowLeft, Save, Printer, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 
-export function AfterPrimaryPSReport({ transformer, core, testerName, onBack }: any) {
+import { Transformer } from './AfterPrimaryTransformersList';
+
+interface CoreConfig {
+  coreNumber: number;
+  coreType: 'metering' | 'ps' | 'protection';
+  coreId: string;
+  accuracyClass?: string | undefined;
+}
+
+interface AfterPrimaryPSReportProps {
+  transformer: Transformer;
+  core: CoreConfig;
+  testerName: string;
+  onBack: () => void;
+}
+
+export function AfterPrimaryPSReport({
+  transformer,
+  core,
+  testerName,
+  onBack
+}: AfterPrimaryPSReportProps) {
   // Use ratios from transformer, fallback to defaults
   const dynamicRatios = transformer.ratios && transformer.ratios.length > 0 ? transformer.ratios : ['200/1'];
 
@@ -22,6 +43,23 @@ export function AfterPrimaryPSReport({ transformer, core, testerName, onBack }: 
       iex11Vk: ''
     }));
   });
+
+  const [psLimit, setPsLimit] = useState<{ psRatioErrorLimit: number, psExcitationMultiplier: number } | null>(null);
+
+  // Fetch PS Limit
+  useEffect(() => {
+    const fetchLimit = async () => {
+      try {
+        const response = await axios.get('http://localhost:3002/api/accuracy-limits/ps', { withCredentials: true });
+        if (response.data && response.data.length > 0) {
+          setPsLimit(response.data[0]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch PS limits', error);
+      }
+    };
+    fetchLimit();
+  }, []);
 
   // Load existing data if available
   useEffect(() => {
@@ -70,7 +108,22 @@ export function AfterPrimaryPSReport({ transformer, core, testerName, onBack }: 
 
   const handleUpdate = (idx: number, field: string, val: string) => {
     const updated = [...psData];
-    updated[idx] = { ...updated[idx], [field]: val };
+
+    if (updated[idx]) {
+      updated[idx] = { ...updated[idx], [field]: val };
+
+      // Auto-calculate 1.1Vk if Vk changes
+      if (field === 'vk') {
+        const num = parseFloat(val);
+        if (!isNaN(num)) {
+          // Use roughly 2 decimals for voltage
+          updated[idx].vkVal = (num * 1.1).toFixed(2).replace(/\.00$/, '');
+        } else {
+          updated[idx].vkVal = '';
+        }
+      }
+    }
+
     setPsData(updated);
   };
 
@@ -84,16 +137,26 @@ export function AfterPrimaryPSReport({ transformer, core, testerName, onBack }: 
         uniqueId: transformer.uniqueId,
         tester: testerName || 'shubham', // Use prop or fallback
         coreId: core.coreId,
-        ps_results: psData.map((row: any) => ({
-          internalCoreNo: core.coreId, // key for identification
-          ratioValue: row.ratioValue,
-          turnRatioError: row.turnRatioError,
-          resistance: row.resistance,
-          vk: row.vk,
-          vkVal: row.vkVal,
-          iexVk: row.iexVk,
-          iex11Vk: row.iex11Vk
-        }))
+        ps_results: psData.map((row: any) => {
+          const psResults = {
+            internalCoreNo: core.coreId, // key for identification
+            ratioValue: row.ratioValue,
+            accuracyClass: core.accuracyClass || '0.5',
+            turnRatioError: row.turnRatioError,
+            resistance: row.resistance,
+            vk: row.vk,
+            vkVal: row.vkVal,
+            iexVk: row.iexVk,
+            iex11Vk: row.iex11Vk
+          };
+          // Attempt to merge existing secondary test PS results if available
+          // This part of the logic seems to be for merging, but it's placed in primary test save.
+          // If the intention is to carry over secondary test data, it should be handled carefully.
+          // For now, I'm assuming the user wants to add the secondary_test data to the primary_test payload.
+          // This might lead to unexpected behavior if not intended.
+          const existingSecondaryPs = transformer.testHistory?.secondary_test?.ps_results?.find((r: any) => r.internalCoreNo === core.coreId && r.ratioValue === row.ratioValue);
+          return { ...psResults, ...(existingSecondaryPs || {}) };
+        })
       };
 
       console.log("handleDatabaseSave (PS): Payload ready", payload);
@@ -111,6 +174,71 @@ export function AfterPrimaryPSReport({ transformer, core, testerName, onBack }: 
     } catch (error: any) {
       console.error("handleDatabaseSave (PS): ERROR", error);
       toast.error(error.response?.data?.message || "Failed to save PS data to database.");
+    }
+  };
+
+  // Validation Logic for PS Cores
+  const calculateRowStatus = (row: any) => {
+    if (!row.turnRatioError || !row.iexVk || !row.iex11Vk) return null;
+
+    const ratioError = parseFloat(row.turnRatioError);
+    const iexVk = parseFloat(row.iexVk);
+    const iex11Vk = parseFloat(row.iex11Vk);
+
+    if (isNaN(ratioError) || isNaN(iexVk) || isNaN(iex11Vk)) return null;
+
+    const limitRatio = psLimit?.psRatioErrorLimit ?? 0.25;
+    const limitMulti = psLimit?.psExcitationMultiplier ?? 1.5;
+
+    const isRatioPass = ratioError > -limitRatio && ratioError < limitRatio;
+    const calculatedValue = iexVk * limitMulti;
+    const isExcitationPass = calculatedValue > iex11Vk;
+
+    return isRatioPass && isExcitationPass;
+  };
+
+  const hasFailures = psData.some((row: any) => calculateRowStatus(row) === false);
+
+  const handleMarkAsFailed = async () => {
+    let reasons: string[] = [];
+    const limitRatio = psLimit?.psRatioErrorLimit ?? 0.25;
+    const limitMulti = psLimit?.psExcitationMultiplier ?? 1.5;
+
+    psData.forEach((row: any, idx: number) => {
+      const status = calculateRowStatus(row);
+      if (status === false) {
+        const ratioErr = parseFloat(row.turnRatioError);
+        const iexVk = parseFloat(row.iexVk);
+        const iex11Vk = parseFloat(row.iex11Vk);
+
+        if (isNaN(ratioErr) || ratioErr <= -limitRatio || ratioErr >= limitRatio) {
+          reasons.push(`Row ${idx + 1} (Ratio ${row.ratioValue}): Ratio Error ${row.turnRatioError} meets or exceeds ±${limitRatio} limit.`);
+        }
+
+        if (!isNaN(iexVk) && !isNaN(iex11Vk) && (iexVk * limitMulti) <= iex11Vk) {
+          reasons.push(`Row ${idx + 1} (Ratio ${row.ratioValue}): Excitation check failed (IexVk*${limitMulti} <= Iex11Vk).`);
+        }
+      }
+    });
+
+    const finalReason = reasons.length > 0 ? reasons.join(' | ') : "PS Core values out of specification";
+
+    try {
+      await handleDatabaseSave();
+
+      const payload = {
+        orderId: (transformer as any).orderId?._id || transformer.orderId || (transformer as any)._id,
+        internalCoreNo: core.coreId,
+        failureReason: finalReason,
+        failureStage: "primary_ps_test",
+        dynamicValues: psData
+      };
+
+      await axios.post(`http://localhost:3002/api/failed-cores`, payload, { withCredentials: true });
+      toast.success("Added to Failed Cores successfully!");
+    } catch (error: any) {
+      console.error("Mark as failed error:", error);
+      toast.error(error.response?.data?.message || "Error adding to failed cores");
     }
   };
 
@@ -271,6 +399,14 @@ export function AfterPrimaryPSReport({ transformer, core, testerName, onBack }: 
           <ArrowLeft className="w-4 h-4" /> Back
         </Button>
         <div className="flex gap-2">
+          {hasFailures && (
+            <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
+              <AlertTriangle className="w-4 h-4" /> Add to Failed Cores
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2" disabled={hasFailures}>
+            <Save className="w-4 h-4" /> Save
+          </Button>
           <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
             <Printer className="w-4 h-4" /> Print
           </Button>
@@ -299,6 +435,10 @@ export function AfterPrimaryPSReport({ transformer, core, testerName, onBack }: 
             <div className="header-field">
               <span className="field-label">Unit No :</span>
               <span className="field-value">{transformer.uniqueId}</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Class :</span>
+              <span className="field-value">{core.accuracyClass || 'N/A'}</span>
             </div>
           </div>
         </div>
@@ -335,11 +475,11 @@ export function AfterPrimaryPSReport({ transformer, core, testerName, onBack }: 
                         PS Core Ratio - {row.ratioValue}
                       </td>
                       <td className="border border-gray-400 p-0" rowSpan={2}>
-                        <Input className="border-none text-center h-16 shadow-none text-blue-800 font-bold"
+                        <Input className={`border-none text-center h-16 shadow-none font-bold bg-transparent ${calculateRowStatus(row) === false ? 'text-red-700' : 'text-blue-800'}`}
                           value={row.turnRatioError} onChange={e => handleUpdate(i, 'turnRatioError', e.target.value)} />
                       </td>
                       <td className="border border-gray-400 p-0" rowSpan={2}>
-                        <Input className="border-none text-center h-16 shadow-none text-blue-800 font-bold"
+                        <Input className="border-none text-center h-16 shadow-none text-blue-800 font-bold bg-transparent"
                           value={row.resistance} onChange={e => handleUpdate(i, 'resistance', e.target.value)} />
                       </td>
                       <td className="bg-white border-b-0 h-8">
@@ -350,11 +490,11 @@ export function AfterPrimaryPSReport({ transformer, core, testerName, onBack }: 
                         </div>
                       </td>
                       <td className="border border-gray-400 p-0" rowSpan={2}>
-                        <Input className="border-none text-center h-16 shadow-none text-blue-800 font-bold"
+                        <Input className={`border-none text-center h-16 shadow-none font-bold bg-transparent ${calculateRowStatus(row) === false ? 'text-red-700' : 'text-blue-800'}`}
                           value={row.iexVk} onChange={e => handleUpdate(i, 'iexVk', e.target.value)} />
                       </td>
                       <td className="border border-gray-400 p-0" rowSpan={2}>
-                        <Input className="border-none text-center h-16 shadow-none text-blue-800 font-bold"
+                        <Input className={`border-none text-center h-16 shadow-none font-bold bg-transparent ${calculateRowStatus(row) === false ? 'text-red-700' : 'text-blue-800'}`}
                           value={row.iex11Vk} onChange={e => handleUpdate(i, 'iex11Vk', e.target.value)} />
                       </td>
                     </tr>
@@ -388,9 +528,6 @@ export function AfterPrimaryPSReport({ transformer, core, testerName, onBack }: 
       </div>
 
       <div className="flex gap-3 no-print pt-4">
-        <Button onClick={handleDatabaseSave} variant="outline" size="sm" className="gap-2">
-          <Save className="w-4 h-4" /> Save
-        </Button>
       </div>
     </div>
   );

@@ -203,8 +203,15 @@ const TransformerSchema = new Schema({
   // Workflow tracking
   currentStage: {
     type: String,
-    enum: ["core", "secondary", "primary", "final", "shipped"],
+    enum: ["core", "secondary", "primary", "final", "shipped", "admin_review"],
     default: "core"
+  },
+
+  // Track Admin Reassignment/Approval details
+  adminReviewDetails: {
+    failedStage: { type: String },
+    returnTargetStage: { type: String },
+    requestedAt: { type: Date }
   },
 
   // The 4 Testing Stages
@@ -221,6 +228,12 @@ const TransformerSchema = new Schema({
     secondary_tester: String,
     primary_tester: String,
     final_tester: String
+  },
+
+  // Stores the actual snapshot data configured at Final Test generation
+  finalReportData: {
+    type: Schema.Types.Mixed,
+    default: null
   }
 }, { timestamps: true });
 

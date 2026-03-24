@@ -14,6 +14,7 @@ import { ClipboardCheck, FileText, Activity } from 'lucide-react';
 import { AfterPrimaryReportsList } from './reports/AfterPrimaryReportsList';
 import { FinalReportsList } from './reports/FinalReportsList';
 import { FailedCoresPage } from '../../pages/FailedCoresPage';
+import { OrdersListViewEnhanced } from '../entry/OrdersListViewEnhanced';
 
 interface TesterLayoutProps {
   user: User;
@@ -86,6 +87,8 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return <CoreTestingModule user={user} />;
       } else if (activeView === 'core-tracking') {
         return <CoreTrackingDashboard user={user} />;
+      } else if (activeView === 'view-orders') {
+        return <OrdersListViewEnhanced userRole={user.role} />;
       } else if (activeView === 'failed-cores') {
         return <FailedCoresPage />;
       }
@@ -148,6 +151,8 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return <SecondaryTestingModule userName={user.name} />;
       } else if (activeView === 'reports') {
         return <SecondaryReportsList onBack={() => setActiveView('home')} />;
+      } else if (activeView === 'view-orders') {
+        return <OrdersListViewEnhanced userRole={user.role} />;
       } else if (activeView === 'failed-cores') {
         return <FailedCoresPage />;
       }
@@ -210,6 +215,8 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return <FinalTestingModule userName={user.name} />;
       } else if (activeView === 'reports') {
         return <FinalReportsList />;
+      } else if (activeView === 'view-orders') {
+        return <OrdersListViewEnhanced userRole={user.role} />;
       } else if (activeView === 'failed-cores') {
         return <FailedCoresPage />;
       }
@@ -272,6 +279,8 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return <AfterPrimaryTestingModule userName={user.name} />;
       } else if (activeView === 'reports') {
         return <AfterPrimaryReportsList />;
+      } else if (activeView === 'view-orders') {
+        return <OrdersListViewEnhanced userRole={user.role} />;
       } else if (activeView === 'failed-cores') {
         return <FailedCoresPage />;
       }

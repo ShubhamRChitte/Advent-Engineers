@@ -3,7 +3,6 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import {
   CheckCircle2,
-  User,
   Package,
   Calendar,
   ClipboardCheck,
@@ -28,6 +27,7 @@ interface TestAssignment {
 interface OrderSummaryViewProps {
   orderData: any;
   testAssignments: TestAssignment[];
+  allVendors: any[];
   onSaveOrder: () => void;
 }
 
@@ -166,11 +166,16 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
                 <div className="pt-4 border-t">
                   <p className="text-sm text-gray-500 mb-2">Core Configuration</p>
                   <div className="flex gap-2 flex-wrap">
-                    {orderData.coreTypes.map((coreType: string, index: number) => (
-                      <Badge key={index} variant="outline">
-                        Core {index + 1}: {coreType.toUpperCase()}
-                      </Badge>
-                    ))}
+                    {(orderData.coreConfigs || orderData.coreTypes).map((config: any, index: number) => {
+                      const type = typeof config === 'string' ? config : config.coreType;
+                      const accuracy = typeof config === 'string' ? 'N/A' : (config.accuracyClass || 'N/A');
+                      return (
+                        <Badge key={index} variant="outline" className="flex flex-col items-start gap-1 p-2 h-auto">
+                          <span className="font-bold">Core {index + 1}: {type.toUpperCase()}</span>
+                          <span className="text-xs text-gray-500">Class: {accuracy}</span>
+                        </Badge>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -205,12 +210,6 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
                   <p className="font-medium">{orderData.parameters.ratedSecondaryCurrent}</p>
                 </div>
               )}
-              {orderData.parameters.accuracyClass && (
-                <div>
-                  <p className="text-sm text-gray-500">Accuracy Class</p>
-                  <p className="font-medium">{orderData.parameters.accuracyClass}</p>
-                </div>
-              )}
               {orderData.parameters.mountingDetails && (
                 <div>
                   <p className="text-sm text-gray-500">Mounting Details</p>
@@ -225,6 +224,62 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
               )}
             </div>
           </Card>
+
+          {/* Selected Vendors */}
+          {(orderData.metering_core_vendors?.length > 0 ||
+            orderData.protection_core_vendors?.length > 0 ||
+            orderData.ps_core_vendors?.length > 0) && (
+              <Card className="p-6">
+                <h3 className="mb-4 pb-3 border-b-2 border-gray-200">Core Vendors</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {orderData.metering_core_vendors?.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-500">Metering Core Vendors</p>
+                      <div className="flex flex-wrap gap-2">
+                        {orderData.metering_core_vendors.map((vId: string) => {
+                          const vendor = (orderData.allVendors || []).find((v: any) => v._id === vId || v.id === vId);
+                          return (
+                            <Badge key={vId} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 h-auto">
+                              {vendor ? `${vendor.vendor_no} - ${vendor.vendor_name}` : 'Vendor Loading...'}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {orderData.protection_core_vendors?.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-500">Protection Core Vendors</p>
+                      <div className="flex flex-wrap gap-2">
+                        {orderData.protection_core_vendors.map((vId: string) => {
+                          const vendor = (orderData.allVendors || []).find((v: any) => v._id === vId || v.id === vId);
+                          return (
+                            <Badge key={vId} variant="outline" className="bg-green-50 text-green-700 border-green-200 h-auto">
+                              {vendor ? `${vendor.vendor_no} - ${vendor.vendor_name}` : 'Vendor Loading...'}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {orderData.ps_core_vendors?.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-500">PS Core Vendors</p>
+                      <div className="flex flex-wrap gap-2">
+                        {orderData.ps_core_vendors.map((vId: string) => {
+                          const vendor = (orderData.allVendors || []).find((v: any) => v._id === vId || v.id === vId);
+                          return (
+                            <Badge key={vId} variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 h-auto">
+                              {vendor ? `${vendor.vendor_no} - ${vendor.vendor_name}` : 'Vendor Loading...'}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
 
           {/* Test Assignments */}
           <Card className="p-6">

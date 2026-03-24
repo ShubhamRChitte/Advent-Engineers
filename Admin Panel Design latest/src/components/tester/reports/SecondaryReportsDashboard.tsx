@@ -1,8 +1,9 @@
 
 import { useState, useEffect } from 'react';
 import { Card } from '../../ui/card';
-import { Button } from '../../ui/button';
-import { ChevronDown, ChevronRight, FileText, Loader2 } from 'lucide-react';
+
+import { Input } from '../../ui/input';
+import { ChevronDown, ChevronRight, FileText, Loader2, Search } from 'lucide-react';
 import { ReportDetails } from './ReportDetails';
 
 // Helper to group by Job ID
@@ -23,6 +24,7 @@ export function SecondaryReportsDashboard() {
     const [groupedReports, setGroupedReports] = useState<Record<string, any[]>>({});
     const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
     const [selectedTransformer, setSelectedTransformer] = useState<any | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         fetchReports();
@@ -73,13 +75,55 @@ export function SecondaryReportsDashboard() {
         return <div className="text-red-500 p-4">Error: {error}</div>;
     }
 
-    const jobIds = Object.keys(groupedReports).sort();
+    // --- FILTERING LOGIC ---
+    // The user wants to search by Job ID or Transformer ID (uniqueId).
+    // The current data structure is { "JobID" : [ { uniqueId: "TR-JOB...", ... } ] }
+    const filteredGroupedReports: Record<string, any[]> = {};
+    const query = searchQuery.trim().toLowerCase();
+
+    Object.entries(groupedReports).forEach(([jobId, transformers]) => {
+        if (!query) {
+            filteredGroupedReports[jobId] = transformers;
+            return;
+        }
+
+        // 1. Check if the Job ID itself matches the query
+        const jobMatches = jobId.toLowerCase().includes(query);
+
+        // 2. Filter transformers physically to see if any specific transformer ID matches
+        const matchingTransformers = transformers.filter(tf => {
+            const tfId = tf.uniqueId?.toLowerCase() || '';
+            return tfId.includes(query);
+        });
+
+        // 3. Keep the Job group if EITHER the Job ID matches (keep all its children) 
+        // OR if specific transformers matched (keep only those)
+        if (jobMatches) {
+            filteredGroupedReports[jobId] = transformers;
+        } else if (matchingTransformers.length > 0) {
+            filteredGroupedReports[jobId] = matchingTransformers;
+        }
+    });
+
+    const jobIds = Object.keys(filteredGroupedReports).sort();
 
     return (
         <div className="space-y-6">
-            <div>
-                <h2 className="text-2xl font-bold text-gray-800">My Reports</h2>
-                <p className="text-gray-500">View and generate certificates for your completed tests.</p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800">My Reports</h2>
+                    <p className="text-gray-500">View and generate certificates for your completed tests.</p>
+                </div>
+
+                <div className="relative w-full md:w-72">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <Input
+                        placeholder="Search by Job ID or Transformer ID..."
+                        className="pl-9 w-full bg-white shadow-sm border-gray-200"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
             </div>
 
             {jobIds.length === 0 ? (
@@ -102,14 +146,14 @@ export function SecondaryReportsDashboard() {
                                     )}
                                     <div>
                                         <h3 className="font-semibold text-lg">{jobId}</h3>
-                                        <p className="text-sm text-gray-500">{groupedReports[jobId].length} Transformers Completed</p>
+                                        <p className="text-sm text-gray-500">{filteredGroupedReports[jobId]?.length || 0} Transformers Completed</p>
                                     </div>
                                 </div>
                             </div>
 
-                            {expandedJobs[jobId] && (
+                            {(expandedJobs[jobId] || query) && ( // Auto-expand if searching
                                 <div className="bg-gray-50 p-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {groupedReports[jobId].map((tf, idx) => (
+                                    {(filteredGroupedReports[jobId] || []).map((tf, idx) => (
                                         <div
                                             key={tf.uniqueId || idx}
                                             onClick={() => setSelectedTransformer(tf)}

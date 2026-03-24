@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { ChevronRight, FileText, Search, Calendar, User, LayoutGrid } from 'lucide-react';
+import { Input } from '../ui/input';
+import { ChevronRight, FileText, Search, Calendar, LayoutGrid } from 'lucide-react';
 import axios from 'axios';
-import { toast } from 'sonner';
 import { SecondaryReportView } from './SecondaryReportView';
 import { SecondaryCompletedTransformersList } from './SecondaryCompletedTransformersList';
 
@@ -31,13 +31,14 @@ interface SecondaryReportsListProps {
 
 export function SecondaryReportsList({ onBack }: SecondaryReportsListProps) {
     // Data State
-    const [reports, setReports] = useState<CompletedTransformer[]>([]);
+    const [_, setReports] = useState<CompletedTransformer[]>([]);
     const [loading, setLoading] = useState(true);
     const [groupByJob, setGroupByJob] = useState<Record<string, CompletedTransformer[]>>({});
 
     // UI State
     const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
     const [selectedTransformer, setSelectedTransformer] = useState<CompletedTransformer | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         fetchReports();
@@ -102,14 +103,40 @@ export function SecondaryReportsList({ onBack }: SecondaryReportsListProps) {
     // --- LEVEL 1: ORDERS LIST ---
     const jobIds = Object.keys(groupByJob).sort((a, b) => b.localeCompare(a)); // Newest jobs first
 
+    // --- FILTER LOGIC ---
+    let filteredJobIds = jobIds;
+    if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        filteredJobIds = jobIds.filter(jobId => {
+            // 1. Matches Job ID directly
+            if (jobId.toLowerCase().includes(query)) return true;
+
+            // 2. Or matches any specific transformer's Unique ID within this job
+            const jobTransformers = groupByJob[jobId] || [];
+            return jobTransformers.some(tf => tf.uniqueId?.toLowerCase().includes(query));
+        });
+    }
+
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-800">My Completed Reports</h2>
                     <p className="text-gray-500 mt-1">View history of your approved secondary tests</p>
                 </div>
-                <Button variant="outline" onClick={onBack}>Back to Dashboard</Button>
+
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    <div className="relative w-full md:w-72">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                        <Input
+                            placeholder="Search Job ID or Transformer ID..."
+                            className="pl-9 w-full bg-white"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    <Button variant="outline" onClick={onBack}>Back to Dashboard</Button>
+                </div>
             </div>
 
             {loading ? (
@@ -125,15 +152,25 @@ export function SecondaryReportsList({ onBack }: SecondaryReportsListProps) {
                         Once you approve a test in the "Testing" tab, it will appear here.
                     </p>
                 </Card>
+            ) : filteredJobIds.length === 0 ? (
+                <Card className="p-12 border-dashed border-2 border-gray-200 bg-gray-50/50 flex flex-col items-center justify-center text-center">
+                    <div className="w-16 h-16 bg-blue-50 text-blue-300 rounded-full flex items-center justify-center mb-4">
+                        <Search className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-700">No matching reports found</h3>
+                    <p className="text-gray-500 max-w-sm mt-2">
+                        Try adjusting your search query to find the job or transformer you are looking for.
+                    </p>
+                </Card>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {jobIds.map(jobId => {
-                        const transformers = groupByJob[jobId];
+                    {filteredJobIds.map(jobId => {
+                        const transformers = groupByJob[jobId] || [];
                         const count = transformers.length;
                         // Use first transformer to get Order metadata
                         const orderData = transformers[0]?.orderId || {};
                         const client = orderData.clientName || 'Unknown Client';
-                        const deadline = orderData.deadline ? new Date(orderData.deadline).toLocaleDateString() : 'N/A';
+
                         // Find most recent test date in this group
                         const dates = transformers
                             .map(t => t.testHistory?.secondary_test?.timestamp ? new Date(t.testHistory.secondary_test.timestamp).getTime() : 0)

@@ -1,3 +1,4 @@
+import React from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -7,16 +8,18 @@ import { FinalTransformer } from './FinalTransformersList';
 interface Order {
   jobId: string;
   client: string;
-  transformerCount: number;
   assignedDate: string;
   status: string;
   priority: string;
+  ratio?: string[];
+  accuracyClass?: string;
 }
 
 interface CoreConfig {
   coreNumber: number;
   coreType: 'metering' | 'ps' | 'protection';
-  coreId?: string;
+  coreId: string;
+  accuracyClass?: string | undefined;
 }
 
 interface FinalCoreSelectionProps {

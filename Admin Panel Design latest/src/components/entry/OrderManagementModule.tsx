@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { useEffect } from 'react';
 import { TransformerListView } from './TransformerListView';
 import { EnhancedOrderForm } from './EnhancedOrderForm';
 import { AssignTestingWorkflow } from './AssignTestingWorkflow';
@@ -31,7 +32,22 @@ interface TestAssignment {
 
 export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }) {
   const [currentView, setCurrentView] = useState<ViewType>('order-form');
-  const [selectedTransformer, setSelectedTransformer] = useState<Transformer | null>(null);
+  const [selectedTransformer, setSelectedTransformer] = useState<any>(null);
+  const [allVendors, setAllVendors] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchVendors = async () => {
+      try {
+        const response = await axios.get('http://localhost:3002/api/core-vendors', { withCredentials: true });
+        if (response.data.success) {
+          setAllVendors(response.data.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch vendors:", err);
+      }
+    };
+    fetchVendors();
+  }, []);
   const [orderData, setOrderData] = useState<any>(null);
   const [testAssignments, setTestAssignments] = useState<TestAssignment[]>([]);
 
@@ -92,7 +108,9 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
       const coreDetails = configsToUse.map((config: any) => {
         const typeString = typeof config === 'string' ? config : config.coreType;
         return {
-          coreType: formatCoreType(typeString)
+          coreType: formatCoreType(typeString),
+          accuracyClass: config.accuracyClass || '0.5',
+          vendorNo: config.vendorNo || ''
         };
       });
 
@@ -116,8 +134,6 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
         burden: parseFloat(orderData.parameters?.burden) || 0,
         ratedPrimaryCurrent: parseFloat(orderData.parameters?.ratedPrimaryCurrent) || 0,
         ratedSecondaryCurrent: parseFloat(orderData.parameters?.ratedSecondaryCurrent) || 0,
-        // Find accuracy class from core configs (usually attached to Metering cores)
-        accuracyClass: orderData.coreConfigs?.find((c: any) => c.accuracyClass)?.accuracyClass || orderData.parameters?.accuracyClass || 'N/A',
         mountingDetails: orderData.parameters?.mountingDetails || 'N/A',
         overallDimension: orderData.parameters?.overallDimensions || 'N/A', // Schema: overallDimension (singular)
 
@@ -130,6 +146,10 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
         instructions: "None",
 
         deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // Default 14 days constraints via ISO string
+
+        metering_core_vendors: orderData.metering_core_vendors || [],
+        protection_core_vendors: orderData.protection_core_vendors || [],
+        ps_core_vendors: orderData.ps_core_vendors || [],
 
         assignments: assignmentsByStage,
         bypassApproval: isAdmin // If Admin, bypass approval (Auto-Approve)
@@ -185,9 +205,10 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
   if (currentView === 'order-form') {
     return (
       <EnhancedOrderForm
-        transformer={selectedTransformer!} // It handles null/undefined internally now
+        transformer={selectedTransformer}
+        allVendors={allVendors}
         onSubmit={handleSubmitOrder}
-        onBack={() => setCurrentView('orders-list')} // Back goes to Orders List, not Transformer Templates
+        onBack={handleBackToList}
         isEntryOperator={!isAdmin}
       />
     );
@@ -211,6 +232,7 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
         orderData={orderData}
         testAssignments={testAssignments}
         onSaveOrder={handleSaveOrder}
+        allVendors={allVendors}
       />
     );
   }

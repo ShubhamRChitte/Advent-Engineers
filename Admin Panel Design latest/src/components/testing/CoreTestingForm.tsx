@@ -69,6 +69,7 @@ export interface FailedCore {
   date?: string; // Legacy frontend date
   failedAt?: string; // Backend real timestamp
   createdAt?: string; // Backend fallback timestamp
+  failureStage?: string;
   failureReason: string;
   value1000: string;
   value3000: string;

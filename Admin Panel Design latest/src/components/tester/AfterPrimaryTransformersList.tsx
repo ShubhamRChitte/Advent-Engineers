@@ -10,11 +10,13 @@ import { toast } from 'sonner';
 interface CoreConfig {
   coreNumber: number;
   coreType: 'metering' | 'ps' | 'protection';
-  coreId: string; // Generated Core ID (e.g., M-001-001)
+  coreId: string;
+  accuracyClass?: string | undefined;
 }
 
-export interface AfterPrimaryTransformer {
+export interface Transformer {
   id: string; // internal DB ID
+  orderId?: string; // Add orderId to support failure reporting
   uniqueId: string; // TR-JOB-...
   name: string;
   rating: string;
@@ -24,6 +26,7 @@ export interface AfterPrimaryTransformer {
   status: 'pending' | 'in-progress' | 'completed';
   canApprove: boolean;
   testHistory?: any;
+  currentStage: string;
 }
 
 interface Order {
@@ -41,16 +44,17 @@ interface Order {
   ratio?: string[];
   nominalSystemVoltage?: number | string;
   coreDetails?: any[];
+  accuracyClass?: string;
 }
 
 interface AfterPrimaryTransformersListProps {
   order: Order;
-  onStartTest: (transformer: AfterPrimaryTransformer) => void;
+  onStartTest: (transformer: Transformer) => void;
   onBack: () => void;
 }
 
 export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: AfterPrimaryTransformersListProps) {
-  const [transformers, setTransformers] = useState<AfterPrimaryTransformer[]>([]);
+  const [transformers, setTransformers] = useState<Transformer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,28 +71,7 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
         const dbTransformers = response.data;
 
         // Map DB data + Order Specs to UI Model
-        const mappedTransformers: AfterPrimaryTransformer[] = dbTransformers.map((t: any) => {
-          // --- Status Logic for Primary Testing ---
-          // 1. If stage is beyond 'primary' (i.e. 'final', 'shipped'), it's completed.
-          // 2. If primary_test.status is 'Completed', it's completed.
-          // 3. If partial results, 'in-progress'.
-
-          let status: 'pending' | 'in-progress' | 'completed' = 'pending';
-          const primTest = t.testHistory?.primary_test || {};
-
-          const isStageCompleted = ['final', 'shipped'].includes(t.currentStage);
-          const isTestCompleted = primTest.status === 'Completed';
-
-          if (isStageCompleted || isTestCompleted) {
-            status = 'completed';
-          } else if (
-            (primTest.metering_results && primTest.metering_results.length > 0) ||
-            (primTest.protection_results && primTest.protection_results.length > 0) ||
-            (primTest.ps_results && primTest.ps_results.length > 0)
-          ) {
-            status = 'in-progress';
-          }
-
+        const mappedTransformers: Transformer[] = dbTransformers.map((t: any) => {
           // --- Core Configuration & IDs ---
           let currentCoreNum = 1;
           const coresList: CoreConfig[] = [];
@@ -104,7 +87,7 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
           // Counters for indexing into results
           let mIndex = 0, psIndex = 0, pIndex = 0;
 
-          if (order.coreDetails && Array.isArray(order.coreDetails)) {
+          if (Array.isArray(order.coreDetails) && order.coreDetails.length > 0) {
             order.coreDetails.forEach((coreGroup: any) => {
               const typeStr = (coreGroup.coreType || 'Metering').toLowerCase();
               let mappedType: 'metering' | 'ps' | 'protection' = 'metering';
@@ -114,13 +97,23 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
 
               // Try to find the real ID from secondary results
               let coreId = 'Pending';
+              let accuracyClass = '0.5'; // fallback
 
               if (mappedType === 'metering') {
                 if (mIndex < meteringResults.length) {
                   const res = meteringResults[mIndex];
                   // Result might be object with internalCoreNo or string/other structure depending on save format
                   coreId = res.internalCoreNo || (res.rows && res.rows[0]?.internalCoreNo) || 'M-Pending';
+                  accuracyClass = res.accuracyClass || res.classOption || '0.5';
                   mIndex++;
+                }
+
+                // If still not found or default, check coreDetails in Order
+                if (coreId === 'Pending' || accuracyClass === '0.5') {
+                  const coreDetail = order.coreDetails?.[currentCoreNum - 1];
+                  if (coreDetail && coreDetail.accuracyClass) {
+                    accuracyClass = coreDetail.accuracyClass;
+                  }
                 }
               } else if (mappedType === 'ps') {
                 if (psIndex < psResults.length) {
@@ -128,18 +121,39 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                   coreId = res.internalCoreNo || 'PS-Pending';
                   psIndex++;
                 }
-              } else {
+                const coreDetail = order.coreDetails?.[currentCoreNum - 1];
+                if (coreDetail && coreDetail.accuracyClass) {
+                  accuracyClass = coreDetail.accuracyClass;
+                }
+              } else { // This is the 'protection' case
                 if (pIndex < protectionResults.length) {
                   const res = protectionResults[pIndex];
                   coreId = res.internalCoreNo || 'P-Pending';
                   pIndex++;
+                }
+                const coreDetail = order.coreDetails?.[currentCoreNum - 1];
+                if (coreDetail && coreDetail.accuracyClass) {
+                  accuracyClass = coreDetail.accuracyClass;
+                }
+
+                // Fallback: If still not found, try extracting from the main Order's accuracyClass string
+                if (accuracyClass === 'N/A' || !accuracyClass || accuracyClass === '0.5') { // Check if accuracyClass is still default or undefined
+                  const orderClass = order.accuracyClass || ''; // Use order.accuracyClass
+                  // Simple extraction for common Metering classes
+                  if (orderClass.includes('0.2S')) accuracyClass = '0.2S';
+                  else if (orderClass.includes('0.5S')) accuracyClass = '0.5S';
+                  else if (orderClass.includes('0.2')) accuracyClass = '0.2';
+                  else if (orderClass.includes('0.5')) accuracyClass = '0.5';
+                  else if (orderClass.includes('0.1')) accuracyClass = '0.1';
+                  else if (orderClass.includes('1')) accuracyClass = '1';
                 }
               }
 
               coresList.push({
                 coreNumber: currentCoreNum++,
                 coreType: mappedType,
-                coreId: coreId
+                coreId: coreId,
+                accuracyClass: accuracyClass || '0.5'
               });
             });
           }
@@ -149,12 +163,71 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
             coresList.push({ coreNumber: 1, coreType: 'metering', coreId: 'M-Default' });
           }
 
+          const checkCompleteness = () => {
+            const primaryTest = t.testHistory?.primary_test || {};
+
+            if (coresList.length === 0) return primaryTest.status === 'Completed';
+
+            return coresList.every(core => {
+              if (core.coreType === 'metering') {
+                const results = primaryTest.metering_results?.filter((r: any) =>
+                  r.coreId === core.coreId || r.internalCoreNo === core.coreId
+                );
+                if (!results || results.length === 0) return false;
+
+                return results.every((res: any) =>
+                  Array.isArray(res.rows) && res.rows.every((row: any) =>
+                    row.r100 && row.p100 && row.r25 && row.p25
+                  )
+                );
+              } else if (core.coreType === 'ps') {
+                const results = primaryTest.ps_results?.filter((r: any) =>
+                  r.coreId === core.coreId || r.internalCoreNo === core.coreId
+                );
+                if (!results || results.length === 0) return false;
+
+                return results.every((res: any) =>
+                  res.turnRatioError && res.resistance && res.vk && res.iexVk
+                );
+              } else if (core.coreType === 'protection') {
+                const results = primaryTest.protection_results?.filter((r: any) =>
+                  r.coreId === core.coreId || r.internalCoreNo === core.coreId
+                );
+                if (!results || results.length === 0) return false;
+
+                return results.every((res: any) =>
+                  res.ratioError100 && res.phaseError && res.resistance &&
+                  (res.secondaryLimitingVoltage || res.secondaryLimitingVtg) &&
+                  res.excitationCurrent && res.compositeError && res.alf
+                );
+              }
+              return true;
+            });
+          };
+
+          const isFullyComplete = checkCompleteness();
+
+          if (t.currentStage === 'primary') {
+            const primTest = t.testHistory?.primary_test || {};
+            if (isFullyComplete) status = 'completed';
+            else if (
+              (primTest.metering_results && primTest.metering_results.length > 0) ||
+              (primTest.protection_results && primTest.protection_results.length > 0) ||
+              (primTest.ps_results && primTest.ps_results.length > 0)
+            ) {
+              status = 'in-progress';
+            }
+          } else if (['final', 'shipped'].includes(t.currentStage)) {
+            status = 'completed';
+          }
+
           // Can Approve logic?
           // Allow approval if status is 'completed' (locally) AND currentStage is 'primary'
           const canApprove = status === 'completed' && t.currentStage === 'primary';
 
           return {
             id: t._id,
+            orderId: order._id,
             uniqueId: t.uniqueId,
             name: order.transformerName || 'Transformer',
             rating: Array.isArray(order.ratio) ? order.ratio.join('/') : (order.ratio || 'N/A'),
@@ -163,7 +236,8 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
             cores: coresList,
             status: status,
             canApprove,
-            testHistory: t.testHistory
+            testHistory: t.testHistory,
+            currentStage: t.currentStage
           };
         });
 
@@ -188,7 +262,7 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
     }
   }, [order]);
 
-  const handleApproveTransformer = async (transformer: AfterPrimaryTransformer) => {
+  const handleApproveTransformer = async (transformer: Transformer) => {
     try {
       if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Final Testing?`)) return;
 

@@ -9,11 +9,12 @@ import { toast } from 'sonner';
 
 interface SecondaryCoreSelectionProps {
   transformer: Transformer;
-  onCoreSelect: (coreNumber: number, coreType: string, enteredCoreId: string, uniqueId: string) => void;
+  onCoreSelect: (coreNumber: number, coreType: string, enteredCoreId: string, uniqueId: string, accuracyClass?: string) => void;
   onBack: () => void;
+  onRefreshOrders?: () => void; // Added
 }
 
-export function SecondaryCoreSelection({ transformer: initialTransformer, onCoreSelect, onBack }: SecondaryCoreSelectionProps) {
+export function SecondaryCoreSelection({ transformer: initialTransformer, onCoreSelect, onBack, onRefreshOrders }: SecondaryCoreSelectionProps) {
   const [enteredCoreId, setEnteredCoreId] = useState('');
   const [selectedCore, setSelectedCore] = useState<number | null>(null);
   // Maintain local state for transformer to allow refreshing data
@@ -130,7 +131,7 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
     if (selectedCore !== null && enteredCoreId.trim()) {
       const core = transformer.cores.find(c => c.coreNumber === selectedCore);
       if (core) {
-        onCoreSelect(selectedCore, core.coreType, enteredCoreId, transformer.uniqueId);
+        onCoreSelect(selectedCore, core.coreType, enteredCoreId, transformer.uniqueId, core.accuracyClass);
       }
     }
   };
@@ -146,6 +147,7 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
 
       if (response.data.success) {
         toast.success("Transformer Approved successfully!");
+        if (onRefreshOrders) onRefreshOrders(); // Refresh the parent's orders list
         onBack(); // Go back to the list as it's now completed
       }
     } catch (err) {

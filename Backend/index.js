@@ -25,6 +25,7 @@ const { SecondaryMeteringTestModel } = require("./models/SecondaryMeteringTestMo
 const { CounterModel } = require("./models/CounterModel");
 const { isAuthenticated } = require('./middlewares/authMiddleware');
 const { upload, cloudinary } = require('./config/cloudinary'); // Cloudinary upload middleware
+const { CoreVendorModel } = require("./models/CoreVendorModel");
 
 
 const app = express();
@@ -32,8 +33,40 @@ const app = express();
 
 mongoose
   .connect(uri)
-  .then(() => console.log("MongoDB is  connected successfully"))
+  .then(async () => {
+    console.log("MongoDB is connected successfully");
+
+    try {
+      const collection = mongoose.connection.collection('failedcores');
+      await collection.dropIndex('orderId_1_internalCoreNo_1');
+      console.log("Successfully dropped duplicate index on failedcores.");
+    } catch (e) {
+      // Ignore if index doesn't exist
+    }
+
+    await seedCoreVendors();
+  })
   .catch((err) => console.error(err));
+
+// --- SEEDING LOGIC ---
+async function seedCoreVendors() {
+  try {
+    const count = await CoreVendorModel.countDocuments();
+    if (count === 0) {
+      const initialVendors = [
+        { vendor_no: 1, vendor_name: "ABC Electricals", status: "active" },
+        { vendor_no: 2, vendor_name: "Precision Cores Pvt Ltd", status: "active" },
+        { vendor_no: 3, vendor_name: "Shakti Transformers", status: "active" },
+        { vendor_no: 4, vendor_name: "Omega Core Industries", status: "active" },
+        { vendor_no: 5, vendor_name: "Delta Magnetic Cores", status: "active" }
+      ];
+      await CoreVendorModel.insertMany(initialVendors);
+      console.log("Core Vendors seeded successfully");
+    }
+  } catch (err) {
+    console.error("Error seeding core vendors:", err);
+  }
+}
 
 // --- AUTHENTICATION SETUP ---
 const session = require('express-session');
@@ -89,6 +122,8 @@ app.use('/api/transformers', require('./routes/transformerRoutes')); // New Tran
 app.use('/api/final', require('./routes/finalTestRoutes')); // New Final Test Routes
 app.use('/api/dashboard', require('./routes/dashboardRoutes')); // New Dashboard Stats Route
 app.use('/api/failed-cores', require('./routes/failedCoreRoutes')); // Failed Core Management
+app.use('/api/accuracy-limits', require('./routes/accuracyLimits.cjs')); // Accuracy Limits Management
+app.use('/api/core-vendors', require('./routes/coreVendorRoutes')); // Core Vendors Management
 
 // Provide configuration for Accuracy Classes dynamically to the frontend
 app.get('/api/accuracy-limits', (req, res) => {
@@ -235,6 +270,15 @@ const createOrder = async (req, res) => {
       }
       if (req.body.ratio && typeof req.body.ratio === 'string') {
         parsedBody.ratio = JSON.parse(req.body.ratio);
+      }
+      if (req.body.metering_core_vendors && typeof req.body.metering_core_vendors === 'string') {
+        parsedBody.metering_core_vendors = JSON.parse(req.body.metering_core_vendors);
+      }
+      if (req.body.protection_core_vendors && typeof req.body.protection_core_vendors === 'string') {
+        parsedBody.protection_core_vendors = JSON.parse(req.body.protection_core_vendors);
+      }
+      if (req.body.ps_core_vendors && typeof req.body.ps_core_vendors === 'string') {
+        parsedBody.ps_core_vendors = JSON.parse(req.body.ps_core_vendors);
       }
     } catch (e) {
       console.error("Body parsing error:", e);

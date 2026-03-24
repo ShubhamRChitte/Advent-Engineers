@@ -72,9 +72,11 @@ const validateProtectionReading = (accClass, currentError, phaseError, composite
 
     // Composite Error Validation
     if (compositeError !== undefined && compositeError !== null && compositeError !== "") {
-        const compNum = parseFloat(compositeError);
+        // Strip trailing % if present to parse cleanly from frontend string payload
+        const compClean = String(compositeError).replace('%', '');
+        const compNum = parseFloat(compClean);
         if (!isNaN(compNum)) {
-            if (compNum >= limitConfig.maxCompositeError) {
+            if (Math.abs(compNum) >= limitConfig.maxCompositeError) {
                 isPass = false;
                 reasons.push(`Composite Error (${compositeError}%) exceeds ≤${limitConfig.maxCompositeError}%`);
             }

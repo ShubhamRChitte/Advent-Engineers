@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { Textarea } from '../ui/textarea';
-import { ArrowLeft, Save, Download, Printer } from 'lucide-react';
+import { ArrowLeft, Save, Download, Printer, AlertTriangle } from 'lucide-react';
 import { FinalTransformer } from './FinalTransformersList';
 import { exportFinalTestReport } from '../../utils/pdfExport';
 import { toast } from 'sonner';
+import axios from 'axios';
 
 interface FinalTestReportProps {
   transformer: FinalTransformer;
@@ -41,36 +41,147 @@ export function FinalTestReport({
   // O.V.I.T. Test
   const [ovitTest, setOvitTest] = useState('');
 
-  // Accuracy Test
-  const [accuracyTest, setAccuracyTest] = useState('');
-  const [turnRatioError, setTurnRatioError] = useState('');
+  // Accuracy Test (Removed per new workflow rules)
 
-  const handleSave = () => {
-    alert('Final Test Report saved successfully!');
+  const getValidationFailures = () => {
+    const failures: string[] = [];
+    if (polarityResult === 'Fail') failures.push('Polarity: Fail');
+    if (hvSecondaryWinding === 'Fail') failures.push('HV Secondary: Fail');
+    if (hvPrimaryWinding === 'Fail') failures.push('HV Primary: Fail');
+    if (hvBetweenCore === 'Fail') failures.push('HV Between Core: Fail');
+    if (ovitTest === 'Fail') failures.push('OVIT: Fail');
+
+    const m1 = parseFloat(meggarPrimaryToSecondary);
+    const m2 = parseFloat(meggarPrimaryToEarth);
+    const m3 = parseFloat(meggarSecondaryToEarth);
+    const m4 = parseFloat(meggarCoreToCore);
+
+    if (m1 > 1000) failures.push(`Meggar Pri-Sec > 1000 (${meggarPrimaryToSecondary})`);
+    if (m2 > 1000) failures.push(`Meggar Pri-Earth > 1000 (${meggarPrimaryToEarth})`);
+    if (m3 > 500) failures.push(`Meggar Sec-Earth > 500 (${meggarSecondaryToEarth})`);
+    if (m4 > 200) failures.push(`Meggar Core-Core > 200 (${meggarCoreToCore})`);
+
+    return failures;
   };
 
-  const handleGenerate = () => {
-    const reportData = {
-      transformerId: transformer.uniqueId,
-      transformerName: transformer.name,
-      rating: transformer.rating,
-      voltageClass: transformer.voltageClass,
-      testerName,
-      polarityResult,
-      meggarPrimaryToSecondary,
-      meggarPrimaryToEarth,
-      meggarSecondaryToEarth,
-      meggarCoreToCore,
-      hvSecondaryWinding,
-      hvPrimaryWinding,
-      hvBetweenCore,
-      ovitTest,
-      accuracyTest,
-      turnRatioError,
-    };
+  const validationFailures = getValidationFailures();
+  const hasFailures = validationFailures.length > 0;
 
-    exportFinalTestReport(reportData);
-    toast.success('Final test report downloaded successfully!');
+  const isComplete = polarityResult && hvSecondaryWinding && hvPrimaryWinding &&
+    hvBetweenCore && ovitTest && meggarPrimaryToSecondary &&
+    meggarPrimaryToEarth && meggarSecondaryToEarth && meggarCoreToCore;
+
+  const handleSave = async () => {
+    try {
+      if (hasFailures) {
+        toast.error("There are failed conditions. Please use 'Mark as Failed Core' instead.");
+        return;
+      }
+
+      const payload = {
+        polarityResult,
+        meggarPrimaryToSecondary,
+        meggarPrimaryToEarth,
+        meggarSecondaryToEarth,
+        meggarCoreToCore,
+        hvSecondaryWinding,
+        hvPrimaryWinding,
+        hvBetweenCore,
+        ovitTest,
+      };
+
+      const res = await axios.post(`http://localhost:3002/api/final/${transformer.uniqueId}`, payload, {
+        withCredentials: true
+      });
+
+      if (res.data.success) {
+        toast.success(res.data.message);
+        if (onBack) onBack(); // Go back to list immediately
+      } else {
+        toast.error(res.data.message || 'Failed to save final test record.');
+      }
+    } catch (err: any) {
+      console.error("Save final test error:", err);
+      toast.error(err.response?.data?.message || 'Error occurred while saving.');
+    }
+  };
+
+  const handleMarkAsFailed = async () => {
+    const finalReason = getValidationFailures().join(' | ') || "Failed during final testing.";
+
+    try {
+      // Persist the actual test data first
+      const testPayload = {
+        polarityResult, meggarPrimaryToSecondary, meggarPrimaryToEarth, meggarSecondaryToEarth, meggarCoreToCore,
+        hvSecondaryWinding, hvPrimaryWinding, hvBetweenCore, ovitTest
+      };
+      await axios.post(`http://localhost:3002/api/final/${encodeURIComponent(transformer.uniqueId)}`, testPayload, { withCredentials: true });
+
+      const payload = {
+        orderId: (transformer as any).orderId?._id || (transformer as any).orderId,
+        internalCoreNo: transformer.uniqueId,
+        failureReason: finalReason,
+        failureStage: 'FINAL_QA', // Dynamic depending on specific exact stage if necessary
+      };
+
+      const failedRes = await axios.post('http://localhost:3002/api/failed-cores', payload, { withCredentials: true });
+      if (failedRes.data?.success || failedRes.status === 200 || failedRes.status === 201) {
+        toast.success("Transformer marked as failed successfully.");
+        if (onBack) onBack();
+      }
+    } catch (error: any) {
+      console.error("Mark as failed error:", error);
+      toast.error(error.response?.data?.message || "Error adding to failed cores");
+    }
+  };
+
+  const handleGenerateAndSave = async () => {
+    try {
+      if (hasFailures) {
+        toast.error("Cannot generate report with failed tests.");
+        return;
+      }
+      if (!isComplete) {
+        toast.error("Please fill all the readings.");
+        return;
+      }
+
+      const reportData = {
+        transformerId: transformer.uniqueId,
+        transformerName: transformer.name,
+        rating: transformer.rating,
+        voltageClass: transformer.voltageClass,
+        testerName,
+        polarityResult,
+        meggarPrimaryToSecondary,
+        meggarPrimaryToEarth,
+        meggarSecondaryToEarth,
+        meggarCoreToCore,
+        hvSecondaryWinding,
+        hvPrimaryWinding,
+        hvBetweenCore,
+        ovitTest,
+      };
+
+      // 1. Save directly to FinalReportData
+      const res = await axios.post(`http://localhost:3002/api/final/${encodeURIComponent(transformer.uniqueId)}/generate-save`, reportData, {
+        withCredentials: true
+      });
+
+      if (res.data.success) {
+        toast.success("Final report data saved to database!");
+
+        // 2. Generate PDF using existing logic
+        exportFinalTestReport(reportData);
+        toast.success('Final test report downloaded successfully!');
+        if (onBack) onBack();
+      } else {
+        toast.error(res.data.message || 'Failed to save final test record.');
+      }
+    } catch (err: any) {
+      console.error("Save final report error:", err);
+      toast.error(err.response?.data?.message || 'Error occurred while saving report.');
+    }
   };
 
   const handlePrint = () => {
@@ -293,12 +404,15 @@ export function FinalTestReport({
                 <h4>2. Polarity Testing</h4>
               </div>
               <div className="p-3">
-                <Input
-                  className="h-10"
-                  placeholder="Enter polarity test result"
+                <select
+                  className="w-full bg-white border border-gray-300 rounded p-2 text-center h-10 outline-none"
                   value={polarityResult}
                   onChange={(e) => setPolarityResult(e.target.value)}
-                />
+                >
+                  <option value="">Select Result</option>
+                  <option value="Pass">Pass</option>
+                  <option value="Fail">Fail</option>
+                </select>
               </div>
             </div>
 
@@ -365,12 +479,15 @@ export function FinalTestReport({
                 <h4>4. H.V. Test on Secondary Winding</h4>
               </div>
               <div className="p-3">
-                <Input
-                  className="h-10"
-                  placeholder="Enter H.V. test result"
+                <select
+                  className="w-full bg-white border border-gray-300 rounded p-2 text-center h-10 outline-none"
                   value={hvSecondaryWinding}
                   onChange={(e) => setHvSecondaryWinding(e.target.value)}
-                />
+                >
+                  <option value="">Select Result</option>
+                  <option value="Pass">Pass</option>
+                  <option value="Fail">Fail</option>
+                </select>
               </div>
             </div>
 
@@ -380,12 +497,15 @@ export function FinalTestReport({
                 <h4>5. H.V. Test on Primary Winding</h4>
               </div>
               <div className="p-3">
-                <Input
-                  className="h-10"
-                  placeholder="Enter H.V. test result"
+                <select
+                  className="w-full bg-white border border-gray-300 rounded p-2 text-center h-10 outline-none"
                   value={hvPrimaryWinding}
                   onChange={(e) => setHvPrimaryWinding(e.target.value)}
-                />
+                >
+                  <option value="">Select Result</option>
+                  <option value="Pass">Pass</option>
+                  <option value="Fail">Fail</option>
+                </select>
               </div>
             </div>
 
@@ -395,12 +515,15 @@ export function FinalTestReport({
                 <h4>6. H.V. Test between Core</h4>
               </div>
               <div className="p-3">
-                <Input
-                  className="h-10"
-                  placeholder="Enter H.V. test result"
+                <select
+                  className="w-full bg-white border border-gray-300 rounded p-2 text-center h-10 outline-none"
                   value={hvBetweenCore}
                   onChange={(e) => setHvBetweenCore(e.target.value)}
-                />
+                >
+                  <option value="">Select Result</option>
+                  <option value="Pass">Pass</option>
+                  <option value="Fail">Fail</option>
+                </select>
               </div>
             </div>
 
@@ -410,43 +533,19 @@ export function FinalTestReport({
                 <h4>7. O.V.I.T. Test</h4>
               </div>
               <div className="p-3">
-                <Textarea
-                  className="min-h-20"
-                  placeholder="Enter O.V.I.T. test results"
+                <select
+                  className="w-full bg-white border border-gray-300 rounded p-2 text-center h-10 outline-none"
                   value={ovitTest}
                   onChange={(e) => setOvitTest(e.target.value)}
-                />
+                >
+                  <option value="">Select Result</option>
+                  <option value="Pass">Pass</option>
+                  <option value="Fail">Fail</option>
+                </select>
               </div>
             </div>
 
-            {/* 8. Accuracy Test */}
-            <div className="border border-gray-300">
-              <div className="bg-yellow-300 border-b border-gray-300 p-3">
-                <h4>8. Accuracy Test</h4>
-              </div>
-              <div className="p-3">
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm mb-1 block">Turn Ratio Error</label>
-                    <Input
-                      className="h-10"
-                      placeholder="Enter turn ratio error"
-                      value={turnRatioError}
-                      onChange={(e) => setTurnRatioError(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm mb-1 block">Additional Accuracy Test Results</label>
-                    <Textarea
-                      className="min-h-24"
-                      placeholder="Enter accuracy test results and observations"
-                      value={accuracyTest}
-                      onChange={(e) => setAccuracyTest(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* 8. Accuracy Test (Removed) */}
           </div>
 
         </div>
@@ -465,15 +564,32 @@ export function FinalTestReport({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3">
-        <Button onClick={handleSave} variant="outline" size="sm" className="gap-2">
-          <Save className="w-4 h-4" />
-          Save
-        </Button>
-        <Button onClick={handleGenerate} className="bg-red-600 hover:bg-red-700 gap-2">
-          <Download className="w-4 h-4" />
-          Generate & Upload
-        </Button>
+      <div className="flex gap-3 items-center justify-between">
+        <div className="flex flex-col gap-2">
+          {hasFailures && (
+            <div className="text-red-600 text-sm font-semibold max-w-lg">
+              Failure Limits Reached: {validationFailures.join(', ')}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-3">
+          {hasFailures ? (
+            <Button onClick={handleMarkAsFailed} variant="destructive" className="bg-red-600 hover:bg-red-700 font-bold gap-2 text-md h-10 shadow-lg border border-red-800 animate-pulse">
+              <AlertTriangle className="w-5 h-5 mr-1" />
+              MARK AS FAILED CORE
+            </Button>
+          ) : isComplete ? (
+            <Button onClick={handleGenerateAndSave} className="bg-blue-600 text-white hover:bg-blue-700 gap-2 font-bold h-10 shadow">
+              <Download className="w-4 h-4" />
+              GENERATE AND SAVE
+            </Button>
+          ) : (
+            <Button onClick={handleSave} variant="outline" size="sm" className="gap-2 border-gray-400">
+              <Save className="w-4 h-4" />
+              Save Draft
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

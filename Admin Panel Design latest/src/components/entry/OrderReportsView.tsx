@@ -5,13 +5,8 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import {
   ArrowLeft,
-  CheckCircle,
   Clock,
-  Zap,
-  Shield,
-  Award,
   ChevronRight,
-  Box,
   CheckCircle2,
   AlertCircle,
   XCircle,
@@ -41,7 +36,6 @@ interface OrderReportsViewProps {
 
 export function OrderReportsView({ order, clientName, onBack }: OrderReportsViewProps) {
   const [transformerUnits, setTransformerUnits] = useState<TransformerUnit[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // Modal State
   const [selectedTransformer, setSelectedTransformer] = useState<any | null>(null);
@@ -110,8 +104,6 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
           console.warn("API Request failed. Using STATIC MOCK DATA as fallback.");
           // setTransformerUnits(MOCK_TRANSFORMERS); // If we had mock data adapted for this
         }
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -120,11 +112,30 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
     }
   }, [order.id]);
 
+  const [searchQuery, setSearchQuery] = useState('');
+
   const handleOpenReport = (transformer: Transformer, type: 'core' | 'secondary' | 'primary' | 'final') => {
     setSelectedTransformer(transformer);
     setSelectedTestType(type);
     setModalOpen(true);
   };
+
+  const filteredUnits = transformerUnits.filter((unit) => {
+    const query = searchQuery.toLowerCase();
+
+    // Check Transformer ID
+    const matchTransformerId = unit.transformerId.toLowerCase().includes(query);
+
+    // Check Job ID
+    const matchJobId = order.orderId?.toLowerCase().includes(query) ||
+      unit.raw?.jobId?.toLowerCase().includes(query);
+
+    // Check Core Number (usually found as internalCoreNo in raw data)
+    const matchCoreNo = unit.raw?.internalCoreNo?.toLowerCase().includes(query) ||
+      unit.raw?.coreDetails?.some((core: any) => core.coreId?.toLowerCase().includes(query) || String(core.coreNumber).includes(query));
+
+    return matchTransformerId || matchJobId || matchCoreNo;
+  });
 
   const getStatusColor = (status?: string) => {
     switch (status) {
@@ -198,7 +209,20 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
         </div>
       </div>
 
-      {/* Transformers List */}
+      {/* Reports Dashboard Toolbar */}
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-gray-800">Unit Test Status</h3>
+        <div className="relative w-64">
+          <Input
+            placeholder="Search Transformer ID, Job ID, or Core..."
+            className="pl-9"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        </div>
+      </div>
+
       {/* Transformers Table */}
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
@@ -214,7 +238,7 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
               </tr>
             </thead>
             <tbody>
-              {transformerUnits.map((unit, index) => {
+              {filteredUnits.map((unit, index) => {
                 // Check if all tests are complete for Report generation logic
                 const allComplete =
                   unit.coreTestStatus === 'Complete' &&
@@ -353,10 +377,10 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
           </table>
         </div>
 
-        {transformerUnits.length === 0 && (
+        {filteredUnits.length === 0 && (
           <div className="text-center py-12 text-gray-500">
             <Search className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-            <p>No transformers found for this order.</p>
+            <p>{searchQuery ? "No transformers found matching your search." : "No transformers found for this order."}</p>
           </div>
         )}
       </Card>

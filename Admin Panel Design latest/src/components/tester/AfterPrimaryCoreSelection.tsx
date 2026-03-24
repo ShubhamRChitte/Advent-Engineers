@@ -4,7 +4,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { ArrowLeft, PlayCircle, Loader2, CheckCircle, Eye } from 'lucide-react';
-import { AfterPrimaryTransformer } from './AfterPrimaryTransformersList';
+import { Transformer as AfterPrimaryTransformer } from './AfterPrimaryTransformersList';
 
 interface Order {
   _id: string;
@@ -22,6 +22,7 @@ interface CoreConfig {
   coreNumber: number;
   coreType: 'metering' | 'ps' | 'protection';
   coreId: string;
+  accuracyClass?: string | undefined;
 }
 
 interface AfterPrimaryCoreSelectionProps {

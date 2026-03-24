@@ -1,10 +1,12 @@
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
+// In case the default import fails in some environments, we can also use:
+// import * as autoTablePlugin from 'jspdf-autotable';
+// const autoTable = (autoTablePlugin as any).default || autoTablePlugin;
 
-// Extend jsPDF type to include autoTable
+// Extend jsPDF type to include autoTable (keeping for other possible uses or type safety in some contexts)
 declare module 'jspdf' {
   interface jsPDF {
-    autoTable: (options: any) => jsPDF;
     lastAutoTable?: {
       finalY: number;
     };
@@ -163,7 +165,7 @@ export function exportCoreTestingReport(data: CoreTestReportData) {
     test.remark,
   ]);
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: yPos,
     head: [['Date', 'Vendor Core No', 'Internal Core No', ...data.bsatSpecs, 'Result']],
     body: tableData,
@@ -259,7 +261,7 @@ export function exportSecondaryMeteringReport(data: SecondaryMeteringReportData)
       row.burden25Phase,
     ]);
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: startY,
       head: [
         [
@@ -347,7 +349,7 @@ export function exportSecondaryPSReport(data: SecondaryPSReportData) {
     row.test5,
   ]);
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: yPos,
     head: [['Ratio', 'Test 1', 'Test 2', 'Test 3', 'Test 4', 'Test 5']],
     body: tableData,
@@ -416,7 +418,7 @@ export function exportSecondaryProtectionReport(data: SecondaryProtectionReportD
     row.compositeError,
   ]);
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: yPos,
     head: [['Ratio', '100% Burden', 'Secondary Limiting Vtg', 'Excitation Current', 'Composite Error']],
     body: tableData,
@@ -460,8 +462,8 @@ interface FinalTestReportData {
   hvPrimaryWinding: string;
   hvBetweenCore: string;
   ovitTest: string;
-  accuracyTest: string;
-  turnRatioError: string;
+  accuracyTest?: string;
+  turnRatioError?: string;
 }
 
 export function exportFinalTestReport(data: FinalTestReportData) {
@@ -471,7 +473,7 @@ export function exportFinalTestReport(data: FinalTestReportData) {
   yPos += 5;
 
   // Transformer Information Table
-  doc.autoTable({
+  autoTable(doc, {
     startY: yPos,
     body: [
       ['Transformer Name', data.transformerName, 'Unique ID', data.transformerId],
@@ -559,7 +561,7 @@ export function exportFinalTestReport(data: FinalTestReportData) {
 
   // Signature Section
   yPos += 5;
-  doc.autoTable({
+  autoTable(doc, {
     startY: yPos,
     body: [
       ['Tested By: ' + data.testerName, 'Signature:'],

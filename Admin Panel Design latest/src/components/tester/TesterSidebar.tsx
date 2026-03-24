@@ -35,7 +35,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
       return [
         { id: 'home', label: 'Home', icon: Home },
         { id: 'notifications', label: 'Notifications', icon: Bell },
-        // { id: 'orders', label: 'Orders', icon: ClipboardCheck },
+        { id: 'view-orders', label: 'View Orders', icon: FileText },
         { id: 'core-tracking', label: 'Core Tracking', icon: Zap },
         { id: 'failed-cores', label: 'Failed Cores', icon: AlertTriangle, badge: failedCount > 0 ? failedCount : undefined },
       ];
@@ -46,6 +46,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
       { id: 'home', label: 'Home', icon: Home },
       { id: 'notifications', label: 'Notifications', icon: Bell },
       { id: 'testing', label: 'Testing', icon: ClipboardCheck },
+      { id: 'view-orders', label: 'View Orders', icon: FileText },
       { id: 'failed-cores', label: 'Failed Cores', icon: AlertTriangle, badge: failedCount > 0 ? failedCount : undefined },
       { id: 'reports', label: 'My Reports', icon: FileText },
     ];
@@ -73,8 +74,8 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
               key={item.id}
               onClick={() => setActiveView(item.id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                  ? 'bg-[#003a70] text-white'
-                  : 'text-gray-700 hover:bg-slate-50'
+                ? 'bg-[#003a70] text-white'
+                : 'text-gray-700 hover:bg-slate-50'
                 }`}
             >
               <Icon className="w-5 h-5" />
