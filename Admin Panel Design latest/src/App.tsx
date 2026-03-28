@@ -11,7 +11,7 @@ export interface User {
   name: string;
   employeeId: string;
   email?: string; // Made optional as we login with employeeId
-  role: 'admin' | 'entry-operator' | 'core-tester' | 'secondary-tester' | 'after-primary-tester' | 'final-tester';
+  role: 'admin' | 'entry-operator' | 'core-tester' | 'secondary-tester' | 'after-primary-tester' | 'final-tester' | 'pt-tester';
   department?: string;
 }
 
@@ -59,7 +59,7 @@ export default function App() {
     );
   }
 
-  if (['core-tester', 'secondary-tester', 'after-primary-tester', 'final-tester'].includes(user.role)) {
+  if (['core-tester', 'secondary-tester', 'after-primary-tester', 'final-tester', 'pt-tester'].includes(user.role)) {
     return (
       <>
         <TesterLayout user={user} onLogout={handleLogout} />

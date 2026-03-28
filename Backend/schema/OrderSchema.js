@@ -32,7 +32,7 @@ const OrderSchema = new Schema(
         testerName: { type: String, required: true }, // e.g., "Rahul Sharma"
         stage: {
           type: String,
-          enum: ["core", "secondary", "primary", "final"],
+          enum: ["core", "secondary", "primary", "final", "pt"],
           required: true
         },
         unitRange: {
@@ -46,7 +46,7 @@ const OrderSchema = new Schema(
     // --- WORKFLOW TRACKING (NEW) ---
     currentStage: {
       type: String,
-      enum: ["core", "secondary", "primary", "final", "completed"],
+      enum: ["core", "secondary", "primary", "final", "completed", "pt"],
       default: "core" // Determines which dashboard this order appears on
     },
 
@@ -54,7 +54,8 @@ const OrderSchema = new Schema(
       core: { type: Boolean, default: false },
       secondary: { type: Boolean, default: false },
       primary: { type: Boolean, default: false },
-      final: { type: Boolean, default: false }
+      final: { type: Boolean, default: false },
+      pt: { type: Boolean, default: false }
     },
 
     // --- TESTING STATS (Derived from Core Testing) ---
@@ -69,7 +70,7 @@ const OrderSchema = new Schema(
     isRead: { type: Boolean, default: false }, // For Admin Notification badge
     status: {
       type: String,
-      enum: ["Pending Approval", "In Progress", "Completed", "Core Testing In Progress", "Core Testing Completed"],
+      enum: ["Pending Approval", "In Progress", "Completed", "Core Testing In Progress", "Core Testing Completed", "PT Testing In Progress", "PT Testing Completed"],
       default: "Pending Approval"
     },
     priority: { type: String, enum: ["High", "Medium", "Low"], default: "Medium" },

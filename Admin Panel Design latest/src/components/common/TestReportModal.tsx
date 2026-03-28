@@ -2,17 +2,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { SecondaryReportView } from "../tester/SecondaryReportView";
 import { Card } from "../ui/card";
 import { useEffect, useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { ScrollArea } from "../ui/scroll-area";
+
+import { PTReportView } from "../tester/PTReportView";
 
 interface TestReportModalProps {
     isOpen: boolean;
     onClose: () => void;
     transformer: any;
-    testType: 'core' | 'secondary' | 'primary' | 'final' | 'all';
+    order?: any;
+    testType: 'core' | 'secondary' | 'primary' | 'final' | 'all' | 'pt';
 }
 
-export function TestReportModal({ isOpen, onClose, transformer, testType }: TestReportModalProps) {
+export function TestReportModal({ isOpen, onClose, transformer, order, testType }: TestReportModalProps) {
     const [meteringData, setMeteringData] = useState<any>(null);
     const [protectionData, setProtectionData] = useState<any>(null);
     const [psData, setPsData] = useState<any>(null);
@@ -59,6 +61,7 @@ export function TestReportModal({ isOpen, onClose, transformer, testType }: Test
             case 'secondary': return `Secondary Test Report - ${transformer.uniqueId}`;
             case 'primary': return `Primary Test Report - ${transformer.uniqueId}`;
             case 'final': return `Final Test Report - ${transformer.uniqueId}`;
+            case 'pt': return `PT Test Report - ${transformer.uniqueId}`;
             case 'all': return `Combined Test Report - ${transformer.uniqueId}`;
             default: return 'Test Report';
         }
@@ -70,6 +73,8 @@ export function TestReportModal({ isOpen, onClose, transformer, testType }: Test
             tester = transformer.testHistory?.core_test?.tester || 'Unknown';
         } else if (testType === 'all') {
             tester = 'Multiple Testers';
+        } else if (testType === 'pt') {
+            tester = transformer.testHistory?.pt_test?.testedBy || 'Unknown';
         } else {
             tester = transformer.testHistory?.[`${testType}_test`]?.tester || 'Unknown';
         }
@@ -309,6 +314,18 @@ export function TestReportModal({ isOpen, onClose, transformer, testType }: Test
     }
 
     const renderAllReports = () => {
+        const isPT = transformer?.currentStage === 'pt' || transformer?.testHistory?.pt_test || order?.transformerType === 'PT';
+        
+        if (isPT) {
+            return (
+                <div className="flex flex-col">
+                    <div className="mb-4">
+                        <PTReportView transformer={transformer} order={order} onBack={onClose} />
+                    </div>
+                </div>
+            )
+        }
+
         return (
             <div className="flex flex-col">
                 <div className="mb-4">
@@ -337,6 +354,7 @@ export function TestReportModal({ isOpen, onClose, transformer, testType }: Test
             case 'secondary': return <SecondaryReportView transformer={transformer} onBack={onClose} stage="secondary" />;
             case 'primary': return <SecondaryReportView transformer={transformer} onBack={onClose} stage="primary" />;
             case 'final': return <SecondaryReportView transformer={transformer} onBack={onClose} stage="final" />;
+            case 'pt': return <PTReportView transformer={transformer} order={order} onBack={onClose} />;
             case 'all': return renderAllReports();
             default: return <div>Unknown Report Type</div>;
         }

@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { X, Plus, Upload, ArrowLeft } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Transformer {
   id: string;
@@ -124,6 +125,14 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
   };
 
   const handleSubmit = () => {
+    if (transformerType === 'PT') {
+      const hasPSCore = coreConfigs.some(c => c.coreType === 'ps');
+      if (hasPSCore) {
+        toast.error("PS Class cores are not allowed for PT Transformers.");
+        return;
+      }
+    }
+
     const orderData = {
       orderId: `ORD-${Date.now()}`,
       orderDate: new Date().toLocaleDateString(),
@@ -188,13 +197,19 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
               <h3 className="font-semibold mb-4  text-blue-700">Transformer Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                <div>
                   <Label>Type *</Label>
                   <select
                     value={transformerType}
                     onChange={(e) => {
-                      setTransformerType(e.target.value);
+                      const newType = e.target.value;
+                      setTransformerType(newType);
                       setIsStandard(''); // Reset standard on type change
+                      
+                      if(newType === 'PT') {
+                         setCoreConfigs(prev => prev.map(config => 
+                           config.coreType === 'ps' ? { ...config, coreType: 'metering', accuracyClass: '' } : config
+                         ));
+                      }
                     }}
                     className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
                   >
@@ -202,7 +217,6 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
                     <option value="CT">Current Transformer (CT)</option>
                     <option value="PT">Potential Transformer (PT)</option>
                   </select>
-                </div>
                 {transformerType && (
                   <div>
                     <Label>IS Standard *</Label>
@@ -376,7 +390,7 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
                       className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
                     >
                       <option value="metering">Metering</option>
-                      <option value="ps">PS</option>
+                      {transformerType !== 'PT' && <option value="ps">PS</option>}
                       <option value="protection">Protection</option>
                     </select>
 
@@ -408,7 +422,7 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
                               <option value="15P">15P</option>
                             </>
                           )}
-                          {coreConfigs[index].coreType === 'ps' && (
+                          {coreConfigs[index].coreType === 'ps' && transformerType !== 'PT' && (
                             <option value="0.2s">0.2s</option>
                           )}
                         </select>

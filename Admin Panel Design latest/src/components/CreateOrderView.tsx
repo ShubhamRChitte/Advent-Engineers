@@ -18,7 +18,7 @@ interface Tester {
 
 interface Assignment {
   id: string; // temp id for UI key
-  stage: 'core' | 'secondary' | 'primary' | 'final';
+  stage: 'core' | 'secondary' | 'primary' | 'final' | 'pt';
   testerName: string;
   unitRange: {
     from: string; // Keep as string for input handling, parse on submit
@@ -98,6 +98,14 @@ export function CreateOrderView() {
         }
       });
     }
+
+    // Special handling for changing Transformer Type
+    if (field === 'transformerType' && value === 'PT') {
+      // If switching to PT, ensure no existing 'PS' cores remain
+      setCoreConfigs(prev => prev.map(config => 
+        config.coreType === 'PS' ? { ...config, coreType: 'Metering', accuracyClass: '' } : config
+      ));
+    }
   };
 
   const handleCoreConfigChange = (index: number, newType: string) => {
@@ -117,10 +125,10 @@ export function CreateOrderView() {
   };
 
   // --- Assignment Logic ---
-  const addAssignmentRow = (stage: typeof STAGES[number]) => {
+  const addAssignmentRow = (stage: string) => {
     const newRow: Assignment = {
       id: Math.random().toString(36).substr(2, 9),
-      stage,
+      stage: stage as any,
       testerName: '',
       unitRange: { from: '', to: '' }
     };
@@ -143,7 +151,8 @@ export function CreateOrderView() {
 
   // --- Validation ---
   const validateAssignments = (qty: number) => {
-    for (const stage of STAGES) {
+    const activeStages = formData.transformerType === 'PT' ? ['pt'] : STAGES;
+    for (const stage of activeStages) {
       const stageAssignments = assignments.filter(a => a.stage === stage);
 
       // If no assignments for a stage, that might be okay depending on workflow, 
@@ -192,6 +201,15 @@ export function CreateOrderView() {
       toast.error("Invalid Quantity");
       setLoading(false);
       return;
+    }
+
+    if (formData.transformerType === 'PT') {
+      const hasPSCore = coreConfigs.some(c => c.coreType === 'PS');
+      if (hasPSCore) {
+        toast.error("PS Class cores are not allowed for PT Transformers.");
+        setLoading(false);
+        return;
+      }
     }
 
     if (!validateAssignments(qty)) {
@@ -384,7 +402,9 @@ export function CreateOrderView() {
                       <SelectContent>
                         <SelectItem value="Metering">Metering</SelectItem>
                         <SelectItem value="Protection">Protection</SelectItem>
-                        <SelectItem value="PS">PS Class</SelectItem>
+                        {formData.transformerType !== 'PT' && (
+                          <SelectItem value="PS">PS Class</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -416,7 +436,7 @@ export function CreateOrderView() {
                               <SelectItem value="15P">15P</SelectItem>
                             </>
                           )}
-                          {config.coreType === 'PS' && (
+                          {config.coreType === 'PS' && formData.transformerType !== 'PT' && (
                             <SelectItem value="0.2s">0.2s</SelectItem>
                           )}
                         </SelectContent>
@@ -579,7 +599,7 @@ export function CreateOrderView() {
             </div>
 
             <div className="space-y-6">
-              {STAGES.map(stage => {
+              {(formData.transformerType === 'PT' ? ['pt'] : STAGES).map(stage => {
                 const stageRows = assignments.filter(a => a.stage === stage);
                 const unitsAssigned = stageRows.reduce((acc, curr) => {
                   const f = parseInt(curr.unitRange.from) || 0;
@@ -607,7 +627,9 @@ export function CreateOrderView() {
                           <Select value={row.testerName} onValueChange={(v: string) => updateAssignment(row.id, 'testerName', v)}>
                             <SelectTrigger className="h-8 text-sm flex-1"><SelectValue placeholder="Select Tester" /></SelectTrigger>
                             <SelectContent>
-                              {testers.map(t => <SelectItem key={t._id} value={t.fullName}>{t.fullName} ({t.department})</SelectItem>)}
+                              {testers
+                                .filter(t => formData.transformerType === 'PT' ? t.department === 'PT Test' : t.department !== 'PT Test')
+                                .map(t => <SelectItem key={t._id} value={t.fullName}>{t.fullName} ({t.department})</SelectItem>)}
                             </SelectContent>
                           </Select>
                           <div className="flex items-center gap-1">
@@ -676,7 +698,9 @@ export function CreateOrderView() {
             <h4 className="font-semibold mb-2">Tester Availability</h4>
             <div className="space-y-2 text-sm">
               {testers.length === 0 ? <p className="text-gray-400">Loading testers...</p> : (
-                testers.map(t => (
+                testers
+                  .filter(t => formData.transformerType === 'PT' ? t.department === 'PT Test' : t.department !== 'PT Test')
+                  .map(t => (
                   <div key={t._id} className="flex justify-between">
                     <span>{t.fullName}</span>
                     <span className="text-gray-400 text-xs">{t.department}</span>

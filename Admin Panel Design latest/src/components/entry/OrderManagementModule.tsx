@@ -65,7 +65,8 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
             'After Secondary Test': 'secondary', // Fixed mapping
             'Secondary Test': 'secondary', // Also support direct name
             'After Primary Test': 'primary',
-            'Final Test': 'final'
+            'Final Test': 'final',
+            'PT Test': 'pt'
           };
 
           return {

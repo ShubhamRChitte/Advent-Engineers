@@ -58,10 +58,12 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
       "Core Test": "core",
       "Secondary Test": "secondary",
       "Primary Test": "primary",
-      "Final Test": "final"
+      "Final Test": "final",
+      "PT Test": "pt"
     };
 
     let stageKey = stageMap[user.department];
+    console.log("ASSIGNEED ORDERS HIT: user=" + user.employeeId + ", dept=" + user.department + ", stageKey=" + stageKey);
 
     // Admin/Management Bypass
     const adminDepartments = ["Management", "Office", "Admin"];
@@ -71,6 +73,7 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
         query.approved = { $ne: true };
       }
       const orders = await OrderModel.find(query).sort({ updatedAt: -1 });
+      console.log("ADMIN orders found: ", orders.length);
       return res.json(orders);
     }
 
@@ -229,6 +232,7 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
     }
 
     const orders = await OrderModel.find(finalOrderQuery).lean().sort({ createdAt: -1 });
+    console.log("TESTER Orders matched finalOrderQuery: ", orders.length);
 
     // 4. Enrich Orders with "AssignedUnits" list
     const enrichedOrders = await Promise.all(orders.map(async (order) => {
@@ -528,6 +532,7 @@ router.get('/admin/orders', isAuthenticated, async (req, res) => {
     const { OrderModel } = require('../models/OrderModel');
     // Fetch all orders, sorted by newest first
     const orders = await OrderModel.find({}).sort({ createdAt: -1 });
+    console.log("ADMIN View orders fetched:", orders.length);
     res.json(orders);
   } catch (err) {
     res.status(500).json({ error: err.message });

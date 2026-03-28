@@ -25,6 +25,8 @@ const { SecondaryMeteringTestModel } = require("./models/SecondaryMeteringTestMo
 const { CounterModel } = require("./models/CounterModel");
 const { isAuthenticated } = require('./middlewares/authMiddleware');
 const { upload, cloudinary } = require('./config/cloudinary'); // Cloudinary upload middleware
+const heatingRecordRoutes = require('./routes/heatingRecordRoutes'); // Heating Record Routes
+const ptHeatingRecordRoutes = require('./routes/ptHeatingRecordRoutes'); // PT Heating Record Routes
 
 
 const app = express();
@@ -89,6 +91,9 @@ app.use('/api/transformers', require('./routes/transformerRoutes')); // New Tran
 app.use('/api/final', require('./routes/finalTestRoutes')); // New Final Test Routes
 app.use('/api/dashboard', require('./routes/dashboardRoutes')); // New Dashboard Stats Route
 app.use('/api/failed-cores', require('./routes/failedCoreRoutes')); // Failed Core Management
+app.use('/api/pt-tests', require('./routes/ptTestRoutes')); // PT Testing Routes
+app.use('/api/heating-record', heatingRecordRoutes); // Heating Record Routes
+app.use('/api/pt-heating-record', ptHeatingRecordRoutes); // PT Heating Record Routes
 
 // Provide configuration for Accuracy Classes dynamically to the frontend
 app.get('/api/accuracy-limits', (req, res) => {
@@ -135,7 +140,8 @@ const generateTransformersForOrder = async (order) => {
         core_tester: "",
         secondary_tester: "",
         primary_tester: "",
-        final_tester: ""
+        final_tester: "",
+        pt_tester: ""
       };
     }
 
@@ -165,7 +171,11 @@ const generateTransformersForOrder = async (order) => {
 
     // Logic: If NO core assignments but YES secondary -> Start at Secondary
     // (User explicitly skipped core in assignments)
-    if (!hasCore && hasSecondary) {
+    if (order.transformerType === 'PT') {
+      startStage = 'pt';
+      order.currentStage = 'pt';
+      await order.save();
+    } else if (!hasCore && hasSecondary) {
       startStage = 'secondary';
       // Mark Order as Core Completed effectively
       order.currentStage = 'secondary';

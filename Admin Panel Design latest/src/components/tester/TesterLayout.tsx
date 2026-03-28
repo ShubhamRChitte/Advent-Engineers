@@ -14,6 +14,11 @@ import { ClipboardCheck, FileText, Activity } from 'lucide-react';
 import { AfterPrimaryReportsList } from './reports/AfterPrimaryReportsList';
 import { FinalReportsList } from './reports/FinalReportsList';
 import { FailedCoresPage } from '../../pages/FailedCoresPage';
+import { PTTesterDashboard } from './PTTesterDashboard';
+import { PTTestingModule } from './PTTestingModule';
+import { PTReportsList } from './PTReportsList';
+import { HeatingRecordModule } from './HeatingRecordModule';
+import { PTHeatingRecordModule } from './PTHeatingRecordModule';
 
 interface TesterLayoutProps {
   user: User;
@@ -21,12 +26,21 @@ interface TesterLayoutProps {
 }
 
 export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
-  const [activeView, setActiveView] = useState(user.role === 'core-tester' ? 'home' : 'home');
+  const [activeView, setActiveView] = useState('home');
 
   const renderView = () => {
     // Notifications view for all testers
     if (activeView === 'notifications') {
       return <TesterNotifications userRole={user.role} userName={user.name} />;
+    }
+
+    // PT Tester
+    if (user.role === 'pt-tester') {
+      if (activeView === 'home') return <PTTesterDashboard setActiveView={setActiveView} />;
+      if (activeView === 'testing') return <PTTestingModule user={user} />;
+      if (activeView === 'pt-heating-record') return <PTHeatingRecordModule user={user} />;
+      if (activeView === 'reports') return <PTReportsList onBack={() => setActiveView('home')} />;
+      return <PTTesterDashboard setActiveView={setActiveView} />;
     }
 
     // Core Tester Views
@@ -274,6 +288,8 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return <AfterPrimaryReportsList />;
       } else if (activeView === 'failed-cores') {
         return <FailedCoresPage />;
+      } else if (activeView === 'heating-record') {
+        return <HeatingRecordModule user={user} />;
       }
     }
 
@@ -281,11 +297,15 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <TesterSidebar activeView={activeView} setActiveView={setActiveView} userRole={user.role} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TesterHeader user={user} onLogout={onLogout} />
-        <main className="flex-1 overflow-y-auto p-6">
+    <div className="flex h-screen bg-gray-50 print:h-auto print:block print:bg-white">
+      <div className="print:hidden">
+        <TesterSidebar activeView={activeView} setActiveView={setActiveView} userRole={user.role} />
+      </div>
+      <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible print:block">
+        <div className="print:hidden">
+          <TesterHeader user={user} onLogout={onLogout} />
+        </div>
+        <main className="flex-1 overflow-y-auto p-6 print:overflow-visible print:h-auto print:p-0">
           {renderView()}
         </main>
       </div>

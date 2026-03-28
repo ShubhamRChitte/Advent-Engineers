@@ -29,6 +29,7 @@ interface TransformerUnit {
   secondaryTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
   primaryTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
   finalTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
+  ptTestStatus?: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
   reportStatus: 'Open' | 'In Progress' | 'Pending';
 }
 
@@ -51,13 +52,15 @@ interface OrderDetailViewProps {
 export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCoreTestingInitiation, setShowCoreTestingInitiation] = useState(false);
+  const isPT = order.transformerType === 'PT';
 
   // Generate transformer units based on quantity
   const [transformerUnits, setTransformerUnits] = useState<TransformerUnit[]>([]);
   const [rawTransformers, setRawTransformers] = useState<any[]>([]);
-  const [reportModal, setReportModal] = useState<{ isOpen: boolean; transformer: any; type: 'core' | 'secondary' | 'primary' | 'final' | 'all' }>({
+  const [reportModal, setReportModal] = useState<{ isOpen: boolean; transformer: any; order?: any; type: 'core' | 'secondary' | 'primary' | 'final' | 'all' | 'pt' }>({
     isOpen: false,
     transformer: null,
+    order: null,
     type: 'core'
   });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -104,6 +107,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
           secondaryTestStatus: getStatusForStage('secondary', t.currentStage, t.testHistory?.secondary_test?.status),
           primaryTestStatus: getStatusForStage('primary', t.currentStage, t.testHistory?.primary_test?.status),
           finalTestStatus: getStatusForStage('final', t.currentStage, t.testHistory?.final_test?.status),
+          ptTestStatus: (t.currentStage === 'shipped' || t.currentStage === 'completed' || (t.testHistory?.pt_test && Object.keys(t.testHistory.pt_test).length > 0)) ? 'Complete' : t.currentStage === 'pt' ? 'In Progress' : 'Pending',
           reportStatus: (t.currentStage === 'completed' || t.currentStage === 'shipped') ? 'Open' : 'Pending'
         }));
 
@@ -158,6 +162,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
   };
 
   const isAllTestsComplete = (unit: TransformerUnit) => {
+    if (isPT) return unit.ptTestStatus === 'Complete';
     return (
       unit.coreTestStatus === 'Complete' &&
       unit.secondaryTestStatus === 'Complete' &&
@@ -176,15 +181,17 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
     );
 
     if (transformer) {
-      let type: 'core' | 'secondary' | 'primary' | 'final' | 'all' = 'core';
+      let type: 'core' | 'secondary' | 'primary' | 'final' | 'all' | 'pt' = 'core';
       if (testType.includes('Core')) type = 'core';
       else if (testType.includes('Secondary')) type = 'secondary';
       else if (testType.includes('Primary')) type = 'primary';
       else if (testType.includes('Final')) type = 'final';
+      else if (testType.includes('PT')) type = 'pt';
 
       setReportModal({
         isOpen: true,
         transformer,
+        order,
         type
       });
     } else {
@@ -202,6 +209,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
       setReportModal({
         isOpen: true,
         transformer,
+        order,
         type: 'all'
       });
     }
@@ -215,12 +223,14 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
     let secondaryComplete = 0;
     let primaryComplete = 0;
     let finalComplete = 0;
+    let ptComplete = 0;
 
     transformerUnits.forEach(unit => {
       if (unit.coreTestStatus === 'Complete') coreComplete++;
       if (unit.secondaryTestStatus === 'Complete') secondaryComplete++;
       if (unit.primaryTestStatus === 'Complete') primaryComplete++;
       if (unit.finalTestStatus === 'Complete') finalComplete++;
+      if (unit.ptTestStatus === 'Complete') ptComplete++;
     });
 
     return {
@@ -228,10 +238,12 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
       secondaryComplete,
       primaryComplete,
       finalComplete,
+      ptComplete,
       coreRemaining: order.quantity - coreComplete,
       secondaryRemaining: order.quantity - secondaryComplete,
       primaryRemaining: order.quantity - primaryComplete,
       finalRemaining: order.quantity - finalComplete,
+      ptRemaining: order.quantity - ptComplete,
     };
   };
 
@@ -254,13 +266,15 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
           <ArrowLeft className="w-4 h-4" />
           Back to Orders
         </Button>
-        <Button
-          onClick={() => setShowCoreTestingInitiation(true)}
-          className="gap-2 bg-[#003a70] hover:bg-[#002850] ml-auto"
-        >
-          <Play className="w-4 h-4" />
-          Start Core Testing
-        </Button>
+        {!isPT && (
+          <Button
+            onClick={() => setShowCoreTestingInitiation(true)}
+            className="gap-2 bg-[#003a70] hover:bg-[#002850] ml-auto"
+          >
+            <Play className="w-4 h-4" />
+            Start Core Testing
+          </Button>
+        )}
       </div>
 
       {/* ADVENT ENGINEERS Header */}
@@ -348,10 +362,16 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
             <thead className="bg-gray-50 border-b-2 border-gray-200">
               <tr>
                 <th className="text-left p-4 font-medium text-gray-700">Transformer Id ⬆</th>
-                <th className="text-center p-4 font-medium text-gray-700">Core Testing</th>
-                <th className="text-center p-4 font-medium text-gray-700">After Secondary Testing</th>
-                <th className="text-center p-4 font-medium text-gray-700">After Primary Testing</th>
-                <th className="text-center p-4 font-medium text-gray-700">Final Testing</th>
+                {isPT ? (
+                  <th className="text-center p-4 font-medium text-gray-700">PT Testing</th>
+                ) : (
+                  <>
+                    <th className="text-center p-4 font-medium text-gray-700">Core Testing</th>
+                    <th className="text-center p-4 font-medium text-gray-700">After Secondary Testing</th>
+                    <th className="text-center p-4 font-medium text-gray-700">After Primary Testing</th>
+                    <th className="text-center p-4 font-medium text-gray-700">Final Testing</th>
+                  </>
+                )}
                 <th className="text-center p-4 font-medium text-gray-700">Report</th>
               </tr>
             </thead>
@@ -370,89 +390,103 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
                       <p className="font-medium font-mono">{unit.transformerId}</p>
                     </td>
 
-                    {/* Core Test */}
-                    <td className="p-4">
-                      <div className="flex flex-col items-center gap-2">
-                        <Badge className={`${getStatusColor(unit.coreTestStatus)} flex items-center gap-1`}>
-                          {getStatusIcon(unit.coreTestStatus)}
-                          {unit.coreTestStatus}
-                        </Badge>
-                        {unit.coreTestStatus === 'Complete' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs h-7 gap-1"
-                            onClick={() => handleViewReport(unit.transformerId, 'Core Test')}
-                          >
-                            <FileText className="w-3 h-3" />
-                            View Report
-                          </Button>
-                        )}
-                      </div>
-                    </td>
+                    {/* PT Test Or CT Tests */}
+                    {isPT ? (
+                      <td className="p-4">
+                        <div className="flex flex-col items-center gap-2">
+                          <Badge className={`${getStatusColor(unit.ptTestStatus || 'Pending')} flex items-center gap-1`}>
+                            {getStatusIcon(unit.ptTestStatus || 'Pending')}
+                            {unit.ptTestStatus || 'Pending'}
+                          </Badge>
+                        </div>
+                      </td>
+                    ) : (
+                      <>
+                        {/* Core Test */}
+                        <td className="p-4">
+                          <div className="flex flex-col items-center gap-2">
+                            <Badge className={`${getStatusColor(unit.coreTestStatus)} flex items-center gap-1`}>
+                              {getStatusIcon(unit.coreTestStatus)}
+                              {unit.coreTestStatus}
+                            </Badge>
+                            {unit.coreTestStatus === 'Complete' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7 gap-1"
+                                onClick={() => handleViewReport(unit.transformerId, 'Core Test')}
+                              >
+                                <FileText className="w-3 h-3" />
+                                View Report
+                              </Button>
+                            )}
+                          </div>
+                        </td>
 
-                    {/* After Secondary Test */}
-                    <td className="p-4">
-                      <div className="flex flex-col items-center gap-2">
-                        <Badge className={`${getStatusColor(unit.secondaryTestStatus)} flex items-center gap-1`}>
-                          {getStatusIcon(unit.secondaryTestStatus)}
-                          {unit.secondaryTestStatus}
-                        </Badge>
-                        {unit.secondaryTestStatus === 'Complete' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs h-7 gap-1"
-                            onClick={() => handleViewReport(unit.transformerId, 'After Secondary Test')}
-                          >
-                            <FileText className="w-3 h-3" />
-                            View Report
-                          </Button>
-                        )}
-                      </div>
-                    </td>
+                        {/* After Secondary Test */}
+                        <td className="p-4">
+                          <div className="flex flex-col items-center gap-2">
+                            <Badge className={`${getStatusColor(unit.secondaryTestStatus)} flex items-center gap-1`}>
+                              {getStatusIcon(unit.secondaryTestStatus)}
+                              {unit.secondaryTestStatus}
+                            </Badge>
+                            {unit.secondaryTestStatus === 'Complete' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7 gap-1"
+                                onClick={() => handleViewReport(unit.transformerId, 'After Secondary Test')}
+                              >
+                                <FileText className="w-3 h-3" />
+                                View Report
+                              </Button>
+                            )}
+                          </div>
+                        </td>
 
-                    {/* After Primary Test */}
-                    <td className="p-4">
-                      <div className="flex flex-col items-center gap-2">
-                        <Badge className={`${getStatusColor(unit.primaryTestStatus)} flex items-center gap-1`}>
-                          {getStatusIcon(unit.primaryTestStatus)}
-                          {unit.primaryTestStatus}
-                        </Badge>
-                        {unit.primaryTestStatus === 'Complete' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs h-7 gap-1"
-                            onClick={() => handleViewReport(unit.transformerId, 'After Primary Test')}
-                          >
-                            <FileText className="w-3 h-3" />
-                            View Report
-                          </Button>
-                        )}
-                      </div>
-                    </td>
+                        {/* After Primary Test */}
+                        <td className="p-4">
+                          <div className="flex flex-col items-center gap-2">
+                            <Badge className={`${getStatusColor(unit.primaryTestStatus)} flex items-center gap-1`}>
+                              {getStatusIcon(unit.primaryTestStatus)}
+                              {unit.primaryTestStatus}
+                            </Badge>
+                            {unit.primaryTestStatus === 'Complete' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7 gap-1"
+                                onClick={() => handleViewReport(unit.transformerId, 'After Primary Test')}
+                              >
+                                <FileText className="w-3 h-3" />
+                                View Report
+                              </Button>
+                            )}
+                          </div>
+                        </td>
 
-                    {/* Final Test */}
-                    <td className="p-4">
-                      <div className="flex flex-col items-center gap-2">
-                        <Badge className={`${getStatusColor(unit.finalTestStatus)} flex items-center gap-1`}>
-                          {getStatusIcon(unit.finalTestStatus)}
-                          {unit.finalTestStatus}
-                        </Badge>
-                        {unit.finalTestStatus === 'Complete' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs h-7 gap-1"
-                            onClick={() => handleViewReport(unit.transformerId, 'Final Test')}
-                          >
-                            <FileText className="w-3 h-3" />
-                            View Report
-                          </Button>
-                        )}
-                      </div>
-                    </td>
+                        {/* Final Test */}
+                        <td className="p-4">
+                          <div className="flex flex-col items-center gap-2">
+                            <Badge className={`${getStatusColor(unit.finalTestStatus)} flex items-center gap-1`}>
+                              {getStatusIcon(unit.finalTestStatus)}
+                              {unit.finalTestStatus}
+                            </Badge>
+                            {unit.finalTestStatus === 'Complete' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7 gap-1"
+                                onClick={() => handleViewReport(unit.transformerId, 'Final Test')}
+                              >
+                                <FileText className="w-3 h-3" />
+                                View Report
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </>
+                    )}
 
                     {/* Report Status & Full Report */}
                     <td className="p-4">
@@ -506,8 +540,10 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
               <p className="text-sm text-gray-600">In Progress</p>
               <p className="text-2xl font-bold text-blue-700 mt-1">
                 {transformerUnits.filter(u =>
-                  [u.coreTestStatus, u.secondaryTestStatus, u.primaryTestStatus, u.finalTestStatus]
-                    .includes('In Progress')
+                  isPT 
+                    ? u.ptTestStatus === 'In Progress' 
+                    : [u.coreTestStatus, u.secondaryTestStatus, u.primaryTestStatus, u.finalTestStatus]
+                        .includes('In Progress')
                 ).length}
               </p>
             </div>
@@ -533,8 +569,10 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
               <p className="text-sm text-gray-600">Rejected</p>
               <p className="text-2xl font-bold text-gray-700 mt-1">
                 {transformerUnits.filter(u =>
-                  [u.coreTestStatus, u.secondaryTestStatus, u.primaryTestStatus, u.finalTestStatus]
-                    .includes('Rejected')
+                  isPT
+                    ? u.ptTestStatus === 'Rejected'
+                    : [u.coreTestStatus, u.secondaryTestStatus, u.primaryTestStatus, u.finalTestStatus]
+                        .includes('Rejected')
                 ).length}
               </p>
             </div>
@@ -551,69 +589,89 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
           <div>
             <h4 className="mb-3 text-blue-700">Current State of Testing</h4>
             <div className="space-y-3">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">Core Testing</span>
-                  <Badge className="bg-blue-600 text-white">{testingStats.coreComplete} Completed</Badge>
+              {isPT ? (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">PT Testing</span>
+                    <Badge className="bg-purple-600 text-white">{testingStats.ptComplete} Completed</Badge>
+                  </div>
+                  <div className="w-full bg-purple-200 rounded-full h-2">
+                    <div
+                      className="bg-purple-600 h-2 rounded-full transition-all"
+                      style={{ width: `${(testingStats.ptComplete / order.quantity) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    {testingStats.ptComplete} out of {order.quantity} transformers
+                  </p>
                 </div>
-                <div className="w-full bg-blue-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full transition-all"
-                    style={{ width: `${(testingStats.coreComplete / order.quantity) * 100}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-600 mt-1">
-                  {testingStats.coreComplete} out of {order.quantity} transformers
-                </p>
-              </div>
+              ) : (
+                <>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Core Testing</span>
+                      <Badge className="bg-blue-600 text-white">{testingStats.coreComplete} Completed</Badge>
+                    </div>
+                    <div className="w-full bg-blue-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-600 h-2 rounded-full transition-all"
+                        style={{ width: `${(testingStats.coreComplete / order.quantity) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {testingStats.coreComplete} out of {order.quantity} transformers
+                    </p>
+                  </div>
 
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">After Secondary Testing</span>
-                  <Badge className="bg-purple-600 text-white">{testingStats.secondaryComplete} Completed</Badge>
-                </div>
-                <div className="w-full bg-purple-200 rounded-full h-2">
-                  <div
-                    className="bg-purple-600 h-2 rounded-full transition-all"
-                    style={{ width: `${(testingStats.secondaryComplete / order.quantity) * 100}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-600 mt-1">
-                  {testingStats.secondaryComplete} out of {order.quantity} transformers
-                </p>
-              </div>
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">After Secondary Testing</span>
+                      <Badge className="bg-purple-600 text-white">{testingStats.secondaryComplete} Completed</Badge>
+                    </div>
+                    <div className="w-full bg-purple-200 rounded-full h-2">
+                      <div
+                        className="bg-purple-600 h-2 rounded-full transition-all"
+                        style={{ width: `${(testingStats.secondaryComplete / order.quantity) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {testingStats.secondaryComplete} out of {order.quantity} transformers
+                    </p>
+                  </div>
 
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">After Primary Testing</span>
-                  <Badge className="bg-orange-600 text-white">{testingStats.primaryComplete} Completed</Badge>
-                </div>
-                <div className="w-full bg-orange-200 rounded-full h-2">
-                  <div
-                    className="bg-orange-600 h-2 rounded-full transition-all"
-                    style={{ width: `${(testingStats.primaryComplete / order.quantity) * 100}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-600 mt-1">
-                  {testingStats.primaryComplete} out of {order.quantity} transformers
-                </p>
-              </div>
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">After Primary Testing</span>
+                      <Badge className="bg-orange-600 text-white">{testingStats.primaryComplete} Completed</Badge>
+                    </div>
+                    <div className="w-full bg-orange-200 rounded-full h-2">
+                      <div
+                        className="bg-orange-600 h-2 rounded-full transition-all"
+                        style={{ width: `${(testingStats.primaryComplete / order.quantity) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {testingStats.primaryComplete} out of {order.quantity} transformers
+                    </p>
+                  </div>
 
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">Final Testing</span>
-                  <Badge className="bg-green-600 text-white">{testingStats.finalComplete} Completed</Badge>
-                </div>
-                <div className="w-full bg-green-200 rounded-full h-2">
-                  <div
-                    className="bg-green-600 h-2 rounded-full transition-all"
-                    style={{ width: `${(testingStats.finalComplete / order.quantity) * 100}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-600 mt-1">
-                  {testingStats.finalComplete} out of {order.quantity} transformers
-                </p>
-              </div>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Final Testing</span>
+                      <Badge className="bg-green-600 text-white">{testingStats.finalComplete} Completed</Badge>
+                    </div>
+                    <div className="w-full bg-green-200 rounded-full h-2">
+                      <div
+                        className="bg-green-600 h-2 rounded-full transition-all"
+                        style={{ width: `${(testingStats.finalComplete / order.quantity) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {testingStats.finalComplete} out of {order.quantity} transformers
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -621,69 +679,89 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
           <div>
             <h4 className="mb-3 text-red-700">Remaining State of Testing</h4>
             <div className="space-y-3">
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">Core Testing</span>
-                  <Badge className="bg-red-600 text-white">{testingStats.coreRemaining} Remaining</Badge>
+              {isPT ? (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">PT Testing</span>
+                    <Badge className="bg-red-600 text-white">{testingStats.ptRemaining} Remaining</Badge>
+                  </div>
+                  <div className="w-full bg-red-200 rounded-full h-2">
+                    <div
+                      className="bg-red-600 h-2 rounded-full transition-all"
+                      style={{ width: `${(testingStats.ptRemaining / order.quantity) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    {testingStats.ptRemaining} out of {order.quantity} transformers pending
+                  </p>
                 </div>
-                <div className="w-full bg-red-200 rounded-full h-2">
-                  <div
-                    className="bg-red-600 h-2 rounded-full transition-all"
-                    style={{ width: `${(testingStats.coreRemaining / order.quantity) * 100}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-600 mt-1">
-                  {testingStats.coreRemaining} out of {order.quantity} transformers pending
-                </p>
-              </div>
+              ) : (
+                <>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Core Testing</span>
+                      <Badge className="bg-red-600 text-white">{testingStats.coreRemaining} Remaining</Badge>
+                    </div>
+                    <div className="w-full bg-red-200 rounded-full h-2">
+                      <div
+                        className="bg-red-600 h-2 rounded-full transition-all"
+                        style={{ width: `${(testingStats.coreRemaining / order.quantity) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {testingStats.coreRemaining} out of {order.quantity} transformers pending
+                    </p>
+                  </div>
 
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">After Secondary Testing</span>
-                  <Badge className="bg-red-600 text-white">{testingStats.secondaryRemaining} Remaining</Badge>
-                </div>
-                <div className="w-full bg-red-200 rounded-full h-2">
-                  <div
-                    className="bg-red-600 h-2 rounded-full transition-all"
-                    style={{ width: `${(testingStats.secondaryRemaining / order.quantity) * 100}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-600 mt-1">
-                  {testingStats.secondaryRemaining} out of {order.quantity} transformers pending
-                </p>
-              </div>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">After Secondary Testing</span>
+                      <Badge className="bg-red-600 text-white">{testingStats.secondaryRemaining} Remaining</Badge>
+                    </div>
+                    <div className="w-full bg-red-200 rounded-full h-2">
+                      <div
+                        className="bg-red-600 h-2 rounded-full transition-all"
+                        style={{ width: `${(testingStats.secondaryRemaining / order.quantity) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {testingStats.secondaryRemaining} out of {order.quantity} transformers pending
+                    </p>
+                  </div>
 
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">After Primary Testing</span>
-                  <Badge className="bg-red-600 text-white">{testingStats.primaryRemaining} Remaining</Badge>
-                </div>
-                <div className="w-full bg-red-200 rounded-full h-2">
-                  <div
-                    className="bg-red-600 h-2 rounded-full transition-all"
-                    style={{ width: `${(testingStats.primaryRemaining / order.quantity) * 100}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-600 mt-1">
-                  {testingStats.primaryRemaining} out of {order.quantity} transformers pending
-                </p>
-              </div>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">After Primary Testing</span>
+                      <Badge className="bg-red-600 text-white">{testingStats.primaryRemaining} Remaining</Badge>
+                    </div>
+                    <div className="w-full bg-red-200 rounded-full h-2">
+                      <div
+                        className="bg-red-600 h-2 rounded-full transition-all"
+                        style={{ width: `${(testingStats.primaryRemaining / order.quantity) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {testingStats.primaryRemaining} out of {order.quantity} transformers pending
+                    </p>
+                  </div>
 
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">Final Testing</span>
-                  <Badge className="bg-red-600 text-white">{testingStats.finalRemaining} Remaining</Badge>
-                </div>
-                <div className="w-full bg-red-200 rounded-full h-2">
-                  <div
-                    className="bg-red-600 h-2 rounded-full transition-all"
-                    style={{ width: `${(testingStats.finalRemaining / order.quantity) * 100}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-600 mt-1">
-                  {testingStats.finalRemaining} out of {order.quantity} transformers pending
-                </p>
-              </div>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Final Testing</span>
+                      <Badge className="bg-red-600 text-white">{testingStats.finalRemaining} Remaining</Badge>
+                    </div>
+                    <div className="w-full bg-red-200 rounded-full h-2">
+                      <div
+                        className="bg-red-600 h-2 rounded-full transition-all"
+                        style={{ width: `${(testingStats.finalRemaining / order.quantity) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {testingStats.finalRemaining} out of {order.quantity} transformers pending
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

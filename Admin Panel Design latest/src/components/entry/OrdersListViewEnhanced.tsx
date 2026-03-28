@@ -126,10 +126,10 @@ export function OrdersListViewEnhanced({ onViewOrder, onEditOrder }: OrdersListV
   };
 
   const filteredOrders = orders.filter((order) => {
-    const orderId = order.orderId || '';
-    const clientName = order.clientName || '';
-    const transformerName = order.transformerName || '';
-    const status = order.status || ''; // Handle potentially undefined status
+    const orderId = String(order.orderId || '');
+    const clientName = String(order.clientName || '');
+    const transformerName = String(order.transformerName || '');
+    const status = String(order.status || ''); // Handle potentially undefined status
 
     const matchesSearch =
       orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -346,6 +346,8 @@ export function OrdersListViewEnhanced({ onViewOrder, onEditOrder }: OrdersListV
                       orderDate={order.createdAt}
                       expectedCompletion={order.deadline}
                       orderId={order.orderId}
+                      transformerType={order.transformerType}
+                      status={order.status}
                     />
                   </div>
                 )}

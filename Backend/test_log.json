@@ -1,0 +1,128 @@
+[
+  {
+    "completionStages": {
+      "core": false,
+      "secondary": false,
+      "primary": false,
+      "final": false,
+      "pt": false
+    },
+    "_id": "69ab98a47beae3ac34f966bd",
+    "jobId": "JOB-2026-116",
+    "clientName": "raju",
+    "clientContactNo": "8754625484",
+    "transformerName": "Custom Transformer",
+    "transformerType": "PT",
+    "quantity": 1,
+    "ratio": [
+      "200/5"
+    ],
+    "noOfCores": 1,
+    "coreDetails": [
+      {
+        "coreType": "Metering",
+        "_id": "69ab98a47beae3ac34f966be"
+      }
+    ],
+    "nominalSystemVoltage": 0,
+    "burden": 0,
+    "accuracyClass": "3",
+    "deadline": "2026-03-21T03:16:52.261Z",
+    "approved": false,
+    "assignments": [
+      {
+        "unitRange": {
+          "from": 1,
+          "to": 1
+        },
+        "testerName": "chintu",
+        "stage": "pt",
+        "status": "Assigned",
+        "_id": "69ab98a47beae3ac34f966bf"
+      }
+    ],
+    "currentStage": "pt",
+    "testsCompleted": 0,
+    "passCount": 0,
+    "failCount": 0,
+    "isApproved": true,
+    "isRead": false,
+    "status": "In Progress",
+    "priority": "Medium",
+    "ratedPrimaryCurrent": 0,
+    "ratedSecondaryCurrent": 0,
+    "voltageRating": "22",
+    "instructions": "None",
+    "isStandard": "3156",
+    "indoorOutdoor": "Indoor",
+    "insulationType": "Oil Cooled",
+    "tankType": "Live Tank",
+    "images": [],
+    "createdAt": "2026-03-07T03:16:52.332Z",
+    "updatedAt": "2026-03-07T03:16:52.352Z",
+    "__v": 0
+  },
+  {
+    "completionStages": {
+      "core": false,
+      "secondary": false,
+      "primary": false,
+      "final": false,
+      "pt": false
+    },
+    "_id": "69ab96e5ff6d1e543b12b509",
+    "jobId": "JOB-2026-115",
+    "clientName": "raju",
+    "clientContactNo": "8754625484",
+    "transformerName": "Custom Transformer",
+    "transformerType": "PT",
+    "quantity": 1,
+    "ratio": [
+      "200/5"
+    ],
+    "noOfCores": 1,
+    "coreDetails": [
+      {
+        "coreType": "Metering",
+        "_id": "69ab96e5ff6d1e543b12b50a"
+      }
+    ],
+    "nominalSystemVoltage": 0,
+    "burden": 0,
+    "accuracyClass": "3",
+    "deadline": "2026-03-21T03:09:24.995Z",
+    "approved": false,
+    "assignments": [
+      {
+        "unitRange": {
+          "from": 1,
+          "to": 1
+        },
+        "testerName": "chintu",
+        "stage": "pt",
+        "status": "Assigned",
+        "_id": "69ab96e5ff6d1e543b12b50b"
+      }
+    ],
+    "currentStage": "pt",
+    "testsCompleted": 0,
+    "passCount": 0,
+    "failCount": 0,
+    "isApproved": true,
+    "isRead": false,
+    "status": "In Progress",
+    "priority": "Medium",
+    "ratedPrimaryCurrent": 0,
+    "ratedSecondaryCurrent": 0,
+    "voltageRating": "22",
+    "instructions": "None",
+    "isStandard": "3156",
+    "indoorOutdoor": "Indoor",
+    "insulationType": "Oil Cooled",
+    "tankType": "Live Tank",
+    "images": [],
+    "createdAt": "2026-03-07T03:09:25.077Z",
+    "updatedAt": "2026-03-07T03:09:25.095Z",
+    "__v": 0
+  }
+]

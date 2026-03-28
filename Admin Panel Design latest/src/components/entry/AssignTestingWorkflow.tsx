@@ -67,6 +67,7 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
               case 'Secondary Test': skill = 'After Secondary Test'; break;
               case 'Primary Test': skill = 'After Primary Test'; break;
               case 'Final Test': skill = 'Final Test'; break;
+              case 'PT Test': skill = 'PT Test'; break;
               default: skill = user.department;
             }
 
@@ -98,16 +99,18 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
     fetchTesters();
   }, []);
 
-  const testTypes = [
-    { id: 'core-test', name: 'Core Test', icon: TestTube, color: 'blue' },
-    { id: 'after-secondary', name: 'After Secondary Test', icon: Zap, color: 'purple' },
-    { id: 'after-primary', name: 'After Primary Test', icon: Activity, color: 'orange' },
-    { id: 'final-test', name: 'Final Test', icon: ClipboardCheck, color: 'green' },
-  ];
+  const testTypes = orderData?.transformerType === 'PT' 
+    ? [ { id: 'pt-test', name: 'PT Test', icon: Zap, color: 'purple' } ]
+    : [
+        { id: 'core-test', name: 'Core Test', icon: TestTube, color: 'blue' },
+        { id: 'after-secondary', name: 'After Secondary Test', icon: Zap, color: 'purple' },
+        { id: 'after-primary', name: 'After Primary Test', icon: Activity, color: 'orange' },
+        { id: 'final-test', name: 'Final Test', icon: ClipboardCheck, color: 'green' },
+      ];
 
 
 
-  const currentTest = testTypes[currentTestIndex];
+  const currentTest = testTypes[currentTestIndex] || testTypes[0];
   // Handle both flat structure (Entry Operator) and nested structure (Admin)
   const quantity = orderData.quantity
     ? (typeof orderData.quantity === 'string' ? parseInt(orderData.quantity) : orderData.quantity)

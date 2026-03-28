@@ -31,6 +31,16 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
   }, []);
 
   const getMenuItems = () => {
+    if (userRole === 'pt-tester') {
+      return [
+        { id: 'home', label: 'Home Dashboard', icon: Home },
+        { id: 'notifications', label: 'Notifications', icon: Bell },
+        { id: 'testing', label: 'PT Testing', icon: ClipboardCheck },
+        { id: 'pt-heating-record', label: 'Heating Record', icon: FileText },
+        { id: 'reports', label: 'PT Reports', icon: FileText },
+      ];
+    }
+
     if (userRole === 'core-tester') {
       return [
         { id: 'home', label: 'Home', icon: Home },
@@ -47,6 +57,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
       { id: 'notifications', label: 'Notifications', icon: Bell },
       { id: 'testing', label: 'Testing', icon: ClipboardCheck },
       { id: 'failed-cores', label: 'Failed Cores', icon: AlertTriangle, badge: failedCount > 0 ? failedCount : undefined },
+      { id: 'heating-record', label: 'Heating Record', icon: FileText },
       { id: 'reports', label: 'My Reports', icon: FileText },
     ];
   };

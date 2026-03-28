@@ -9,7 +9,8 @@ const getMappedRole = (user) => {
             user.department === 'Core Test' ? 'core-tester' :
                 user.department === 'Secondary Test' ? 'secondary-tester' :
                     user.department === 'Primary Test' ? 'after-primary-tester' :
-                        user.department === 'Final Test' ? 'final-tester' : 'viewer';
+                        user.department === 'Final Test' ? 'final-tester' : 
+                            user.department === 'PT Test' ? 'pt-tester' : 'viewer';
     return role;
 };
 
@@ -73,7 +74,7 @@ router.get("/testers", async (req, res) => {
         // Fetch all users and filter or just fetch all and frontend filters
         const users = await UserModel.find({
             activeStatus: true,
-            department: { $in: ['Core Test', 'Secondary Test', 'Primary Test', 'Final Test'] }
+            department: { $in: ['Core Test', 'Secondary Test', 'Primary Test', 'Final Test', 'PT Test'] }
         }).select("fullName designation department employeeId");
 
         res.status(200).json({ success: true, users });

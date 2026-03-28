@@ -203,7 +203,7 @@ const TransformerSchema = new Schema({
   // Workflow tracking
   currentStage: {
     type: String,
-    enum: ["core", "secondary", "primary", "final", "shipped"],
+    enum: ["core", "secondary", "primary", "final", "shipped", "pt"],
     default: "core"
   },
 
@@ -212,7 +212,8 @@ const TransformerSchema = new Schema({
     core_test: { type: TestStageSchema, default: {} },
     secondary_test: { type: TestStageSchema, default: {} },
     primary_test: { type: TestStageSchema, default: {} },
-    final_test: { type: TestStageSchema, default: {} }
+    final_test: { type: TestStageSchema, default: {} },
+    pt_test: { type: Schema.Types.Mixed, default: {} }
   },
 
   // Granular Assignments (Per-Unit)
@@ -220,7 +221,46 @@ const TransformerSchema = new Schema({
     core_tester: String,
     secondary_tester: String,
     primary_tester: String,
-    final_tester: String
+    final_tester: String,
+    pt_tester: String
+  },
+
+  // Added newly for primary testing
+  processHistory: {
+    heatingRecord: [{
+      transformerId: String,
+      jobNumber: String,
+      processSteps: [{
+        process: String,
+        duration: String,
+        startTime: String,
+        completionTime: String,
+        remarks: String
+      }],
+      verifiedBy: String,
+      productionManager: String,
+      date: String,
+      recordedBy: String, // to store who logged this record
+      recordedAt: { type: Date, default: Date.now }
+    }],
+    // Isolated schema for 33KV PT Heating Record
+    ptHeatingRecord: [{
+      transformerId: String,
+      jobNumber: String,
+      processSteps: [{
+        process: String,
+        duration: String,
+        startTime: String,
+        completionTime: String,
+        remarks: String
+      }],
+      preparedBy: String,
+      productionManager: String,
+      verifiedBy: String,
+      date: String,
+      recordedBy: String, 
+      recordedAt: { type: Date, default: Date.now }
+    }]
   }
 }, { timestamps: true });
 

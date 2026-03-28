@@ -4,9 +4,11 @@ import { Badge } from '../ui/badge';
 interface OrderStatusTrackerProps {
   currentStage: 'order-created' | 'core-testing' | 'secondary-testing' | 'after-primary-testing' | 'final-testing' | 'completed';
   orderDate: string;
-  expectedCompletion?: string;
+  expectedCompletion?: string | undefined;
   orderId: string;
-  compact?: boolean;
+  compact?: boolean | undefined;
+  transformerType?: string | undefined;
+  status?: string | undefined;
 }
 
 export function OrderStatusTracker({
@@ -14,9 +16,11 @@ export function OrderStatusTracker({
   orderDate,
   expectedCompletion,
   orderId,
-  compact = false
+  compact = false,
+  transformerType = 'CT',
+  status
 }: OrderStatusTrackerProps) {
-  const stages = [
+  const ctStages = [
     {
       id: 'order-created',
       label: 'Order Created',
@@ -61,9 +65,41 @@ export function OrderStatusTracker({
     },
   ];
 
+  const ptStages = [
+    {
+      id: 'order-created',
+      label: 'Order Created',
+      icon: Package,
+      color: 'blue',
+      description: 'Order registered in system'
+    },
+    {
+      id: 'pt',
+      label: 'PT Testing',
+      icon: Zap,
+      color: 'purple',
+      description: 'Pre-Test and Final-Test'
+    },
+    {
+      id: 'completed',
+      label: 'Completed',
+      icon: CheckCircle,
+      color: 'green',
+      description: 'Ready for delivery'
+    }
+  ];
+
+  const stages = transformerType === 'PT' ? ptStages : ctStages;
+
   // Fallback to first stage if not found to prevent crash
-  const foundIndex = stages.findIndex(stage => stage.id === currentStage);
-  const currentStageIndex = foundIndex === -1 ? 0 : foundIndex;
+  let currentStageIndex = stages.findIndex((stage: any) => stage.id === currentStage);
+  if (currentStageIndex === -1) {
+    if (status && status.includes('Completed')) {
+      currentStageIndex = stages.length - 1;
+    } else {
+      currentStageIndex = 0;
+    }
+  }
 
   const getStageStatus = (index: number) => {
     if (index < currentStageIndex) return 'completed';
@@ -241,7 +277,7 @@ export function OrderStatusTracker({
           <div>
             <p className="font-medium text-gray-900">Current Status</p>
             <p className="text-sm text-gray-600 mt-1">
-              {stages[currentStageIndex].label} - {stages[currentStageIndex].description}
+              {stages[currentStageIndex]?.label} - {stages[currentStageIndex]?.description}
             </p>
             <div className="flex gap-2 mt-2">
               <Badge className="bg-gray-100 text-gray-700">
