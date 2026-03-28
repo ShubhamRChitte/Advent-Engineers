@@ -68,7 +68,7 @@ router.post('/metering-tests', async (req, res) => {
 
     } else {
       // 3. Create New
-      testRecord = new MeteringCoreTestModel({ orderId, coreType, readings: processedReadings, ...otherData });
+      testRecord = new MeteringCoreTestModel({ orderId, coreType, readings: processedReadings, reportDate: new Date(), ...otherData });
       await testRecord.save();
     }
 

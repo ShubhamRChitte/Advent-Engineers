@@ -114,6 +114,10 @@ const OrderSchema = new Schema(
       type: String,
       trim: true
     },
+    stc: {
+      type: String,
+      trim: true
+    },
     images: [{
       url: String, // Cloudinary secure_url
       public_id: String // Cloudinary public_id for deletion

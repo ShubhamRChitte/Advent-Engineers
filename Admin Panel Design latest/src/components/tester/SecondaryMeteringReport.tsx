@@ -466,7 +466,11 @@ export function SecondaryMeteringReport({
           <div className="header-right">
             <div className="header-field">
               <span className="field-label">Date :</span>
-              <span className="field-value">{new Date().toLocaleDateString('en-GB')}</span>
+              <span className="field-value">
+                {stage && transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate
+                  ? new Date(transformer.testHistory[`${stage}_test` as keyof typeof transformer.testHistory].reportDate).toLocaleDateString('en-GB')
+                  : new Date().toLocaleDateString('en-GB')}
+              </span>
             </div>
             <div className="header-field">
               <span className="field-label">Order No :</span>
@@ -489,6 +493,40 @@ export function SecondaryMeteringReport({
         </div>
         <div className="description-banner">
           Accuracy Verification - {coreId} {transformer.accuracyClass && transformer.accuracyClass !== 'N/A' ? `(Class: ${transformer.accuracyClass})` : ''}
+        </div>
+
+        {/* Testing Record Table */}
+        <div className="mt-4 border-[1.5px] border-black">
+          <div className="bg-gray-100 p-1 text-center font-bold text-xs border-b-[1.5px] border-black uppercase">
+            Testing Record of Current Transformer
+          </div>
+          <table className="w-full text-[11px] border-collapse">
+            <tbody>
+              <tr>
+                <td className="border-b border-black p-1.5" colSpan={2}>
+                  <p><span className="font-bold italic">Specification :</span> {transformer.voltageRating || '33'} KV {transformer.clientName || 'N/A'}</p>
+                </td>
+              </tr>
+              <tr>
+                <td className="border-b border-black p-1.5" colSpan={2}>
+                  <p><span className="font-bold italic">CT Ratio :</span> {dynamicRatios.join('-')} / {transformer.ratedSecondaryCurrent || '1'} A</p>
+                </td>
+              </tr>
+              <tr>
+                <td className="border-r border-b border-black p-1.5 w-1/2">
+                  <p><span className="font-bold italic">Burden :</span> {transformer.burden || '30'} VA</p>
+                </td>
+                <td className="border-b border-black p-1.5 w-1/2">
+                  <p><span className="font-bold italic">Class :</span> {accuracyClass}</p>
+                </td>
+              </tr>
+              <tr>
+                <td className="p-1.5" colSpan={2}>
+                  <p><span className="font-bold italic">STC :</span> {transformer.stc || 'N/A'}</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         <div className="mt-4">

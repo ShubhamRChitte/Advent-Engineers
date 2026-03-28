@@ -15,6 +15,7 @@ import { AfterPrimaryReportsList } from './reports/AfterPrimaryReportsList';
 import { FinalReportsList } from './reports/FinalReportsList';
 import { FailedCoresPage } from '../../pages/FailedCoresPage';
 import { OrdersListViewEnhanced } from '../entry/OrdersListViewEnhanced';
+import { OrderDetailsView } from './OrderDetailsView';
 
 interface TesterLayoutProps {
   user: User;
@@ -23,11 +24,30 @@ interface TesterLayoutProps {
 
 export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
   const [activeView, setActiveView] = useState(user.role === 'core-tester' ? 'home' : 'home');
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+
+  const handleViewOrder = (orderId: string) => {
+    setSelectedOrderId(orderId);
+    setActiveView('order-details');
+  };
 
   const renderView = () => {
     // Notifications view for all testers
     if (activeView === 'notifications') {
-      return <TesterNotifications userRole={user.role} userName={user.name} />;
+      return <TesterNotifications 
+        userRole={user.role} 
+        userName={user.name} 
+        onViewOrder={handleViewOrder}
+      />;
+    }
+
+    if (activeView === 'order-details' && selectedOrderId) {
+      return (
+        <OrderDetailsView 
+          orderId={selectedOrderId} 
+          onBack={() => setActiveView('notifications')} 
+        />
+      );
     }
 
     // Core Tester Views

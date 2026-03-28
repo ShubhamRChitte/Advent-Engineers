@@ -70,7 +70,7 @@ router.post('/protection-tests', async (req, res) => {
       await testRecord.save();
     } else {
       // 3. Create New
-      testRecord = new ProtectionCoreTestModel({ orderId, coreType, readings: processedReadings, ...otherData });
+      testRecord = new ProtectionCoreTestModel({ orderId, coreType, readings: processedReadings, reportDate: new Date(), ...otherData });
       await testRecord.save();
     }
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { ArrowLeft, Save, Download, Printer, AlertTriangle } from 'lucide-react';
@@ -18,7 +18,9 @@ export function FinalTestReport({
   testerName,
   onBack,
 }: FinalTestReportProps) {
-  const testDate = new Date().toLocaleDateString();
+  const testDate = transformer.testHistory?.final_test?.reportDate
+    ? new Date(transformer.testHistory.final_test.reportDate).toLocaleDateString('en-GB')
+    : new Date().toLocaleDateString('en-GB');
 
   // Polarity Testing
   const [polarityResult, setPolarityResult] = useState('');
@@ -40,6 +42,22 @@ export function FinalTestReport({
 
   // O.V.I.T. Test
   const [ovitTest, setOvitTest] = useState('');
+
+  // Effect to load existing data if available (for Admin View or Re-editing)
+  useEffect(() => {
+    if (transformer.testHistory?.final_test) {
+      const history = transformer.testHistory.final_test;
+      if (history.polarityResult) setPolarityResult(history.polarityResult);
+      if (history.meggarPrimaryToSecondary) setMeggarPrimaryToSecondary(history.meggarPrimaryToSecondary);
+      if (history.meggarPrimaryToEarth) setMeggarPrimaryToEarth(history.meggarPrimaryToEarth);
+      if (history.meggarSecondaryToEarth) setMeggarSecondaryToEarth(history.meggarSecondaryToEarth);
+      if (history.meggarCoreToCore) setMeggarCoreToCore(history.meggarCoreToCore);
+      if (history.hvSecondaryWinding) setHvSecondaryWinding(history.hvSecondaryWinding);
+      if (history.hvPrimaryWinding) setHvPrimaryWinding(history.hvPrimaryWinding);
+      if (history.hvBetweenCore) setHvBetweenCore(history.hvBetweenCore);
+      if (history.ovitTest) setOvitTest(history.ovitTest);
+    }
+  }, [transformer]);
 
   // Accuracy Test (Removed per new workflow rules)
 
@@ -376,7 +394,7 @@ export function FinalTestReport({
             </div>
             <div className="header-field">
               <span className="field-label">Client :</span>
-              <span className="field-value">N/A</span>
+              <span className="field-value">{transformer.clientName || 'N/A'}</span>
             </div>
             <div className="header-field">
               <span className="field-label">Unit No :</span>
@@ -391,6 +409,40 @@ export function FinalTestReport({
         </div>
         <div className="description-banner">
           Transformer Verification
+        </div>
+
+        {/* Testing Record Table */}
+        <div className="mt-4 border-[1.5px] border-black text-black">
+          <div className="bg-gray-100 p-1 text-center font-bold text-xs border-b-[1.5px] border-black uppercase">
+            Testing Record of Current Transformer
+          </div>
+          <table className="w-full text-[11px] border-collapse">
+            <tbody>
+              <tr>
+                <td className="border-b border-black p-1.5" colSpan={2}>
+                  <p><span className="font-bold italic">Specification :</span> {transformer.voltageRating || '33'} KV {transformer.clientName || 'N/A'}</p>
+                </td>
+              </tr>
+              <tr>
+                <td className="border-b border-black p-1.5" colSpan={2}>
+                  <p><span className="font-bold italic">CT Ratio :</span> {transformer.rating} / {transformer.ratedSecondaryCurrent || '1'} A</p>
+                </td>
+              </tr>
+              <tr>
+                <td className="border-r border-b border-black p-1.5 w-1/2">
+                  <p><span className="font-bold italic">Burden :</span> {transformer.burden || '30'} VA</p>
+                </td>
+                <td className="border-b border-black p-1.5 w-1/2">
+                  <p><span className="font-bold italic">Class :</span> {(transformer.cores && transformer.cores[0]?.accuracyClass) || 'N/A'}</p>
+                </td>
+              </tr>
+              <tr>
+                <td className="p-1.5" colSpan={2}>
+                  <p><span className="font-bold italic">STC :</span> {transformer.stc || 'N/A'}</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         <div className="mt-4">

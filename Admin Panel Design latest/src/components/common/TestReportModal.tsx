@@ -16,13 +16,35 @@ export function TestReportModal({ isOpen, onClose, transformer, testType }: Test
     const [meteringData, setMeteringData] = useState<any>(null);
     const [protectionData, setProtectionData] = useState<any>(null);
     const [psData, setPsData] = useState<any>(null);
+    const [reportData, setReportData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (isOpen && (testType === 'core' || testType === 'all') && transformer?.orderId) {
-            fetchCoreData();
+        if (isOpen) {
+            if ((testType === 'core' || testType === 'all') && transformer?.orderId) {
+                fetchCoreData();
+            }
+            if (testType !== 'core' && (transformer?._id || transformer?.id)) {
+                fetchReportDetail();
+            }
         }
     }, [isOpen, testType, transformer]);
+
+    const fetchReportDetail = async () => {
+        setLoading(true);
+        try {
+            const id = transformer._id || transformer.id;
+            const res = await fetch(`http://localhost:3002/api/reports/${id}?stage=${testType}`);
+            const result = await res.json();
+            if (result.success) {
+                setReportData(result.data);
+            }
+        } catch (error) {
+            console.error("Error fetching report detail:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchCoreData = async () => {
         setLoading(true);
@@ -332,11 +354,13 @@ export function TestReportModal({ isOpen, onClose, transformer, testType }: Test
     };
 
     const renderContent = () => {
+        const currentTransformer = reportData || transformer;
+        
         switch (testType) {
             case 'core': return renderCoreReport();
-            case 'secondary': return <SecondaryReportView transformer={transformer} onBack={onClose} stage="secondary" />;
-            case 'primary': return <SecondaryReportView transformer={transformer} onBack={onClose} stage="primary" />;
-            case 'final': return <SecondaryReportView transformer={transformer} onBack={onClose} stage="final" />;
+            case 'secondary': return <SecondaryReportView transformer={currentTransformer} onBack={onClose} stage="secondary" />;
+            case 'primary': return <SecondaryReportView transformer={currentTransformer} onBack={onClose} stage="primary" />;
+            case 'final': return <SecondaryReportView transformer={currentTransformer} onBack={onClose} stage="final" />;
             case 'all': return renderAllReports();
             default: return <div>Unknown Report Type</div>;
         }

@@ -61,6 +61,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
   const [burden, setBurden] = useState('');
   const [ratedPrimaryCurrent, setRatedPrimaryCurrent] = useState('');
   const [ratedSecondaryCurrent, setRatedSecondaryCurrent] = useState('');
+  const [stc, setStc] = useState('');
 
   // Additional parameters
   const [additionalParams, setAdditionalParams] = useState<AdditionalParameter[]>([]);
@@ -165,6 +166,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
         burden,
         ratedPrimaryCurrent,
         ratedSecondaryCurrent,
+        stc,
       },
       additionalParams,
       images,
@@ -668,6 +670,15 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                     />
                   )}
                 </div>
+              </div>
+              <div>
+                <Label>STC (Short Time Current)</Label>
+                <Input
+                  placeholder="e.g., 25kA/1sec"
+                  value={stc}
+                  onChange={(e) => setStc(e.target.value)}
+                  className="mt-1"
+                />
               </div>
             </div>
           </div>

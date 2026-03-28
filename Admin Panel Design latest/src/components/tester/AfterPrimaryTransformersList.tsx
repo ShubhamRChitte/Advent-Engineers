@@ -27,6 +27,12 @@ export interface Transformer {
   canApprove: boolean;
   testHistory?: any;
   currentStage: string;
+  stc?: string;
+  voltageRating?: string;
+  burden?: string;
+  ratedPrimaryCurrent?: string;
+  ratedSecondaryCurrent?: string;
+  clientName?: string;
 }
 
 interface Order {
@@ -237,7 +243,13 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
             status: status,
             canApprove,
             testHistory: t.testHistory,
-            currentStage: t.currentStage
+            currentStage: t.currentStage,
+            stc: (t as any).stc || (order as any).stc || 'N/A',
+            voltageRating: (order as any).nominalSystemVoltage || '33',
+            burden: (order as any).burden || '30',
+            ratedPrimaryCurrent: (order as any).ratedPrimaryCurrent || (order.ratio && order.ratio[0] ? order.ratio[0].split('/')[0] : '800'),
+            ratedSecondaryCurrent: (order as any).ratedSecondaryCurrent || (order.ratio && order.ratio[0] ? order.ratio[0].split('/')[1] : '1'),
+            clientName: order.clientName || 'N/A'
           };
         });
 

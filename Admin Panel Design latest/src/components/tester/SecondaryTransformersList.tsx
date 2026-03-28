@@ -29,11 +29,16 @@ export interface Transformer {
     ps: string[];
     protection: string[];
   };
-  orderId?: any; // Added for ratio fallback
   accuracyClass?: string | undefined; // Added for metering tests dynamic limits
   jobId?: string;
   clientName?: string;
   currentStage: string;
+  orderId?: any; // Added for ratio fallback
+  stc?: string;
+  voltageRating?: string;
+  burden?: number | string;
+  ratedPrimaryCurrent?: number | string;
+  ratedSecondaryCurrent?: number | string;
 }
 
 interface Order {
@@ -52,6 +57,11 @@ interface Order {
   ratio?: string[];
   nominalSystemVoltage?: number | string;
   coreDetails?: any[];
+  stc?: string;
+  burden?: number;
+  voltageRating?: string;
+  ratedPrimaryCurrent?: number;
+  ratedSecondaryCurrent?: number;
 }
 
 interface SecondaryTransformersListProps {
@@ -261,7 +271,12 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
             orderId: order._id, // explicitly passing orderId for failed core requests
             jobId: order.jobId,
             clientName: order.clientName,
-            currentStage: t.currentStage
+            currentStage: t.currentStage,
+            stc: order.stc,
+            voltageRating: order.voltageRating,
+            burden: order.burden,
+            ratedPrimaryCurrent: order.ratedPrimaryCurrent,
+            ratedSecondaryCurrent: order.ratedSecondaryCurrent,
           };
         });
 

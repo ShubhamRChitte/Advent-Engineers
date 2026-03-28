@@ -182,6 +182,7 @@ const PSBlockSchema = new Schema({
 const TestStageSchema = new Schema({
   tester: String,
   timestamp: { type: Date, default: Date.now },
+  reportDate: { type: Date },
   status: { type: String, enum: ['Pending', 'Completed'], default: 'Pending' },
 
   // These arrays will hold the results based on the Order's core configuration

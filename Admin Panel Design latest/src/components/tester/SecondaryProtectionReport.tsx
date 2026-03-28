@@ -108,7 +108,7 @@ export function SecondaryProtectionReport({
 
 
   const [testResults, setTestResults] = useState<ProtectionTestRow[]>([]);
-  const [protectionClass, setProtectionClass] = useState<string>(() => {
+  const [protectionClass] = useState<string>(() => {
     if (explicitClass) return explicitClass;
 
     // Fallback: Use the granular accuracyClass from coreDetails
@@ -154,9 +154,48 @@ export function SecondaryProtectionReport({
       compositeError: ''
     }));
 
+    // 3. Sync with prop if it has history (Fast Load)
+    const stageKey = `${stage}_test` as keyof typeof transformer.testHistory;
+    const stageHistory = transformer.testHistory?.[stageKey];
+
+    if (stageHistory?.protection_results?.length > 0) {
+      const myResults = stageHistory.protection_results.filter((res: any) =>
+        res.internalCoreNo === coreId || res.coreId === coreId
+      );
+
+      if (myResults.length > 0) {
+        const syncedData = initialData.map((row: ProtectionTestRow) => {
+          let saved = myResults.find((r: any) => r.ratioValue === row.ratio);
+          if (!saved && dynamicRatios.length === 1) {
+            saved = myResults.find((r: any) => !r.ratioValue || r.ratioValue === 'N/A');
+          }
+
+          if (saved) {
+            const safeStr = (val: any) => (val !== undefined && val !== null) ? String(val) : '';
+            return {
+              ...row,
+              ratioError100: safeStr(saved.ratioError100 || saved.burden100_1),
+              phaseError: safeStr(saved.phaseError || saved.burden100_2),
+              resistance: safeStr(saved.resistance),
+              alf: safeStr(saved.alf),
+              secondaryLimitingVoltage: safeStr(saved.secondaryLimitingVoltage || saved.secondaryLimitingVtg),
+              excitationCurrent: safeStr(saved.excitationCurrent),
+              compositeError: safeStr(saved.compositeError),
+              isPass: saved.isPass,
+              reason: saved.reason,
+              protectionClass: saved.protectionClass
+            };
+          }
+          return row;
+        });
+        setTestResults(syncedData);
+        return;
+      }
+    }
+
     setTestResults(initialData);
 
-  }, [transformer]);
+  }, [transformer, coreId, stage]);
 
 
   // ✅ LOAD DATA EFFECT for Read Only viewing OR Consistency
@@ -585,7 +624,11 @@ export function SecondaryProtectionReport({
               <label className="text-xs font-bold text-gray-700">Class:</label>
               <span className="font-bold text-sm text-blue-700">{protectionClass}</span>
             </div>
-            <p className="text-[10px] text-gray-400 mt-1 uppercase">Date: {new Date().toLocaleDateString()}</p>
+            <p className="text-[10px] text-gray-400 mt-1 uppercase">Date: {
+              stage && transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate
+                ? new Date(transformer.testHistory[`${stage}_test` as keyof typeof transformer.testHistory].reportDate).toLocaleDateString('en-GB')
+                : new Date().toLocaleDateString('en-GB')
+            }</p>
           </div>
         </div>
 
@@ -594,16 +637,45 @@ export function SecondaryProtectionReport({
           Secondary Verification - {coreId}
         </div>
 
+        {/* Testing Record Table */}
+        <div className="mt-4 border-[1.5px] border-black text-black">
+          <div className="bg-gray-100 p-1 text-center font-bold text-xs border-b-[1.5px] border-black uppercase">
+            Testing Record of Current Transformer
+          </div>
+          <table className="w-full text-[11px] border-collapse">
+            <tbody>
+              <tr>
+                <td className="border-b border-black p-1.5" colSpan={2}>
+                  <p><span className="font-bold italic">Specification :</span> {transformer.voltageRating || '33'} KV {transformer.clientName || 'N/A'}</p>
+                </td>
+              </tr>
+              <tr>
+                <td className="border-b border-black p-1.5" colSpan={2}>
+                  <p><span className="font-bold italic">CT Ratio :</span> {ratiosToUse.join('-')} / {transformer.ratedSecondaryCurrent || '1'} A</p>
+                </td>
+              </tr>
+              <tr>
+                <td className="border-r border-b border-black p-1.5 w-1/2">
+                  <p><span className="font-bold italic">Burden :</span> {transformer.burden || '30'} VA</p>
+                </td>
+                <td className="border-b border-black p-1.5 w-1/2">
+                  <p><span className="font-bold italic">Class :</span> {protectionClass || '5P'}</p>
+                </td>
+              </tr>
+              <tr>
+                <td className="p-1.5" colSpan={2}>
+                  <p><span className="font-bold italic">STC :</span> {transformer.stc || 'N/A'}</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
         <div className="mt-4">
 
           <div className="overflow-x-auto">
             <table className="nested-table">
               <thead>
-                <tr className="bg-yellow">
-                  <th className="text-center font-bold" colSpan={6}>
-                    {`${transformer.orderId?.voltage || '33KV'}, ${transformer.orderId?.type || 'CT'}, ${(Array.isArray(transformer.ratios) ? transformer.ratios.join('-') : transformer.orderId?.ratio?.join('-')) || '800-400-200'}/${transformer.orderId?.secondaryCurrent || '1-1-1A'}, ${transformer.orderId?.burden || '30VA'}, protection`}
-                  </th>
-                </tr>
 
                 {/* HEADER BOX ROW 2: SUB-HEADERS */}
                 <tr className="bg-white">
