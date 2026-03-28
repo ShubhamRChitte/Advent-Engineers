@@ -4,14 +4,9 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-<<<<<<< HEAD
-import { X, Plus, Upload, ArrowLeft } from 'lucide-react';
-import { toast } from 'sonner';
-
-=======
 import { X, Plus, Upload, ArrowLeft, Search, Check } from 'lucide-react';
 import { Badge } from '../ui/badge';
->>>>>>> a717da7c73aab67316ddb59441b8b8f9504f8170
+
 interface Transformer {
   id: string;
   name: string;
@@ -474,22 +469,6 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                             )}
                             {coreConfigs[index].coreType === 'ps' && (
                               <option value="0.2s">0.2s</option>
-<<<<<<< HEAD
-                              <option value="0.5s">0.5s</option>
-                            </>
-                          )}
-                          {coreConfigs[index].coreType === 'protection' && (
-                            <>
-                              <option value="5P">5P</option>
-                              <option value="10P">10P</option>
-                              <option value="15P">15P</option>
-                            </>
-                          )}
-                          {coreConfigs[index].coreType === 'ps' && transformerType !== 'PT' && (
-                            <option value="0.2s">0.2s</option>
-                          )}
-                        </select>
-=======
                             )}
                           </select>
                         </div>
@@ -518,7 +497,6 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                             })()}
                           </select>
                         </div>
->>>>>>> a717da7c73aab67316ddb59441b8b8f9504f8170
                       </div>
                     )}
                   </div>

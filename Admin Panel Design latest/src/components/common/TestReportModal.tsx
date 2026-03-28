@@ -375,16 +375,10 @@ export function TestReportModal({ isOpen, onClose, transformer, order, testType 
         
         switch (testType) {
             case 'core': return renderCoreReport();
-<<<<<<< HEAD
-            case 'secondary': return <SecondaryReportView transformer={transformer} onBack={onClose} stage="secondary" />;
-            case 'primary': return <SecondaryReportView transformer={transformer} onBack={onClose} stage="primary" />;
-            case 'final': return <SecondaryReportView transformer={transformer} onBack={onClose} stage="final" />;
-            case 'pt': return <PTReportView transformer={transformer} order={order} onBack={onClose} />;
-=======
             case 'secondary': return <SecondaryReportView transformer={currentTransformer} onBack={onClose} stage="secondary" />;
             case 'primary': return <SecondaryReportView transformer={currentTransformer} onBack={onClose} stage="primary" />;
             case 'final': return <SecondaryReportView transformer={currentTransformer} onBack={onClose} stage="final" />;
->>>>>>> a717da7c73aab67316ddb59441b8b8f9504f8170
+            case 'pt': return <PTReportView transformer={transformer} order={order} onBack={onClose} />;
             case 'all': return renderAllReports();
             default: return <div>Unknown Report Type</div>;
         }

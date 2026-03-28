@@ -112,18 +112,11 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
           id: t._id,
           // Use the uniqueId from DB (TR-JOB-...), fallback to constructing it if missing
           transformerId: t.uniqueId || `TR-${t.jobId || 'UNKNOWN'}-${String(t.internalCoreNo || '').split('-').pop() || '???'}`,
-<<<<<<< HEAD
-          coreTestStatus: getStatusForStage('core', t.currentStage, t.testHistory?.core_test?.status),
-          secondaryTestStatus: getStatusForStage('secondary', t.currentStage, t.testHistory?.secondary_test?.status),
-          primaryTestStatus: getStatusForStage('primary', t.currentStage, t.testHistory?.primary_test?.status),
-          finalTestStatus: getStatusForStage('final', t.currentStage, t.testHistory?.final_test?.status),
-          ptTestStatus: (t.currentStage === 'shipped' || t.currentStage === 'completed' || (t.testHistory?.pt_test && Object.keys(t.testHistory.pt_test).length > 0)) ? 'Complete' : t.currentStage === 'pt' ? 'In Progress' : 'Pending',
-=======
           coreTestStatus: getStatusForStage('core', t.currentStage, t.testHistory?.core_test?.status, t),
           secondaryTestStatus: getStatusForStage('secondary', t.currentStage, t.testHistory?.secondary_test?.status, t),
           primaryTestStatus: getStatusForStage('primary', t.currentStage, t.testHistory?.primary_test?.status, t),
           finalTestStatus: getStatusForStage('final', t.currentStage, t.testHistory?.final_test?.status, t),
->>>>>>> a717da7c73aab67316ddb59441b8b8f9504f8170
+          ptTestStatus: (t.currentStage === 'shipped' || t.currentStage === 'completed' || (t.testHistory?.pt_test && Object.keys(t.testHistory.pt_test).length > 0)) ? 'Complete' : t.currentStage === 'pt' ? 'In Progress' : 'Pending',
           reportStatus: (t.currentStage === 'completed' || t.currentStage === 'shipped') ? 'Open' : 'Pending'
         }));
 

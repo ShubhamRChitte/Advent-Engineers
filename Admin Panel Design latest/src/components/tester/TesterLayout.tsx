@@ -14,16 +14,13 @@ import { ClipboardCheck, FileText, Activity } from 'lucide-react';
 import { AfterPrimaryReportsList } from './reports/AfterPrimaryReportsList';
 import { FinalReportsList } from './reports/FinalReportsList';
 import { FailedCoresPage } from '../../pages/FailedCoresPage';
-<<<<<<< HEAD
 import { PTTesterDashboard } from './PTTesterDashboard';
 import { PTTestingModule } from './PTTestingModule';
 import { PTReportsList } from './PTReportsList';
 import { HeatingRecordModule } from './HeatingRecordModule';
 import { PTHeatingRecordModule } from './PTHeatingRecordModule';
-=======
 import { OrdersListViewEnhanced } from '../entry/OrdersListViewEnhanced';
 import { OrderDetailsView } from './OrderDetailsView';
->>>>>>> a717da7c73aab67316ddb59441b8b8f9504f8170
 
 interface TesterLayoutProps {
   user: User;
@@ -31,9 +28,6 @@ interface TesterLayoutProps {
 }
 
 export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
-<<<<<<< HEAD
-  const [activeView, setActiveView] = useState('home');
-=======
   const [activeView, setActiveView] = useState(user.role === 'core-tester' ? 'home' : 'home');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
@@ -41,7 +35,6 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
     setSelectedOrderId(orderId);
     setActiveView('order-details');
   };
->>>>>>> a717da7c73aab67316ddb59441b8b8f9504f8170
 
   const renderView = () => {
     // Notifications view for all testers

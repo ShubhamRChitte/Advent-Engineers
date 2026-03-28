@@ -25,12 +25,9 @@ const { SecondaryMeteringTestModel } = require("./models/SecondaryMeteringTestMo
 const { CounterModel } = require("./models/CounterModel");
 const { isAuthenticated } = require('./middlewares/authMiddleware');
 const { upload, cloudinary } = require('./config/cloudinary'); // Cloudinary upload middleware
-<<<<<<< HEAD
 const heatingRecordRoutes = require('./routes/heatingRecordRoutes'); // Heating Record Routes
 const ptHeatingRecordRoutes = require('./routes/ptHeatingRecordRoutes'); // PT Heating Record Routes
-=======
 const { CoreVendorModel } = require("./models/CoreVendorModel");
->>>>>>> a717da7c73aab67316ddb59441b8b8f9504f8170
 
 
 const app = express();
@@ -127,14 +124,11 @@ app.use('/api/transformers', require('./routes/transformerRoutes')); // New Tran
 app.use('/api/final', require('./routes/finalTestRoutes')); // New Final Test Routes
 app.use('/api/dashboard', require('./routes/dashboardRoutes')); // New Dashboard Stats Route
 app.use('/api/failed-cores', require('./routes/failedCoreRoutes')); // Failed Core Management
-<<<<<<< HEAD
 app.use('/api/pt-tests', require('./routes/ptTestRoutes')); // PT Testing Routes
 app.use('/api/heating-record', heatingRecordRoutes); // Heating Record Routes
 app.use('/api/pt-heating-record', ptHeatingRecordRoutes); // PT Heating Record Routes
-=======
 app.use('/api/accuracy-limits', require('./routes/accuracyLimits.cjs')); // Accuracy Limits Management
 app.use('/api/core-vendors', require('./routes/coreVendorRoutes')); // Core Vendors Management
->>>>>>> a717da7c73aab67316ddb59441b8b8f9504f8170
 
 // Provide configuration for Accuracy Classes dynamically to the frontend
 app.get('/api/accuracy-limits', (req, res) => {
