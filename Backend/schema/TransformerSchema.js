@@ -182,6 +182,7 @@ const PSBlockSchema = new Schema({
 const TestStageSchema = new Schema({
   tester: String,
   timestamp: { type: Date, default: Date.now },
+  reportDate: { type: Date },
   status: { type: String, enum: ['Pending', 'Completed'], default: 'Pending' },
 
   // These arrays will hold the results based on the Order's core configuration
@@ -203,8 +204,15 @@ const TransformerSchema = new Schema({
   // Workflow tracking
   currentStage: {
     type: String,
-    enum: ["core", "secondary", "primary", "final", "shipped", "pt"],
+    enum: ["core", "secondary", "primary", "final", "shipped", "pt", "admin_review"],
     default: "core"
+  },
+
+  // Track Admin Reassignment/Approval details
+  adminReviewDetails: {
+    failedStage: { type: String },
+    returnTargetStage: { type: String },
+    requestedAt: { type: Date }
   },
 
   // The 4 Testing Stages
@@ -261,9 +269,14 @@ const TransformerSchema = new Schema({
       recordedBy: String, 
       recordedAt: { type: Date, default: Date.now }
     }]
+  },
+
+  // Stores the actual snapshot data configured at Final Test generation
+  finalReportData: {
+    type: Schema.Types.Mixed,
+    default: null
   }
 }, { timestamps: true });
 
 // --- 4. EXPORT ---
 module.exports = { TransformerSchema };
-

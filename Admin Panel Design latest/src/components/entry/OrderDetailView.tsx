@@ -76,10 +76,19 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
         // Define the progression of stages
         const stageOrder = ['core', 'secondary', 'primary', 'final', 'completed', 'shipped'];
 
-        const getStatusForStage = (targetStage: string, currentStage: string, historyStatus?: string) => {
+        const getStatusForStage = (targetStage: string, currentStage: string, historyStatus?: string, t?: any) => {
           // 1. Explicit History Check
           if (historyStatus === 'Rejected') return 'Rejected';
           if (historyStatus === 'Completed') return 'Complete';
+
+          // Handle admin_review specially
+          if (currentStage === 'admin_review' && t?.adminReviewDetails) {
+            if (t.adminReviewDetails.failedStage === targetStage) return 'Admin Review';
+            const targetIndex = stageOrder.indexOf(targetStage);
+            const returnIndex = stageOrder.indexOf(t.adminReviewDetails.returnTargetStage);
+            if (targetIndex < returnIndex) return 'Complete';
+            return 'Pending';
+          }
 
           // 2. Stage Progression Check
           const targetIndex = stageOrder.indexOf(targetStage);
@@ -103,11 +112,18 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
           id: t._id,
           // Use the uniqueId from DB (TR-JOB-...), fallback to constructing it if missing
           transformerId: t.uniqueId || `TR-${t.jobId || 'UNKNOWN'}-${String(t.internalCoreNo || '').split('-').pop() || '???'}`,
+<<<<<<< HEAD
           coreTestStatus: getStatusForStage('core', t.currentStage, t.testHistory?.core_test?.status),
           secondaryTestStatus: getStatusForStage('secondary', t.currentStage, t.testHistory?.secondary_test?.status),
           primaryTestStatus: getStatusForStage('primary', t.currentStage, t.testHistory?.primary_test?.status),
           finalTestStatus: getStatusForStage('final', t.currentStage, t.testHistory?.final_test?.status),
           ptTestStatus: (t.currentStage === 'shipped' || t.currentStage === 'completed' || (t.testHistory?.pt_test && Object.keys(t.testHistory.pt_test).length > 0)) ? 'Complete' : t.currentStage === 'pt' ? 'In Progress' : 'Pending',
+=======
+          coreTestStatus: getStatusForStage('core', t.currentStage, t.testHistory?.core_test?.status, t),
+          secondaryTestStatus: getStatusForStage('secondary', t.currentStage, t.testHistory?.secondary_test?.status, t),
+          primaryTestStatus: getStatusForStage('primary', t.currentStage, t.testHistory?.primary_test?.status, t),
+          finalTestStatus: getStatusForStage('final', t.currentStage, t.testHistory?.final_test?.status, t),
+>>>>>>> a717da7c73aab67316ddb59441b8b8f9504f8170
           reportStatus: (t.currentStage === 'completed' || t.currentStage === 'shipped') ? 'Open' : 'Pending'
         }));
 
@@ -141,6 +157,8 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
         return 'bg-gray-100 text-gray-700 border-gray-300';
       case 'Open':
         return 'bg-green-100 text-green-700 border-green-300';
+      case 'Admin Review':
+        return 'bg-red-200 text-red-900 border-red-500 font-bold';
       default:
         return 'bg-yellow-100 text-yellow-700 border-yellow-300';
     }
@@ -156,6 +174,8 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
         return <AlertCircle className="w-3 h-3" />;
       case 'Rejected':
         return <XCircle className="w-3 h-3" />;
+      case 'Admin Review':
+        return <AlertCircle className="w-3 h-3 text-red-700" />;
       default:
         return <Clock className="w-3 h-3" />;
     }

@@ -25,8 +25,12 @@ const { SecondaryMeteringTestModel } = require("./models/SecondaryMeteringTestMo
 const { CounterModel } = require("./models/CounterModel");
 const { isAuthenticated } = require('./middlewares/authMiddleware');
 const { upload, cloudinary } = require('./config/cloudinary'); // Cloudinary upload middleware
+<<<<<<< HEAD
 const heatingRecordRoutes = require('./routes/heatingRecordRoutes'); // Heating Record Routes
 const ptHeatingRecordRoutes = require('./routes/ptHeatingRecordRoutes'); // PT Heating Record Routes
+=======
+const { CoreVendorModel } = require("./models/CoreVendorModel");
+>>>>>>> a717da7c73aab67316ddb59441b8b8f9504f8170
 
 
 const app = express();
@@ -34,8 +38,40 @@ const app = express();
 
 mongoose
   .connect(uri)
-  .then(() => console.log("MongoDB is  connected successfully"))
+  .then(async () => {
+    console.log("MongoDB is connected successfully");
+
+    try {
+      const collection = mongoose.connection.collection('failedcores');
+      await collection.dropIndex('orderId_1_internalCoreNo_1');
+      console.log("Successfully dropped duplicate index on failedcores.");
+    } catch (e) {
+      // Ignore if index doesn't exist
+    }
+
+    await seedCoreVendors();
+  })
   .catch((err) => console.error(err));
+
+// --- SEEDING LOGIC ---
+async function seedCoreVendors() {
+  try {
+    const count = await CoreVendorModel.countDocuments();
+    if (count === 0) {
+      const initialVendors = [
+        { vendor_no: 1, vendor_name: "ABC Electricals", status: "active" },
+        { vendor_no: 2, vendor_name: "Precision Cores Pvt Ltd", status: "active" },
+        { vendor_no: 3, vendor_name: "Shakti Transformers", status: "active" },
+        { vendor_no: 4, vendor_name: "Omega Core Industries", status: "active" },
+        { vendor_no: 5, vendor_name: "Delta Magnetic Cores", status: "active" }
+      ];
+      await CoreVendorModel.insertMany(initialVendors);
+      console.log("Core Vendors seeded successfully");
+    }
+  } catch (err) {
+    console.error("Error seeding core vendors:", err);
+  }
+}
 
 // --- AUTHENTICATION SETUP ---
 const session = require('express-session');
@@ -91,9 +127,14 @@ app.use('/api/transformers', require('./routes/transformerRoutes')); // New Tran
 app.use('/api/final', require('./routes/finalTestRoutes')); // New Final Test Routes
 app.use('/api/dashboard', require('./routes/dashboardRoutes')); // New Dashboard Stats Route
 app.use('/api/failed-cores', require('./routes/failedCoreRoutes')); // Failed Core Management
+<<<<<<< HEAD
 app.use('/api/pt-tests', require('./routes/ptTestRoutes')); // PT Testing Routes
 app.use('/api/heating-record', heatingRecordRoutes); // Heating Record Routes
 app.use('/api/pt-heating-record', ptHeatingRecordRoutes); // PT Heating Record Routes
+=======
+app.use('/api/accuracy-limits', require('./routes/accuracyLimits.cjs')); // Accuracy Limits Management
+app.use('/api/core-vendors', require('./routes/coreVendorRoutes')); // Core Vendors Management
+>>>>>>> a717da7c73aab67316ddb59441b8b8f9504f8170
 
 // Provide configuration for Accuracy Classes dynamically to the frontend
 app.get('/api/accuracy-limits', (req, res) => {
@@ -245,6 +286,15 @@ const createOrder = async (req, res) => {
       }
       if (req.body.ratio && typeof req.body.ratio === 'string') {
         parsedBody.ratio = JSON.parse(req.body.ratio);
+      }
+      if (req.body.metering_core_vendors && typeof req.body.metering_core_vendors === 'string') {
+        parsedBody.metering_core_vendors = JSON.parse(req.body.metering_core_vendors);
+      }
+      if (req.body.protection_core_vendors && typeof req.body.protection_core_vendors === 'string') {
+        parsedBody.protection_core_vendors = JSON.parse(req.body.protection_core_vendors);
+      }
+      if (req.body.ps_core_vendors && typeof req.body.ps_core_vendors === 'string') {
+        parsedBody.ps_core_vendors = JSON.parse(req.body.ps_core_vendors);
       }
     } catch (e) {
       console.error("Body parsing error:", e);
@@ -457,7 +507,15 @@ app.put('/api/orders/:orderId/approve', approveOrder);
 app.put('/api/orders/:orderId/reassign', reassignTester); // New Reassign Route
 app.put('/api/orders/:orderId', updateOrder); // Generic Update Route
 app.delete('/api/orders/:orderId', isAuthenticated, deleteOrder); // Delete order with Cloudinary cleanup
-app.get('/api/admin/notifications', getAdminNotifications); // Ensure this one is also mounted if used
+app.get('/api/orders/:orderId', async (req, res) => {
+  try {
+    const order = await OrderModel.findById(req.params.orderId);
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+    res.json({ success: true, data: order });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // 4. Method: Get Pending Notifications (Admin View)
 async function getAdminNotifications(req, res) {
@@ -2057,9 +2115,52 @@ app.get('/addTransformerReadingData', async (req, res) => {
   }
 });
 
+// --- NEW: Report Detail API for Admin ---
+// Returns full transformer data with populated order and a flattened 'readings' field for the current stage
+app.get("/api/reports/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { stage } = req.query; // Optional: specify stage to get specific readings
 
+    const mongoose = require('mongoose');
+    let transformer;
 
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      transformer = await TransformerModel.findById(id).populate('orderId');
+    }
+    
+    if (!transformer) {
+      transformer = await TransformerModel.findOne({ uniqueId: id }).populate('orderId');
+    }
 
+    if (!transformer) {
+      return res.status(404).json({ success: false, message: "Report not found" });
+    }
+
+    const reportData = transformer.toObject();
+    const currentStage = stage || transformer.currentStage;
+    const stageKey = `${currentStage}_test`;
+    
+    // Extract readings based on stage
+    let readings = [];
+    const history = transformer.testHistory?.[stageKey];
+    if (history) {
+      readings = history.metering_results || history.protection_results || history.ps_results || [];
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...reportData,
+        readings: readings,
+        reportDate: history?.reportDate || history?.timestamp || new Date()
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching report detail:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 //primary Metering test handle
 app.post("/transformer-primary-metering-tests", async (req, res) => {
@@ -2092,17 +2193,23 @@ app.post("/transformer-primary-metering-tests", async (req, res) => {
       }
     });
 
+    const updateData = {
+      $set: {
+        "testHistory.primary_test.tester": tester,
+        "testHistory.primary_test.metering_results": validatedResults,
+        "testHistory.primary_test.status": "Completed",
+        "testHistory.primary_test.timestamp": new Date()
+      }
+    };
+
+    // Set reportDate only if it doesn't exist
+    if (!transformerDoc.testHistory?.primary_test?.reportDate) {
+      updateData.$set["testHistory.primary_test.reportDate"] = new Date();
+    }
+
     const transformer = await TransformerModel.findOneAndUpdate(
       { uniqueId: uniqueId },
-      {
-        $set: {
-          // TARGETING PRIMARY_TEST HERE
-          "testHistory.primary_test.tester": tester,
-          "testHistory.primary_test.metering_results": validatedResults,
-          "testHistory.primary_test.status": "Completed",
-          "testHistory.primary_test.timestamp": new Date()
-        }
-      },
+      updateData,
       { new: true }
     );
 
@@ -2144,6 +2251,11 @@ app.post("/transformer-primary-protection-tests", async (req, res) => {
     transformer.testHistory.primary_test.status = "Completed";
     transformer.testHistory.primary_test.timestamp = new Date();
 
+    // Set reportDate only if not already present
+    if (!transformer.testHistory.primary_test.reportDate) {
+      transformer.testHistory.primary_test.reportDate = new Date();
+    }
+
     transformer.markModified('testHistory');
     const savedTransformer = await transformer.save();
 
@@ -2178,6 +2290,9 @@ app.post("/transformer-primary-ps-tests", async (req, res) => {
           "testHistory.primary_test.ps_results": ps_results,
           "testHistory.primary_test.status": "Completed",
           "testHistory.primary_test.timestamp": new Date()
+        },
+        $setOnInsert: {
+          "testHistory.primary_test.reportDate": new Date()
         }
       },
       { new: true, runValidators: true }
@@ -2240,17 +2355,23 @@ app.post("/transformer-final-metering-tests", async (req, res) => {
       }
     });
 
+    const updateData = {
+      $set: {
+        "testHistory.final_test.tester": tester,
+        "testHistory.final_test.metering_results": validatedResults,
+        "testHistory.final_test.status": "Completed",
+        "testHistory.final_test.timestamp": new Date()
+      }
+    };
+
+    // Set reportDate only if it doesn't exist
+    if (!transformerDoc.testHistory?.final_test?.reportDate) {
+      updateData.$set["testHistory.final_test.reportDate"] = new Date();
+    }
+
     const transformer = await TransformerModel.findOneAndUpdate(
       { uniqueId: uniqueId },
-      {
-        $set: {
-          // TARGETING FINAL_TEST HERE
-          "testHistory.final_test.tester": tester,
-          "testHistory.final_test.metering_results": validatedResults,
-          "testHistory.final_test.status": "Completed",
-          "testHistory.final_test.timestamp": new Date()
-        }
-      },
+      updateData,
       { new: true }
     );
 
@@ -2306,6 +2427,11 @@ app.post("/transformer-final-protection-tests", async (req, res) => {
     transformer.testHistory.final_test.status = "Completed";
     transformer.testHistory.final_test.timestamp = new Date();
 
+    // Set reportDate only if not already present
+    if (!transformer.testHistory.final_test.reportDate) {
+      transformer.testHistory.final_test.reportDate = new Date();
+    }
+
     transformer.markModified('testHistory');
     const savedTransformer = await transformer.save();
 
@@ -2332,16 +2458,24 @@ app.post("/transformer-final-ps-tests", async (req, res) => {
     const { uniqueId, tester, ps_results } = req.body;
 
     // Use $set with dot notation to target the specific test stage
+    const updateData = {
+      $set: {
+        "testHistory.final_test.tester": tester,
+        "testHistory.final_test.ps_results": ps_results,
+        "testHistory.final_test.status": "Completed",
+        "testHistory.final_test.timestamp": new Date()
+      }
+    };
+
+    // Set reportDate only if it doesn't exist
+    const existingTransformer = await TransformerModel.findOne({ uniqueId: uniqueId });
+    if (existingTransformer && !existingTransformer.testHistory?.final_test?.reportDate) {
+      updateData.$set["testHistory.final_test.reportDate"] = new Date();
+    }
+
     const transformer = await TransformerModel.findOneAndUpdate(
       { uniqueId: uniqueId },
-      {
-        $set: {
-          "testHistory.final_test.tester": tester,
-          "testHistory.final_test.ps_results": ps_results,
-          "testHistory.final_test.status": "Completed",
-          "testHistory.final_test.timestamp": new Date()
-        }
-      },
+      updateData,
       { new: true, runValidators: true }
     );
 
@@ -2424,17 +2558,24 @@ app.post("/transformer-secondary-metering-tests", async (req, res) => {
     const finalStatus = isOverallPass ? "Pass" : "Fail";
 
     // 1. Save detailed test report (Upsert)
+    const existingTestRecord = await SecondaryMeteringTestModel.findOne({ uniqueId, coreId });
+    const updatePayload = {
+      uniqueId,
+      coreId,
+      tester,
+      metering_results: validatedResults,
+      remarks,
+      testDate: new Date(),
+      status: finalStatus
+    };
+
+    if (!existingTestRecord || !existingTestRecord.reportDate) {
+      updatePayload.reportDate = new Date();
+    }
+
     const testRecord = await SecondaryMeteringTestModel.findOneAndUpdate(
       { uniqueId, coreId },
-      {
-        uniqueId,
-        coreId,
-        tester,
-        metering_results: validatedResults,
-        remarks,
-        testDate: new Date(),
-        status: finalStatus
-      },
+      updatePayload,
       { upsert: true, new: true, runValidators: true }
     );
 
@@ -2455,6 +2596,11 @@ app.post("/transformer-secondary-metering-tests", async (req, res) => {
     transformer.testHistory.secondary_test.status = "Completed";
     transformer.testHistory.secondary_test.tester = tester;
     transformer.testHistory.secondary_test.timestamp = new Date();
+
+    // Set reportDate only if not already present
+    if (!transformer.testHistory.secondary_test.reportDate) {
+      transformer.testHistory.secondary_test.reportDate = new Date();
+    }
 
     // Merge logic: Filter out old results for this coreId, then append new ones
     // Note: validatedResults from frontend is an ARRAY of ratios for this core, correctly populated with pass/fail statuses.
@@ -2521,6 +2667,11 @@ app.post("/transformer-secondary-ps-tests", async (req, res) => {
     transformer.testHistory.secondary_test.status = "Completed";
     transformer.testHistory.secondary_test.timestamp = new Date();
 
+    // Set reportDate only if not already present
+    if (!transformer.testHistory.secondary_test.reportDate) {
+      transformer.testHistory.secondary_test.reportDate = new Date();
+    }
+
     transformer.markModified('testHistory');
     const savedTransformer = await transformer.save();
     console.log("[DEBUG] PS Test Saved. Results Length:", savedTransformer.testHistory.secondary_test.ps_results.length);
@@ -2577,6 +2728,11 @@ app.post("/transformer-secondary-protection-tests", async (req, res) => {
     transformer.testHistory.secondary_test.protection_results = [...otherCoresResults, ...newResults];
     transformer.testHistory.secondary_test.status = "Completed";
     transformer.testHistory.secondary_test.timestamp = new Date();
+
+    // Set reportDate only if not already present
+    if (!transformer.testHistory.secondary_test.reportDate) {
+      transformer.testHistory.secondary_test.reportDate = new Date();
+    }
 
     transformer.markModified('testHistory');
     const savedTransformer = await transformer.save();

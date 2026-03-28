@@ -15,13 +15,19 @@ const OrderSchema = new Schema(
     // Core Configuration
     noOfCores: { type: Number, required: true },
     coreDetails: [{
-      coreType: { type: String, enum: ["Metering", "Protection", "PS"], required: true }
+      coreType: { type: String, enum: ["Metering", "Protection", "PS"], required: true },
+      accuracyClass: { type: String },
+      vendorNo: { type: String }
     }],
+
+    // Core Vendors (Many-to-Many)
+    metering_core_vendors: [{ type: Schema.Types.ObjectId, ref: 'CoreVendor' }],
+    protection_core_vendors: [{ type: Schema.Types.ObjectId, ref: 'CoreVendor' }],
+    ps_core_vendors: [{ type: Schema.Types.ObjectId, ref: 'CoreVendor' }],
 
     // Electrical & Mechanical (Simplified for brevity)
     nominalSystemVoltage: Number,
     burden: Number,
-    accuracyClass: String,
     deadline: { type: Date, required: true },
     approved: { type: Boolean, default: false }, // Work-flow field to control visibility in Orders tab
 
@@ -106,6 +112,10 @@ const OrderSchema = new Schema(
       trim: true
     },
     tankType: {
+      type: String,
+      trim: true
+    },
+    stc: {
       type: String,
       trim: true
     },

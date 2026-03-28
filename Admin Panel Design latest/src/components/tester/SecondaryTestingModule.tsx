@@ -6,6 +6,7 @@ import { SecondaryMeteringReport } from './SecondaryMeteringReport';
 import { SecondaryPSReport } from './SecondaryPSReport';
 import { SecondaryProtectionReport } from './SecondaryProtectionReport';
 import { SecondaryReportsDashboard } from './reports/SecondaryReportsDashboard';
+import { OrderReportsView } from '../entry/OrderReportsView';
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs'; // Import Tabs components
 
 interface Order {
@@ -20,7 +21,7 @@ interface Order {
   priority: string;
 }
 
-type ViewType = 'orders' | 'transformers' | 'core-selection' | 'report' | 'my-reports';
+type ViewType = 'orders' | 'transformers' | 'core-selection' | 'report' | 'my-reports' | 'order-reports';
 type ReportType = 'metering' | 'ps' | 'protection';
 
 interface SecondaryTestingModuleProps {
@@ -34,10 +35,19 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
   const [selectedCoreNumber, setSelectedCoreNumber] = useState<number>(0);
   const [selectedCoreType, setSelectedCoreType] = useState<ReportType>('metering');
   const [enteredCoreId, setEnteredCoreId] = useState<string>('');
+  const [selectedAccuracyClass, setSelectedAccuracyClass] = useState<string | undefined>(undefined);
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
+
+  const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
 
   const handleStartTesting = (order: Order) => {
     setSelectedOrder(order);
     setCurrentView('transformers');
+  };
+
+  const handleViewReports = (order: Order) => {
+    setSelectedOrder(order);
+    setCurrentView('order-reports');
   };
 
   const handleStartTest = (transformer: Transformer) => {
@@ -45,10 +55,11 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
     setCurrentView('core-selection');
   };
 
-  const handleCoreSelect = (coreNumber: number, coreType: string, coreId: string) => {
+  const handleCoreSelect = (coreNumber: number, coreType: string, coreId: string, uniqueId: string, accuracyClass?: string) => {
     setSelectedCoreNumber(coreNumber);
     setSelectedCoreType(coreType as ReportType);
     setEnteredCoreId(coreId);
+    setSelectedAccuracyClass(accuracyClass);
     setCurrentView('report');
   };
 
@@ -71,10 +82,12 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
     setCurrentView('core-selection');
     setSelectedCoreNumber(0);
     setEnteredCoreId('');
+    setSelectedAccuracyClass(undefined);
   };
 
   return (
     <div className="space-y-6">
+
       {/* Top Navigation Bar */}
       <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm">
         <div>
@@ -100,7 +113,21 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
         )}
 
         {currentView === 'orders' && (
-          <SecondaryOrdersList onStartTesting={handleStartTesting} />
+          <SecondaryOrdersList
+            onStartTesting={handleStartTesting}
+            onViewReports={handleViewReports}
+            refreshTrigger={refreshTrigger}
+          />
+        )}
+
+        {currentView === 'order-reports' && selectedOrder && (
+          <div className="bg-white p-6 rounded-lg shadow-sm">
+            <OrderReportsView
+              order={selectedOrder}
+              clientName={selectedOrder.clientName || 'Unknown'}
+              onBack={handleBackToOrders}
+            />
+          </div>
         )}
 
         {currentView === 'transformers' && selectedOrder && (
@@ -108,6 +135,7 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
             order={selectedOrder}
             onStartTest={handleStartTest}
             onBack={handleBackToOrders}
+            onRefreshOrders={triggerRefresh}
           />
         )}
 
@@ -116,6 +144,7 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
             transformer={selectedTransformer}
             onCoreSelect={handleCoreSelect}
             onBack={handleBackToTransformers}
+            onRefreshOrders={triggerRefresh}
           />
         )}
 
@@ -128,6 +157,8 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
                 coreId={enteredCoreId}
                 testerName={userName || 'Unknown Tester'}
                 onBack={handleBackFromReport}
+                stage="secondary"
+                accuracyClass={selectedAccuracyClass}
               />
             )}
             {selectedCoreType === 'ps' && (
@@ -137,15 +168,18 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
                 coreId={enteredCoreId}
                 testerName={userName || 'Unknown Tester'}
                 onBack={handleBackFromReport}
+                stage="secondary"
+                accuracyClass={selectedAccuracyClass}
               />
             )}
             {selectedCoreType === 'protection' && (
               <SecondaryProtectionReport
                 transformer={selectedTransformer}
-                coreNumber={selectedCoreNumber}
                 coreId={enteredCoreId}
                 testerName={userName || 'Unknown Tester'}
                 onBack={handleBackFromReport}
+                stage="secondary"
+                accuracyClass={selectedAccuracyClass}
               />
             )}
           </div>
@@ -154,3 +188,4 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
     </div>
   );
 }
+

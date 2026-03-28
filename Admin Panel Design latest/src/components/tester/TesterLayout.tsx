@@ -14,11 +14,16 @@ import { ClipboardCheck, FileText, Activity } from 'lucide-react';
 import { AfterPrimaryReportsList } from './reports/AfterPrimaryReportsList';
 import { FinalReportsList } from './reports/FinalReportsList';
 import { FailedCoresPage } from '../../pages/FailedCoresPage';
+<<<<<<< HEAD
 import { PTTesterDashboard } from './PTTesterDashboard';
 import { PTTestingModule } from './PTTestingModule';
 import { PTReportsList } from './PTReportsList';
 import { HeatingRecordModule } from './HeatingRecordModule';
 import { PTHeatingRecordModule } from './PTHeatingRecordModule';
+=======
+import { OrdersListViewEnhanced } from '../entry/OrdersListViewEnhanced';
+import { OrderDetailsView } from './OrderDetailsView';
+>>>>>>> a717da7c73aab67316ddb59441b8b8f9504f8170
 
 interface TesterLayoutProps {
   user: User;
@@ -26,12 +31,35 @@ interface TesterLayoutProps {
 }
 
 export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
+<<<<<<< HEAD
   const [activeView, setActiveView] = useState('home');
+=======
+  const [activeView, setActiveView] = useState(user.role === 'core-tester' ? 'home' : 'home');
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+
+  const handleViewOrder = (orderId: string) => {
+    setSelectedOrderId(orderId);
+    setActiveView('order-details');
+  };
+>>>>>>> a717da7c73aab67316ddb59441b8b8f9504f8170
 
   const renderView = () => {
     // Notifications view for all testers
     if (activeView === 'notifications') {
-      return <TesterNotifications userRole={user.role} userName={user.name} />;
+      return <TesterNotifications 
+        userRole={user.role} 
+        userName={user.name} 
+        onViewOrder={handleViewOrder}
+      />;
+    }
+
+    if (activeView === 'order-details' && selectedOrderId) {
+      return (
+        <OrderDetailsView 
+          orderId={selectedOrderId} 
+          onBack={() => setActiveView('notifications')} 
+        />
+      );
     }
 
     // PT Tester
@@ -100,6 +128,8 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return <CoreTestingModule user={user} />;
       } else if (activeView === 'core-tracking') {
         return <CoreTrackingDashboard user={user} />;
+      } else if (activeView === 'view-orders') {
+        return <OrdersListViewEnhanced userRole={user.role} />;
       } else if (activeView === 'failed-cores') {
         return <FailedCoresPage />;
       }
@@ -162,6 +192,8 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return <SecondaryTestingModule userName={user.name} />;
       } else if (activeView === 'reports') {
         return <SecondaryReportsList onBack={() => setActiveView('home')} />;
+      } else if (activeView === 'view-orders') {
+        return <OrdersListViewEnhanced userRole={user.role} />;
       } else if (activeView === 'failed-cores') {
         return <FailedCoresPage />;
       }
@@ -224,6 +256,8 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return <FinalTestingModule userName={user.name} />;
       } else if (activeView === 'reports') {
         return <FinalReportsList />;
+      } else if (activeView === 'view-orders') {
+        return <OrdersListViewEnhanced userRole={user.role} />;
       } else if (activeView === 'failed-cores') {
         return <FailedCoresPage />;
       }
@@ -286,6 +320,8 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return <AfterPrimaryTestingModule userName={user.name} />;
       } else if (activeView === 'reports') {
         return <AfterPrimaryReportsList />;
+      } else if (activeView === 'view-orders') {
+        return <OrdersListViewEnhanced userRole={user.role} />;
       } else if (activeView === 'failed-cores') {
         return <FailedCoresPage />;
       } else if (activeView === 'heating-record') {

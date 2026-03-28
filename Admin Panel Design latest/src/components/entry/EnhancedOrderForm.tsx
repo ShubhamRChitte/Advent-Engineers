@@ -1,11 +1,17 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+<<<<<<< HEAD
 import { X, Plus, Upload, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
+=======
+import { X, Plus, Upload, ArrowLeft, Search, Check } from 'lucide-react';
+import { Badge } from '../ui/badge';
+>>>>>>> a717da7c73aab67316ddb59441b8b8f9504f8170
 interface Transformer {
   id: string;
   name: string;
@@ -24,11 +30,12 @@ interface AdditionalParameter {
 
 interface EnhancedOrderFormProps {
   transformer: Transformer;
+  allVendors: any[];
   onSubmit: (orderData: any) => void;
   onBack: () => void;
 }
 
-export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperator = false }: EnhancedOrderFormProps & { isEntryOperator?: boolean }) {
+export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, isEntryOperator = false }: EnhancedOrderFormProps & { isEntryOperator?: boolean }) {
   const [clientName, setClientName] = useState('');
   const [clientContact, setClientContact] = useState('');
   const [quantity, setQuantity] = useState('1');
@@ -48,8 +55,8 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
   const [tankType, setTankType] = useState('');
 
   // Core configurations
-  const [coreConfigs, setCoreConfigs] = useState<{ coreType: string; accuracyClass: string }[]>(
-    Array(parseInt(numberOfCores) || 1).fill({ coreType: 'metering', accuracyClass: '' })
+  const [coreConfigs, setCoreConfigs] = useState<{ coreType: string; accuracyClass: string; vendorNo: string }[]>(
+    Array(parseInt(numberOfCores) || 1).fill({ coreType: 'metering', accuracyClass: '', vendorNo: '' })
   );
 
   // Transformer Parameters
@@ -60,12 +67,17 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
   const [burden, setBurden] = useState('');
   const [ratedPrimaryCurrent, setRatedPrimaryCurrent] = useState('');
   const [ratedSecondaryCurrent, setRatedSecondaryCurrent] = useState('');
+  const [stc, setStc] = useState('');
 
   // Additional parameters
   const [additionalParams, setAdditionalParams] = useState<AdditionalParameter[]>([]);
 
   // Images state
   const [images, setImages] = useState<File[]>([]);
+
+  const [selectedMeteringVendors, setSelectedMeteringVendors] = useState<string[]>([]);
+  const [selectedProtectionVendors, setSelectedProtectionVendors] = useState<string[]>([]);
+  const [selectedPSVendors, setSelectedPSVendors] = useState<string[]>([]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -82,7 +94,7 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
   const handleCoreTypeChange = (index: number, value: string) => {
     setCoreConfigs(prev => {
       const updated = [...prev];
-      updated[index] = { coreType: value, accuracyClass: '' }; // reset accuracy class on type change
+      updated[index] = { coreType: value, accuracyClass: '', vendorNo: '' }; // reset on type change
       return updated;
     });
   };
@@ -90,7 +102,21 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
   const handleCoreAccuracyChange = (index: number, value: string) => {
     setCoreConfigs(prev => {
       const updated = [...prev];
-      updated[index] = { coreType: updated[index]?.coreType || 'metering', accuracyClass: value };
+      const current = updated[index];
+      if (current) {
+        updated[index] = { ...current, accuracyClass: value };
+      }
+      return updated;
+    });
+  };
+
+  const handleCoreVendorChange = (index: number, value: string) => {
+    setCoreConfigs(prev => {
+      const updated = [...prev];
+      const current = updated[index];
+      if (current) {
+        updated[index] = { ...current, vendorNo: value };
+      }
       return updated;
     });
   };
@@ -154,11 +180,34 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
         burden,
         ratedPrimaryCurrent,
         ratedSecondaryCurrent,
+        stc,
       },
       additionalParams,
       images,
+      metering_core_vendors: selectedMeteringVendors,
+      protection_core_vendors: selectedProtectionVendors,
+      ps_core_vendors: selectedPSVendors,
       bypassApproval: !isEntryOperator, // If Entry Operator, do NOT bypass approval
     };
+
+    // Validation
+    const hasMetering = coreConfigs.some(c => c.coreType === 'metering');
+    const hasProtection = coreConfigs.some(c => c.coreType === 'protection');
+    const hasPS = coreConfigs.some(c => c.coreType === 'ps');
+
+    if (hasMetering && selectedMeteringVendors.length === 0) {
+      toast.error("At least one Metering vendor is required");
+      return;
+    }
+    if (hasProtection && selectedProtectionVendors.length === 0) {
+      toast.error("At least one Protection vendor is required");
+      return;
+    }
+    if (hasPS && selectedPSVendors.length === 0) {
+      toast.error("At least one PS vendor is required");
+      return;
+    }
+
     onSubmit(orderData);
   };
 
@@ -365,7 +414,7 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
                     setCoreConfigs(prev => {
                       const newTypes = Array.isArray(prev) ? [...prev] : [];
                       if (numCores > newTypes.length) {
-                        return [...newTypes, ...Array(numCores - newTypes.length).fill({ coreType: 'metering', accuracyClass: '' })];
+                        return [...newTypes, ...Array(numCores - newTypes.length).fill({ coreType: 'metering', accuracyClass: '', vendorNo: '' })];
                       }
                       return newTypes.slice(0, numCores);
                     });
@@ -395,23 +444,37 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
                     </select>
 
                     {coreConfigs[index]?.coreType && (
-                      <div className="mt-2">
-                        <Label>Accuracy Class</Label>
-                        <select
-                          value={coreConfigs[index]?.accuracyClass || ''}
-                          onChange={(e) => handleCoreAccuracyChange(index, e.target.value)}
-                          className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
-                        >
-                          <option value="">Select Accuracy Class</option>
-                          {coreConfigs[index].coreType === 'metering' && (
-                            <>
-                              <option value="0.1">0.1</option>
-                              <option value="0.2">0.2</option>
-                              <option value="0.5">0.5</option>
-                              <option value="1">1</option>
-                              <option value="3">3</option>
-                              <option value="5">5</option>
+                      <div className="mt-2 space-y-2">
+                        <div>
+                          <Label>Accuracy Class</Label>
+                          <select
+                            value={coreConfigs[index]?.accuracyClass || ''}
+                            onChange={(e) => handleCoreAccuracyChange(index, e.target.value)}
+                            className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                          >
+                            <option value="">Select Accuracy Class</option>
+                            {coreConfigs[index].coreType === 'metering' && (
+                              <>
+                                <option value="0.1">0.1</option>
+                                <option value="0.2">0.2</option>
+                                <option value="0.5">0.5</option>
+                                <option value="1">1</option>
+                                <option value="3">3</option>
+                                <option value="5">5</option>
+                                <option value="0.2s">0.2s</option>
+                                <option value="0.5s">0.5s</option>
+                              </>
+                            )}
+                            {coreConfigs[index].coreType === 'protection' && (
+                              <>
+                                <option value="5P">5P</option>
+                                <option value="10P">10P</option>
+                                <option value="15P">15P</option>
+                              </>
+                            )}
+                            {coreConfigs[index].coreType === 'ps' && (
                               <option value="0.2s">0.2s</option>
+<<<<<<< HEAD
                               <option value="0.5s">0.5s</option>
                             </>
                           )}
@@ -426,14 +489,83 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
                             <option value="0.2s">0.2s</option>
                           )}
                         </select>
+=======
+                            )}
+                          </select>
+                        </div>
+
+                        <div>
+                          <Label>Core Vendor *</Label>
+                          <select
+                            value={coreConfigs[index]?.vendorNo || ''}
+                            onChange={(e) => handleCoreVendorChange(index, e.target.value)}
+                            className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                          >
+                            <option value="">Select Vendor</option>
+                            {(() => {
+                              const type = coreConfigs[index].coreType;
+                              const selectedIds = type === 'metering' ? selectedMeteringVendors :
+                                type === 'protection' ? selectedProtectionVendors :
+                                  selectedPSVendors;
+
+                              return allVendors
+                                .filter(v => selectedIds.includes(v._id))
+                                .map(v => (
+                                  <option key={v._id} value={v.vendor_no}>
+                                    {v.vendor_no} - {v.vendor_name}
+                                  </option>
+                                ));
+                            })()}
+                          </select>
+                        </div>
+>>>>>>> a717da7c73aab67316ddb59441b8b8f9504f8170
                       </div>
                     )}
                   </div>
                 ))}
               </div>
             </div>
-          )
-          }
+          )}
+
+          {/* Core Vendors Section */}
+          <div className="space-y-4">
+            <h3 className="pb-2 border-b-2 border-gray-200">Core Vendors</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {coreConfigs.some(c => c.coreType === 'metering') && (
+                <div className="space-y-2">
+                  <Label className="text-blue-700 font-bold">Metering Core Vendors *</Label>
+                  <VendorMultiSelect
+                    vendors={allVendors}
+                    selectedIds={selectedMeteringVendors}
+                    onChange={setSelectedMeteringVendors}
+                    placeholder="Select Metering Vendors"
+                  />
+                </div>
+              )}
+              {coreConfigs.some(c => c.coreType === 'protection') && (
+                <div className="space-y-2">
+                  <Label className="text-green-700 font-bold">Protection Core Vendors *</Label>
+                  <VendorMultiSelect
+                    vendors={allVendors}
+                    selectedIds={selectedProtectionVendors}
+                    onChange={setSelectedProtectionVendors}
+                    placeholder="Select Protection Vendors"
+                  />
+                </div>
+              )}
+              {coreConfigs.some(c => c.coreType === 'ps') && (
+                <div className="space-y-2">
+                  <Label className="text-purple-700 font-bold">PS Core Vendors *</Label>
+                  <VendorMultiSelect
+                    vendors={allVendors}
+                    selectedIds={selectedPSVendors}
+                    onChange={setSelectedPSVendors}
+                    placeholder="Select PS Vendors"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Transformer Parameters Section */}
           <div className="space-y-4">
@@ -575,6 +707,15 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
                   )}
                 </div>
               </div>
+              <div>
+                <Label>STC (Short Time Current)</Label>
+                <Input
+                  placeholder="e.g., 25kA/1sec"
+                  value={stc}
+                  onChange={(e) => setStc(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
             </div>
           </div>
 
@@ -679,5 +820,106 @@ export function EnhancedOrderForm({ transformer, onSubmit, onBack, isEntryOperat
         </div>
       </Card >
     </div >
+  );
+}
+
+interface VendorMultiSelectProps {
+  vendors: any[];
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+  placeholder: string;
+}
+
+function VendorMultiSelect({ vendors, selectedIds, onChange, placeholder }: VendorMultiSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredVendors = vendors.filter(v =>
+    v.vendor_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    v.vendor_no.toString().includes(searchTerm)
+  );
+
+  const toggleVendor = (id: string) => {
+    if (selectedIds.includes(id)) {
+      onChange(selectedIds.filter(selectedId => selectedId !== id));
+    } else {
+      onChange([...selectedIds, id]);
+    }
+  };
+
+  const selectedVendors = vendors.filter(v => selectedIds.includes(v._id));
+
+  return (
+    <div className="relative">
+      <div
+        className="min-h-10 w-full p-2 border rounded-md bg-white cursor-pointer flex flex-wrap gap-2 items-center"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {selectedVendors.length > 0 ? (
+          selectedVendors.map(v => (
+            <Badge key={v._id} variant="secondary" className="gap-1 bg-blue-50 text-blue-700 hover:bg-blue-100 pr-1">
+              {v.vendor_no} - {v.vendor_name}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleVendor(v._id);
+                }}
+                className="hover:text-blue-900"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </Badge>
+          ))
+        ) : (
+          <span className="text-gray-500 text-sm pl-2">{placeholder}</span>
+        )}
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-hidden flex flex-col">
+          <div className="p-2 border-b flex items-center gap-2 bg-gray-50">
+            <Search className="w-4 h-4 text-gray-400" />
+            <input
+              autoFocus
+              className="bg-transparent border-none outline-none text-sm w-full"
+              placeholder="Search vendor..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="overflow-y-auto">
+            {filteredVendors.length > 0 ? (
+              filteredVendors.map(v => (
+                <div
+                  key={v._id}
+                  className="p-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleVendor(v._id);
+                  }}
+                >
+                  <span>{v.vendor_no} - {v.vendor_name}</span>
+                  {selectedIds.includes(v._id) && <Check className="w-4 h-4 text-blue-600" />}
+                </div>
+              ))
+            ) : (
+              <div className="p-4 text-center text-sm text-gray-500">No vendors found</div>
+            )}
+          </div>
+          <div className="p-2 border-t bg-gray-50 flex justify-end">
+            <Button size="sm" variant="ghost" type="button" onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}>Close</Button>
+          </div>
+        </div>
+      )}
+      {/* Overlay to close when clicking outside */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+    </div>
   );
 }

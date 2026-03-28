@@ -8,7 +8,6 @@ import { OrderDetailView } from './OrderDetailView';
 import {
   Search,
   Eye,
-  Edit,
   Calendar,
   Package,
   User,
@@ -35,7 +34,7 @@ interface OrdersListViewProps {
   onEditOrder?: (order: Order) => void;
 }
 
-export function OrdersListView({ onViewOrder, onEditOrder }: OrdersListViewProps) {
+export function OrdersListView(_props: OrdersListViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -80,10 +79,31 @@ export function OrdersListView({ onViewOrder, onEditOrder }: OrdersListViewProps
   };
 
   const filteredOrders = orders.filter((order) => {
+    const q = searchQuery.toLowerCase().trim();
+    const oJobId = (order.jobId || '').toLowerCase();
+
+    // Support extracting Job ID from Transformer ID strings 
+    // Example: "TR-JOB-2026-051-001" -> extract "JOB-2026-051" match
+    // Expand regex to be more greedy: match 'job' optionally prefixed by anything and followed by the standard pattern
+    // This safely extracts "JOB-2026-051" from "TR-JOB-2026-051-001" or anything similar
+    const extractedJobMatch = q.match(/job-?\d{4}-?\d{1,4}/i)?.[0];
+
+    // Normalize oJobId
+    const normalJobId = oJobId.replace(/\s+/g, '');
+    const normalQuery = q.replace(/\s+/g, '');
+
+    const jobMatch = normalJobId.includes(normalQuery) ||
+      (normalQuery.length > 5 && normalJobId.length > 0 && normalQuery.includes(normalJobId)) ||
+      (extractedJobMatch && normalJobId.includes(extractedJobMatch.toLowerCase().replace(/\s+/g, '')));
+
+    // Also explicitly check if the query starts with TR- and contains the jobId
+    const isTransformerSearch = q.startsWith('tr-') && q.includes(normalJobId);
+
     const matchesSearch =
-      (order.jobId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (order.clientName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (order.transformerName || '').toLowerCase().includes(searchQuery.toLowerCase());
+      jobMatch ||
+      isTransformerSearch ||
+      (order.clientName || '').toLowerCase().includes(q) ||
+      (order.transformerName || '').toLowerCase().includes(q);
 
     // Simple status filter mapping
     if (selectedStatus === 'all') return matchesSearch;

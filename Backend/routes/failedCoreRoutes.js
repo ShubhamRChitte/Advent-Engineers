@@ -20,8 +20,11 @@ router.post('/', isAuthenticated, async (req, res, next) => {
             dynamicValues
         } = req.body;
 
+        console.log("[DEBUG] Failed Core Request Body:", req.body);
+
         // 1. Basic Input Validation
         if (!orderId || !internalCoreNo || !failureReason) {
+            console.log("[DEBUG] Validation Failed. orderId:", orderId, " core:", internalCoreNo, " reason:", failureReason);
             return next(new AppError("Missing required fields: orderId, internalCoreNo, failureReason", 400, "VALIDATION_ERROR"));
         }
 

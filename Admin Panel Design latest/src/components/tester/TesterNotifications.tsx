@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import React, { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -11,8 +10,6 @@ import {
   CheckCircle,
   Clock,
   FileText,
-  User,
-  ChevronRight,
   AlertCircle
 } from 'lucide-react';
 
@@ -37,9 +34,10 @@ interface TaskNotification {
 interface TesterNotificationsProps {
   userRole: string;
   userName: string;
+  onViewOrder?: (orderId: string) => void;
 }
 
-export function TesterNotifications({ userRole, userName }: TesterNotificationsProps) {
+export function TesterNotifications({ userRole, onViewOrder }: TesterNotificationsProps) {
   // ... (existing code handles notifications loading) ...
 
 
@@ -390,7 +388,11 @@ export function TesterNotifications({ userRole, userName }: TesterNotificationsP
                   Start Testing
                   <ChevronRight className="w-4 h-4" />
                 </Button> */}
-                <Button variant="outline" className="gap-2">
+                <Button 
+                  variant="outline" 
+                  className="gap-2"
+                  onClick={() => onViewOrder && onViewOrder(notification.id)}
+                >
                   <Package className="w-4 h-4" />
                   View Order Details
                 </Button>

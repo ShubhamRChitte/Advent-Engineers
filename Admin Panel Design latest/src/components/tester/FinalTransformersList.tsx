@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react'; // React removed to fix unused warning
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -8,20 +8,29 @@ import axios from 'axios';
 interface CoreConfig {
   coreNumber: number;
   coreType: 'metering' | 'ps' | 'protection';
-  coreId?: string; // Optional now as per DB or legacy
+  coreId?: string;
+  accuracyClass?: string;
 }
 
 export interface FinalTransformer {
   id: string;
+  uniqueId: string;
   name: string;
   rating: string;
-  uniqueId: string;
   voltageClass: string;
-  status: 'pending' | 'in-progress' | 'completed';
   cores: CoreConfig[];
-  ratios?: string[];
+  status: 'pending' | 'in-progress' | 'completed';
+  ratios: string[];
   testHistory?: any;
+  jobId?: string;
+  clientName?: string;
   orderId?: any;
+  currentStage: string;
+  stc?: string;
+  voltageRating?: string;
+  burden?: string;
+  ratedPrimaryCurrent?: string;
+  ratedSecondaryCurrent?: string;
 }
 
 interface Order {
@@ -52,6 +61,8 @@ interface FinalTransformersListProps {
 export function FinalTransformersList({ order, onStartTest, onBack, onApprove }: FinalTransformersListProps) {
   const [transformers, setTransformers] = useState<FinalTransformer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // const [accuracyClass, setAccuracyClass] = useState<string>(explicitClass || '');
+  // removed unused setAccuracyClass to fix lint
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -98,11 +109,16 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
               else if (typeStr.includes('ps')) mappedType = 'ps';
 
               let coreId = 'Pending';
-              if (mappedType === 'metering') {
+              let accuracyClass = '0.5';
+
+              // Prioritize accuracyClass from coreGroup (the new granular storage)
+              if (coreGroup.accuracyClass) {
+                accuracyClass = coreGroup.accuracyClass;
+              } else if (mappedType === 'metering') {
                 if (mIndex < meteringResults.length) {
                   const res = meteringResults[mIndex];
-                  // Check structure: is it flat or nested rows? Secondary logic usually flat or has internalCoreNo
                   coreId = res.internalCoreNo || (res.rows && res.rows[0]?.internalCoreNo) || 'M-Pending';
+                  accuracyClass = res.accuracyClass || res.classOption || '0.5';
                   mIndex++;
                 }
               } else if (mappedType === 'ps') {
@@ -115,19 +131,24 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                 if (pIndex < protectionResults.length) {
                   const res = protectionResults[pIndex];
                   coreId = res.internalCoreNo || 'P-Pending';
+                  accuracyClass = res.protectionClass || '5P';
                   pIndex++;
                 }
               }
 
+              // Fallback: Default to '0.5' if still not found
+              const fallbackClass = '0.5';
+
               coresList.push({
                 coreNumber: currentCoreNum++,
                 coreType: mappedType,
-                coreId: coreId
+                coreId: coreId,
+                accuracyClass: accuracyClass || fallbackClass
               });
             });
           }
           if (coresList.length === 0) {
-            coresList.push({ coreNumber: 1, coreType: 'metering', coreId: 'M-Default' });
+            coresList.push({ coreNumber: 1, coreType: 'metering', coreId: 'M-Default', accuracyClass: '0.5' });
           }
 
 
@@ -135,10 +156,13 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
           const checkCompleteness = () => {
             const finalTest = t.testHistory?.final_test || {};
 
-            // If no cores defined (shouldn't happen), use strict backend status
-            if (coresList.length === 0) return t.testHistory?.final_test?.status === 'Completed';
+            // 1. MUST have comprehensive Final Test Report completed
+            if (finalTest.status !== 'Completed') return false;
 
-            // Check EVERY core
+            // If no cores defined (shouldn't happen), use strict backend status
+            if (coresList.length === 0) return true;
+
+            // 2. Check EVERY core has results
             return coresList.every(core => {
               if (core.coreType === 'metering') {
                 const results = finalTest.metering_results?.filter((r: any) =>
@@ -163,8 +187,16 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                   // Simple check for key fields
                   res.turnRatioError && res.resistance && res.vk && res.iexVk
                 );
+              } else if (core.coreType === 'protection') {
+                const results = finalTest.protection_results?.filter((r: any) =>
+                  r.coreId === core.coreId || r.internalCoreNo === core.coreId
+                );
+                if (!results || results.length === 0) return false;
+
+                return results.every((res: any) =>
+                  res.currentError && res.phaseError && res.compositeError
+                );
               }
-              // Protection logic if needed...
               return true;
             });
           };
@@ -188,7 +220,14 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
             status: status,
             ratios: t.ratios || (Array.isArray(order.ratio) ? order.ratio : [order.ratio]),
             testHistory: t.testHistory,
-            orderId: order
+            orderId: order,
+            currentStage: t.currentStage,
+            stc: (t as any).stc || (order as any).stc || 'N/A',
+            voltageRating: (order as any).nominalSystemVoltage || '33',
+            burden: (order as any).burden || '30',
+            ratedPrimaryCurrent: (order as any).ratedPrimaryCurrent || (order.ratio && order.ratio[0] ? order.ratio[0].split('/')[0] : '800'),
+            ratedSecondaryCurrent: (order as any).ratedSecondaryCurrent || (order.ratio && order.ratio[0] ? order.ratio[0].split('/')[1] : '1'),
+            clientName: order.clientName || order.client || 'N/A'
           };
         });
 

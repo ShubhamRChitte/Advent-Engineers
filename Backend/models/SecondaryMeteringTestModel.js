@@ -6,6 +6,7 @@ const SecondaryMeteringTestSchema = new mongoose.Schema({
     coreId: { type: String, required: true },   // Core ID (e.g. M-001)
     tester: { type: String, required: true },
     testDate: { type: Date, default: Date.now },
+    reportDate: { type: Date },
 
     // Structure to store dynamic ratio table data
     metering_results: [

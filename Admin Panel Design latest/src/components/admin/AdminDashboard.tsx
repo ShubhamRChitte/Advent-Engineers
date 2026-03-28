@@ -3,6 +3,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Users, Package, ClipboardCheck, TrendingUp, AlertCircle, CheckCircle2, PlusCircle, List, ArrowRight } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { AdminReviewPanel } from './AdminReviewPanel';
 
 interface AdminDashboardProps {
   setActiveView?: (view: string) => void;
@@ -58,6 +59,9 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
         <h2>Dashboard Overview</h2>
         <p className="text-gray-500 mt-1">Welcome back! Here's your testing system summary.</p>
       </div>
+
+      {/* Admin Review Needs Attention Section */}
+      <AdminReviewPanel />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -158,7 +162,7 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
             activities.map((activity, idx) => (
               <div key={idx} className="flex items-start gap-4 pb-4 border-b border-gray-100 last:border-0">
                 <div className={`w-2 h-2 rounded-full mt-2 ${activity.type === 'success' ? 'bg-green-500' :
-                    activity.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
+                  activity.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
                   }`} />
                 <div className="flex-1">
                   <p>{activity.action}</p>

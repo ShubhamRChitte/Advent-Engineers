@@ -1,16 +1,9 @@
-import React from 'react';
 import { SecondaryProtectionReport } from './SecondaryProtectionReport';
-import { Transformer } from './SecondaryTransformersList';
-
-interface CoreConfig {
-  coreNumber: number;
-  coreType: 'metering' | 'ps' | 'protection';
-  coreId: string;
-}
+import { Transformer } from './AfterPrimaryTransformersList';
 
 interface PrimaryProtectionReportProps {
   transformer: Transformer;
-  core: CoreConfig;
+  core: { coreNumber: number; coreId: string; accuracyClass?: string | undefined };
   testerName: string;
   onBack: () => void;
 }
@@ -25,11 +18,11 @@ export function AfterPrimaryProtectionReport({
   return (
     <SecondaryProtectionReport
       transformer={transformer}
-      coreNumber={core.coreNumber}
       coreId={core.coreId}
       testerName={testerName}
       onBack={onBack}
       stage="primary"
+      accuracyClass={core.accuracyClass}
     />
   );
 }

@@ -140,53 +140,144 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
             order = await OrderModel.findOne({ jobId: transformer.orderId });
         }
 
-        if (order && order.assignments) {
+        if (order) {
+            if (order.assignments) {
+                // Find the specific assignment entry for this tester and stage
+                const assignment = order.assignments.find(a =>
+                    (a.testerName === testerName || a.testerName === user.fullName) &&
+                    a.stage === stage
+                );
 
-            // Find the specific assignment entry for this tester and stage
-            const assignment = order.assignments.find(a =>
-                (a.testerName === testerName || a.testerName === user.fullName) &&
-                a.stage === stage
-            );
+                if (assignment) {
+                    // Verify if ALL transformers in this range are now done
+                    const { from, to } = assignment.unitRange;
+                    const jobId = order.jobId;
 
-            if (assignment) {
-                // Verify if ALL transformers in this range are now done
-                // "Done" means their currentStage is NOT 'core' or 'secondary' (i.e., they moved to primary/final/completed)
-                // OR explicitly check if they are NOT in the current stage anymore.
+                    const idsInRange = [];
+                    for (let i = from; i <= to; i++) {
+                        idsInRange.push(`TR-${jobId}-${String(i).padStart(3, '0')}`);
+                    }
 
-                const { from, to } = assignment.unitRange;
-                const jobId = order.jobId;
+                    const pendingCountInRange = await TransformerModel.countDocuments({
+                        uniqueId: { $in: idsInRange },
+                        currentStage: stage
+                    });
 
-                // Construct IDs for the range
-                const idsInRange = [];
-                for (let i = from; i <= to; i++) {
-                    idsInRange.push(`TR-${jobId}-${String(i).padStart(3, '0')}`);
-                }
-
-                // Count how many are STILL in the current stage (e.g., 'secondary')
-                // If 0, then the batch is complete.
-                const pendingCount = await TransformerModel.countDocuments({
-                    uniqueId: { $in: idsInRange },
-                    currentStage: stage // e.g. 'secondary'
-                });
-
-                if (pendingCount === 0) {
-                    // Mark Assignment as Completed
-                    assignment.status = "Completed";
-
-                    // Optional: Update global Order completion flags if needed
-                    // if (stage === 'secondary') order.completionStages.secondary = true; 
-                    // (But granular logic usually keeps completionStages for overall)
-
-                    await order.save();
-                    console.log(`Assignment for ${testerName} on ${jobId} (${stage}) marked as Completed.`);
+                    if (pendingCountInRange === 0) {
+                        assignment.status = "Completed";
+                        console.log(`Assignment for ${testerName} on ${jobId} (${stage}) marked as Completed.`);
+                    }
                 }
             }
+
+            // --- GLOBAL ORDER STAGE TRANSITION ---
+            // Check if ALL units in the entire order have moved beyond the current stage
+            const pendingTotalCount = await TransformerModel.countDocuments({
+                orderId: order._id,
+                currentStage: stage
+            });
+
+            if (pendingTotalCount === 0) {
+                console.log(`Order ${order.jobId} transitioning from ${stage} to ${nextStage}`);
+
+                // Also update completionStages flags
+                if (order.completionStages) {
+                    if (stage === 'core') order.completionStages.core = true;
+                    if (stage === 'secondary') order.completionStages.secondary = true;
+                    if (stage === 'primary') order.completionStages.primary = true;
+                    if (stage === 'final') order.completionStages.final = true;
+                }
+
+                if (stage === 'final') {
+                    order.currentStage = 'completed';
+                    order.status = 'Completed';
+                } else {
+                    order.currentStage = nextStage;
+                }
+            }
+
+            await order.save();
         }
 
         res.json({ success: true, message: "Transformer approved and stage updated." });
 
     } catch (error) {
         console.error("Error approving stage:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/transformers/admin-review
+// Fetch all transformers currently pending admin review
+router.get('/admin-review', isAuthenticated, async (req, res) => {
+    try {
+        const transformers = await TransformerModel.find({ currentStage: 'admin_review' })
+            .populate('orderId')
+            .lean();
+        res.json({ success: true, data: transformers });
+    } catch (error) {
+        console.error("Error fetching admin review transformers:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// PUT /api/transformers/:uniqueId/approve-retest
+// Allows Admin to approve a retest for a transformer locked in 'admin_review'
+router.put('/:uniqueId/approve-retest', isAuthenticated, async (req, res) => {
+    try {
+        const { uniqueId } = req.params;
+        const { newTester } = req.body; // Optional: If admin wants to reassign
+
+        // 1. Find Transformer
+        const transformer = await TransformerModel.findOne({ uniqueId });
+        if (!transformer) {
+            return res.status(404).json({ success: false, message: "Transformer not found" });
+        }
+
+        if (transformer.currentStage !== 'admin_review' || !transformer.adminReviewDetails) {
+            return res.status(400).json({ success: false, message: "Transformer is not pending admin review." });
+        }
+
+        const targetStage = transformer.adminReviewDetails.returnTargetStage || "primary";
+
+        // 2. Reassign if requested (Updates the specific transformer's assignment for that stage)
+        if (newTester) {
+            transformer.assignments = transformer.assignments || {};
+            transformer.assignments[`${targetStage}_tester`] = newTester;
+        }
+
+        // 3. Update Stage back to the target testing stage
+        transformer.currentStage = targetStage;
+
+        // 4. Clear Review Details
+        transformer.adminReviewDetails = undefined;
+
+        await transformer.save();
+
+        // 5. Update the FailedCore record to show 'APPROVED' for audit trail
+        const { FailedCoreModel } = require('../models/FailedCoreModel'); // Ensure this is imported
+        await FailedCoreModel.updateMany(
+            {
+                internalCoreNo: uniqueId,
+                // We only want to approve the most recent failure that caused this lock
+                adminApprovalStatus: { $in: ["PENDING", "NOT_REQUIRED"] }
+            },
+            {
+                $set: {
+                    adminApprovalStatus: "APPROVED",
+                    retestStatus: "PENDING" // Now waiting for the retest
+                }
+            }
+        );
+
+        res.json({
+            success: true,
+            message: `Retest approved. Transformer moved to ${targetStage} stage.`,
+            stage: targetStage
+        });
+
+    } catch (error) {
+        console.error("Error approving retest:", error);
         res.status(500).json({ success: false, error: error.message });
     }
 });

@@ -8,7 +8,7 @@ import { FinalMeteringReport } from './FinalMeteringReport';
 import { FinalPSReport } from './FinalPSReport';
 import { FinalProtectionReport } from './FinalProtectionReport';
 import { FinalTestReport } from './FinalTestReport';
-
+import { OrderReportsView } from '../entry/OrderReportsView';
 interface Order {
   _id: string; // Updated to match API
   jobId: string;
@@ -31,10 +31,11 @@ interface Order {
 interface CoreConfig {
   coreNumber: number;
   coreType: 'metering' | 'ps' | 'protection';
-  coreId?: string; // Optional to match other files
+  coreId?: string;
+  accuracyClass?: string | undefined;
 }
 
-type ViewType = 'orders' | 'transformers' | 'cores' | 'core-report' | 'comprehensive-report';
+type ViewType = 'orders' | 'transformers' | 'cores' | 'core-report' | 'comprehensive-report' | 'order-reports';
 
 interface FinalTestingModuleProps {
   userName?: string;
@@ -50,6 +51,11 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
     // Cast to any to handle Order type mismatches during transition
     setSelectedOrder(order);
     setCurrentView('transformers');
+  };
+
+  const handleViewReports = (order: Order) => {
+    setSelectedOrder(order);
+    setCurrentView('order-reports');
   };
 
   const handleStartTest = (transformer: FinalTransformer) => {
@@ -118,7 +124,20 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
 
   // Orders List View
   if (currentView === 'orders') {
-    return <FinalOrdersList onStartTesting={handleStartTesting} />;
+    return <FinalOrdersList onStartTesting={handleStartTesting} onViewReports={handleViewReports} />;
+  }
+
+  // Reports View
+  if (currentView === 'order-reports' && selectedOrder) {
+    return (
+      <div className="bg-white p-6 rounded-lg shadow-sm">
+        <OrderReportsView
+          order={selectedOrder as any}
+          clientName={selectedOrder.clientName || selectedOrder.client || 'Unknown'}
+          onBack={handleBackToOrders}
+        />
+      </div>
+    );
   }
 
   // Transformers List View
@@ -140,7 +159,13 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
         transformer={selectedTransformer}
         order={{
           ...selectedOrder,
-          client: selectedOrder.clientName || selectedOrder.client || ''
+          client: selectedOrder.clientName || selectedOrder.client || '',
+          // Added ratios property to the order object being passed to FinalCoreSelection
+          // This assumes 't' is a FinalTransformer and 'order' is the selectedOrder.
+          // The original snippet was a bit fragmented, so this is an interpretation
+          // of how `ratios` might be passed if `t` was available in this scope.
+          // Since `t` is not available here, I'm using `selectedOrder.ratio` if it exists.
+          ratios: selectedOrder.ratio || [],
         } as any}
         onSelectCore={handleSelectCore}
         onOpenComprehensiveReport={handleOpenComprehensiveReport}
@@ -200,5 +225,5 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
   }
 
   // Default fallback
-  return <FinalOrdersList onStartTesting={handleStartTesting} />;
+  return <FinalOrdersList onStartTesting={handleStartTesting} onViewReports={handleViewReports} />;
 }

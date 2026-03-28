@@ -559,7 +559,7 @@ import axios from 'axios';
 import React, { useState } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { ArrowLeft, Save, Printer } from 'lucide-react';
+import { ArrowLeft, Save, Printer, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Transformer } from './SecondaryTransformersList';
 
@@ -576,22 +576,23 @@ interface PSRow {
 
 interface SecondaryPSReportProps {
   transformer: Transformer;
-  coreNumber: number;
+  coreNumber?: number;
   coreId: string;
   testerName: string;
   onBack: () => void;
   readOnly?: boolean;
   stage?: 'secondary' | 'primary' | 'final';
+  accuracyClass?: string | undefined;
 }
 
-export function SecondaryPSReport({ transformer, coreId, testerName, onBack, readOnly = false, stage = 'secondary' }: SecondaryPSReportProps) {
+export function SecondaryPSReport({ transformer, coreId, testerName, onBack, readOnly = false, stage = 'secondary', accuracyClass }: SecondaryPSReportProps) {
   // Use dynamic ratios from transformer, fallback if missing
   const dynamicRatios = (transformer as any).ratios && (transformer as any).ratios.length > 0
     ? (transformer as any).ratios
     : ((transformer as any).orderId?.ratio || ['200/1']);
 
-  const [psData, setPsData] = useState<PSRow[]>(
-    dynamicRatios.map((ratio: string) => ({
+  const [psData, setPsData] = useState<PSRow[]>(() => {
+    const initial = dynamicRatios.map((ratio: string) => ({
       ratioValue: ratio,
       turnRatioError: '',
       resistance: '',
@@ -599,8 +600,55 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
       vkVal: '',
       iexVk: '',
       iex11Vk: ''
-    }))
-  );
+    }));
+
+    // Fast Load from props
+    const stageKey = `${stage}_test` as keyof typeof transformer.testHistory;
+    const stageHistory = transformer.testHistory?.[stageKey];
+    if (stageHistory?.ps_results?.length > 0) {
+      const myResults = stageHistory.ps_results.filter((res: any) =>
+        res.internalCoreNo === coreId || res.coreId === coreId
+      );
+      if (myResults.length > 0) {
+        return initial.map((row: PSRow) => {
+          let savedRow = myResults.find((r: any) => r.ratioValue === row.ratioValue);
+          if (!savedRow && dynamicRatios.length === 1) {
+            savedRow = myResults.find((r: any) => !r.ratioValue || r.ratioValue === 'N/A');
+          }
+          if (savedRow) {
+            return {
+              ...row,
+              turnRatioError: savedRow.turnRatioError,
+              resistance: savedRow.resistance,
+              vk: savedRow.vk,
+              vkVal: savedRow.vkVal || (savedRow.vk && !isNaN(parseFloat(savedRow.vk)) ? (parseFloat(savedRow.vk) * 1.1).toFixed(2) : ''),
+              iexVk: savedRow.iexVk,
+              iex11Vk: savedRow.iex11Vk
+            };
+          }
+          return row;
+        });
+      }
+    }
+    return initial;
+  });
+
+  const [psLimit, setPsLimit] = useState<{ psRatioErrorLimit: number, psExcitationMultiplier: number } | null>(null);
+
+  // Fetch PS Limit
+  React.useEffect(() => {
+    const fetchLimit = async () => {
+      try {
+        const response = await axios.get('http://localhost:3002/api/accuracy-limits/ps', { withCredentials: true });
+        if (response.data && response.data.length > 0) {
+          setPsLimit(response.data[0]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch PS limits', error);
+      }
+    };
+    fetchLimit();
+  }, []);
 
   // ✅ LOAD DATA EFFECT
   React.useEffect(() => {
@@ -658,19 +706,22 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
     fetchLatestData();
   }, [(transformer as any).uniqueId, coreId]);
 
-  const handleUpdate = (idx: number, field: string, val: string) => {
+  const handleUpdate = (idx: number, field: keyof PSRow, val: string) => {
     if (readOnly) return;
     const updated = [...psData];
-    updated[idx] = { ...updated[idx], [field]: val };
 
-    // Auto-calculate 1.1Vk if Vk changes
-    if (field === 'vk') {
-      const num = parseFloat(val);
-      if (!isNaN(num)) {
-        // Use roughly 2 decimals for voltage
-        updated[idx].vkVal = (num * 1.1).toFixed(2).replace(/\.00$/, '');
-      } else {
-        updated[idx].vkVal = '';
+    if (updated[idx]) {
+      updated[idx] = { ...updated[idx], [field]: val } as PSRow;
+
+      // Auto-calculate 1.1Vk if Vk changes
+      if (field === 'vk') {
+        const num = parseFloat(val);
+        if (!isNaN(num)) {
+          // Use roughly 2 decimals for voltage
+          updated[idx].vkVal = (num * 1.1).toFixed(2).replace(/\.00$/, '');
+        } else {
+          updated[idx].vkVal = '';
+        }
       }
     }
 
@@ -690,6 +741,7 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
         ps_results: psData.map((row: any) => ({
           internalCoreNo: coreId, // Inject Core ID for persistence
           ratioValue: row.ratioValue,
+          accuracyClass: accuracyClass || 'N/A',
           turnRatioError: row.turnRatioError,
           resistance: row.resistance,
           vk: row.vk,
@@ -719,11 +771,81 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
     }
   };
 
-  // Check Completion
-  const isComplete = psData.length > 0 && psData.every(row =>
-    row.turnRatioError && row.resistance && row.vk &&
-    row.vkVal && row.iexVk && row.iex11Vk
-  );
+  // Validation Logic for PS Cores
+  const calculateRowStatus = (row: PSRow) => {
+    // Both ratio errors and excitation currents must be populated to grade
+    if (!row.turnRatioError || !row.iexVk || !row.iex11Vk) return null;
+
+    const ratioError = parseFloat(row.turnRatioError);
+    const iexVk = parseFloat(row.iexVk);
+    const iex11Vk = parseFloat(row.iex11Vk);
+
+    if (isNaN(ratioError) || isNaN(iexVk) || isNaN(iex11Vk)) return null;
+
+    const limitRatio = psLimit?.psRatioErrorLimit ?? 0.25;
+    const limitMulti = psLimit?.psExcitationMultiplier ?? 1.5;
+
+    // Condition 1: Ratio Error must be strictly between limits
+    const isRatioPass = ratioError > -limitRatio && ratioError < limitRatio;
+
+    // Condition 2: (Iex at Vk * limitMulti) > Iex at 1.1Vk
+    const calculatedValue = iexVk * limitMulti;
+    const isExcitationPass = calculatedValue > iex11Vk;
+
+    return isRatioPass && isExcitationPass;
+  };
+
+  // Check if any row has explicitly failed the test constraints
+  const hasFailures = psData.some(row => calculateRowStatus(row) === false);
+
+  const handleMarkAsFailed = async () => {
+    if (readOnly) return;
+
+    // Build automated failure reasons dynamically from failing rows
+    let reasons: string[] = [];
+    const limitRatio = psLimit?.psRatioErrorLimit ?? 0.25;
+    const limitMulti = psLimit?.psExcitationMultiplier ?? 1.5;
+
+    psData.forEach((row, idx) => {
+      const status = calculateRowStatus(row);
+      if (status === false) {
+        const ratioErr = parseFloat(row.turnRatioError);
+        const iexVk = parseFloat(row.iexVk);
+        const iex11Vk = parseFloat(row.iex11Vk);
+
+        if (isNaN(ratioErr) || ratioErr <= -limitRatio || ratioErr >= limitRatio) {
+          reasons.push(`Row ${idx + 1} (Ratio ${row.ratioValue}): Ratio Error ${row.turnRatioError} meets or exceeds ±${limitRatio} limit.`);
+        }
+
+        if (!isNaN(iexVk) && !isNaN(iex11Vk) && (iexVk * limitMulti) <= iex11Vk) {
+          reasons.push(`Row ${idx + 1} (Ratio ${row.ratioValue}): Excitation check failed (IexVk*${limitMulti} <= Iex11Vk).`);
+        }
+      }
+    });
+
+    const finalReason = reasons.length > 0 ? reasons.join(' | ') : "PS Core values out of specification";
+
+    try {
+      // Persist the entered test values to the transformer's history first
+      await handleDatabaseSave();
+
+      const payload = {
+        orderId: (transformer as any).orderId?._id || (transformer as any).orderId || (transformer as any)._id || (transformer as any).order?._id,
+        internalCoreNo: coreId,
+        failureReason: finalReason,
+        failureStage: `${stage}_ps_test`,
+        dynamicValues: psData
+      };
+
+      console.log("[DEBUG] Frontend Failed Core Payload:", payload);
+
+      await axios.post(`http://localhost:3002/api/failed-cores`, payload, { withCredentials: true });
+      toast.success("Added to Failed Cores successfully!");
+    } catch (error: any) {
+      console.error("Mark as failed error:", error);
+      toast.error(error.response?.data?.message || "Error adding to failed cores");
+    }
+  };
 
   return (
     <div className="space-y-6 p-4 bg-white">
@@ -880,9 +1002,21 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
         <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
           <ArrowLeft className="w-4 h-4" /> Back
         </Button>
-        <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
-          <Printer className="w-4 h-4" /> Print
-        </Button>
+        <div className="flex gap-2">
+          {!readOnly && hasFailures && (
+            <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
+              <AlertTriangle className="w-4 h-4" /> Add to Failed Cores
+            </Button>
+          )}
+          {!readOnly && (
+            <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2" disabled={hasFailures}>
+              <Save className="w-4 h-4" /> Save
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
+            <Printer className="w-4 h-4" /> Print
+          </Button>
+        </div>
       </div>
 
       <div id="print-section">
@@ -894,15 +1028,19 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
           <div className="header-right">
             <div className="header-field">
               <span className="field-label">Date :</span>
-              <span className="field-value">{new Date().toLocaleDateString('en-GB')}</span>
+              <span className="field-value">
+                {stage && transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate
+                  ? new Date(transformer.testHistory[`${stage}_test` as keyof typeof transformer.testHistory].reportDate).toLocaleDateString('en-GB')
+                  : new Date().toLocaleDateString('en-GB')}
+              </span>
             </div>
             <div className="header-field">
               <span className="field-label">Order No :</span>
-              <span className="field-value">{transformer.uniqueId}</span>
+              <span className="field-value">{(transformer as any).jobId || (transformer as any).uniqueId}</span>
             </div>
             <div className="header-field">
               <span className="field-label">Client :</span>
-              <span className="field-value">N/A</span>
+              <span className="field-value">{(transformer as any).clientName || 'N/A'}</span>
             </div>
             <div className="header-field">
               <span className="field-label">Unit No :</span>
@@ -919,6 +1057,40 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
           Secondary Winding Verification - {coreId}
         </div>
 
+        {/* Testing Record Table */}
+        <div className="mt-4 border-[1.5px] border-black">
+          <div className="bg-gray-100 p-1 text-center font-bold text-xs border-b-[1.5px] border-black uppercase">
+            Testing Record of Current Transformer
+          </div>
+          <table className="w-full text-[11px] border-collapse">
+            <tbody>
+              <tr>
+                <td className="border-b border-black p-1.5" colSpan={2}>
+                  <p><span className="font-bold italic">Specification :</span> {(transformer as any).voltageRating || '33'} KV {(transformer as any).clientName || 'N/A'}</p>
+                </td>
+              </tr>
+              <tr>
+                <td className="border-b border-black p-1.5" colSpan={2}>
+                  <p><span className="font-bold italic">CT Ratio :</span> {dynamicRatios.join('-')} / {(transformer as any).ratedSecondaryCurrent || '1'} A</p>
+                </td>
+              </tr>
+              <tr>
+                <td className="border-r border-b border-black p-1.5 w-1/2">
+                  <p><span className="font-bold italic">Burden :</span> {(transformer as any).burden || '30'} VA</p>
+                </td>
+                <td className="border-b border-black p-1.5 w-1/2">
+                  <p><span className="font-bold italic">Class :</span> {accuracyClass || 'PS'}</p>
+                </td>
+              </tr>
+              <tr>
+                <td className="p-1.5" colSpan={2}>
+                  <p><span className="font-bold italic">STC :</span> {(transformer as any).stc || 'N/A'}</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
         <div className="mt-4">
 
           <div className="overflow-x-auto">
@@ -929,6 +1101,7 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
                   <th className="w-[120px]" rowSpan={2}>Turn Ratio Error at 100%</th>
                   <th className="w-[100px]" rowSpan={2}>Resistance (Ω)</th>
                   <th className="text-center" colSpan={3}>Excitation Current Details</th>
+                  <th className="w-[100px] text-center" rowSpan={2}>Result</th>
                 </tr>
                 <tr className="bg-yellow">
                   <th className="text-center w-[180px]">Vk / 1.1Vk (V)</th>
@@ -945,7 +1118,10 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
                       </td>
                       <td className="border border-gray-400 p-0" rowSpan={2}>
                         <Input
-                          className="border-none text-center h-16 shadow-none text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
+                          className={`border-none text-center h-16 shadow-none font-bold disabled:opacity-100 disabled:cursor-not-allowed ${row.turnRatioError && !isNaN(parseFloat(row.turnRatioError)) && !(parseFloat(row.turnRatioError) > -(psLimit?.psRatioErrorLimit ?? 0.25) && parseFloat(row.turnRatioError) < (psLimit?.psRatioErrorLimit ?? 0.25))
+                            ? 'text-red-700'
+                            : 'text-blue-800'
+                            }`}
                           value={row.turnRatioError}
                           onChange={e => handleUpdate(i, 'turnRatioError', e.target.value)}
                           disabled={readOnly}
@@ -972,7 +1148,10 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
                       </td>
                       <td className="border border-gray-400 p-0" rowSpan={2}>
                         <Input
-                          className="border-none text-center h-16 shadow-none text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
+                          className={`border-none text-center h-16 shadow-none font-bold disabled:opacity-100 disabled:cursor-not-allowed ${row.iexVk && row.iex11Vk && !isNaN(parseFloat(row.iexVk)) && !isNaN(parseFloat(row.iex11Vk)) && !((parseFloat(row.iexVk) * (psLimit?.psExcitationMultiplier ?? 1.5)) > parseFloat(row.iex11Vk))
+                            ? 'text-red-700'
+                            : 'text-blue-800'
+                            }`}
                           value={row.iexVk}
                           onChange={e => handleUpdate(i, 'iexVk', e.target.value)}
                           disabled={readOnly}
@@ -980,11 +1159,25 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
                       </td>
                       <td className="border border-gray-400 p-0" rowSpan={2}>
                         <Input
-                          className="border-none text-center h-16 shadow-none text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
+                          className={`border-none text-center h-16 shadow-none font-bold disabled:opacity-100 disabled:cursor-not-allowed ${row.iexVk && row.iex11Vk && !isNaN(parseFloat(row.iexVk)) && !isNaN(parseFloat(row.iex11Vk)) && !((parseFloat(row.iexVk) * (psLimit?.psExcitationMultiplier ?? 1.5)) > parseFloat(row.iex11Vk))
+                            ? 'text-red-700'
+                            : 'text-blue-800'
+                            }`}
                           value={row.iex11Vk}
                           onChange={e => handleUpdate(i, 'iex11Vk', e.target.value)}
                           disabled={readOnly}
                         />
+                      </td>
+                      <td className="border border-gray-400 p-1 bg-white text-center align-middle font-bold" rowSpan={2}>
+                        {(() => {
+                          const status = calculateRowStatus(row);
+                          if (status === null) return <span className="text-gray-400">-</span>;
+                          return status ? (
+                            <span className="text-green-600 bg-green-50 px-2 py-1 rounded inline-flex items-center gap-1"><span className="text-green-600">✅</span> PASS</span>
+                          ) : (
+                            <span className="text-red-600 bg-red-50 px-2 py-1 rounded inline-flex items-center gap-1"><span className="text-red-600">❌</span> FAIL</span>
+                          );
+                        })()}
                       </td>
                     </tr>
                     <tr className="border-b border-gray-400">
@@ -1020,9 +1213,10 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
         </div>
       </div>
 
+      {/* Render redundant save button at bottom if needed, or remove it since it's at the top. We'll leave it for convenience. */}
       <div className="flex gap-3 no-print pt-4">
         {!readOnly && (
-          <Button onClick={handleDatabaseSave} variant="outline" size="sm" className="gap-2">
+          <Button onClick={handleDatabaseSave} variant="outline" size="sm" className="gap-2" disabled={hasFailures}>
             <Save className="w-4 h-4" /> Save
           </Button>
         )}

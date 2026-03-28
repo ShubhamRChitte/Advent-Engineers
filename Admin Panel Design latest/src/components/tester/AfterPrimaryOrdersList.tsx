@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { PlayCircle, Eye } from 'lucide-react';
+import { Input } from '../ui/input';
+import { PlayCircle, Search } from 'lucide-react';
 import axios from 'axios';
 
 interface Order {
@@ -20,11 +21,14 @@ interface Order {
 
 interface AfterPrimaryOrdersListProps {
   onStartTesting: (order: Order) => void;
+  onViewReports?: (order: Order) => void;
 }
 
 export function AfterPrimaryOrdersList({ onStartTesting }: AfterPrimaryOrdersListProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
   useEffect(() => {
     fetchOrders();
@@ -63,37 +67,83 @@ export function AfterPrimaryOrdersList({ onStartTesting }: AfterPrimaryOrdersLis
     }
   };
 
+  const filteredOrders = orders.filter((order) => {
+    const q = searchQuery.toLowerCase().trim();
+    const status = order.status || '';
+
+    let matchesSearch = true;
+    if (q) {
+      const normalJobId = (order.jobId || '').toLowerCase().replace(/\s+/g, '');
+      const normalQuery = q.replace(/\s+/g, '');
+
+      const extractedJobMatch = q.match(/job-?\d{4}-?\d{1,4}/i)?.[0];
+      const isTransformerSearch = q.startsWith('tr-') && q.includes(normalJobId);
+
+      const jobMatch = normalJobId.includes(normalQuery) ||
+        (normalQuery.length > 5 && normalJobId.length > 0 && normalQuery.includes(normalJobId)) ||
+        (extractedJobMatch && normalJobId.includes(extractedJobMatch.toLowerCase().replace(/\s+/g, '')));
+
+      matchesSearch = jobMatch || isTransformerSearch || (order.clientName || '').toLowerCase().includes(q);
+    }
+
+    if (selectedStatus === 'all') return matchesSearch;
+    if (selectedStatus === 'assigned') return matchesSearch && status === 'assigned';
+    if (selectedStatus === 'in-testing') return matchesSearch && status === 'in-testing';
+    if (selectedStatus === 'completed') return matchesSearch && status === 'completed';
+    return matchesSearch && status === selectedStatus;
+  });
+
+  const statusCounts = {
+    all: orders.length,
+    assigned: orders.filter((o) => (o.status || '') === 'assigned').length,
+    inTesting: orders.filter((o) => (o.status || '') === 'in-testing').length,
+    completed: orders.filter((o) => (o.status || '') === 'completed').length,
+  };
+
   if (loading) {
     return <div className="p-8 text-center text-gray-500">Loading assigned orders...</div>;
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2>Assigned Orders</h2>
-        <p className="text-gray-500 mt-1">View and start after primary testing on assigned orders</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2>Assigned Orders</h2>
+          <p className="text-gray-500 mt-1">View and start after primary testing on assigned orders</p>
+        </div>
       </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4 bg-blue-50 border-blue-200">
-          <p className="text-sm text-blue-600">Assigned Orders</p>
-          <p className="text-2xl mt-1 text-blue-700">
-            {orders.length}
-          </p>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-300 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedStatus('all')}>
+          <p className="text-sm text-gray-600">All Orders</p>
+          <p className="text-2xl font-bold text-blue-700 mt-1">{statusCounts.all}</p>
         </Card>
-        <Card className="p-4 bg-yellow-50 border-yellow-200">
-          <p className="text-sm text-yellow-600">Total Transformers</p>
-          <p className="text-2xl mt-1 text-yellow-700">
-            {orders.reduce((acc, o) => acc + (o.assignedUnitIds?.length || o.quantity || o.transformerQuantity || 0), 0)}
-          </p>
+        <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-300 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedStatus('assigned')}>
+          <p className="text-sm text-gray-600">Assigned</p>
+          <p className="text-2xl font-bold text-blue-700 mt-1">{statusCounts.assigned}</p>
         </Card>
-        {/* <Card className="p-4 bg-green-50 border-green-200">
-          <p className="text-sm text-green-600">Completed</p>
-          <p className="text-2xl mt-1 text-green-700">
-            0
-          </p>
-        </Card> */}
+        <Card className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-300 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedStatus('in-testing')}>
+          <p className="text-sm text-gray-600">In Testing</p>
+          <p className="text-2xl font-bold text-purple-700 mt-1">{statusCounts.inTesting}</p>
+        </Card>
+        <Card className="p-4 bg-gradient-to-br from-green-50 to-green-100 border-green-300 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedStatus('completed')}>
+          <p className="text-sm text-gray-600">Completed</p>
+          <p className="text-2xl font-bold text-green-700 mt-1">{statusCounts.completed}</p>
+        </Card>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <Input
+            placeholder="Search by Job ID or Transformer ID..."
+            className="pl-9 w-full bg-white shadow-sm"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* Orders Table */}
@@ -112,8 +162,8 @@ export function AfterPrimaryOrdersList({ onStartTesting }: AfterPrimaryOrdersLis
               </tr>
             </thead>
             <tbody>
-              {orders.length > 0 ? (
-                orders.map((order) => {
+              {filteredOrders.length > 0 ? (
+                filteredOrders.map((order) => {
                   const totalQty = order.quantity || order.transformerQuantity || 0;
                   const assignedQty = order.assignedUnitIds ? order.assignedUnitIds.length : totalQty;
 
@@ -138,7 +188,7 @@ export function AfterPrimaryOrdersList({ onStartTesting }: AfterPrimaryOrdersLis
                         </Badge>
                       </td>
                       <td className="p-4">
-                        <div className="flex gap-2 justify-center">
+                        <div className="flex justify-center gap-2">
                           <Button
                             size="sm"
                             onClick={() => onStartTesting(order)}

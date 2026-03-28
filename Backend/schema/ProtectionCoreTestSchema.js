@@ -63,7 +63,8 @@ const ProtectionCoreTestSchema = new Schema({
   ],
 
   testedBy: String,
-  authorisedBy: String
+  authorisedBy: String,
+  reportDate: { type: Date }
 
 }, { timestamps: true });
 

@@ -3,18 +3,21 @@ import { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Printer, ArrowLeft, Save } from 'lucide-react';
-import { AfterPrimaryTransformer } from './AfterPrimaryTransformersList';
+import { Transformer } from './AfterPrimaryTransformersList';
 import { toast } from 'sonner';
+import { AlertTriangle } from 'lucide-react';
 
+import { extractAccuracyClass, getInitialData, validateMeteringUI } from '../../utils/meteringUtils';
 
 interface CoreConfig {
   coreNumber: number;
   coreType: 'metering' | 'ps' | 'protection';
   coreId: string;
+  accuracyClass?: string | undefined;
 }
 
 interface AfterPrimaryMeteringReportProps {
-  transformer: AfterPrimaryTransformer;
+  transformer: Transformer;
   core: CoreConfig; // Changed to full core object to access ID and Number
   testerName: string;
   onBack: () => void;
@@ -31,12 +34,27 @@ export function AfterPrimaryMeteringReport({
   // Use ratios from transformer, fallback to defaults if missing (shouldn't happen with update)
   const dynamicRatios = transformer.ratios && transformer.ratios.length > 0 ? transformer.ratios : ['200/1'];
 
+  const [dbLimits, setDbLimits] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchLimits = async () => {
+      try {
+        const response = await axios.get('http://localhost:3002/api/accuracy-limits/metering', { withCredentials: true });
+        setDbLimits(response.data);
+      } catch (error) {
+        console.error('Failed to fetch dynamic metering limits', error);
+      }
+    };
+    fetchLimits();
+  }, []);
+
   // State management: Map Ratio -> Array of Rows
   const [dataByRatio, setDataByRatio] = useState<{ [ratio: string]: any[] }>(() => {
     // 1️⃣ Initialize with Defaults first
     const initial: { [ratio: string]: any[] } = {};
-    dynamicRatios.forEach(ratio => {
-      initial[ratio] = getInitialData('', '', '', '');
+    const accClass = extractAccuracyClass(core.accuracyClass);
+    dynamicRatios.forEach((ratio: string) => {
+      initial[ratio] = getInitialData(accClass);
     });
 
     // 2️⃣ Attempt to sync with prop if it has history (Fast Load)
@@ -72,10 +90,26 @@ export function AfterPrimaryMeteringReport({
 
           setDataByRatio(prev => {
             const newState = { ...prev };
+            const accClass = extractAccuracyClass(core.accuracyClass);
+
             myResults.forEach((block: any) => {
+              // Apply validation to restored rows
+              const validatedRows = block.rows.map((row: any) => {
+                const rowCopy = { ...row };
+                const v100 = validateMeteringUI(accClass, rowCopy.current, rowCopy.r100, rowCopy.p100, dbLimits);
+                rowCopy.r100_pass = v100.isPass;
+                rowCopy.r100_reason = v100.reason;
+
+                const v25 = validateMeteringUI(accClass, rowCopy.current, rowCopy.r25, rowCopy.p25, dbLimits);
+                rowCopy.r25_pass = v25.isPass;
+                rowCopy.r25_reason = v25.reason;
+
+                return rowCopy;
+              });
+
               // Only update if we have this ratio in our current config
               if (newState[block.ratioValue]) {
-                newState[block.ratioValue] = block.rows;
+                newState[block.ratioValue] = validatedRows;
               }
             });
             return newState;
@@ -87,21 +121,34 @@ export function AfterPrimaryMeteringReport({
     };
 
     fetchLatestData();
-  }, [transformer.uniqueId, core.coreId]);
+  }, [transformer.uniqueId, core.coreId, dbLimits]);
 
   const updateTableData = (ratio: string, index: number, field: string, value: string) => {
     setDataByRatio(prev => {
       const rows = prev[ratio] || [];
       const currentRows = [...rows];
-      currentRows[index] = { ...currentRows[index], [field]: value };
+      const updatedRow = { ...currentRows[index], [field]: value };
+
+      const accClass = extractAccuracyClass(core.accuracyClass);
+
+      const v100 = validateMeteringUI(accClass, updatedRow.current, updatedRow.r100, updatedRow.p100, dbLimits);
+      updatedRow.r100_pass = v100.isPass;
+      updatedRow.r100_reason = v100.reason;
+
+      const v25 = validateMeteringUI(accClass, updatedRow.current, updatedRow.r25, updatedRow.p25, dbLimits);
+      updatedRow.r25_pass = v25.isPass;
+      updatedRow.r25_reason = v25.reason;
+
+      currentRows[index] = updatedRow;
       return { ...prev, [ratio]: currentRows };
     });
   };
 
   const buildMeteringResults = () => {
-    return dynamicRatios.map(ratio => ({
+    return dynamicRatios.map((ratio: string) => ({
       internalCoreNo: core.coreId,
       ratioValue: ratio,
+      accuracyClass: extractAccuracyClass(core.accuracyClass),
       rows: dataByRatio[ratio] || []
     }));
   };
@@ -134,6 +181,41 @@ export function AfterPrimaryMeteringReport({
       toast.error("Failed to save data.");
     }
   };
+
+  const handleMarkAsFailed = async () => {
+    let reasons: string[] = [];
+    dynamicRatios.forEach((ratio: string) => {
+      const rows = dataByRatio[ratio] || [];
+      rows.forEach(row => {
+        if (row.r100_pass === false && row.r100_reason && !reasons.includes(row.r100_reason)) reasons.push(row.r100_reason);
+        if (row.r25_pass === false && row.r25_reason && !reasons.includes(row.r25_reason)) reasons.push(row.r25_reason);
+      });
+    });
+
+    const finalReason = reasons.length > 0 ? reasons.join(' | ') : "Test readings exceeded configuration limits.";
+
+    try {
+      await handleDatabaseSave();
+
+      const payload = {
+        orderId: (transformer as any).orderId?._id || (transformer as any).orderId || (transformer as any)._id,
+        internalCoreNo: core.coreId,
+        failureReason: finalReason,
+        failureStage: "primary_metering_test",
+        dynamicValues: dataByRatio
+      };
+      await axios.post('http://localhost:3002/api/failed-cores', payload, { withCredentials: true });
+      toast.success("Core marked as failed successfully.");
+    } catch (error: any) {
+      console.error("Mark as failed error:", error);
+      toast.error(error.response?.data?.message || "Error adding to failed cores");
+    }
+  };
+
+  const hasAnyFailures = dynamicRatios.some((ratio: string) => {
+    const rows = dataByRatio[ratio] || [];
+    return rows.some((row: any) => row.r100_pass === false || row.r25_pass === false);
+  });
 
   return (
     <div className="space-y-6">
@@ -292,7 +374,12 @@ export function AfterPrimaryMeteringReport({
           <ArrowLeft className="w-4 h-4" /> Back
         </Button>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2">
+          {hasAnyFailures && (
+            <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
+              <AlertTriangle className="w-4 h-4" /> Add to Failed Cores
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2" disabled={hasAnyFailures}>
             <Save className="w-4 h-4" /> Save
           </Button>
           <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
@@ -310,7 +397,11 @@ export function AfterPrimaryMeteringReport({
           <div className="header-right">
             <div className="header-field">
               <span className="field-label">Date :</span>
-              <span className="field-value">{new Date().toLocaleDateString('en-GB')}</span>
+              <span className="field-value">
+                {transformer.testHistory?.primary_test?.reportDate
+                  ? new Date(transformer.testHistory.primary_test.reportDate).toLocaleDateString('en-GB')
+                  : new Date().toLocaleDateString('en-GB')}
+              </span>
             </div>
             <div className="header-field">
               <span className="field-label">Order No :</span>
@@ -318,11 +409,15 @@ export function AfterPrimaryMeteringReport({
             </div>
             <div className="header-field">
               <span className="field-label">Client :</span>
-              <span className="field-value">N/A</span>
+              <span className="field-value">{transformer.clientName || 'N/A'}</span>
             </div>
             <div className="header-field">
               <span className="field-label">Unit No :</span>
               <span className="field-value">{transformer.uniqueId}</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Class :</span>
+              <span className="field-value">{core.accuracyClass || '0.5'}</span>
             </div>
           </div>
         </div>
@@ -335,9 +430,43 @@ export function AfterPrimaryMeteringReport({
           Primary Verification - {core.coreId}
         </div>
 
+        {/* Testing Record Table */}
+        <div className="mt-4 border-[1.5px] border-black text-black">
+          <div className="bg-gray-100 p-1 text-center font-bold text-xs border-b-[1.5px] border-black uppercase">
+            Testing Record of Current Transformer
+          </div>
+          <table className="w-full text-[11px] border-collapse">
+            <tbody>
+              <tr>
+                <td className="border-b border-black p-1.5" colSpan={2}>
+                  <p><span className="font-bold italic">Specification :</span> {transformer.voltageRating || '33'} KV {transformer.clientName || 'N/A'}</p>
+                </td>
+              </tr>
+              <tr>
+                <td className="border-b border-black p-1.5" colSpan={2}>
+                  <p><span className="font-bold italic">CT Ratio :</span> {dynamicRatios.join('-')} / {transformer.ratedSecondaryCurrent || '1'} A</p>
+                </td>
+              </tr>
+              <tr>
+                <td className="border-r border-b border-black p-1.5 w-1/2">
+                  <p><span className="font-bold italic">Burden :</span> {transformer.burden || '30'} VA</p>
+                </td>
+                <td className="border-b border-black p-1.5 w-1/2">
+                  <p><span className="font-bold italic">Class :</span> {core.accuracyClass || '0.5'}</p>
+                </td>
+              </tr>
+              <tr>
+                <td className="p-1.5" colSpan={2}>
+                  <p><span className="font-bold italic">STC :</span> {transformer.stc || 'N/A'}</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
         <div className="mt-4">
           <div className="space-y-10">
-            {dynamicRatios.map((ratio) => (
+            {dynamicRatios.map((ratio: string) => (
               <MeteringTable
                 key={ratio}
                 ratio={ratio}
@@ -395,19 +524,19 @@ function MeteringTable({ ratio, rows, onUpdate }: { ratio: string, rows: any[], 
             <tr key={idx}>
               <td className="bg-gray-50">{row.current}</td>
               <td className="p-1">
-                <Input className="h-7 text-xs text-center border-none shadow-none focus-visible:ring-0"
+                <Input className={`h-7 text-xs text-center border-none shadow-none focus-visible:ring-0 bg-transparent ${row.r100_pass === false ? 'text-red-700 font-bold' : ''}`}
                   value={row.r100} onChange={(e) => onUpdate(idx, 'r100', e.target.value)} />
               </td>
               <td className="p-1">
-                <Input className="h-7 text-xs text-center border-none shadow-none focus-visible:ring-0"
+                <Input className={`h-7 text-xs text-center border-none shadow-none focus-visible:ring-0 bg-transparent ${row.r100_pass === false ? 'text-red-700 font-bold' : ''}`}
                   value={row.p100} onChange={(e) => onUpdate(idx, 'p100', e.target.value)} />
               </td>
               <td className="p-1">
-                <Input className="h-7 text-xs text-center border-none shadow-none focus-visible:ring-0"
+                <Input className={`h-7 text-xs text-center border-none shadow-none focus-visible:ring-0 bg-transparent ${row.r25_pass === false ? 'text-red-700 font-bold' : ''}`}
                   value={row.r25} onChange={(e) => onUpdate(idx, 'r25', e.target.value)} />
               </td>
               <td className="p-1">
-                <Input className="h-7 text-xs text-center border-none shadow-none focus-visible:ring-0"
+                <Input className={`h-7 text-xs text-center border-none shadow-none focus-visible:ring-0 bg-transparent ${row.r25_pass === false ? 'text-red-700 font-bold' : ''}`}
                   value={row.p25} onChange={(e) => onUpdate(idx, 'p25', e.target.value)} />
               </td>
             </tr>
@@ -418,12 +547,3 @@ function MeteringTable({ ratio, rows, onUpdate }: { ratio: string, rows: any[], 
   );
 }
 
-function getInitialData(r100: string, p100: string, r25: string, p25: string) {
-  return [
-    { current: '120%', r100, p100, r25, p25 },
-    { current: '100%', r100, p100, r25, p25 },
-    { current: '20%', r100, p100, r25, p25 },
-    { current: '5%', r100, p100, r25, p25 },
-    { current: '1%', r100, p100, r25, p25 },
-  ];
-}

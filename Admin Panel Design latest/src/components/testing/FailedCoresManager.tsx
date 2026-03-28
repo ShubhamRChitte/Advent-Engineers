@@ -274,6 +274,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                     <th className="p-2 text-left font-medium">Core Type</th>
                     <th className="p-2 text-left font-medium">Internal Core No</th>
                     <th className="p-2 text-left font-medium">Vendor No</th>
+                    <th className="p-2 text-left font-medium">Failure Stage</th>
                     <th className="p-2 text-left font-medium">Failure Reason</th>
                     <th className="p-2 text-left font-medium">Status</th>
                     <th className="p-2 text-left font-medium">Actions</th>
@@ -299,11 +300,20 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                       <td className="p-2">{String(core.coreType || '')}</td>
                       <td className="p-2 font-mono font-medium text-red-700">{String(core.internalCoreNo || '')}</td>
                       <td className="p-2">{String(core.coreVendorNo || core.vendorCoreNo || '')}</td>
+                      <td className="p-2 whitespace-nowrap text-xs font-semibold text-gray-700">{String(core.failureStage || '').replace(/_/g, ' ').toUpperCase()}</td>
                       <td className="p-2 text-xs text-red-600">{String(core.failureReason || '')}</td>
                       <td className="p-2">
                         {(core as any).status === "RETURNED" ? (
                           <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
                             🔄 RETURNED
+                          </span>
+                        ) : (core as any).adminApprovalStatus === "PENDING" ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                            ⏳ REVIEW PENDING
+                          </span>
+                        ) : ((core as any).adminApprovalStatus === "APPROVED" || (core as any).status === "RETEST_APPROVED" || (core as any).retestStatus === "PENDING") ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                            🔄 RETESTING
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
@@ -312,7 +322,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                         )}
                       </td>
                       <td className="p-2 flex gap-2">
-                        {(core as any).status !== "RETURNED" && (
+                        {(core as any).status !== "RETURNED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING" && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -377,6 +387,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                           <th className="p-2 text-left font-medium">Client</th>
                           <th className="p-2 text-left font-medium">Core Type</th>
                           <th className="p-2 text-left font-medium">Internal Core No</th>
+                          <th className="p-2 text-left font-medium">Failure Stage</th>
                           <th className="p-2 text-left font-medium">Failure Reason</th>
                           <th className="p-2 text-left font-medium">Status</th>
                           <th className="p-2 text-left font-medium">Actions</th>
@@ -401,11 +412,20 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                             <td className="p-2">{String(core.clientName || '')}</td>
                             <td className="p-2">{String(core.coreType || '')}</td>
                             <td className="p-2 font-mono font-medium text-red-700">{String(core.internalCoreNo || '')}</td>
+                            <td className="p-2 whitespace-nowrap text-xs font-semibold text-gray-700">{String(core.failureStage || '').replace(/_/g, ' ').toUpperCase()}</td>
                             <td className="p-2 text-xs text-red-600">{String(core.failureReason || '')}</td>
                             <td className="p-2">
                               {(core as any).status === "RETURNED" ? (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
                                   🔄 RETURNED
+                                </span>
+                              ) : (core as any).adminApprovalStatus === "PENDING" ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                  ⏳ REVIEW PENDING
+                                </span>
+                              ) : ((core as any).adminApprovalStatus === "APPROVED" || (core as any).status === "RETEST_APPROVED" || (core as any).retestStatus === "PENDING") ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                  🔄 RETESTING
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
@@ -414,7 +434,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                               )}
                             </td>
                             <td className="p-2 flex gap-2">
-                              {(core as any).status !== "RETURNED" && (
+                              {(core as any).status !== "RETURNED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING" && (
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -477,6 +497,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                           <th className="p-2 text-left font-medium">Core Type</th>
                           <th className="p-2 text-left font-medium">Internal Core No</th>
                           <th className="p-2 text-left font-medium">Vendor No</th>
+                          <th className="p-2 text-left font-medium">Failure Stage</th>
                           <th className="p-2 text-left font-medium">Failure Reason</th>
                           <th className="p-2 text-left font-medium">Test Values</th>
                           <th className="p-2 text-left font-medium">Status</th>
@@ -500,6 +521,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                             <td className="p-2">{String(core.coreType || '')}</td>
                             <td className="p-2 font-mono font-medium text-red-700">{String(core.internalCoreNo || '')}</td>
                             <td className="p-2">{String(core.coreVendorNo || core.vendorCoreNo || '')}</td>
+                            <td className="p-2 whitespace-nowrap text-xs font-semibold text-gray-700">{String(core.failureStage || '').replace(/_/g, ' ').toUpperCase()}</td>
                             <td className="p-2 text-xs text-red-600">{String(core.failureReason || '')}</td>
                             <td className="p-2 text-xs">
                               <span className="font-mono">
@@ -511,6 +533,14 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
                                   🔄 RETURNED
                                 </span>
+                              ) : (core as any).adminApprovalStatus === "PENDING" ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                  ⏳ REVIEW PENDING
+                                </span>
+                              ) : ((core as any).adminApprovalStatus === "APPROVED" || (core as any).status === "RETEST_APPROVED" || (core as any).retestStatus === "PENDING") ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                  🔄 RETESTING
+                                </span>
                               ) : (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
                                   ❌ FAILED
@@ -518,7 +548,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                               )}
                             </td>
                             <td className="p-2 flex gap-2">
-                              {(core as any).status !== "RETURNED" && (
+                              {(core as any).status !== "RETURNED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING" && (
                                 <Button
                                   variant="outline"
                                   size="sm"

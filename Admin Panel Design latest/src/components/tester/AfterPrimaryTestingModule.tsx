@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AfterPrimaryOrdersList } from './AfterPrimaryOrdersList';
-import { AfterPrimaryTransformersList, AfterPrimaryTransformer } from './AfterPrimaryTransformersList';
+import { AfterPrimaryTransformersList, Transformer as AfterPrimaryTransformer } from './AfterPrimaryTransformersList';
 import { AfterPrimaryCoreSelection } from './AfterPrimaryCoreSelection';
 import { AfterPrimaryMeteringReport } from './AfterPrimaryMeteringReport';
 import { AfterPrimaryPSReport } from './AfterPrimaryPSReport';
@@ -30,9 +30,12 @@ interface CoreConfig {
   coreNumber: number;
   coreType: 'metering' | 'ps' | 'protection';
   coreId: string;
+  accuracyClass?: string | undefined;
 }
 
-type ViewType = 'orders' | 'transformers' | 'cores' | 'report';
+import { OrderReportsView } from '../entry/OrderReportsView';
+
+type ViewType = 'orders' | 'transformers' | 'cores' | 'report' | 'order-reports';
 
 interface AfterPrimaryTestingModuleProps {
   userName?: string;
@@ -47,6 +50,11 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
   const handleStartTesting = (order: any) => {
     setSelectedOrder(order);
     setCurrentView('transformers');
+  };
+
+  const handleViewReports = (order: Order) => {
+    setSelectedOrder(order);
+    setCurrentView('order-reports');
   };
 
   const handleStartTest = (transformer: AfterPrimaryTransformer) => {
@@ -79,14 +87,27 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
 
   // Orders List View
   if (currentView === 'orders') {
-    return <AfterPrimaryOrdersList onStartTesting={handleStartTesting} />;
+    return <AfterPrimaryOrdersList onStartTesting={handleStartTesting} onViewReports={handleViewReports} />;
+  }
+
+  // Reports View
+  if (currentView === 'order-reports' && selectedOrder) {
+    return (
+      <div className="bg-white p-6 rounded-lg shadow-sm">
+        <OrderReportsView
+          order={selectedOrder}
+          clientName={selectedOrder.clientName || 'Unknown'}
+          onBack={handleBackToOrders}
+        />
+      </div>
+    );
   }
 
   // Transformers List View
   if (currentView === 'transformers' && selectedOrder) {
     return (
       <AfterPrimaryTransformersList
-        order={selectedOrder}
+        order={selectedOrder as any}
         onStartTest={handleStartTest}
         onBack={handleBackToOrders}
       />
@@ -98,7 +119,7 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
     return (
       <AfterPrimaryCoreSelection
         transformer={selectedTransformer}
-        order={selectedOrder}
+        order={selectedOrder as any}
         onSelectCore={handleSelectCore}
         onBack={handleBackToTransformers}
       />
@@ -145,5 +166,5 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
   }
 
   // Default fallback
-  return <AfterPrimaryOrdersList onStartTesting={handleStartTesting} />;
+  return <AfterPrimaryOrdersList onStartTesting={handleStartTesting} onViewReports={handleViewReports} />;
 }
