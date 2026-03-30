@@ -5,6 +5,7 @@ import { Save, ArrowLeft, Loader2 } from 'lucide-react';
 import { Card } from '../ui/card';
 import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { TimePicker24h } from '../ui/time-picker-24h';
 
 // ─── Type Definitions ──────────────────────────────────────────────────────────
 
@@ -37,10 +38,10 @@ interface HeatingRecord11KVCTProps {
   records: HeatingRecordBlock[];
   saving: boolean;
   onBack: () => void;
-  onAddBlock: () => void;
   onSave: () => void;
   onUpdateProcessStep: (blockId: string, stepIndex: number, field: keyof ProcessStep, value: string) => void;
   onUpdateBlockField: (blockId: string, field: keyof HeatingRecordBlock, value: string) => void;
+  readOnly?: boolean | undefined;
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
@@ -114,16 +115,15 @@ function TableHeader() {
     </thead>
   );
 }
-
 interface GroupBlockProps {
   block: HeatingRecordBlock;
-  blockIndex: number; // kept for fallback display only
   onUpdateProcessStep: (blockId: string, stepIndex: number, field: keyof ProcessStep, value: string) => void;
   onUpdateBlockField: (blockId: string, field: keyof HeatingRecordBlock, value: string) => void;
+  readOnly?: boolean | undefined;
 }
 
 /** A single transformer group: header row + 4 process rows + footer row */
-function GroupBlock({ block, blockIndex, onUpdateProcessStep, onUpdateBlockField }: GroupBlockProps) {
+function GroupBlock({ block, onUpdateProcessStep, onUpdateBlockField, readOnly }: GroupBlockProps) {
   return (
     <React.Fragment>
       {/* ── Group Header Row ──────────────────────────────────────────── */}
@@ -141,8 +141,9 @@ function GroupBlock({ block, blockIndex, onUpdateProcessStep, onUpdateBlockField
           <Input
             value={block.serialNumber || ""}
             onChange={(e) => onUpdateBlockField(block.id, 'serialNumber', e.target.value)}
-            className="h-6 text-sm font-bold text-center border-none shadow-none focus-visible:ring-0 bg-transparent w-full p-0 rounded-none bg-white"
+            className={`h-6 text-sm font-bold text-center border-none shadow-none focus-visible:ring-0 bg-transparent w-full p-0 rounded-none ${readOnly ? 'bg-gray-100' : 'bg-white'}`}
             placeholder="11KV – CT = 1"
+            disabled={readOnly}
           />
         </td>
         {/* "Date- DD-MM-YYYY" on right */}
@@ -153,7 +154,8 @@ function GroupBlock({ block, blockIndex, onUpdateProcessStep, onUpdateBlockField
               type="date"
               value={block.startDate || ""}
               onChange={(e) => onUpdateBlockField(block.id, 'startDate', e.target.value)}
-              className="h-6 text-sm border-none bg-transparent shadow-none focus-visible:ring-0 font-bold w-[120px] text-right p-0 rounded-none bg-white"
+              className={`h-6 text-sm border-none bg-transparent shadow-none focus-visible:ring-0 font-bold w-[120px] text-right p-0 rounded-none ${readOnly ? 'bg-gray-100' : 'bg-white'}`}
+              disabled={readOnly}
             />
           </div>
         </td>
@@ -168,28 +170,32 @@ function GroupBlock({ block, blockIndex, onUpdateProcessStep, onUpdateBlockField
             <td className="border border-black px-1 py-1 text-center align-middle">
               <Input
                 type="text"
-                value={block.leftInputs && block.leftInputs[sIndex * 2] ? block.leftInputs[sIndex * 2].col1 : ''}
+                value={block.leftInputs?.[sIndex * 2]?.col1 || ''}
                 onChange={(e) => {
                   const arr = [...(block.leftInputs || [])];
                   while (arr.length < 8) arr.push({ col1: "", col2: "" });
-                  arr[sIndex * 2] = { ...arr[sIndex * 2], col1: e.target.value };
+                  const current = arr[sIndex * 2] || { col1: "", col2: "" };
+                  arr[sIndex * 2] = { col1: e.target.value, col2: current.col2 || "" };
                   onUpdateBlockField(block.id, 'leftInputs', arr as any);
                 }}
-                className="w-full text-center border-none bg-transparent outline-none shadow-none focus-visible:ring-0 text-xs p-0 rounded-none h-6"
+                className={`w-full text-center border-none bg-transparent outline-none shadow-none focus-visible:ring-0 text-xs p-0 rounded-none h-6 ${readOnly ? 'cursor-default' : ''}`}
+                disabled={readOnly}
               />
             </td>
             {/* LEFT COLUMN INPUT 2 */}
             <td className="border border-black px-1 py-1 text-center align-middle">
               <Input
                 type="text"
-                value={block.leftInputs && block.leftInputs[sIndex * 2] ? block.leftInputs[sIndex * 2].col2 : ''}
+                value={block.leftInputs?.[sIndex * 2]?.col2 || ''}
                 onChange={(e) => {
                   const arr = [...(block.leftInputs || [])];
                   while (arr.length < 8) arr.push({ col1: "", col2: "" });
-                  arr[sIndex * 2] = { ...arr[sIndex * 2], col2: e.target.value };
+                  const current = arr[sIndex * 2] || { col1: "", col2: "" };
+                  arr[sIndex * 2] = { col1: current.col1 || "", col2: e.target.value };
                   onUpdateBlockField(block.id, 'leftInputs', arr as any);
                 }}
-                className="w-full text-center border-none bg-transparent outline-none shadow-none focus-visible:ring-0 text-xs p-0 rounded-none h-6"
+                className={`w-full text-center border-none bg-transparent outline-none shadow-none focus-visible:ring-0 text-xs p-0 rounded-none h-6 ${readOnly ? 'cursor-default' : ''}`}
+                disabled={readOnly}
               />
             </td>
 
@@ -203,7 +209,8 @@ function GroupBlock({ block, blockIndex, onUpdateProcessStep, onUpdateBlockField
               <Input
                 value={step.duration || ""}
                 onChange={(e) => onUpdateProcessStep(block.id, sIndex, 'duration', e.target.value)}
-                className="h-6 text-xs text-center border-none outline-none shadow-none focus-visible:ring-0 bg-transparent w-full p-0 rounded-none"
+                className={`h-6 text-xs text-center border-none outline-none shadow-none focus-visible:ring-0 bg-transparent w-full p-0 rounded-none ${readOnly ? 'cursor-default' : ''}`}
+                disabled={readOnly}
               />
             </td>
 
@@ -232,7 +239,8 @@ function GroupBlock({ block, blockIndex, onUpdateProcessStep, onUpdateBlockField
               <Input
                 value={step.remarks || ""}
                 onChange={(e) => onUpdateProcessStep(block.id, sIndex, 'remarks', e.target.value)}
-                className="h-full min-h-[48px] text-xs border-none outline-none shadow-none focus-visible:ring-0 bg-transparent w-full p-1 rounded-none text-left"
+                className={`h-full min-h-[48px] text-xs border-none outline-none shadow-none focus-visible:ring-0 bg-transparent w-full p-1 rounded-none text-left ${readOnly ? 'cursor-default' : ''}`}
+                disabled={readOnly}
               />
             </td>
           </tr>
@@ -243,48 +251,50 @@ function GroupBlock({ block, blockIndex, onUpdateProcessStep, onUpdateBlockField
             <td className="border border-black px-1 py-1 text-center align-middle">
               <Input
                 type="text"
-                value={block.leftInputs && block.leftInputs[sIndex * 2 + 1] ? block.leftInputs[sIndex * 2 + 1].col1 : ''}
+                value={block.leftInputs?.[sIndex * 2 + 1]?.col1 || ''}
                 onChange={(e) => {
                   const arr = [...(block.leftInputs || [])];
                   while (arr.length < 8) arr.push({ col1: "", col2: "" });
-                  arr[sIndex * 2 + 1] = { ...arr[sIndex * 2 + 1], col1: e.target.value };
+                  const current = arr[sIndex * 2 + 1] || { col1: "", col2: "" };
+                  arr[sIndex * 2 + 1] = { col1: e.target.value, col2: current.col2 || "" };
                   onUpdateBlockField(block.id, 'leftInputs', arr as any);
                 }}
-                className="w-full text-center border-none bg-transparent outline-none shadow-none focus-visible:ring-0 text-xs p-0 rounded-none h-6"
+                className={`w-full text-center border-none bg-transparent outline-none shadow-none focus-visible:ring-0 text-xs p-0 rounded-none h-6 ${readOnly ? 'cursor-default' : ''}`}
+                disabled={readOnly}
               />
             </td>
             {/* LEFT COLUMN INPUT 2 (Time Row) */}
             <td className="border border-black px-1 py-1 text-center align-middle">
               <Input
                 type="text"
-                value={block.leftInputs && block.leftInputs[sIndex * 2 + 1] ? block.leftInputs[sIndex * 2 + 1].col2 : ''}
+                value={block.leftInputs?.[sIndex * 2 + 1]?.col2 || ''}
                 onChange={(e) => {
                   const arr = [...(block.leftInputs || [])];
                   while (arr.length < 8) arr.push({ col1: "", col2: "" });
-                  arr[sIndex * 2 + 1] = { ...arr[sIndex * 2 + 1], col2: e.target.value };
+                  const current = arr[sIndex * 2 + 1] || { col1: "", col2: "" };
+                  arr[sIndex * 2 + 1] = { col1: current.col1 || "", col2: e.target.value };
                   onUpdateBlockField(block.id, 'leftInputs', arr as any);
                 }}
-                className="w-full text-center border-none bg-transparent outline-none shadow-none focus-visible:ring-0 text-xs p-0 rounded-none h-6"
+                className={`w-full text-center border-none bg-transparent outline-none shadow-none focus-visible:ring-0 text-xs p-0 rounded-none h-6 ${readOnly ? 'cursor-default' : ''}`}
+                disabled={readOnly}
               />
             </td>
 
             {/* Date and Time of Start — TIME */}
             <td className="border border-black p-0 align-middle">
-              <Input
-                type="time"
+              <TimePicker24h
                 value={step.startTime || ""}
-                onChange={(e) => onUpdateProcessStep(block.id, sIndex, 'startTime', e.target.value)}
-                className="h-6 text-[12px] text-center border-none outline-none shadow-none focus-visible:ring-0 bg-transparent font-medium w-full p-0 rounded-none"
+                onChange={(val) => onUpdateProcessStep(block.id, sIndex, 'startTime', val)}
+                readOnly={readOnly}
               />
             </td>
 
             {/* Date of Completion and Time — TIME */}
             <td className="border border-black p-0 align-middle">
-              <Input
-                type="time"
+              <TimePicker24h
                 value={step.completionTime || ""}
-                onChange={(e) => onUpdateProcessStep(block.id, sIndex, 'completionTime', e.target.value)}
-                className="h-6 text-[12px] text-center border-none outline-none shadow-none focus-visible:ring-0 bg-transparent font-medium w-full p-0 rounded-none"
+                onChange={(val) => onUpdateProcessStep(block.id, sIndex, 'completionTime', val)}
+                readOnly={readOnly}
               />
             </td>
           </tr>
@@ -352,10 +362,10 @@ export function HeatingRecord11KVCT({
   records,
   saving,
   onBack,
-  onAddBlock, // Kept to satisfy props interface, but unused in body
   onSave,
   onUpdateProcessStep,
   onUpdateBlockField,
+  readOnly
 }: HeatingRecord11KVCTProps) {
 
   // Create empty placeholder block
@@ -473,10 +483,12 @@ export function HeatingRecord11KVCT({
           <Button onClick={() => window.print()} variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
             Print Report
           </Button>
-          <Button onClick={onSave} disabled={saving} className="bg-green-600 hover:bg-green-700 text-white">
-            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Save Records
-          </Button>
+          {!readOnly && (
+            <Button onClick={onSave} disabled={saving} className="bg-green-600 hover:bg-green-700 text-white">
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              Save Records
+            </Button>
+          )}
         </div>
       </div>
 
@@ -496,14 +508,16 @@ export function HeatingRecord11KVCT({
             >
               <TableHeader />
               <tbody>
-                {fixedBlocks.map((block, index) => (
-                  <GroupBlock
-                    key={block.id}
-                    block={block}
-                    blockIndex={0}
-                    onUpdateProcessStep={onUpdateProcessStep}
-                    onUpdateBlockField={onUpdateBlockField}
-                  />
+                {fixedBlocks.map((block) => (
+                  block && (
+                    <GroupBlock
+                      key={block.id}
+                      block={block}
+                      onUpdateProcessStep={onUpdateProcessStep}
+                      onUpdateBlockField={onUpdateBlockField}
+                      readOnly={readOnly}
+                    />
+                  )
                 ))}
               </tbody>
             </table>

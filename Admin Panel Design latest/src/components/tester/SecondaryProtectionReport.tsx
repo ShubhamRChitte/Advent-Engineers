@@ -577,40 +577,25 @@ export function SecondaryProtectionReport({
             size: A4 portrait;
             margin: 10mm;
           }
-          body * {
-            visibility: hidden;
-          }
-          #print-section, #print-section * {
-            visibility: visible;
-          }
           #print-section {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 190mm;
-          }
-          input, select {
-            border: none !important;
-            background: transparent !important;
-            outline: none !important;
-            font-weight: 500 !important;
-            text-align: center !important;
             width: 100% !important;
-            color: black !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
         }
       `}</style>
-      {/* Top Navigation */}
-      <div className="flex items-center justify-between no-print">
-        <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
-          <ArrowLeft className="w-4 h-4" /> Back
-        </Button>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
-            <Printer className="w-4 h-4" /> Print
+      {!readOnly && (
+        <div className="flex items-center justify-between no-print">
+          <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
+            <ArrowLeft className="w-4 h-4" /> Back
           </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
+              <Printer className="w-4 h-4" /> Print
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div id="print-section">
         {/* Header Grid */}
@@ -723,24 +708,36 @@ export function SecondaryProtectionReport({
 
                       {/* COL 3: Ratio Error (was Burden 1) */}
                       <td className="border border-gray-400 p-0 w-[120px]">
-                        <Input
-                          className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full"
-                          value={row.ratioError100}
-                          onChange={(e) => handleInputChange(index, 'ratioError100', e.target.value)}
-                          placeholder=""
-                          disabled={readOnly}
-                        />
+                        {readOnly ? (
+                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
+                            {row.ratioError100 || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full shadow-none"
+                            value={row.ratioError100}
+                            onChange={(e) => handleInputChange(index, 'ratioError100', e.target.value)}
+                            placeholder=""
+                            disabled={readOnly}
+                          />
+                        )}
                       </td>
 
                       {/* COL 4: Phase Error (was Burden 2) */}
                       <td className="border border-gray-400 p-0 w-[120px]">
-                        <Input
-                          className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full"
-                          value={row.phaseError}
-                          onChange={(e) => handleInputChange(index, 'phaseError', e.target.value)}
-                          placeholder=""
-                          disabled={readOnly}
-                        />
+                        {readOnly ? (
+                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
+                            {row.phaseError || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full shadow-none"
+                            value={row.phaseError}
+                            onChange={(e) => handleInputChange(index, 'phaseError', e.target.value)}
+                            placeholder=""
+                            disabled={readOnly}
+                          />
+                        )}
                       </td>
 
                       {/* COL 5 & 6: Empty Cells */}
@@ -772,51 +769,79 @@ export function SecondaryProtectionReport({
                     <tr>
                       {/* Ratio occupied above */}
                       <td className="border border-gray-400 p-0">
-                        <Input
-                          className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
-                          value={row.resistance}
-                          onChange={(e) => handleInputChange(index, 'resistance', e.target.value)}
-                          disabled={readOnly}
-                        />
+                        {readOnly ? (
+                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
+                            {row.resistance || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full shadow-none"
+                            value={row.resistance}
+                            onChange={(e) => handleInputChange(index, 'resistance', e.target.value)}
+                            disabled={readOnly}
+                          />
+                        )}
                       </td>
                       <td className="border border-gray-400 p-0">
-                        {/* ALF Input BOUND TO NEW FIELD */}
-                        <Input
-                          className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
-                          value={row.alf}
-                          onChange={(e) => handleInputChange(index, 'alf', e.target.value)}
-                          placeholder=""
-                          disabled={readOnly}
-                        />
+                        {/* ALF Input */}
+                        {readOnly ? (
+                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
+                            {row.alf || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full shadow-none"
+                            value={row.alf}
+                            onChange={(e) => handleInputChange(index, 'alf', e.target.value)}
+                            placeholder=""
+                            disabled={readOnly}
+                          />
+                        )}
                       </td>
                       <td className="border border-gray-400 p-0">
-                        <Input
-                          className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
-                          value={row.excitationCurrent}
-                          onChange={(e) => handleInputChange(index, 'excitationCurrent', e.target.value)}
-                          disabled={readOnly}
-                        />
+                        {readOnly ? (
+                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
+                            {row.excitationCurrent || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full shadow-none"
+                            value={row.excitationCurrent}
+                            onChange={(e) => handleInputChange(index, 'excitationCurrent', e.target.value)}
+                            disabled={readOnly}
+                          />
+                        )}
                       </td>
                       <td className="border border-gray-400 p-0">
                         {/* MAPPED to secondaryLimitingVoltage */}
-                        <Input
-                          className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50"
-                          value={row.secondaryLimitingVoltage}
-                          // onChange handler removed/ignored since it's auto-calculated
-                          onChange={() => { }}
-                          readOnly={true} // Strictly derived
-                          disabled={readOnly} // Keeps styling consistent if whole form is readOnly
-                        />
+                        {readOnly ? (
+                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center bg-gray-50">
+                            {row.secondaryLimitingVoltage || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50 shadow-none"
+                            value={row.secondaryLimitingVoltage}
+                            onChange={() => { }}
+                            readOnly={true}
+                            disabled={readOnly}
+                          />
+                        )}
                       </td>
                       <td className="border border-gray-400 p-0">
-                        <Input
-                          className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50"
-                          value={row.compositeError}
-                          // onChange handler removed/ignored
-                          onChange={() => { }}
-                          readOnly={true} // Strictly derived
-                          disabled={readOnly}
-                        />
+                        {readOnly ? (
+                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center bg-gray-50">
+                            {row.compositeError || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50 shadow-none"
+                            value={row.compositeError}
+                            onChange={() => { }}
+                            readOnly={true}
+                            disabled={readOnly}
+                          />
+                        )}
                       </td>
                     </tr>
                   </React.Fragment>

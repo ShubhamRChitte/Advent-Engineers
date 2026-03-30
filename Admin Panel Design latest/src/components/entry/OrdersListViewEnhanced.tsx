@@ -43,7 +43,19 @@ interface OrdersListViewEnhancedProps {
 export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrder, _setSelectedOrder] = useState<Order | null>(() => {
+    const saved = localStorage.getItem('selectedOrder');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const setSelectedOrder = (order: Order | null) => {
+    if (order) {
+      localStorage.setItem('selectedOrder', JSON.stringify(order));
+    } else {
+      localStorage.removeItem('selectedOrder');
+    }
+    _setSelectedOrder(order);
+  };
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);

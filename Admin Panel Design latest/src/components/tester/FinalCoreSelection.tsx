@@ -18,7 +18,7 @@ interface Order {
 interface CoreConfig {
   coreNumber: number;
   coreType: 'metering' | 'ps' | 'protection';
-  coreId: string;
+  coreId?: string;
   accuracyClass?: string | undefined;
 }
 
@@ -40,40 +40,8 @@ export function FinalCoreSelection({
   onApprove,
 }: FinalCoreSelectionProps) {
 
-  const checkCoreCompletion = (core: CoreConfig) => {
-    // Safety check for missing coreId
-    if (!core.coreId) return false;
-
-    const finalTest = transformer.testHistory?.final_test || {};
-
-    if (core.coreType === 'metering') {
-      const results = finalTest.metering_results?.filter((r: any) =>
-        r.coreId === core.coreId || r.internalCoreNo === core.coreId
-      );
-      if (!results || results.length === 0) return false;
-      return results.every((res: any) =>
-        Array.isArray(res.rows) && res.rows.every((row: any) =>
-          row.r100 && row.p100 && row.r25 && row.p25
-        )
-      );
-    } else if (core.coreType === 'ps') {
-      const results = finalTest.ps_results?.filter((r: any) =>
-        r.coreId === core.coreId || r.internalCoreNo === core.coreId
-      );
-      if (!results || results.length === 0) return false;
-      return results.every((res: any) =>
-        res.turnRatioError && res.resistance && res.vk && res.iexVk
-      );
-    } else if (core.coreType === 'protection') {
-      const results = finalTest.protection_results?.filter((r: any) =>
-        r.coreId === core.coreId || r.internalCoreNo === core.coreId
-      );
-      if (!results || results.length === 0) return false;
-      return results.every((res: any) =>
-        res.turnRatioError && res.resistance
-      );
-    }
-    return false;
+  const checkCoreCompletion = (_core: CoreConfig) => {
+    return transformer.testHistory?.final_test?.status === 'Completed';
   };
 
   const getCoreTypeColor = (type: string, isComplete: boolean) => {

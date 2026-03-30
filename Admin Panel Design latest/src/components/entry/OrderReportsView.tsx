@@ -14,7 +14,6 @@ import {
   Download,
   Search
 } from 'lucide-react';
-import { TestReportModal } from '../common/TestReportModal';
 import { Input } from '../ui/input';
 
 interface TransformerUnit {
@@ -23,6 +22,7 @@ interface TransformerUnit {
   coreTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
   secondaryTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
   primaryTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
+  heatingStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
   finalTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
   reportStatus: 'Open' | 'In Progress' | 'Pending';
   raw: any;
@@ -37,10 +37,7 @@ interface OrderReportsViewProps {
 export function OrderReportsView({ order, clientName, onBack }: OrderReportsViewProps) {
   const [transformerUnits, setTransformerUnits] = useState<TransformerUnit[]>([]);
 
-  // Modal State
-  const [selectedTransformer, setSelectedTransformer] = useState<any | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedTestType, setSelectedTestType] = useState<'core' | 'secondary' | 'primary' | 'final'>('core');
+  // Modal State removed
 
   useEffect(() => {
     const fetchTransformers = async () => {
@@ -81,17 +78,23 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
           return 'Pending'; // Not reached yet
         };
 
-        const mappedUnits: TransformerUnit[] = response.data.map((t: any) => ({
-          id: t._id,
-          // Use the uniqueId from DB (TR-JOB-...), fallback to constructing it if missing
-          transformerId: t.uniqueId || `TR-${t.jobId || 'UNKNOWN'}-${String(t.internalCoreNo || '').split('-').pop() || '???'}`,
-          coreTestStatus: getStatusForStage('core', t.currentStage, t.testHistory?.core_test?.status),
-          secondaryTestStatus: getStatusForStage('secondary', t.currentStage, t.testHistory?.secondary_test?.status),
-          primaryTestStatus: getStatusForStage('primary', t.currentStage, t.testHistory?.primary_test?.status),
-          finalTestStatus: getStatusForStage('final', t.currentStage, t.testHistory?.final_test?.status),
-          reportStatus: (t.currentStage === 'completed' || t.currentStage === 'shipped') ? 'Open' : 'Pending',
-          raw: t
-        }));
+        const mappedUnits: TransformerUnit[] = response.data.map((t: any) => {
+          // Heating Logic
+          const hasHeating = t.processHistory?.heatingRecord?.length > 0;
+          const heatingStatus = hasHeating ? 'Complete' : (t.currentStage === 'heating' ? 'In Progress' : 'Pending');
+
+          return {
+            id: t._id,
+            transformerId: t.uniqueId || `TR-${t.jobId || 'UNKNOWN'}-${String(t.internalCoreNo || '').split('-').pop() || '???'}`,
+            coreTestStatus: getStatusForStage('core', t.currentStage, t.testHistory?.core_test?.status),
+            secondaryTestStatus: getStatusForStage('secondary', t.currentStage, t.testHistory?.secondary_test?.status),
+            primaryTestStatus: getStatusForStage('primary', t.currentStage, t.testHistory?.primary_test?.status),
+            heatingStatus: heatingStatus as any,
+            finalTestStatus: getStatusForStage('final', t.currentStage, t.testHistory?.final_test?.status),
+            reportStatus: (t.currentStage === 'completed' || t.currentStage === 'shipped') ? 'Open' : 'Pending',
+            raw: t
+          };
+        });
 
         setTransformerUnits(mappedUnits);
       } catch (error: any) {
@@ -114,10 +117,9 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
 
   const [searchQuery, setSearchQuery] = useState('');
 
-  const handleOpenReport = (transformer: Transformer, type: 'core' | 'secondary' | 'primary' | 'final') => {
-    setSelectedTransformer(transformer);
-    setSelectedTestType(type);
-    setModalOpen(true);
+  const handleOpenReport = (transformer: any, type: 'core' | 'secondary' | 'primary' | 'final' | 'heating') => {
+    const id = transformer._id || transformer.id;
+    window.location.href = `/admin/report/${id}?type=${type}`;
   };
 
   const filteredUnits = transformerUnits.filter((unit) => {
@@ -231,8 +233,9 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
               <tr>
                 <th className="text-left p-4 font-medium text-gray-700">Transformer Id ⬆</th>
                 <th className="text-center p-4 font-medium text-gray-700">Core Testing</th>
-                <th className="text-center p-4 font-medium text-gray-700">After Secondary Testing</th>
-                <th className="text-center p-4 font-medium text-gray-700">After Primary Testing</th>
+                <th className="text-center p-4 font-medium text-gray-700">After Secondary</th>
+                <th className="text-center p-4 font-medium text-gray-700">After Primary</th>
+                <th className="text-center p-4 font-medium text-gray-700">After Heating</th>
                 <th className="text-center p-4 font-medium text-gray-700">Final Testing</th>
                 <th className="text-center p-4 font-medium text-gray-700">Report</th>
               </tr>
@@ -244,6 +247,7 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
                   unit.coreTestStatus === 'Complete' &&
                   unit.secondaryTestStatus === 'Complete' &&
                   unit.primaryTestStatus === 'Complete' &&
+                  unit.heatingStatus === 'Complete' &&
                   unit.finalTestStatus === 'Complete';
 
                 return (
@@ -328,6 +332,30 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
                       </div>
                     </td>
 
+                    {/* After Heating Test */}
+                    <td className="p-4">
+                      <div className="flex flex-col items-center gap-2">
+                        <Badge className={`${getStatusColor(unit.heatingStatus)} flex items-center gap-1`}>
+                          {getStatusIcon(unit.heatingStatus)}
+                          {unit.heatingStatus}
+                        </Badge>
+                        {unit.raw?.processHistory?.heatingRecord?.[0]?.preparedBy && unit.heatingStatus === 'Complete' && (
+                          <span className="text-[10px] text-gray-500 font-medium">By: {unit.raw.processHistory.heatingRecord[0].preparedBy}</span>
+                        )}
+                        {unit.heatingStatus === 'Complete' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 gap-1"
+                            onClick={() => handleOpenReport(unit.raw, 'heating')}
+                          >
+                            <FileText className="w-3 h-3" />
+                            View Report
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+
                     {/* Final Test */}
                     <td className="p-4">
                       <div className="flex flex-col items-center gap-2">
@@ -385,18 +413,7 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
         )}
       </Card>
 
-      {/* Report Modal */}
-      {selectedTransformer && (
-        <TestReportModal
-          isOpen={modalOpen}
-          onClose={() => setModalOpen(false)}
-          transformer={{
-            ...selectedTransformer,
-            orderId: order
-          }}
-          testType={selectedTestType}
-        />
-      )}
+      {/* Report Modal removed */}
     </div>
   );
 }

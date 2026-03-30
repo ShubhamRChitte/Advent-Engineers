@@ -395,10 +395,6 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
             <h3 className="mb-4">Order Summary</h3>
             <div className="space-y-4">
               <div>
-                <p className="text-sm text-gray-500">Order ID</p>
-                <p className="font-medium font-mono">{orderData.orderId}</p>
-              </div>
-              <div>
                 <p className="text-sm text-gray-500">Client Name</p>
                 <p className="font-medium">{orderData.clientName}</p>
               </div>

@@ -18,7 +18,14 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
-  const [activeView, setActiveView] = useState('dashboard');
+  const [activeView, _setActiveView] = useState(() => {
+    return localStorage.getItem(`${user.role}_activeView`) || 'dashboard';
+  });
+
+  const setActiveView = (view: string) => {
+    localStorage.setItem(`${user.role}_activeView`, view);
+    _setActiveView(view);
+  };
 
   const renderView = () => {
     switch (activeView) {

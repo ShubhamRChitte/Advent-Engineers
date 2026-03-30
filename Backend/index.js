@@ -281,14 +281,8 @@ const createOrder = async (req, res) => {
       if (req.body.ratio && typeof req.body.ratio === 'string') {
         parsedBody.ratio = JSON.parse(req.body.ratio);
       }
-      if (req.body.metering_core_vendors && typeof req.body.metering_core_vendors === 'string') {
-        parsedBody.metering_core_vendors = JSON.parse(req.body.metering_core_vendors);
-      }
-      if (req.body.protection_core_vendors && typeof req.body.protection_core_vendors === 'string') {
-        parsedBody.protection_core_vendors = JSON.parse(req.body.protection_core_vendors);
-      }
-      if (req.body.ps_core_vendors && typeof req.body.ps_core_vendors === 'string') {
-        parsedBody.ps_core_vendors = JSON.parse(req.body.ps_core_vendors);
+      if (req.body.coreVendors && typeof req.body.coreVendors === 'string') {
+        parsedBody.coreVendors = JSON.parse(req.body.coreVendors);
       }
     } catch (e) {
       console.error("Body parsing error:", e);
@@ -2187,25 +2181,31 @@ app.post("/transformer-primary-metering-tests", async (req, res) => {
       }
     });
 
-    const updateData = {
-      $set: {
-        "testHistory.primary_test.tester": tester,
-        "testHistory.primary_test.metering_results": validatedResults,
-        "testHistory.primary_test.status": "Completed",
-        "testHistory.primary_test.timestamp": new Date()
-      }
-    };
-
-    // Set reportDate only if it doesn't exist
-    if (!transformerDoc.testHistory?.primary_test?.reportDate) {
-      updateData.$set["testHistory.primary_test.reportDate"] = new Date();
+    // Explicitly update fields for merging
+    if (!transformerDoc.testHistory.primary_test) {
+      transformerDoc.testHistory.primary_test = {};
     }
 
-    const transformer = await TransformerModel.findOneAndUpdate(
-      { uniqueId: uniqueId },
-      updateData,
-      { new: true }
+    transformerDoc.testHistory.primary_test.status = "Completed";
+    transformerDoc.testHistory.primary_test.tester = tester;
+    transformerDoc.testHistory.primary_test.timestamp = new Date();
+
+    // Set reportDate only if not already present
+    if (!transformerDoc.testHistory.primary_test.reportDate) {
+      transformerDoc.testHistory.primary_test.reportDate = new Date();
+    }
+
+    // Merge logic: Filter out old results for this coreId/internalCoreNo, then append new ones
+    const newResults = validatedResults;
+    const existingResults = transformerDoc.testHistory.primary_test.metering_results || [];
+    const otherCoresResults = existingResults.filter(r =>
+      r.internalCoreNo !== coreId && r.coreId !== coreId
     );
+
+    transformerDoc.testHistory.primary_test.metering_results = [...otherCoresResults, ...newResults];
+    transformerDoc.markModified('testHistory');
+
+    const transformer = await transformerDoc.save();
 
     if (!transformer) {
       console.log(`[ERROR] Transformer not found for uniqueId: "${uniqueId}"`);
@@ -2273,24 +2273,36 @@ app.post("/transformer-primary-protection-tests", async (req, res) => {
 //primary PS test handle
 app.post("/transformer-primary-ps-tests", async (req, res) => {
   try {
-    const { uniqueId, tester, ps_results } = req.body;
+    const { uniqueId, tester, ps_results, coreId } = req.body;
 
-    // Use $set with dot notation to target the specific test stage
-    const transformer = await TransformerModel.findOneAndUpdate(
-      { uniqueId: uniqueId },
-      {
-        $set: {
-          "testHistory.primary_test.tester": tester,
-          "testHistory.primary_test.ps_results": ps_results,
-          "testHistory.primary_test.status": "Completed",
-          "testHistory.primary_test.timestamp": new Date()
-        },
-        $setOnInsert: {
-          "testHistory.primary_test.reportDate": new Date()
-        }
-      },
-      { new: true, runValidators: true }
+    const transformerDoc = await TransformerModel.findOne({ uniqueId: uniqueId });
+    if (!transformerDoc) {
+      return res.status(404).json({ success: false, message: `Transformer ID [${uniqueId}] not found.` });
+    }
+
+    // Initialize if missing
+    if (!transformerDoc.testHistory.primary_test) transformerDoc.testHistory.primary_test = {};
+
+    transformerDoc.testHistory.primary_test.tester = tester;
+    
+    // Merge logic for PS
+    const newResults = ps_results.map(r => ({ ...r, internalCoreNo: coreId || r.internalCoreNo || r.coreId }));
+    const existingResults = transformerDoc.testHistory.primary_test.ps_results || [];
+    const otherCoresResults = existingResults.filter(r =>
+      r.internalCoreNo !== coreId && r.coreId !== coreId
     );
+    
+    transformerDoc.testHistory.primary_test.ps_results = [...otherCoresResults, ...newResults];
+    transformerDoc.testHistory.primary_test.status = "Completed";
+    transformerDoc.testHistory.primary_test.timestamp = new Date();
+
+    // Set reportDate only if not already present
+    if (!transformerDoc.testHistory.primary_test.reportDate) {
+      transformerDoc.testHistory.primary_test.reportDate = new Date();
+    }
+
+    transformerDoc.markModified('testHistory');
+    const transformer = await transformerDoc.save();
 
     // ✅ FIXED: Standard error handling for missing ID
     if (!transformer) {
@@ -2349,25 +2361,31 @@ app.post("/transformer-final-metering-tests", async (req, res) => {
       }
     });
 
-    const updateData = {
-      $set: {
-        "testHistory.final_test.tester": tester,
-        "testHistory.final_test.metering_results": validatedResults,
-        "testHistory.final_test.status": "Completed",
-        "testHistory.final_test.timestamp": new Date()
-      }
-    };
-
-    // Set reportDate only if it doesn't exist
-    if (!transformerDoc.testHistory?.final_test?.reportDate) {
-      updateData.$set["testHistory.final_test.reportDate"] = new Date();
+    // Explicitly update fields for merging
+    if (!transformerDoc.testHistory.final_test) {
+      transformerDoc.testHistory.final_test = {};
     }
 
-    const transformer = await TransformerModel.findOneAndUpdate(
-      { uniqueId: uniqueId },
-      updateData,
-      { new: true }
+    transformerDoc.testHistory.final_test.status = "Completed";
+    transformerDoc.testHistory.final_test.tester = tester;
+    transformerDoc.testHistory.final_test.timestamp = new Date();
+
+    // Set reportDate only if not already present
+    if (!transformerDoc.testHistory.final_test.reportDate) {
+      transformerDoc.testHistory.final_test.reportDate = new Date();
+    }
+
+    // Merge logic: Filter out old results for this coreId, then append new ones
+    const newResults = validatedResults;
+    const existingResults = transformerDoc.testHistory.final_test.metering_results || [];
+    const otherCoresResults = existingResults.filter(r =>
+      r.internalCoreNo !== coreId && r.coreId !== coreId
     );
+
+    transformerDoc.testHistory.final_test.metering_results = [...otherCoresResults, ...newResults];
+    transformerDoc.markModified('testHistory');
+
+    const transformer = await transformerDoc.save();
 
     if (!transformer) {
       console.log(`[ERROR] Transformer not found for uniqueId: "${uniqueId}"`);
@@ -2449,29 +2467,39 @@ app.post("/transformer-final-protection-tests", async (req, res) => {
 //primary PS test handle
 app.post("/transformer-final-ps-tests", async (req, res) => {
   try {
-    const { uniqueId, tester, ps_results } = req.body;
+    const { uniqueId, tester, ps_results, coreId } = req.body;
 
-    // Use $set with dot notation to target the specific test stage
-    const updateData = {
-      $set: {
-        "testHistory.final_test.tester": tester,
-        "testHistory.final_test.ps_results": ps_results,
-        "testHistory.final_test.status": "Completed",
-        "testHistory.final_test.timestamp": new Date()
-      }
-    };
-
-    // Set reportDate only if it doesn't exist
     const existingTransformer = await TransformerModel.findOne({ uniqueId: uniqueId });
-    if (existingTransformer && !existingTransformer.testHistory?.final_test?.reportDate) {
-      updateData.$set["testHistory.final_test.reportDate"] = new Date();
+    if (!existingTransformer) {
+      return res.status(404).json({
+        success: false,
+        message: `Transformer ID [${uniqueId}] not found in database.`
+      });
     }
 
-    const transformer = await TransformerModel.findOneAndUpdate(
-      { uniqueId: uniqueId },
-      updateData,
-      { new: true, runValidators: true }
+    // Initialize if missing
+    if (!existingTransformer.testHistory.final_test) existingTransformer.testHistory.final_test = {};
+
+    existingTransformer.testHistory.final_test.tester = tester;
+    
+    // Merge logic for PS (Final)
+    const newResults = ps_results.map(r => ({ ...r, internalCoreNo: coreId || r.internalCoreNo || r.coreId }));
+    const existingResults = existingTransformer.testHistory.final_test.ps_results || [];
+    const otherCoresResults = existingResults.filter(r =>
+      r.internalCoreNo !== coreId && r.coreId !== coreId
     );
+    
+    existingTransformer.testHistory.final_test.ps_results = [...otherCoresResults, ...newResults];
+    existingTransformer.testHistory.final_test.status = "Completed";
+    existingTransformer.testHistory.final_test.timestamp = new Date();
+
+    // Set reportDate only if not already present
+    if (!existingTransformer.testHistory.final_test.reportDate) {
+      existingTransformer.testHistory.final_test.reportDate = new Date();
+    }
+
+    existingTransformer.markModified('testHistory');
+    const transformer = await existingTransformer.save();
 
     // ✅ FIXED: Standard error handling for missing ID
     if (!transformer) {
@@ -2750,33 +2778,57 @@ app.post("/transformer-secondary-protection-tests", async (req, res) => {
 app.put("/api/transformers/:id/approve-stage", isAuthenticated, async (req, res) => {
   try {
     const { id } = req.params;
-    const { stage, nextStage } = req.body; // Expect 'secondary' and 'primary'
+    const { stage, nextStage } = req.body;
     const user = req.user;
 
-    console.log(`[APPROVE] Transitioning Transformer ${id} from ${stage} to ${nextStage} by ${user.name}`);
+    const userName = user?.name || user?.fullName || user?.username || 'System';
+    console.log(`[APPROVE] Transitioning Transformer ${id} from ${stage} to ${nextStage} by ${userName}`);
 
-    // Find and update
     const transformer = await TransformerModel.findOne({ uniqueId: id });
-
     if (!transformer) {
       return res.status(404).json({ success: false, message: "Transformer not found" });
     }
 
-    // Update Stage
+    // Ensure testHistory and stages are initialized
+    if (!transformer.testHistory) transformer.testHistory = {};
+
+    // 1. Mark current stage as Completed
     if (stage === 'secondary') {
+      if (!transformer.testHistory.secondary_test) transformer.testHistory.secondary_test = {};
       transformer.testHistory.secondary_test.status = 'Completed';
       transformer.testHistory.secondary_test.completionDate = new Date();
-
-      // Capture tester if not already set (e.g. if skipped straight to approve)
-      if (!transformer.testHistory.secondary_test.tester && user) {
-        transformer.testHistory.secondary_test.tester = user.name || user.fullName;
+      if (!transformer.testHistory.secondary_test.tester) {
+        transformer.testHistory.secondary_test.tester = userName;
+      }
+    } else if (stage === 'primary') {
+      if (!transformer.testHistory.primary_test) transformer.testHistory.primary_test = {};
+      transformer.testHistory.primary_test.status = 'Completed';
+      transformer.testHistory.primary_test.completionDate = new Date();
+      if (!transformer.testHistory.primary_test.tester) {
+        transformer.testHistory.primary_test.tester = userName;
+      }
+    } else if (stage === 'heating') {
+      // Heating stage might not have a formal testHistory entry but we track the move
+      console.log(`Transformer ${id} moving from Heating to Final`);
+    } else if (stage === 'final') {
+      if (!transformer.testHistory.final_test) transformer.testHistory.final_test = {};
+      transformer.testHistory.final_test.status = 'Completed';
+      transformer.testHistory.final_test.completionDate = new Date();
+      if (!transformer.testHistory.final_test.tester) {
+        transformer.testHistory.final_test.tester = userName;
       }
     }
 
-    // Move to next stage
+    // 2. Move to next stage
     transformer.currentStage = nextStage;
 
-    await transformer.save();
+    // 3. Save with error catching for validation
+    try {
+      await transformer.save();
+    } catch (saveErr) {
+      console.error("Mongoose Save Error on Approval:", saveErr);
+      throw saveErr;
+    }
 
     res.json({
       success: true,

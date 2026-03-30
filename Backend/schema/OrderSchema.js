@@ -20,10 +20,12 @@ const OrderSchema = new Schema(
       vendorNo: { type: String }
     }],
 
-    // Core Vendors (Many-to-Many)
-    metering_core_vendors: [{ type: Schema.Types.ObjectId, ref: 'CoreVendor' }],
-    protection_core_vendors: [{ type: Schema.Types.ObjectId, ref: 'CoreVendor' }],
-    ps_core_vendors: [{ type: Schema.Types.ObjectId, ref: 'CoreVendor' }],
+    // Structured Core Vendors
+    coreVendors: {
+      metering: [{ serialNo: Number, name: String }],
+      protection: [{ serialNo: Number, name: String }],
+      ps: [{ serialNo: Number, name: String }]
+    },
 
     // Electrical & Mechanical (Simplified for brevity)
     nominalSystemVoltage: Number,

@@ -137,56 +137,27 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         <div className="mt-6 pt-6 border-t border-gray-200">
           <p className="text-sm text-gray-600 mb-3">Demo Credentials:</p>
-          <div className="space-y-2 text-xs">
-            <div className="bg-slate-50 p-2 rounded border border-slate-200">
-              <p>Admin:</p>
-              <p className="text-gray-600">EMP-1001 / password123</p>
-            </div>
-            {/* Keeping the static demo credentials for reference as well, or removing them? 
-                 The user asked to "show the all users in the database with their id and password".
-                 The static list might be confusing if it differs from DB. 
-                 But I'll keep it as a fallback visual for now, or maybe just replace it with the dynamic list.
-                 Actually, the dynamic list is better. I'll render the dynamic list BELOW this card or replace the content.
-                 Let's render a separate card below for the database users.
-             */}
-          </div>
-        </div>
-      </Card>
+          <div className="space-y-2 text-xs h-48 overflow-y-auto pr-2">
+            {debugUsers.length > 0 ? (
+              debugUsers.map(user => {
+                // Infer correct sample password based on seed data
+                const isSystemAdmin = user.employeeId === 'EMP001' || user.designation === 'Admin';
+                const isPTTester = user.department?.includes('PT') || ['EMP010', 'EMP011', 'EMP108'].includes(user.employeeId);
+                const displayPassword = isSystemAdmin ? 'admin' : isPTTester ? 'password@123' : 'password123';
 
-      {/* Database Users List */}
-      <Card className="w-full max-w-4xl p-6 shadow-xl bg-white">
-        <h3 className="text-lg font-bold mb-4 text-[#003a70]">Database Users (Debug)</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-xs text-left">
-            <thead>
-              <tr className="border-b">
-                <th className="py-2 px-2">Emp ID</th>
-                <th className="py-2 px-2">Name</th>
-                <th className="py-2 px-2">Designation</th>
-                <th className="py-2 px-2">Department</th>
-                <th className="py-2 px-2">Password Hash / Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {debugUsers.map(user => (
-                <tr key={user._id} className="border-b hover:bg-slate-50">
-                  <td className="py-2 px-2 font-medium">{user.employeeId}</td>
-                  <td className="py-2 px-2">{user.fullName}</td>
-                  <td className="py-2 px-2">{user.designation}</td>
-                  <td className="py-2 px-2">{user.department}</td>
-                  <td className="py-2 px-2 break-all font-mono text-gray-500">
-                    {user.password ? user.password.substring(0, 20) + "..." : "No Password"}
-                    <span className="ml-2 text-[10px] text-gray-400">(Hash)</span>
-                  </td>
-                </tr>
-              ))}
-              {debugUsers.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-4 text-center text-gray-500">Loading users or no users found...</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                return (
+                  <div key={user._id} className="bg-slate-50 p-2 rounded border border-slate-200">
+                    <p className="font-medium text-[#003a70]">{user.department} ({user.designation}):</p>
+                    <p className="text-gray-600 font-mono mt-1">
+                      {user.employeeId} / {displayPassword}
+                    </p>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center text-gray-500 py-4">Loading credentials...</div>
+            )}
+          </div>
         </div>
       </Card>
     </div>

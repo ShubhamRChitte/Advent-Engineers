@@ -148,9 +148,7 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
 
         deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // Default 14 days constraints via ISO string
 
-        metering_core_vendors: orderData.metering_core_vendors || [],
-        protection_core_vendors: orderData.protection_core_vendors || [],
-        ps_core_vendors: orderData.ps_core_vendors || [],
+        coreVendors: orderData.coreVendors || { metering: [], protection: [], ps: [] },
 
         assignments: assignmentsByStage,
         bypassApproval: isAdmin // If Admin, bypass approval (Auto-Approve)
