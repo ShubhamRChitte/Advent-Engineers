@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { FileText, Loader2 } from 'lucide-react';
+import { FileText, Loader2, ArrowLeft, PlayCircle, CheckCircle } from 'lucide-react';
 import { User } from '../../App';
 import {
   HeatingRecord11KVCT,
@@ -18,6 +18,7 @@ interface Order {
   clientName: string;
   transformerType: string;
   nominalSystemVoltage: string | number;
+  voltageRating?: string;
   quantity: number;
 }
 
@@ -38,6 +39,9 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
   const [currentTab, setCurrentTab] = useState<'assigned' | 'completed'>('assigned');
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedTransformer, setSelectedTransformer] = useState<any | null>(null);
+  const [transformersList, setTransformersList] = useState<any[]>([]);
+  const [loadingTransformers, setLoadingTransformers] = useState(false);
 
   const [records, setRecords] = useState<HeatingRecordBlock[]>([]);
   const [saving, setSaving] = useState(false);
@@ -48,13 +52,16 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
 
   const fetchOrders = async () => {
     try {
-      const response = await axios.get("http://localhost:3002/api/assigneed_orders", {
+      // Use dedicated heating-record endpoint which has NO stage restriction.
+      // /assigneed_orders filters by transformer.currentStage and misses orders
+      // where transformers have already moved past 'heating' stage.
+      const response = await axios.get("http://localhost:3002/api/heating-record/assigned-orders?type=CT", {
         withCredentials: true
       });
-      // Filter for 11KV CT and 33KV CT
-      const eligibleOrders = response.data.filter((order: any) =>
-        order.transformerType === 'CT' && (String(order.nominalSystemVoltage) === '11' || String(order.nominalSystemVoltage) === '33')
-      );
+
+      // Show ALL CT orders — no voltage filtering here. The correct heating sheet
+      // (11KV vs 33KV) is selected at render-time based on the voltage field.
+      const eligibleOrders = response.data.success ? response.data.orders : [];
 
       const orderIds = eligibleOrders.map((o: any) => o._id);
       if (orderIds.length > 0) {
@@ -71,7 +78,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
         setCompletedOrders([]);
       }
     } catch (err) {
-      console.error("API Error fetching assigned orders:", err);
+      console.error("API Error fetching heating record orders:", err);
     } finally {
       setLoading(false);
     }
@@ -79,23 +86,51 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
 
   const handleSelectOrder = async (order: Order) => {
     setSelectedOrder(order);
-    
-    const transformerType = order.transformerType === 'CT' 
-      ? (String(order.nominalSystemVoltage) === '33' ? '33KV_CT' : '11KV_CT')
-      : '33KV_PT';
+    setLoadingTransformers(true);
+    try {
+      const res = await axios.get(`http://localhost:3002/api/transformers/order/${order._id}`, { withCredentials: true });
+      setTransformersList(Array.isArray(res.data) ? res.data : []);
+    } catch (e) {
+      console.error('Failed to fetch transformers for order', e);
+      setTransformersList([]);
+    } finally {
+      setLoadingTransformers(false);
+    }
+  };
+
+  const handleApproveOrder = async () => {
+    if (!selectedOrder) return;
+    try {
+      const voltageStr = String((selectedOrder as any).voltageRating || selectedOrder.nominalSystemVoltage || '');
+      const transformerType = voltageStr.includes('33') ? '33KV_CT' : '11KV_CT';
+
+      await axios.put(`http://localhost:3002/api/heating-record/${selectedOrder._id}/approve`, {
+        type: transformerType
+      }, { withCredentials: true });
+      alert("Heating record approved successfully!");
+      setSelectedOrder(null);
+      setTransformersList([]);
+      await fetchOrders();
+    } catch (e) {
+      console.error("Error approving order:", e);
+      alert("Failed to approve order.");
+    }
+  };
+
+  const handleSelectTransformer = async (t: any) => {
+    setSelectedTransformer(t);
+    const voltageStr = String((selectedOrder as any)?.voltageRating || selectedOrder?.nominalSystemVoltage || '');
+    const transformerType = voltageStr.includes('33') ? '33KV_CT' : '11KV_CT';
 
     try {
-      const res = await axios.get(`http://localhost:3002/api/heating-record/${order._id}/${transformerType}`, {
-        withCredentials: true
-      });
-
-      if (res.data.success && res.data.data && res.data.data.blocks && res.data.data.blocks.length > 0) {
+      const res = await axios.get(`http://localhost:3002/api/heating-record/${selectedOrder!._id}/${transformerType}`, { withCredentials: true });
+      if (res.data.success && res.data.data?.blocks?.length > 0) {
         const uiBlocks = res.data.data.blocks.map((b: any) => ({
           id: Math.random().toString(36).substr(2, 9),
           transformerId: '',
           groupNo: b.groupNo || '',
           serialNumber: b.serialNumber || '',
-          jobNo: order.jobId,
+          jobNo: selectedOrder!.jobId,
           leftInputs: ensureLeftInputs(b.leftInputs),
           startDate: b.startDate || new Date().toISOString().split('T')[0],
           processSteps: b.processSteps && b.processSteps.length > 0 ? b.processSteps.map((s: any) => ({
@@ -119,19 +154,16 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
       console.error("Error fetching existing heating records:", e);
     }
 
-    // Fallback: Auto-initialize one group block per ~5 transformers (ceil), minimum 1.
-    const numGroups = Math.max(1, Math.ceil((order.quantity || 1) / 5));
-    const initialBlocks = Array.from({ length: numGroups }, (_, i) =>
-      makeNewBlock(order.jobId, i + 1, String(order.nominalSystemVoltage))
-    );
-    setRecords(initialBlocks);
+    // Default: single fresh block pre-filled with selected transformer
+    const block = makeNewBlock(selectedOrder!.jobId, 1, voltageStr);
+    block.serialNumber = t.uniqueId || block.serialNumber;
+    setRecords([block]);
   };
 
   const makeNewBlock = (_jobId: string, blockNumber: number, voltage: string): HeatingRecordBlock => {
     let processSteps = JSON.parse(JSON.stringify(DEFAULT_PROCESS_STEPS));
     
-    // Customize process specific to 33KV if needed (11KV is default)
-    if (voltage === '33') {
+    if (voltage.includes('33')) {
       processSteps = [
         { process: 'Heating 80°C',       duration: '12 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
         { process: 'V. Heating 80°C',    duration: '24 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
@@ -180,7 +212,6 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
   const ensureLeftInputs = (inputs: any) => {
     const base = Array(8).fill(null).map(() => ({ col1: "", col2: "" }));
     if (!inputs) return base;
-
     return base.map((_, i) => ({
       col1: inputs[i]?.col1 || "",
       col2: inputs[i]?.col2 || ""
@@ -191,9 +222,8 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
     if (!selectedOrder) return;
     setSaving(true);
     try {
-      const transformerType = selectedOrder.transformerType === 'CT' 
-        ? (String(selectedOrder.nominalSystemVoltage) === '33' ? '33KV_CT' : '11KV_CT')
-        : 'UNKNOWN';
+      const voltageStr = String((selectedOrder as any).voltageRating || selectedOrder.nominalSystemVoltage || '');
+      const transformerType = voltageStr.includes('33') ? '33KV_CT' : '11KV_CT';
 
       const blocksPayload = records.map(b => ({
         groupNo: b.groupNo,
@@ -205,7 +235,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
           duration: step.duration,
           startDate: step.startDate,
           startTime: step.startTime,
-          endDate: step.completionDate, // mapping to backend schema
+          endDate: step.completionDate,
           endTime: step.completionTime,
           remarks: step.remarks
         })),
@@ -224,7 +254,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
       await axios.post("http://localhost:3002/api/heating-record", payload, { withCredentials: true });
       alert("Heating records saved successfully!");
 
-      setSelectedOrder(null);
+      setSelectedTransformer(null);
       setRecords([]);
       await fetchOrders();
     } catch (e) {
@@ -302,24 +332,75 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
     );
   }
 
-  // ==== 2. HEATING SHEET VIEW — delegated to respective components ====
+  // ==== 2. TRANSFORMER LIST VIEW ====
+  if (selectedOrder && !selectedTransformer) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={() => { setSelectedOrder(null); setTransformersList([]); }} className="gap-2">
+            <ArrowLeft className="w-4 h-4" /> Back to Orders
+          </Button>
+          <div className="flex-1">
+            <h2 className="text-xl font-bold">Transformers for {selectedOrder.jobId}</h2>
+            <p className="text-gray-500 mt-1">Select a transformer unit to begin the Heating Record</p>
+          </div>
+          {currentTab === 'assigned' && (
+            <Button size="sm" onClick={handleApproveOrder} className="bg-green-600 hover:bg-green-700 gap-2">
+              <CheckCircle className="w-4 h-4" /> Approve Order
+            </Button>
+          )}
+        </div>
+
+        <Card className="overflow-hidden">
+          {loadingTransformers ? (
+            <div className="p-8 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>
+          ) : transformersList.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">No transformers found for this order.</div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-[#003a70] text-white">
+                <tr>
+                  <th className="p-4 text-left font-medium">Unique ID</th>
+                  <th className="p-4 text-left font-medium">Current Stage</th>
+                  <th className="p-4 text-center font-medium">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transformersList.map((t: any) => (
+                  <tr key={t._id} className="border-b hover:bg-gray-50">
+                    <td className="p-4 font-bold">{t.uniqueId}</td>
+                    <td className="p-4">
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">{t.currentStage || 'N/A'}</span>
+                    </td>
+                    <td className="p-4 text-center">
+                      <Button size="sm" onClick={() => handleSelectTransformer(t)} className="bg-[#003a70] hover:bg-[#002f5c] gap-2">
+                        <PlayCircle className="w-4 h-4" /> Start Record
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
+      </div>
+    );
+  }
+
+  // ==== 3. HEATING SHEET VIEW — delegated to respective components ====
   const commonProps = {
     records,
     saving,
-    onBack: () => { setSelectedOrder(null); setRecords([]); },
+    onBack: () => { setSelectedTransformer(null); setRecords([]); },
     onAddBlock: handleAddBlock,
     onSave: handleSave,
     onUpdateProcessStep: updateProcessStep,
     onUpdateBlockField: updateBlockField,
   };
 
-  const voltage = String((selectedOrder as any).voltageRating || selectedOrder.nominalSystemVoltage || '').toLowerCase().replace(/\\s/g, '');
+  const voltage = String((selectedOrder as any).voltageRating || selectedOrder.nominalSystemVoltage || '').toLowerCase().replace(/\s/g, '');
   if (voltage.includes('11')) {
     return <HeatingRecord11KVCT {...commonProps} />;
-  } else if (voltage.includes('33') || (!(selectedOrder as any).voltageRating && !selectedOrder.nominalSystemVoltage)) {
-    return <HeatingRecord33KVCT {...commonProps} />;
   }
-  
-  // Fallback if somehow neither matched (avoids total blank if possible, though unlikely)
   return <HeatingRecord33KVCT {...commonProps} />;
 }
