@@ -21,6 +21,7 @@ import { HeatingRecordModule } from './HeatingRecordModule';
 import { PTHeatingRecordModule } from './PTHeatingRecordModule';
 import { OrdersListViewEnhanced } from '../entry/OrdersListViewEnhanced';
 import { OrderDetailsView } from './OrderDetailsView';
+import { HeatingTrackingModule } from './HeatingTrackingModule';
 
 interface TesterLayoutProps {
   user: User;
@@ -28,12 +29,29 @@ interface TesterLayoutProps {
 }
 
 export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
-  const [activeView, setActiveView] = useState(user.role === 'core-tester' ? 'home' : 'home');
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [activeView, _setActiveView] = useState(() => {
+    return localStorage.getItem(`${user.role}_activeView`) || 'home';
+  });
+
+  const [selectedOrderId, _setSelectedOrderId] = useState<string | null>(() => {
+    return localStorage.getItem(`${user.role}_selectedOrderId`);
+  });
+
+  const setActiveView = (view: string) => {
+    localStorage.setItem(`${user.role}_activeView`, view);
+    _setActiveView(view);
+  };
 
   const handleViewOrder = (orderId: string) => {
-    setSelectedOrderId(orderId);
+    localStorage.setItem(`${user.role}_selectedOrderId`, orderId);
+    _setSelectedOrderId(orderId);
     setActiveView('order-details');
+  };
+
+  const setViewHome = () => {
+    localStorage.removeItem(`${user.role}_selectedOrderId`);
+    _setSelectedOrderId(null);
+    setActiveView('home');
   };
 
   const renderView = () => {
@@ -55,12 +73,17 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
       );
     }
 
+    // Global Heating Tracking (Accessible to all who have it in menu)
+    if (activeView === 'heating-tracking') {
+      return <HeatingTrackingModule user={user} />;
+    }
+
     // PT Tester
     if (user.role === 'pt-tester') {
       if (activeView === 'home') return <PTTesterDashboard setActiveView={setActiveView} />;
       if (activeView === 'testing') return <PTTestingModule user={user} />;
       if (activeView === 'pt-heating-record') return <PTHeatingRecordModule user={user} />;
-      if (activeView === 'reports') return <PTReportsList onBack={() => setActiveView('home')} />;
+      if (activeView === 'reports') return <PTReportsList onBack={setViewHome} />;
       return <PTTesterDashboard setActiveView={setActiveView} />;
     }
 
@@ -184,7 +207,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
       } else if (activeView === 'testing') {
         return <SecondaryTestingModule userName={user.name} />;
       } else if (activeView === 'reports') {
-        return <SecondaryReportsList onBack={() => setActiveView('home')} />;
+        return <SecondaryReportsList onBack={setViewHome} />;
       } else if (activeView === 'view-orders') {
         return <OrdersListViewEnhanced userRole={user.role} />;
       } else if (activeView === 'failed-cores') {

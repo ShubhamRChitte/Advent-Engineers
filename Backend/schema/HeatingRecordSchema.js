@@ -7,6 +7,7 @@ const HeatingRecordSchema = new Schema(
 
     blocks: [
       {
+        transformerId: String,
         groupNo: String,
         serialNumber: String,
         startDate: String,

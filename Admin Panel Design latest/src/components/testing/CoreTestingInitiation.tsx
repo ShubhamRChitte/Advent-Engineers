@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
 import { 
   Zap, 
   Shield, 
@@ -23,10 +22,16 @@ interface CoreConfiguration {
 }
 
 interface Order {
+  _id: string; // Added to match backend
   orderId: string;
   clientName: string;
   transformerName: string;
   quantity: number;
+  coreVendors?: { // Added for dynamic dropdowns
+    metering: Array<{ serialNo: number; name: string }>;
+    protection: Array<{ serialNo: number; name: string }>;
+    ps: Array<{ serialNo: number; name: string }>;
+  };
 }
 
 interface CoreTestingInitiationProps {
@@ -121,6 +126,7 @@ export function CoreTestingInitiation({ order, onBack }: CoreTestingInitiationPr
         coreType={selectedCoreType}
         orderId={order.orderId}
         clientName={order.clientName}
+        order={order} // Pass full order for coreVendors
         onBack={() => {
           setShowTestingForm(false);
           setSelectedCoreId(null);

@@ -154,51 +154,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
 
           // Helper to check completeness - MOVED OUTSIDE RETURN
           const checkCompleteness = () => {
-            const finalTest = t.testHistory?.final_test || {};
-
-            // 1. MUST have comprehensive Final Test Report completed
-            if (finalTest.status !== 'Completed') return false;
-
-            // If no cores defined (shouldn't happen), use strict backend status
-            if (coresList.length === 0) return true;
-
-            // 2. Check EVERY core has results
-            return coresList.every(core => {
-              if (core.coreType === 'metering') {
-                const results = finalTest.metering_results?.filter((r: any) =>
-                  r.coreId === core.coreId || r.internalCoreNo === core.coreId
-                );
-                if (!results || results.length === 0) return false;
-
-                // Check for empty fields in rows
-                return results.every((res: any) =>
-                  Array.isArray(res.rows) && res.rows.every((row: any) =>
-                    row.r100 && row.p100 && row.r25 && row.p25
-                  )
-                );
-
-              } else if (core.coreType === 'ps') {
-                const results = finalTest.ps_results?.filter((r: any) =>
-                  r.coreId === core.coreId || r.internalCoreNo === core.coreId
-                );
-                if (!results || results.length === 0) return false;
-
-                return results.every((res: any) =>
-                  // Simple check for key fields
-                  res.turnRatioError && res.resistance && res.vk && res.iexVk
-                );
-              } else if (core.coreType === 'protection') {
-                const results = finalTest.protection_results?.filter((r: any) =>
-                  r.coreId === core.coreId || r.internalCoreNo === core.coreId
-                );
-                if (!results || results.length === 0) return false;
-
-                return results.every((res: any) =>
-                  res.currentError && res.phaseError && res.compositeError
-                );
-              }
-              return true;
-            });
+            return t.testHistory?.final_test?.status === 'Completed';
           };
 
           const isFullyComplete = checkCompleteness();

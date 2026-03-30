@@ -169,6 +169,8 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
             coresList.push({ coreNumber: 1, coreType: 'metering', coreId: 'M-Default' });
           }
 
+          let status: 'pending' | 'in-progress' | 'completed' = 'pending';
+
           const checkCompleteness = () => {
             const primaryTest = t.testHistory?.primary_test || {};
 
@@ -181,9 +183,11 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                 );
                 if (!results || results.length === 0) return false;
 
+                // Use strict check against empty string to allow '0' or 0
                 return results.every((res: any) =>
-                  Array.isArray(res.rows) && res.rows.every((row: any) =>
-                    row.r100 && row.p100 && row.r25 && row.p25
+                  Array.isArray(res.rows) && res.rows.length > 0 && res.rows.every((row: any) =>
+                    row.r100 !== '' && row.p100 !== '' && row.r25 !== '' && row.p25 !== '' &&
+                    row.r100 !== undefined && row.p100 !== undefined && row.r25 !== undefined && row.p25 !== undefined
                   )
                 );
               } else if (core.coreType === 'ps') {
@@ -193,7 +197,10 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                 if (!results || results.length === 0) return false;
 
                 return results.every((res: any) =>
-                  res.turnRatioError && res.resistance && res.vk && res.iexVk
+                  res.turnRatioError !== '' && res.resistance !== '' && res.vk !== '' && 
+                  res.iexVk !== '' && res.iex11Vk !== '' &&
+                  res.turnRatioError !== undefined && res.resistance !== undefined && 
+                  res.vk !== undefined && res.iexVk !== undefined && res.iex11Vk !== undefined
                 );
               } else if (core.coreType === 'protection') {
                 const results = primaryTest.protection_results?.filter((r: any) =>
@@ -202,9 +209,11 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                 if (!results || results.length === 0) return false;
 
                 return results.every((res: any) =>
-                  res.ratioError100 && res.phaseError && res.resistance &&
-                  (res.secondaryLimitingVoltage || res.secondaryLimitingVtg) &&
-                  res.excitationCurrent && res.compositeError && res.alf
+                  res.ratioError100 !== '' && res.phaseError !== '' && res.resistance !== '' &&
+                  (res.secondaryLimitingVoltage !== '' || res.secondaryLimitingVtg !== '' || res.secondaryLimitingVoltage !== undefined || res.secondaryLimitingVtg !== undefined) &&
+                  res.excitationCurrent !== '' && res.compositeError !== '' && res.alf !== '' &&
+                  res.ratioError100 !== undefined && res.phaseError !== undefined && res.resistance !== undefined &&
+                  res.excitationCurrent !== undefined && res.compositeError !== undefined && res.alf !== undefined
                 );
               }
               return true;
@@ -276,15 +285,15 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
 
   const handleApproveTransformer = async (transformer: Transformer) => {
     try {
-      if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Final Testing?`)) return;
+      if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Heating?`)) return;
 
       const response = await axios.put(`http://localhost:3002/api/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'primary',
-        nextStage: 'final'
+        nextStage: 'heating'
       }, { withCredentials: true });
 
       if (response.data.success) {
-        toast.success("Transformer Approved to Final Stage!");
+        toast.success("Transformer Approved to Heating Stage!");
         setTransformers(prev => prev.map(t =>
           t.uniqueId === transformer.uniqueId ? { ...t, status: 'completed', canApprove: false } : t
         ));

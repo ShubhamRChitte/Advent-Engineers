@@ -204,7 +204,7 @@ const TransformerSchema = new Schema({
   // Workflow tracking
   currentStage: {
     type: String,
-    enum: ["core", "secondary", "primary", "final", "shipped", "pt", "admin_review"],
+    enum: ["core", "secondary", "primary", "heating", "final", "shipped", "pt", "admin_review"],
     default: "core"
   },
 
@@ -241,14 +241,20 @@ const TransformerSchema = new Schema({
       processSteps: [{
         process: String,
         duration: String,
-        startTime: String,
-        completionTime: String,
+        startDateTime: Date,
+        completionDateTime: Date,
         remarks: String
       }],
-      verifiedBy: String,
+      preparedBy: String,
       productionManager: String,
-      date: String,
-      recordedBy: String, // to store who logged this record
+      verifiedBy: String,
+      reportDate: { type: Date, default: Date.now },
+      status: {
+        type: String,
+        enum: ["Pending", "In Progress", "Completed", "Approved"],
+        default: "Pending"
+      },
+      recordedBy: String,
       recordedAt: { type: Date, default: Date.now }
     }],
     // Isolated schema for 33KV PT Heating Record

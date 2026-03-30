@@ -22,35 +22,42 @@ export function OrderStatusTracker({
 }: OrderStatusTrackerProps) {
   const ctStages = [
     {
-      id: 'order-created',
+      id: 'created',
       label: 'Order Created',
       icon: Package,
       color: 'blue',
       description: 'Order registered in system'
     },
     {
-      id: 'core-testing',
+      id: 'core',
       label: 'Core Testing',
       icon: Zap,
       color: 'purple',
       description: 'Core winding tests in progress'
     },
     {
-      id: 'secondary-testing',
+      id: 'secondary',
       label: 'Secondary Testing',
       icon: Shield,
       color: 'indigo',
       description: 'Secondary winding verification'
     },
     {
-      id: 'after-primary-testing',
+      id: 'primary',
       label: 'After Primary Testing',
       icon: Clock,
       color: 'orange',
       description: 'Primary side testing'
     },
     {
-      id: 'final-testing',
+      id: 'heating',
+      label: 'After Heating Testing',
+      icon: Zap,
+      color: 'red',
+      description: 'Oven heating process'
+    },
+    {
+      id: 'final',
       label: 'Final Testing',
       icon: Award,
       color: 'amber',
@@ -91,15 +98,38 @@ export function OrderStatusTracker({
 
   const stages = transformerType === 'PT' ? ptStages : ctStages;
 
-  // Fallback to first stage if not found to prevent crash
-  let currentStageIndex = stages.findIndex((stage: any) => stage.id === currentStage);
-  if (currentStageIndex === -1) {
-    if (status && status.includes('Completed')) {
-      currentStageIndex = stages.length - 1;
-    } else {
-      currentStageIndex = 0;
+  // Improved mapping function to handle backend vs frontend stage names
+  const getStageIndex = () => {
+    // 1. Direct match
+    let idx = stages.findIndex((stage: any) => stage.id === currentStage);
+    if (idx !== -1) return idx;
+
+    // 2. Handle specific backend names mapping to UI
+    const mapping: Record<string, string> = {
+        'core': 'core',
+        'secondary': 'secondary',
+        'primary': 'primary',
+        'heating': 'heating',
+        'final': 'final',
+        'shipped': 'completed',
+        'completed': 'completed'
+    };
+    
+    const mappedId = mapping[currentStage as string];
+    if (mappedId) {
+        idx = stages.findIndex((stage: any) => stage.id === mappedId);
+        if (idx !== -1) return idx;
     }
-  }
+
+    // 3. Fallback based on Status String (Only if it strictly means Order is Finished)
+    if (status === 'Completed' || status === 'Shipped') {
+      return stages.length - 1;
+    }
+
+    return 0; // Default to first stage
+  };
+
+  const currentStageIndex = getStageIndex();
 
   const getStageStatus = (index: number) => {
     if (index < currentStageIndex) return 'completed';
