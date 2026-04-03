@@ -73,7 +73,7 @@ export function ClientOrdersView({
             id: o._id,
             orderId: o.jobId || o.orderId || 'N/A', // Handle variations in field names
             transformerName: o.capacity || 'Transformer', // Use capacity or type as name
-            transformerType: o.type || 'N/A',
+            transformerType: o.transformerType || o.type || 'N/A',
             quantity: o.quantity || 0,
             orderDate: o.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0],
             testStatus: o.status === 'Completed' ? 'Completed' : (o.status === 'Pending' ? 'Pending' : 'In Progress'),

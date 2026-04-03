@@ -4,6 +4,7 @@ const HeatingRecordSchema = new Schema(
   {
     orderId: { type: String, required: true },
     transformerType: { type: String, required: true }, // "11KV_CT", "33KV_CT", "33KV_PT"
+    status: { type: String, enum: ['Pending', 'Completed'], default: 'Pending' },
 
     blocks: [
       {

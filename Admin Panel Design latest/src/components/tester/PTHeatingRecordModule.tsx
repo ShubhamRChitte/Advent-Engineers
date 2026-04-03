@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { FileText, Loader2 } from 'lucide-react';
+import { FileText, Loader2, ArrowLeft, PlayCircle, CheckCircle } from 'lucide-react';
 import { User } from '../../App';
 import { HeatingRecord33KVPT, HeatingRecordBlock, ProcessStep } from './HeatingRecord33KVPT';
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
@@ -34,6 +34,9 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
   const [currentTab, setCurrentTab] = useState<'assigned' | 'completed'>('assigned');
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedTransformer, setSelectedTransformer] = useState<any | null>(null);
+  const [transformersList, setTransformersList] = useState<any[]>([]);
+  const [loadingTransformers, setLoadingTransformers] = useState(false);
   
   const [records, setRecords] = useState<HeatingRecordBlock[]>([]);
   const [saving, setSaving] = useState(false);
@@ -44,16 +47,15 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
 
   const fetchOrders = async () => {
     try {
-      const response = await axios.get("http://localhost:3002/api/assigneed_orders", {
+      // Use dedicated heating-record endpoint which has NO stage restriction.
+      // /assigneed_orders filters by transformer.currentStage = 'pt' and misses
+      // orders where transformers have already moved to later stages.
+      const response = await axios.get("http://localhost:3002/api/heating-record/assigned-orders?type=PT", {
         withCredentials: true
       });
-      const eligibleOrders = response.data.filter((order: any) => {
-        const isPT = order.transformerType === 'PT';
-        const voltage = String(order.voltageRating || order.nominalSystemVoltage || '').toLowerCase().replace(/\s/g, '');
-        const is33KV = voltage.includes('33');
-        const noVoltageSet = !order.voltageRating && !order.nominalSystemVoltage;
-        return isPT && (is33KV || noVoltageSet);
-      });
+
+      // Show ALL PT orders — no voltage filtering.
+      const eligibleOrders = response.data.success ? response.data.orders : [];
 
       const orderIds = eligibleOrders.map((o: any) => o._id);
       if (orderIds.length > 0) {
@@ -70,28 +72,58 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
         setCompletedOrders([]);
       }
     } catch (err) {
-      console.error("API Error fetching assigned orders:", err);
+      console.error("API Error fetching PT heating record orders:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleApproveOrder = async () => {
+    if (!selectedOrder) return;
+    try {
+      await axios.put(`http://localhost:3002/api/heating-record/${selectedOrder._id}/approve`, {
+        type: 'PT'
+      }, { withCredentials: true });
+      alert("Heating record approved successfully!");
+      setSelectedOrder(null);
+      setTransformersList([]);
+      await fetchOrders();
+    } catch (e) {
+      console.error("Error approving order:", e);
+      alert("Failed to approve order.");
+    }
+  };
+
   const handleSelectOrder = async (order: Order) => {
     setSelectedOrder(order);
-    
-    // Attempt fetch existing PT records
+    setLoadingTransformers(true);
     try {
-      const res = await axios.get(`http://localhost:3002/api/heating-record/${order._id}/33KV_PT`, {
+      const res = await axios.get(`http://localhost:3002/api/transformers/order/${order._id}`, { withCredentials: true });
+      setTransformersList(Array.isArray(res.data) ? res.data : []);
+    } catch (e) {
+      console.error('Failed to fetch transformers for order', e);
+      setTransformersList([]);
+    } finally {
+      setLoadingTransformers(false);
+    }
+  };
+
+  const handleSelectTransformer = async (t: any) => {
+    setSelectedTransformer(t);
+
+    // Try to load existing PT records
+    try {
+      const res = await axios.get(`http://localhost:3002/api/heating-record/${selectedOrder!._id}/33KV_PT`, {
         withCredentials: true
       });
 
-      if (res.data.success && res.data.data && res.data.data.blocks && res.data.data.blocks.length > 0) {
+      if (res.data.success && res.data.data?.blocks?.length > 0) {
         const uiBlocks = res.data.data.blocks.map((b: any) => ({
           id: Math.random().toString(36).substr(2, 9),
           transformerId: '',
           groupNo: b.groupNo || '',
           serialNumber: b.serialNumber || '',
-          jobNo: order.jobId,
+          jobNo: selectedOrder!.jobId,
           leftInputs: ensureLeftInputs(b.leftInputs),
           startDate: b.startDate || new Date().toISOString().split('T')[0],
           processSteps: b.processSteps && b.processSteps.length > 0 ? b.processSteps.map((s: any) => ({
@@ -115,21 +147,14 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
       console.error("Error fetching existing heating records:", e);
     }
 
-    // Default initialization
-    const initialBlocks = Array.from({ length: 1 }, (_, i) =>
-      makeNewBlock(order.jobId, i + 1)
-    );
-    setRecords(initialBlocks);
-  };
-
-  const makeNewBlock = (jobId: string, blockNumber: number): HeatingRecordBlock => {
+    // Default initialization pre-filled with the selected transformer
     const today = new Date().toISOString().split('T')[0] as string;
-    return {
+    const block: HeatingRecordBlock = {
       id: Math.random().toString(36).substr(2, 9),
       transformerId: '',
-      groupNo: `No.-${blockNumber}`,
-      serialNumber: `33KV - PT = ${blockNumber}`,
-      jobNo: jobId,
+      groupNo: `No.-1`,
+      serialNumber: t.uniqueId || `33KV - PT = 1`,
+      jobNo: selectedOrder!.jobId,
       leftInputs: Array(8).fill(null).map(() => ({ col1: "", col2: "" })),
       startDate: today,
       processSteps: (JSON.parse(JSON.stringify(DEFAULT_PROCESS_STEPS)) as ProcessStep[]),
@@ -138,10 +163,26 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
       verifiedBy: '',
       date: today,
     };
+    setRecords([block]);
   };
 
-  const addRecordBlock = (jobId: string) => {
-    setRecords([...records, makeNewBlock(jobId, records.length + 1)]);
+  const addRecordBlock = () => {
+    if (!selectedOrder) return;
+    const today = new Date().toISOString().split('T')[0] as string;
+    setRecords(prev => [...prev, {
+      id: Math.random().toString(36).substr(2, 9),
+      transformerId: '',
+      groupNo: `No.-${prev.length + 1}`,
+      serialNumber: `33KV - PT = ${prev.length + 1}`,
+      jobNo: selectedOrder.jobId,
+      leftInputs: Array(8).fill(null).map(() => ({ col1: "", col2: "" })),
+      startDate: today,
+      processSteps: (JSON.parse(JSON.stringify(DEFAULT_PROCESS_STEPS)) as ProcessStep[]),
+      preparedBy: user.name || '',
+      productionManager: '',
+      verifiedBy: '',
+      date: today,
+    }]);
   };
 
   const updateProcessStep = (blockId: string, processIndex: number, field: keyof ProcessStep, value: string) => {
@@ -163,7 +204,6 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
   const ensureLeftInputs = (inputs: any) => {
     const base = Array(8).fill(null).map(() => ({ col1: "", col2: "" }));
     if (!inputs) return base;
-
     return base.map((_, i) => ({
       col1: inputs[i]?.col1 || "",
       col2: inputs[i]?.col2 || ""
@@ -174,8 +214,6 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
     if (!selectedOrder) return;
     setSaving(true);
     try {
-      const transformerType = '33KV_PT';
-
       const blocksPayload = records.map(b => ({
         groupNo: b.groupNo,
         serialNumber: b.serialNumber,
@@ -198,14 +236,14 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
 
       const payload = {
         orderId: selectedOrder._id,
-        transformerType,
+        transformerType: '33KV_PT',
         blocks: blocksPayload
       };
 
       await axios.post("http://localhost:3002/api/heating-record", payload, { withCredentials: true });
       alert("PT Heating records saved successfully!");
       
-      setSelectedOrder(null);
+      setSelectedTransformer(null);
       setRecords([]);
       await fetchOrders();
     } catch (e) {
@@ -226,16 +264,26 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
 
     return (
       <div className="space-y-6">
-        <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm">
+        <div className={`flex justify-between items-center p-6 rounded-xl border shadow-sm transition-colors duration-300 ${currentTab === 'completed' ? 'bg-green-50/50 border-green-200' : 'bg-gray-50/50 border-gray-200'}`}>
           <div>
-            <h2>Heating Record [33KV PT]</h2>
-            <p className="text-gray-500 mt-1">Select an eligible 33KV PT assigned order to log active heating records.</p>
+            <h2 className="text-2xl font-bold text-gray-900 tracking-tight uppercase">Heating Record [33KV PT]</h2>
+            <p className="text-gray-600 mt-2 text-base">Select an eligible 33KV PT assigned order to log active heating records.</p>
           </div>
           
-          <Tabs value={currentTab} onValueChange={(val: string) => setCurrentTab(val as any)}>
-            <TabsList>
-              <TabsTrigger value="assigned">Assigned Orders</TabsTrigger>
-              <TabsTrigger value="completed">Completed Records</TabsTrigger>
+          <Tabs value={currentTab} onValueChange={(val: string) => setCurrentTab(val as any)} className="bg-white/60 p-1.5 rounded-xl border border-gray-200/50">
+            <TabsList className="bg-transparent h-auto p-0 space-x-3">
+              <TabsTrigger 
+                value="assigned" 
+                className={`px-6 py-2.5 rounded-lg text-sm font-bold tracking-wide uppercase transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-[#003a70] data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-[#003a70] hover:bg-white/50`}
+              >
+                Assigned Orders
+              </TabsTrigger>
+              <TabsTrigger 
+                value="completed" 
+                className={`px-6 py-2.5 rounded-lg text-sm font-bold tracking-wide uppercase transition-all duration-200 data-[state=active]:bg-green-100 data-[state=active]:text-green-800 data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-green-600 hover:bg-green-50/50`}
+              >
+                Completed Records
+              </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -246,7 +294,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
               <tr>
                 <th className="p-4 text-left font-medium">Job ID</th>
                 <th className="p-4 text-left font-medium">Client</th>
-                <th className="p-4 text-left font-medium">Type & Voltage</th>
+                <th className="p-4 text-left font-medium">Type &amp; Voltage</th>
                 <th className="p-4 text-center font-medium">Action</th>
               </tr>
             </thead>
@@ -283,12 +331,68 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
     );
   }
 
+  // ==== 2. TRANSFORMER LIST VIEW ====
+  if (selectedOrder && !selectedTransformer) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={() => { setSelectedOrder(null); setTransformersList([]); }} className="gap-2">
+            <ArrowLeft className="w-4 h-4" /> Back to Orders
+          </Button>
+          <div className="flex-1">
+            <h2 className="text-xl font-bold">Transformers for {selectedOrder.jobId}</h2>
+            <p className="text-gray-500 mt-1">Select a PT unit to begin the Heating Record</p>
+          </div>
+          {currentTab === 'assigned' && (
+            <Button size="sm" onClick={handleApproveOrder} className="bg-green-600 hover:bg-green-700 gap-2">
+              <CheckCircle className="w-4 h-4" /> Approve Order
+            </Button>
+          )}
+        </div>
+
+        <Card className="overflow-hidden">
+          {loadingTransformers ? (
+            <div className="p-8 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>
+          ) : transformersList.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">No transformers found for this order.</div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-[#003a70] text-white">
+                <tr>
+                  <th className="p-4 text-left font-medium">Unique ID</th>
+                  <th className="p-4 text-left font-medium">Current Stage</th>
+                  <th className="p-4 text-center font-medium">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transformersList.map((t: any) => (
+                  <tr key={t._id} className="border-b hover:bg-gray-50">
+                    <td className="p-4 font-bold">{t.uniqueId}</td>
+                    <td className="p-4">
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">{t.currentStage || 'N/A'}</span>
+                    </td>
+                    <td className="p-4 text-center">
+                      <Button size="sm" onClick={() => handleSelectTransformer(t)} className="bg-[#003a70] hover:bg-[#002f5c] gap-2">
+                        <PlayCircle className="w-4 h-4" /> Start Record
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
+      </div>
+    );
+  }
+
+  // ==== 3. HEATING SHEET VIEW ====
   return (
     <HeatingRecord33KVPT
       records={records}
       saving={saving}
-      onBack={() => { setSelectedOrder(null); setRecords([]); }}
-      onAddBlock={() => addRecordBlock(selectedOrder.jobId)}
+      onBack={() => { setSelectedTransformer(null); setRecords([]); }}
+      onAddBlock={addRecordBlock}
       onSave={handleSave}
       onUpdateProcessStep={updateProcessStep}
       onUpdateBlockField={updateBlockField}

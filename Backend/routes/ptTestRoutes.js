@@ -15,56 +15,101 @@ router.post('/submit', isAuthenticated, async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing required fields." });
     }
 
-    // 1. Find and update the Transformer
+    // 1. Find the Transformer
     const transformer = await TransformerModel.findById(transformerId);
     if (!transformer) {
       return res.status(404).json({ success: false, message: "Transformer not found." });
     }
 
-    // Validate the transformer is actually a PT transformer (extra safety)
-    if (transformer.currentStage !== 'pt') {
-        return res.status(400).json({ success: false, message: "Transformer is not in PT testing stage." });
+    // NOTE: We intentionally do NOT enforce currentStage === 'pt' here.
+    // PT testers should be able to save/re-edit a report even after the transformer
+    // has moved to a subsequent stage (e.g., after initial save).
+
+    // 2. Update the Transformer's PT test history via direct query
+    // Using findByIdAndUpdate ensures MongoDB updates the Mixed type reliably
+    const updatePayload = {
+      ...reportData,
+      savedAt: new Date(),
+      savedBy: req.user?.name || req.user?.fullName || 'PT Tester'
+    };
+
+    const updateFields = {
+      'testHistory.pt_test': updatePayload
+    };
+
+    // Keep transformer at 'pt' stage so it remains visible in PT list
+    if (transformer.currentStage === 'pt') {
+      updateFields.currentStage = 'pt';
     }
 
-    // Update the Transformer Document
-    transformer.testHistory.pt_test = reportData;
-    transformer.markModified('testHistory.pt_test'); // Required for Schema.Types.Mixed to save!
-    transformer.currentStage = 'shipped'; // Or another stage if 'shipped' isn't appropriate, maybe 'completed'
-    await transformer.save();
-
-    // 2. Check Order Status
-    // Find all transformers for this order to see if all are completed
-    const allTransformers = await TransformerModel.find({ orderId: orderId });
-    const allCompleted = allTransformers.every(t => t.testHistory && t.testHistory.pt_test && Object.keys(t.testHistory.pt_test).length > 0);
-
-    // Update Order Model
-    if (allCompleted) {
-        await OrderModel.findByIdAndUpdate(orderId, {
-            $set: { 
-                status: 'PT Testing Completed', // Or 'Completed' based on your global status map
-                'completionStages.pt': true,
-                approved: true // Typically handled by an admin, but setting to true to make it show in history. Adjust if an admin step is needed.
-            }
-        });
-    } else {
-        await OrderModel.findByIdAndUpdate(orderId, {
-            $set: { 
-                status: 'PT Testing In Progress' 
-            }
-        });
-    }
-
-    res.status(200).json({ 
-        success: true, 
-        message: "PT Test Report submitted successfully.",
-        allCompleted: allCompleted
+    await TransformerModel.findByIdAndUpdate(transformerId, {
+      $set: updateFields
     });
 
-  } catch (err) {
-    console.error("Error submitting PT Test:", err);
-    res.status(500).json({ success: false, error: err.message });
+    // 3. Check if ALL transformers for this order have PT test data
+    const allTransformers = await TransformerModel.find({
+      $or: [{ orderId: orderId }, { orderId: orderId.toString() }]
+    });
+
+    const allCompleted = allTransformers.length > 0 && allTransformers.every(
+      t => t.testHistory && t.testHistory.pt_test && Object.keys(t.testHistory.pt_test).length > 0
+    );
+
+    // 4. Update Order status
+    // Instead of auto-completing, we leave it "In Progress" until manually approved
+    await OrderModel.findByIdAndUpdate(orderId, {
+      $set: { status: 'PT Testing In Progress' }
+    });
+
+    res.status(200).json({ 
+      success: true, 
+      message: "PT Test Report submitted successfully.",
+      allCompleted: allCompleted
+    });
+  } catch (error) {
+    console.error("Error submitting PT report:", error);
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
   }
 });
+
+// @route   PUT /api/pt-tests/:orderId/approve
+// @desc    Manually approve the order after all PT tests are done
+// @access  Private
+router.put('/:orderId/approve', isAuthenticated, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    // Verify all transformers actually have data
+    const allTransformers = await TransformerModel.find({
+      $or: [{ orderId: orderId }, { orderId: orderId.toString() }]
+    });
+
+    if (allTransformers.length === 0) {
+       return res.status(400).json({ success: false, message: "No transformers found in this order." });
+    }
+
+    const allCompleted = allTransformers.every(
+      t => t.testHistory && t.testHistory.pt_test && Object.keys(t.testHistory.pt_test).length > 0
+    );
+
+    if (!allCompleted) {
+       return res.status(400).json({ success: false, message: "Cannot approve. Not all transformers have testing data saved." });
+    }
+
+    await OrderModel.findByIdAndUpdate(orderId, {
+      $set: { 
+        status: 'PT Testing Completed',
+        'completionStages.pt': true
+      }
+    });
+
+    res.status(200).json({ success: true, message: "PT Testing approved and completed successfully." });
+  } catch (error) {
+    console.error("Error approving PT order:", error);
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+  }
+});
+
 
 // POST /api/pt-tests/failed
 // Log a failed PT transformer

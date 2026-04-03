@@ -15,6 +15,16 @@ interface TestReportModalProps {
 }
 
 export function TestReportModal({ isOpen, onClose, transformer, order, testType }: TestReportModalProps) {
+    const isPTTransformer = () => {
+        const rawType = String(
+            order?.transformerType ||
+            transformer?.transformerType ||
+            transformer?.type ||
+            ''
+        ).toLowerCase();
+        return rawType === 'pt' || rawType.includes('potential');
+    };
+
     const [meteringData, setMeteringData] = useState<any>(null);
     const [protectionData, setProtectionData] = useState<any>(null);
     const [psData, setPsData] = useState<any>(null);
@@ -336,7 +346,7 @@ export function TestReportModal({ isOpen, onClose, transformer, order, testType 
     }
 
     const renderAllReports = () => {
-        const isPT = transformer?.currentStage === 'pt' || transformer?.testHistory?.pt_test || order?.transformerType === 'PT';
+        const isPT = transformer?.currentStage === 'pt' || transformer?.testHistory?.pt_test || isPTTransformer();
         
         if (isPT) {
             return (
@@ -375,16 +385,10 @@ export function TestReportModal({ isOpen, onClose, transformer, order, testType 
         
         switch (testType) {
             case 'core': return renderCoreReport();
-<<<<<<< HEAD
-            case 'secondary': return <SecondaryReportView transformer={transformer} onBack={onClose} stage="secondary" />;
-            case 'primary': return <SecondaryReportView transformer={transformer} onBack={onClose} stage="primary" />;
-            case 'final': return <SecondaryReportView transformer={transformer} onBack={onClose} stage="final" />;
-            case 'pt': return <PTReportView transformer={transformer} order={order} onBack={onClose} />;
-=======
             case 'secondary': return <SecondaryReportView transformer={currentTransformer} onBack={onClose} stage="secondary" />;
             case 'primary': return <SecondaryReportView transformer={currentTransformer} onBack={onClose} stage="primary" />;
             case 'final': return <SecondaryReportView transformer={currentTransformer} onBack={onClose} stage="final" />;
->>>>>>> a717da7c73aab67316ddb59441b8b8f9504f8170
+            case 'pt': return <PTReportView transformer={transformer} order={order} onBack={onClose} />;
             case 'all': return renderAllReports();
             default: return <div>Unknown Report Type</div>;
         }

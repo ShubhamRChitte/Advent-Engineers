@@ -331,23 +331,40 @@ export function OrderForm({ transformer, onSubmit, onCancel }: OrderFormProps) {
                       >
                         <option value="">Select Accuracy Class</option>
                         {coreConfigs[index].coreType === 'metering' && (
-                          <>
-                            <option value="0.1">0.1</option>
-                            <option value="0.2">0.2</option>
-                            <option value="0.5">0.5</option>
-                            <option value="1">1</option>
-                            <option value="3">3</option>
-                            <option value="5">5</option>
-                            <option value="0.2s">0.2s</option>
-                            <option value="0.5s">0.5s</option>
-                          </>
+                          transformer.type === 'PT' ? (
+                            <>
+                              <option value="0.1">0.1</option>
+                              <option value="0.2">0.2</option>
+                              <option value="0.5">0.5</option>
+                              <option value="1">1</option>
+                              <option value="3">3</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="0.1">0.1</option>
+                              <option value="0.2">0.2</option>
+                              <option value="0.5">0.5</option>
+                              <option value="1">1</option>
+                              <option value="3">3</option>
+                              <option value="5">5</option>
+                              <option value="0.2s">0.2s</option>
+                              <option value="0.5s">0.5s</option>
+                            </>
+                          )
                         )}
                         {coreConfigs[index].coreType === 'protection' && (
-                          <>
-                            <option value="5P">5P</option>
-                            <option value="10P">10P</option>
-                            <option value="15P">15P</option>
-                          </>
+                          transformer.type === 'PT' ? (
+                            <>
+                              <option value="3P">3P</option>
+                              <option value="6P">6P</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="5P">5P</option>
+                              <option value="10P">10P</option>
+                              <option value="15P">15P</option>
+                            </>
+                          )
                         )}
                         {coreConfigs[index].coreType === 'ps' && (
                           <option value="0.2s">0.2s</option>

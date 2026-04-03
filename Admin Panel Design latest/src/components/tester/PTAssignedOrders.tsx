@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { PlayCircle } from 'lucide-react';
+import { PlayCircle, Eye } from 'lucide-react';
 
 interface Order {
   _id: string;
@@ -22,19 +22,34 @@ interface PTAssignedOrdersProps {
 export function PTAssignedOrders({ onStartTesting }: PTAssignedOrdersProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [activeTab]);
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:3002/api/assigneed_orders', {
-        params: { type: 'active' },
+      // Use the stage-unrestricted endpoint so we see all PT orders regardless of
+      // which stage the transformers are currently at.
+      const response = await axios.get('http://localhost:3002/api/heating-record/assigned-orders?type=PT', {
         withCredentials: true
       });
-      setOrders(response.data);
+
+      const allOrders: Order[] = response.data.success ? response.data.orders : [];
+
+      if (activeTab === 'active') {
+        // Show orders NOT yet fully completed
+        setOrders(allOrders.filter(o =>
+          !o.status.includes('PT Testing Completed')
+        ));
+      } else {
+        // Show fully completed PT testing orders
+        setOrders(allOrders.filter(o =>
+          o.status.includes('PT Testing Completed') || o.status.includes('Completed')
+        ));
+      }
     } catch (error) {
       console.error("Error fetching PT orders:", error);
     } finally {
@@ -55,9 +70,33 @@ export function PTAssignedOrders({ onStartTesting }: PTAssignedOrdersProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2>Assigned PT Orders</h2>
-        <p className="text-gray-500 mt-1">View your assigned PT orders</p>
+      <div className={`flex justify-between items-center p-6 rounded-xl border shadow-sm transition-colors duration-300 ${activeTab === 'completed' ? 'bg-green-50/50 border-green-200' : 'bg-gray-50/50 border-gray-200'}`}>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight uppercase">Assigned PT Orders</h2>
+          <p className="text-gray-600 mt-2 text-base">Select your active tasks or review completed ones.</p>
+        </div>
+        <div className="flex space-x-3 bg-white/60 p-1.5 rounded-xl">
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-bold tracking-wide uppercase transition-all duration-200 ${
+              activeTab === 'active' 
+                ? 'bg-white text-[#003a70] shadow-md border-b-2 border-[#003a70]' 
+                : 'text-gray-500 hover:text-gray-800 hover:bg-white/50'
+            }`}
+          >
+            Assigned Orders
+          </button>
+          <button
+            onClick={() => setActiveTab('completed')}
+            className={`px-6 py-2.5 rounded-lg text-sm font-bold tracking-wide uppercase transition-all duration-200 ${
+              activeTab === 'completed' 
+                ? 'bg-green-100 text-green-800 shadow-md border-b-2 border-green-600' 
+                : 'text-gray-500 hover:text-green-700 hover:bg-green-50/50'
+            }`}
+          >
+            Completed Orders
+          </button>
+        </div>
       </div>
       
       <Card className="overflow-hidden">
@@ -89,12 +128,11 @@ export function PTAssignedOrders({ onStartTesting }: PTAssignedOrdersProps) {
                     <div className="flex justify-center">
                       <Button 
                         size="sm" 
-                        className="bg-[#003a70] hover:bg-[#002850]"
+                        className={order.status.includes('Completed') ? "bg-green-600 hover:bg-green-700" : "bg-[#003a70] hover:bg-[#002850]"}
                         onClick={() => onStartTesting && onStartTesting(order)}
-                        disabled={order.status.includes('Completed')}
                       >
-                        <PlayCircle className="w-4 h-4 mr-2" />
-                        {order.status.includes('Completed') ? 'Completed' : 'Start Testing'}
+                        {order.status.includes('Completed') ? <Eye className="w-4 h-4 mr-2" /> : <PlayCircle className="w-4 h-4 mr-2" />}
+                        {order.status.includes('Completed') ? 'View / Edit Report' : 'Start Testing'}
                       </Button>
                     </div>
                   </td>
@@ -103,7 +141,7 @@ export function PTAssignedOrders({ onStartTesting }: PTAssignedOrdersProps) {
               {orders.length === 0 && (
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-gray-500">
-                    No assigned PT orders found.
+                    {activeTab === 'active' ? 'No assigned PT orders found.' : 'No completed PT orders found.'}
                   </td>
                 </tr>
               )}

@@ -83,13 +83,17 @@ export function NotificationsModule() {
       });
 
       const pendingOrders = response.data || [];
+      const isPTOrder = (order: any) => {
+        const rawType = String(order?.transformerType || order?.type || '').toLowerCase();
+        return rawType === 'pt' || rawType.includes('potential');
+      };
       const transformed: OrderNotification[] = pendingOrders.map((order: any) => ({
         id: order._id,
         orderId: order.jobId,
         message: 'A new order has been added',
         clientName: order.clientName,
         transformerName: `Transformer (x${order.noOfCores || order.numberOfCores || '?'})`,
-        transformerType: order.isStandard,
+        transformerType: order.transformerType || order.type || 'N/A',
         quantity: order.quantity || 1,
         orderDate: new Date(order.createdAt).toLocaleDateString(),
         addedBy: 'Entry Operator',
@@ -97,12 +101,15 @@ export function NotificationsModule() {
         isRead: order.isRead || false,
         isApproved: order.status !== 'Pending Approval',
         testAssignments: (() => {
-          const stages = ['Core Test', 'Secondary Test', 'After Primary Test', 'Final Test'] as const;
+          const stages = isPTOrder(order)
+            ? (['PT Test'] as const)
+            : (['Core Test', 'Secondary Test', 'After Primary Test', 'Final Test'] as const);
           const stageMap: Record<string, string> = {
             'core': 'Core Test',
             'secondary': 'Secondary Test',
             'primary': 'After Primary Test',
-            'final': 'Final Test'
+            'final': 'Final Test',
+            'pt': 'PT Test'
           };
 
           return stages.map(stageName => {

@@ -24,6 +24,7 @@ interface TransformerUnit {
   secondaryTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
   primaryTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
   finalTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
+  ptTestStatus?: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
   reportStatus: 'Open' | 'In Progress' | 'Pending';
   raw: any;
 }
@@ -40,7 +41,12 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
   // Modal State
   const [selectedTransformer, setSelectedTransformer] = useState<any | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedTestType, setSelectedTestType] = useState<'core' | 'secondary' | 'primary' | 'final'>('core');
+  const [selectedTestType, setSelectedTestType] = useState<'core' | 'secondary' | 'primary' | 'final' | 'pt'>('core');
+
+  const isPTOrder = (t?: any) => {
+    const rawType = String(t?.transformerType || t?.type || order?.transformerType || '').toLowerCase();
+    return rawType === 'pt' || rawType.includes('potential');
+  };
 
   useEffect(() => {
     const fetchTransformers = async () => {
@@ -89,6 +95,11 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
           secondaryTestStatus: getStatusForStage('secondary', t.currentStage, t.testHistory?.secondary_test?.status),
           primaryTestStatus: getStatusForStage('primary', t.currentStage, t.testHistory?.primary_test?.status),
           finalTestStatus: getStatusForStage('final', t.currentStage, t.testHistory?.final_test?.status),
+          ptTestStatus: (t.currentStage === 'shipped' || t.currentStage === 'completed' || (t.testHistory?.pt_test && Object.keys(t.testHistory.pt_test).length > 0))
+            ? 'Complete'
+            : t.currentStage === 'pt'
+              ? 'In Progress'
+              : 'Pending',
           reportStatus: (t.currentStage === 'completed' || t.currentStage === 'shipped') ? 'Open' : 'Pending',
           raw: t
         }));
@@ -114,7 +125,7 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
 
   const [searchQuery, setSearchQuery] = useState('');
 
-  const handleOpenReport = (transformer: Transformer, type: 'core' | 'secondary' | 'primary' | 'final') => {
+  const handleOpenReport = (transformer: Transformer, type: 'core' | 'secondary' | 'primary' | 'final' | 'pt') => {
     setSelectedTransformer(transformer);
     setSelectedTestType(type);
     setModalOpen(true);
@@ -136,6 +147,8 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
 
     return matchTransformerId || matchJobId || matchCoreNo;
   });
+
+  const isPTContext = isPTOrder() || transformerUnits.some((u) => isPTOrder(u.raw));
 
   const getStatusColor = (status?: string) => {
     switch (status) {
@@ -230,21 +243,30 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
             <thead className="bg-gray-50 border-b-2 border-gray-200">
               <tr>
                 <th className="text-left p-4 font-medium text-gray-700">Transformer Id ⬆</th>
-                <th className="text-center p-4 font-medium text-gray-700">Core Testing</th>
-                <th className="text-center p-4 font-medium text-gray-700">After Secondary Testing</th>
-                <th className="text-center p-4 font-medium text-gray-700">After Primary Testing</th>
-                <th className="text-center p-4 font-medium text-gray-700">Final Testing</th>
+                {isPTContext ? (
+                  <th className="text-center p-4 font-medium text-gray-700">PT Testing</th>
+                ) : (
+                  <>
+                    <th className="text-center p-4 font-medium text-gray-700">Core Testing</th>
+                    <th className="text-center p-4 font-medium text-gray-700">After Secondary Testing</th>
+                    <th className="text-center p-4 font-medium text-gray-700">After Primary Testing</th>
+                    <th className="text-center p-4 font-medium text-gray-700">Final Testing</th>
+                  </>
+                )}
                 <th className="text-center p-4 font-medium text-gray-700">Report</th>
               </tr>
             </thead>
             <tbody>
               {filteredUnits.map((unit, index) => {
                 // Check if all tests are complete for Report generation logic
-                const allComplete =
-                  unit.coreTestStatus === 'Complete' &&
-                  unit.secondaryTestStatus === 'Complete' &&
-                  unit.primaryTestStatus === 'Complete' &&
-                  unit.finalTestStatus === 'Complete';
+                const allComplete = isPTOrder(unit.raw)
+                  ? unit.ptTestStatus === 'Complete'
+                  : (
+                    unit.coreTestStatus === 'Complete' &&
+                    unit.secondaryTestStatus === 'Complete' &&
+                    unit.primaryTestStatus === 'Complete' &&
+                    unit.finalTestStatus === 'Complete'
+                  );
 
                 return (
                   <tr
@@ -256,101 +278,125 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
                       <p className="font-medium font-mono">{unit.transformerId}</p>
                     </td>
 
-                    {/* Core Test */}
-                    <td className="p-4">
-                      <div className="flex flex-col items-center gap-2">
-                        <Badge className={`${getStatusColor(unit.coreTestStatus)} flex items-center gap-1`}>
-                          {getStatusIcon(unit.coreTestStatus)}
-                          {unit.coreTestStatus}
-                        </Badge>
-                        {unit.raw?.testHistory?.core_test?.tester && unit.coreTestStatus === 'Complete' && (
-                          <span className="text-[10px] text-gray-500 font-medium">By: {unit.raw.testHistory.core_test.tester}</span>
-                        )}
-                        {unit.coreTestStatus === 'Complete' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs h-7 gap-1"
-                            onClick={() => handleOpenReport(unit.raw, 'core')}
-                          >
-                            <FileText className="w-3 h-3" />
-                            View Report
-                          </Button>
-                        )}
-                      </div>
-                    </td>
+                    {isPTOrder(unit.raw) ? (
+                      <td className="p-4">
+                        <div className="flex flex-col items-center gap-2">
+                          <Badge className={`${getStatusColor(unit.ptTestStatus || 'Pending')} flex items-center gap-1`}>
+                            {getStatusIcon(unit.ptTestStatus || 'Pending')}
+                            {unit.ptTestStatus || 'Pending'}
+                          </Badge>
+                          {unit.ptTestStatus === 'Complete' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-7 gap-1"
+                              onClick={() => handleOpenReport(unit.raw, 'pt')}
+                            >
+                              <FileText className="w-3 h-3" />
+                              View Report
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    ) : (
+                      <>
+                        {/* Core Test */}
+                        <td className="p-4">
+                          <div className="flex flex-col items-center gap-2">
+                            <Badge className={`${getStatusColor(unit.coreTestStatus)} flex items-center gap-1`}>
+                              {getStatusIcon(unit.coreTestStatus)}
+                              {unit.coreTestStatus}
+                            </Badge>
+                            {unit.raw?.testHistory?.core_test?.tester && unit.coreTestStatus === 'Complete' && (
+                              <span className="text-[10px] text-gray-500 font-medium">By: {unit.raw.testHistory.core_test.tester}</span>
+                            )}
+                            {unit.coreTestStatus === 'Complete' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7 gap-1"
+                                onClick={() => handleOpenReport(unit.raw, 'core')}
+                              >
+                                <FileText className="w-3 h-3" />
+                                View Report
+                              </Button>
+                            )}
+                          </div>
+                        </td>
 
-                    {/* After Secondary Test */}
-                    <td className="p-4">
-                      <div className="flex flex-col items-center gap-2">
-                        <Badge className={`${getStatusColor(unit.secondaryTestStatus)} flex items-center gap-1`}>
-                          {getStatusIcon(unit.secondaryTestStatus)}
-                          {unit.secondaryTestStatus}
-                        </Badge>
-                        {unit.raw?.testHistory?.secondary_test?.tester && unit.secondaryTestStatus === 'Complete' && (
-                          <span className="text-[10px] text-gray-500 font-medium">By: {unit.raw.testHistory.secondary_test.tester}</span>
-                        )}
-                        {unit.secondaryTestStatus === 'Complete' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs h-7 gap-1"
-                            onClick={() => handleOpenReport(unit.raw, 'secondary')}
-                          >
-                            <FileText className="w-3 h-3" />
-                            View Report
-                          </Button>
-                        )}
-                      </div>
-                    </td>
+                        {/* After Secondary Test */}
+                        <td className="p-4">
+                          <div className="flex flex-col items-center gap-2">
+                            <Badge className={`${getStatusColor(unit.secondaryTestStatus)} flex items-center gap-1`}>
+                              {getStatusIcon(unit.secondaryTestStatus)}
+                              {unit.secondaryTestStatus}
+                            </Badge>
+                            {unit.raw?.testHistory?.secondary_test?.tester && unit.secondaryTestStatus === 'Complete' && (
+                              <span className="text-[10px] text-gray-500 font-medium">By: {unit.raw.testHistory.secondary_test.tester}</span>
+                            )}
+                            {unit.secondaryTestStatus === 'Complete' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7 gap-1"
+                                onClick={() => handleOpenReport(unit.raw, 'secondary')}
+                              >
+                                <FileText className="w-3 h-3" />
+                                View Report
+                              </Button>
+                            )}
+                          </div>
+                        </td>
 
-                    {/* After Primary Test */}
-                    <td className="p-4">
-                      <div className="flex flex-col items-center gap-2">
-                        <Badge className={`${getStatusColor(unit.primaryTestStatus)} flex items-center gap-1`}>
-                          {getStatusIcon(unit.primaryTestStatus)}
-                          {unit.primaryTestStatus}
-                        </Badge>
-                        {unit.raw?.testHistory?.primary_test?.tester && unit.primaryTestStatus === 'Complete' && (
-                          <span className="text-[10px] text-gray-500 font-medium">By: {unit.raw.testHistory.primary_test.tester}</span>
-                        )}
-                        {unit.primaryTestStatus === 'Complete' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs h-7 gap-1"
-                            onClick={() => handleOpenReport(unit.raw, 'primary')}
-                          >
-                            <FileText className="w-3 h-3" />
-                            View Report
-                          </Button>
-                        )}
-                      </div>
-                    </td>
+                        {/* After Primary Test */}
+                        <td className="p-4">
+                          <div className="flex flex-col items-center gap-2">
+                            <Badge className={`${getStatusColor(unit.primaryTestStatus)} flex items-center gap-1`}>
+                              {getStatusIcon(unit.primaryTestStatus)}
+                              {unit.primaryTestStatus}
+                            </Badge>
+                            {unit.raw?.testHistory?.primary_test?.tester && unit.primaryTestStatus === 'Complete' && (
+                              <span className="text-[10px] text-gray-500 font-medium">By: {unit.raw.testHistory.primary_test.tester}</span>
+                            )}
+                            {unit.primaryTestStatus === 'Complete' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7 gap-1"
+                                onClick={() => handleOpenReport(unit.raw, 'primary')}
+                              >
+                                <FileText className="w-3 h-3" />
+                                View Report
+                              </Button>
+                            )}
+                          </div>
+                        </td>
 
-                    {/* Final Test */}
-                    <td className="p-4">
-                      <div className="flex flex-col items-center gap-2">
-                        <Badge className={`${getStatusColor(unit.finalTestStatus)} flex items-center gap-1`}>
-                          {getStatusIcon(unit.finalTestStatus)}
-                          {unit.finalTestStatus}
-                        </Badge>
-                        {unit.raw?.testHistory?.final_test?.tester && unit.finalTestStatus === 'Complete' && (
-                          <span className="text-[10px] text-gray-500 font-medium">By: {unit.raw.testHistory.final_test.tester}</span>
-                        )}
-                        {unit.finalTestStatus === 'Complete' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs h-7 gap-1"
-                            onClick={() => handleOpenReport(unit.raw, 'final')}
-                          >
-                            <FileText className="w-3 h-3" />
-                            View Report
-                          </Button>
-                        )}
-                      </div>
-                    </td>
+                        {/* Final Test */}
+                        <td className="p-4">
+                          <div className="flex flex-col items-center gap-2">
+                            <Badge className={`${getStatusColor(unit.finalTestStatus)} flex items-center gap-1`}>
+                              {getStatusIcon(unit.finalTestStatus)}
+                              {unit.finalTestStatus}
+                            </Badge>
+                            {unit.raw?.testHistory?.final_test?.tester && unit.finalTestStatus === 'Complete' && (
+                              <span className="text-[10px] text-gray-500 font-medium">By: {unit.raw.testHistory.final_test.tester}</span>
+                            )}
+                            {unit.finalTestStatus === 'Complete' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7 gap-1"
+                                onClick={() => handleOpenReport(unit.raw, 'final')}
+                              >
+                                <FileText className="w-3 h-3" />
+                                View Report
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </>
+                    )}
 
                     {/* Report Status & Full Report */}
                     <td className="p-4">

@@ -418,23 +418,40 @@ export function CreateOrderView() {
                         <SelectTrigger className="h-8"><SelectValue placeholder="Select Class" /></SelectTrigger>
                         <SelectContent>
                           {config.coreType === 'Metering' && (
-                            <>
-                              <SelectItem value="0.1">0.1</SelectItem>
-                              <SelectItem value="0.2">0.2</SelectItem>
-                              <SelectItem value="0.5">0.5</SelectItem>
-                              <SelectItem value="1">1</SelectItem>
-                              <SelectItem value="3">3</SelectItem>
-                              <SelectItem value="5">5</SelectItem>
-                              <SelectItem value="0.2s">0.2s</SelectItem>
-                              <SelectItem value="0.5s">0.5s</SelectItem>
-                            </>
+                            formData.transformerType === 'PT' ? (
+                              <>
+                                <SelectItem value="0.1">0.1</SelectItem>
+                                <SelectItem value="0.2">0.2</SelectItem>
+                                <SelectItem value="0.5">0.5</SelectItem>
+                                <SelectItem value="1">1</SelectItem>
+                                <SelectItem value="3">3</SelectItem>
+                              </>
+                            ) : (
+                              <>
+                                <SelectItem value="0.1">0.1</SelectItem>
+                                <SelectItem value="0.2">0.2</SelectItem>
+                                <SelectItem value="0.5">0.5</SelectItem>
+                                <SelectItem value="1">1</SelectItem>
+                                <SelectItem value="3">3</SelectItem>
+                                <SelectItem value="5">5</SelectItem>
+                                <SelectItem value="0.2s">0.2s</SelectItem>
+                                <SelectItem value="0.5s">0.5s</SelectItem>
+                              </>
+                            )
                           )}
                           {config.coreType === 'Protection' && (
-                            <>
-                              <SelectItem value="5P">5P</SelectItem>
-                              <SelectItem value="10P">10P</SelectItem>
-                              <SelectItem value="15P">15P</SelectItem>
-                            </>
+                            formData.transformerType === 'PT' ? (
+                              <>
+                                <SelectItem value="3P">3P</SelectItem>
+                                <SelectItem value="6P">6P</SelectItem>
+                              </>
+                            ) : (
+                              <>
+                                <SelectItem value="5P">5P</SelectItem>
+                                <SelectItem value="10P">10P</SelectItem>
+                                <SelectItem value="15P">15P</SelectItem>
+                              </>
+                            )
                           )}
                           {config.coreType === 'PS' && formData.transformerType !== 'PT' && (
                             <SelectItem value="0.2s">0.2s</SelectItem>
