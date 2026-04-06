@@ -13,6 +13,14 @@ interface Order {
   quantity: number;
   status: string;
   priority: string;
+  // Fields needed by PTTestingReport
+  ratio?: string[];
+  voltageRating?: string;
+  nominalSystemVoltage?: string | number;
+  burden?: string;
+  accuracyClass?: string;
+  coreDetails?: any[];
+  coreConfigs?: any[];
 }
 
 interface PTAssignedOrdersProps {
@@ -22,7 +30,9 @@ interface PTAssignedOrdersProps {
 export function PTAssignedOrders({ onStartTesting }: PTAssignedOrdersProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
+  const [activeTab, setActiveTab] = useState<'assigned' | 'completed'>('assigned');
+  const [assignedCount, setAssignedCount] = useState(0);
+  const [completedCount, setCompletedCount] = useState(0);
 
   useEffect(() => {
     fetchOrders();
@@ -39,17 +49,15 @@ export function PTAssignedOrders({ onStartTesting }: PTAssignedOrdersProps) {
 
       const allOrders: Order[] = response.data.success ? response.data.orders : [];
 
-      if (activeTab === 'active') {
-        // Show orders NOT yet fully completed
-        setOrders(allOrders.filter(o =>
-          !o.status.includes('PT Testing Completed')
-        ));
-      } else {
-        // Show fully completed PT testing orders
-        setOrders(allOrders.filter(o =>
-          o.status.includes('PT Testing Completed') || o.status.includes('Completed')
-        ));
-      }
+      const assigned = allOrders.filter(o => !o.status.includes('PT Testing Completed'));
+      const completed = allOrders.filter(o => o.status.includes('PT Testing Completed') || o.status.includes('Completed'));
+
+      setAssignedCount(assigned.length);
+      setCompletedCount(completed.length);
+
+      // Keep UI data synced with active tab selection
+      if (activeTab === 'assigned') setOrders(assigned);
+      else setOrders(completed);
     } catch (error) {
       console.error("Error fetching PT orders:", error);
     } finally {
@@ -72,31 +80,43 @@ export function PTAssignedOrders({ onStartTesting }: PTAssignedOrdersProps) {
     <div className="space-y-6">
       <div className={`flex justify-between items-center p-6 rounded-xl border shadow-sm transition-colors duration-300 ${activeTab === 'completed' ? 'bg-green-50/50 border-green-200' : 'bg-gray-50/50 border-gray-200'}`}>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 tracking-tight uppercase">Assigned PT Orders</h2>
-          <p className="text-gray-600 mt-2 text-base">Select your active tasks or review completed ones.</p>
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight uppercase">
+            {activeTab === 'assigned' ? 'Assigned PT Orders' : 'Completed PT Orders'}
+          </h2>
+          <p className="text-gray-600 mt-2 text-base">
+            {activeTab === 'assigned'
+              ? 'Select an eligible 33KV PT order to start heating record entry.'
+              : 'Review completed PT heating records.'}
+          </p>
         </div>
-        <div className="flex space-x-3 bg-white/60 p-1.5 rounded-xl">
-          <button
-            onClick={() => setActiveTab('active')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-bold tracking-wide uppercase transition-all duration-200 ${
-              activeTab === 'active' 
-                ? 'bg-white text-[#003a70] shadow-md border-b-2 border-[#003a70]' 
-                : 'text-gray-500 hover:text-gray-800 hover:bg-white/50'
-            }`}
-          >
-            Assigned Orders
-          </button>
-          <button
-            onClick={() => setActiveTab('completed')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-bold tracking-wide uppercase transition-all duration-200 ${
-              activeTab === 'completed' 
-                ? 'bg-green-100 text-green-800 shadow-md border-b-2 border-green-600' 
-                : 'text-gray-500 hover:text-green-700 hover:bg-green-50/50'
-            }`}
-          >
-            Completed Orders
-          </button>
-        </div>
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => setActiveTab('assigned')}
+              className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all inline-flex items-center gap-2 ${
+                activeTab === 'assigned'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Assigned Orders
+              <Badge className={activeTab === 'assigned' ? 'bg-blue-500 text-white border-blue-400' : 'bg-blue-100 text-blue-700 border border-blue-200'}>
+                {assignedCount}
+              </Badge>
+            </button>
+            <button
+              onClick={() => setActiveTab('completed')}
+              className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all inline-flex items-center gap-2 ${
+                activeTab === 'completed'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Completed Orders
+              <Badge className={activeTab === 'completed' ? 'bg-blue-500 text-white border-blue-400' : 'bg-green-100 text-green-700 border border-green-200'}>
+                {completedCount}
+              </Badge>
+            </button>
+          </div>
       </div>
       
       <Card className="overflow-hidden">
@@ -141,7 +161,7 @@ export function PTAssignedOrders({ onStartTesting }: PTAssignedOrdersProps) {
               {orders.length === 0 && (
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-gray-500">
-                    {activeTab === 'active' ? 'No assigned PT orders found.' : 'No completed PT orders found.'}
+                    {activeTab === 'assigned' ? 'No assigned PT orders found.' : 'No completed PT orders found.'}
                   </td>
                 </tr>
               )}

@@ -36,6 +36,7 @@ export interface HeatingRecordBlock {
 interface HeatingRecord33KVPTProps {
   records: HeatingRecordBlock[];
   saving: boolean;
+  isEditing?: boolean;
   onBack: () => void;
   onAddBlock: () => void;
   onSave: () => void;
@@ -351,6 +352,7 @@ function GroupBlock({ block, blockIndex, onUpdateProcessStep, onUpdateBlockField
 export function HeatingRecord33KVPT({
   records,
   saving,
+  isEditing,
   onBack,
   onAddBlock, // Kept to satisfy props interface, but unused in body
   onSave,
@@ -391,12 +393,17 @@ export function HeatingRecord33KVPT({
           Back to Orders
         </Button>
         <div className="flex gap-3">
+          {isEditing && (
+            <div className="self-center rounded-md border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-800">
+              Editing Record
+            </div>
+          )}
           <Button onClick={() => window.print()} variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
             Print Report
           </Button>
           <Button onClick={onSave} disabled={saving} className="bg-green-600 hover:bg-green-700 text-white">
             {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Save Records
+            {isEditing ? 'Update Records' : 'Save Records'}
           </Button>
         </div>
       </div>

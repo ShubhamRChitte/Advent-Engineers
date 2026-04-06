@@ -476,50 +476,248 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
       );
   }
 
+  const accuracyClassDisplay = (() => {
+    const cores = order?.coreDetails || order?.coreConfigs || [];
+    const fallback = order?.accuracyClass || '0.2';
+
+    if (!Array.isArray(cores) || cores.length === 0) return fallback;
+
+    const meteringClasses: string[] = [];
+    const protectionClasses: string[] = [];
+
+    const normalize = (v: unknown) => {
+      if (v === null || v === undefined) return '';
+      const s = String(v).trim();
+      if (!s || s.toLowerCase() === 'n/a') return '';
+      return s;
+    };
+
+    cores.forEach((core: any) => {
+      const coreType = typeof core === 'string' ? core : core?.coreType;
+      let coreClass = normalize(typeof core === 'string' ? '' : core?.accuracyClass);
+
+      if (!coreType) return;
+      const typeLc = String(coreType).toLowerCase();
+
+      // Only fall back to order.accuracyClass for metering cores; do not reuse it for protection cores.
+      if (!coreClass && typeLc.includes('meter')) coreClass = normalize(fallback);
+      if (!coreClass) return;
+
+      if (typeLc.includes('meter')) meteringClasses.push(coreClass);
+      else if (typeLc.includes('protection')) protectionClasses.push(coreClass);
+    });
+
+    const ordered = [...meteringClasses, ...protectionClasses].map(normalize).filter(Boolean);
+    if (ordered.length === 0) return fallback;
+
+    // De-dup while preserving order: metering first, then protection.
+    const uniq: string[] = [];
+    ordered.forEach((c) => {
+      if (!uniq.includes(c)) uniq.push(c);
+    });
+
+    return uniq.join(' / ');
+  })();
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
         <style>{`
           @media print {
+            /* Match CT Metering Core print (PrintableCoreReport #print-section) — A4, no @page inset, absolute layer */
             @page {
               size: A4 portrait;
-              margin: 10mm;
+              margin: 0;
+            }
+            html,
+            body {
+              height: 297mm;
+              overflow: hidden;
             }
             body * {
               visibility: hidden;
             }
-            .print-container, .print-container * {
+            .print-container,
+            .print-container * {
               visibility: visible;
             }
             .print-container {
               position: absolute;
               left: 0;
               top: 0;
-              width: 190mm;
+              width: 100%;
+              box-sizing: border-box;
             }
-            table {
+            #printable-report {
+              max-width: 210mm;
+              width: 100%;
+              margin: 0 auto !important;
+              padding: 10mm 12mm !important;
+              padding-bottom: 0 !important;
+              box-sizing: border-box;
+              color: #000 !important;
+              font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+              font-size: 12px !important; /* Slight readability bump */
+              line-height: 1.45 !important;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+              transform: scale(0.96);
+              transform-origin: top center;
+            }
+            #printable-report.pt-report-document .pt-report-section-title {
+              font-size: 0.8125rem !important;
+              font-weight: 700 !important;
+              letter-spacing: 0.06em !important;
+              text-transform: uppercase !important;
+            }
+            #printable-report.pt-report-document .pt-report-sig input {
+              text-align: left !important;
+              font-style: normal !important;
+            }
+            #printable-report.pt-report-document .pt-report-sig-right input {
+              text-align: right !important;
+            }
+            #printable-report table {
               width: 100% !important;
               border-collapse: collapse !important;
+              table-layout: fixed;
             }
-            table, tr, td, th {
+            #printable-report table,
+            #printable-report tr,
+            #printable-report td,
+            #printable-report th {
               page-break-inside: avoid !important;
             }
-            input {
-              border: none !important;
-              background: transparent !important;
-              outline: none !important;
-              color: black !important;
-              font-weight: 500 !important;
-              text-align: center !important;
-              width: 100% !important;
+            /* CT .report-table density: 11px, ~4px padding, compact rows */
+            #printable-report table td,
+            #printable-report table th {
+              font-size: 11.5px !important;
+              padding: 2px 3px !important;
+              line-height: 1.15 !important;
+              vertical-align: middle !important;
             }
-            select {
+            #printable-report .pt-report-label {
+              text-align: left !important;
+              font-weight: 600 !important;
+            }
+            #printable-report .pt-report-value {
+              text-align: center !important;
+              font-weight: 400 !important;
+            }
+            #printable-report .pt-report-num,
+            #printable-report .pt-report-num input {
+              font-variant-numeric: tabular-nums !important;
+              text-align: center !important;
+            }
+            #printable-report h1 {
+              font-size: 22px !important;
+              font-weight: 900 !important;
+              color: #b30000 !important;
+              text-align: center !important;
+              margin-bottom: 2px !important;
+              letter-spacing: 0.04em !important;
+            }
+            #printable-report h2 {
+              font-size: 13px !important;
+              font-weight: 800 !important;
+              margin-bottom: 10px !important;
+            }
+            #printable-report .mb-6 {
+              margin-bottom: 4px !important;
+            }
+            #printable-report .mb-4 {
+              margin-bottom: 4px !important;
+            }
+            #printable-report .mb-3 {
+              margin-bottom: 3px !important;
+            }
+            #printable-report .mb-2 {
+              margin-bottom: 3px !important;
+            }
+            #printable-report .mt-4 {
+              margin-top: 4px !important;
+            }
+            #printable-report .pb-2 {
+              padding-bottom: 2px !important;
+            }
+            #printable-report .py-1 {
+              padding-top: 2px !important;
+              padding-bottom: 2px !important;
+            }
+            #printable-report .p-2 {
+              padding: 2px 4px !important;
+            }
+            #printable-report .p-1 {
+              padding: 1px 3px !important;
+            }
+            #printable-report .p-0\\.5 {
+              padding: 1px 2px !important;
+            }
+            #printable-report .leading-tight {
+              line-height: 1.1 !important;
+            }
+            #printable-report input,
+            #printable-report select {
               border: none !important;
               background: transparent !important;
               outline: none !important;
-              color: black !important;
               font-weight: 500 !important;
               text-align: center !important;
               width: 100% !important;
+              color: #000 !important;
+              font-size: 11.5px !important;
+              min-height: 0 !important;
+              height: 20px !important;
+              padding: 0 2px !important;
+              line-height: 1.2 !important;
+              box-shadow: none !important;
+              opacity: 1 !important;
+              -webkit-text-fill-color: #000 !important;
+            }
+            #printable-report td.pl-4 input,
+            #printable-report td.text-left input {
+              text-align: left !important;
+            }
+
+            /* PT "Class" field: keep single-line and print-safe */
+            #printable-report .class-field {
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: clip !important;
+              word-break: keep-all !important;
+              font-size: inherit !important;
+            }
+
+            /* Hide validation indicators completely during print */
+            #printable-report .validation-ui {
+              display: none !important;
+            }
+
+            /* Remove validation color emphasis during print */
+            #printable-report [class*="text-red"],
+            #printable-report [class*="text-green"],
+            #printable-report [class*="border-red"],
+            #printable-report [class*="border-green"],
+            #printable-report [class*="bg-red"],
+            #printable-report [class*="bg-green"] {
+              color: #000 !important;
+              border-color: #000 !important;
+              background: transparent !important;
+            }
+
+            /* Industrial print: enforce solid black borders */
+            #printable-report table,
+            #printable-report th,
+            #printable-report td {
+              border: 1px solid #000 !important;
+              border-color: #000 !important;
+            }
+            #printable-report * {
+              border-color: #000 !important;
+            }
+
+            /* Remove grey background shading in printable output */
+            #printable-report [class*="bg-gray"] {
+              background: transparent !important;
             }
           }
         `}</style>
@@ -573,128 +771,158 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
         )}
 
         {/* PRINTABLE REPORT FORMAT MULTI UNITS */}
-        <div className="print-container" id="printable-report">
+        <div className="print-container pt-report-document" id="printable-report">
             {transformersData.map((transformer) => {
                 const reportData = reportsData[transformer._id] || {};
-                const vState = getTransformerValidations(transformer._id, reportData);
-                const { metVal100: meteringVal100, metVal25: meteringVal25, pr1Val100: prot1Val100, pr1Val25: prot1Val25, pr2Val100: prot2Val100, pr2Val25: prot2Val25, accValidations: accuracyValidations } = vState;
                 const isActive = activeTabId === transformer._id;
 
                 return (
                     <div key={transformer._id} className={`print-page bg-white p-6 rounded-lg border border-gray-300 shadow-sm max-w-[800px] mx-auto text-sm mb-6 print:max-w-none print:w-full print:mx-0 print:my-0 print:p-0 print:border-none print:shadow-none print:rounded-none ${isActive ? 'block' : 'hidden print:block'}`}>
                         
-                        {/* Header Title */}
-                        <div className="text-center mb-3 border-b-2 border-black pb-2 print:pt-1">
-                            <h1 className="text-xl font-bold text-[#003a70] print:text-black mb-1 tracking-widest uppercase">ADVENT ENGINEERS</h1>
-                            <h2 className="text-lg font-bold uppercase tracking-wide">Testing Record of Potential Transformer</h2>
-                        </div>
-
-                        {/* Section 1: Header Details */}
-                        <div className="border border-black mb-2 flex divide-x divide-black">
-                            <div className="flex-1 p-2 font-bold bg-gray-50 flex items-center">
-                                SERIAL NO. : <span className="ml-2 py-0 h-6 font-normal w-32 border-b border-gray-400">{transformer.uniqueId || 'N/A'}</span>
+                        <header className="mb-5 print:mb-4 border-b-2 border-black pb-4 print:pb-3">
+                            <h1 className="text-center text-xl font-bold tracking-wide text-[#003a70] print:text-black uppercase mb-2 print:mb-1.5">
+                                Advent Engineers
+                            </h1>
+                            <h2 className="text-center text-sm font-semibold text-gray-700 print:text-black uppercase tracking-wider mb-5 print:mb-4">
+                                Testing Record of Potential Transformer
+                            </h2>
+                            <div className="flex border border-black text-sm">
+                                <div className="flex-1 px-3 py-2.5 bg-gray-50 border-r border-black text-left">
+                                    <span className="font-semibold">Serial No.</span>
+                                    <span className="ml-2 font-normal tabular-nums">{transformer.uniqueId || '—'}</span>
+                                </div>
+                                <div className="w-44 shrink-0 px-3 py-2.5 bg-gray-50 text-right tabular-nums">
+                                    <span className="font-semibold">Date</span>
+                                    <span className="ml-2 font-normal">{reportData.date || new Date().toLocaleDateString('en-GB')}</span>
+                                </div>
                             </div>
-                            <div className="p-2 w-48 font-bold bg-gray-50 flex items-center justify-end">
-                                Date: <span className="ml-2 w-32 text-center text-sm p-1 inline-block border-b border-gray-400 font-normal">{reportData.date || new Date().toLocaleDateString('en-GB')}</span>
-                            </div>
-                        </div>
+                        </header>
 
-                        <table className="w-full border-collapse border border-black mb-4 table-fixed text-sm">
+                        <table className="w-full border-collapse border border-black mb-5 print:mb-4 table-fixed text-sm">
                             <tbody>
                                 <tr>
-                                    <td className="border border-black p-1 pl-2 font-medium w-1/4">Specification</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{order.voltageRating || '33'} KV PT</td>
-                                    <td className="border border-black p-1 pl-2 font-medium w-1/4">Type 1</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">O/D</td>
+                                    <td className="border border-black px-2 py-2 pt-report-label w-[22%]">Specification</td>
+                                    <td className="border border-black px-2 py-2 pt-report-value bg-white w-[28%]">{order.voltageRating || '33'} kV PT</td>
+                                    <td className="border border-black px-2 py-2 pt-report-label w-[22%]">Type 1</td>
+                                    <td className="border border-black px-2 py-2 pt-report-value bg-white w-[28%]">O/D</td>
                                 </tr>
                                 <tr>
-                                    <td className="border border-black p-1 pl-2 font-medium w-1/4">PT Ratio</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{order.ratio?.[0] || 'N/A'}</td>
-                                    <td className="border border-black p-1 pl-2 font-medium w-1/4">Type 2</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">O/C</td>
+                                    <td className="border border-black px-2 py-2 pt-report-label">PT Ratio</td>
+                                    <td className="border border-black px-2 py-2 pt-report-value bg-white">{Array.isArray(order.ratio) && order.ratio.length > 0 ? order.ratio.join(' / ') : (order.ratio || 'N/A')}</td>
+                                    <td className="border border-black px-2 py-2 pt-report-label">Type 2</td>
+                                    <td className="border border-black px-2 py-2 pt-report-value bg-white">O/C</td>
                                 </tr>
                                 <tr>
-                                    <td className="border border-black p-1 pl-2 font-medium w-1/4">Burden</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{order.burden || 'N/A'} VA</td>
-                                    <td className="border border-black p-1 pl-2 font-medium w-1/4">Class</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{order.accuracyClass || '0.2'}</td>
+                                    <td className="border border-black px-2 py-2 pt-report-label">Burden</td>
+                                    <td className="border border-black px-2 py-2 pt-report-value bg-white">{order.burden || 'N/A'} VA</td>
+                                    <td className="border border-black px-2 py-2 pt-report-label">Class</td>
+                                    <td className="border border-black px-2 py-2 pt-report-value bg-white tabular-nums class-field">{accuracyClassDisplay}</td>
                                 </tr>
                                 <tr>
-                                    <td className="border border-black p-1 pl-2 font-medium w-1/4">Voltage Factor</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">1.2 Cont.& 1.5 for 30 Sec</td>
-                                    <td className="border border-black p-1 pl-2 font-medium w-1/4">Job No.</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{order.jobId || 'N/A'}</td>
+                                    <td className="border border-black px-2 py-2 pt-report-label">Voltage Factor</td>
+                                    <td className="border border-black px-2 py-2 pt-report-value bg-white text-center">1.2 cont. &amp; 1.5 for 30 s</td>
+                                    <td className="border border-black px-2 py-2 pt-report-label">Job No.</td>
+                                    <td className="border border-black px-2 py-2 pt-report-value bg-white tabular-nums">{order.jobId || 'N/A'}</td>
                                 </tr>
                             </tbody>
                         </table>
 
-                        {/* Section 2: Pre testing */}
-                        <div className="border border-black mb-4">
-                            <div className="text-center font-bold bg-gray-100 border-b border-black py-1">Pre testing</div>
-                            <table className="w-full border-collapse border-hidden table-fixed text-sm text-center">
+                        <section className="mb-5 print:mb-4 border border-black">
+                            <div className="pt-report-section-title text-center py-2.5 bg-gray-100 border-b border-black">Pre Testing</div>
+                            <table className="w-full border-collapse border-0 table-fixed text-sm">
                                 <thead>
                                     <tr>
-                                        <td className="border border-black p-1 w-1/3" rowSpan={2}>% of Primary<br/>current</td>
-                                        <td className="border border-black p-1 font-bold w-1/3" colSpan={2}>100% Burden</td>
-                                        <td className="border border-black p-1 font-bold w-1/3" colSpan={2}>25% Burden</td>
+                                        <th className="border border-black px-2 py-2 font-semibold text-left align-middle bg-gray-50 w-[28%]" rowSpan={2}>
+                                            % of primary current
+                                        </th>
+                                        <th className="border border-black px-2 py-2 font-semibold text-center bg-gray-50" colSpan={2}>100% burden</th>
+                                        <th className="border border-black px-2 py-2 font-semibold text-center bg-gray-50" colSpan={2}>25% burden</th>
                                     </tr>
                                     <tr>
-                                        <td className="border border-black p-1">Ratio Error</td>
-                                        <td className="border border-black p-1">Phase Error</td>
-                                        <td className="border border-black p-1">Ratio Error</td>
-                                        <td className="border border-black p-1">Phase Error</td>
+                                        <th className="border border-black px-2 py-1.5 font-medium text-center bg-gray-50">Ratio error</th>
+                                        <th className="border border-black px-2 py-1.5 font-medium text-center bg-gray-50">Phase error</th>
+                                        <th className="border border-black px-2 py-1.5 font-medium text-center bg-gray-50">Ratio error</th>
+                                        <th className="border border-black px-2 py-1.5 font-medium text-center bg-gray-50">Phase error</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {activeCores.map((core) => {
                                         const isProtection = core.startsWith('protection');
                                         const label = isProtection ? 'Protection 30%' : 'Metering 30%';
-                                        
-                                        let v100, v25;
-                                        if (core === 'metering') {
-                                            v100 = meteringVal100; v25 = meteringVal25;
-                                        } else if (core === 'protection1') {
-                                            v100 = prot1Val100; v25 = prot1Val25;
-                                        } else {
-                                            v100 = prot2Val100; v25 = prot2Val25;
-                                        }
+                                        const accuracyClassLocal = order.accuracyClass || '0.2';
+
+                                        const ratioError100 = reportData.preTesting?.[core]?.ratioError100 || '';
+                                        const phaseError100 = reportData.preTesting?.[core]?.phaseError100 || '';
+                                        const ratioError25 = reportData.preTesting?.[core]?.ratioError25 || '';
+                                        const phaseError25 = reportData.preTesting?.[core]?.phaseError25 || '';
+
+                                        const v100 = isProtection
+                                            ? validatePTProtectionUI('3P', ratioError100, phaseError100)
+                                            : validatePTMeteringUI(accuracyClassLocal, ratioError100, phaseError100);
+                                        const v25 = isProtection
+                                            ? validatePTProtectionUI('3P', ratioError25, phaseError25)
+                                            : validatePTMeteringUI(accuracyClassLocal, ratioError25, phaseError25);
 
                                         return (
                                             <tr key={core}>
-                                                <td className="border border-black p-1 font-medium text-left pl-2 relative bg-gray-50">
+                                                <td className="border border-black px-2 py-1.5 text-left font-medium bg-gray-50 relative">
                                                     {label}
-                                                    {(v100.isPass === false || v25.isPass === false) ? (
-                                                        <div className="absolute right-1 top-1 text-[10px] font-bold px-1 py-0.5 rounded bg-red-100 text-red-700">FAIL</div>
-                                                    ) : (v100.isPass && v25.isPass) ? (
-                                                        <div className="absolute right-1 top-1 text-[10px] font-bold px-1 py-0.5 rounded bg-green-100 text-green-700">PASS</div>
-                                                    ) : null}
                                                 </td>
-                                                <td className="border border-black p-0.5"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${v100.isPass === false && v100.reason?.includes('Ratio') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.preTesting?.[core]?.ratioError100 || ''} onChange={(e) => handleInputChange(transformer._id, 'preTesting', core, e.target.value, 'ratioError100')} disabled={isReadOnly} /></td>
-                                                <td className="border border-black p-0.5"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${v100.isPass === false && v100.reason?.includes('Phase') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.preTesting?.[core]?.phaseError100 || ''} onChange={(e) => handleInputChange(transformer._id, 'preTesting', core, e.target.value, 'phaseError100')} disabled={isReadOnly} /></td>
-                                                <td className="border border-black p-0.5"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${v25.isPass === false && v25.reason?.includes('Ratio') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.preTesting?.[core]?.ratioError25 || ''} onChange={(e) => handleInputChange(transformer._id, 'preTesting', core, e.target.value, 'ratioError25')} disabled={isReadOnly} /></td>
-                                                <td className="border border-black p-0.5"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${v25.isPass === false && v25.reason?.includes('Phase') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.preTesting?.[core]?.phaseError25 || ''} onChange={(e) => handleInputChange(transformer._id, 'preTesting', core, e.target.value, 'phaseError25')} disabled={isReadOnly} /></td>
+                                                <td className="border border-black p-0 pt-report-num align-middle">
+                                                    <Input
+                                                        className={`h-8 min-h-0 w-full px-2 py-1 text-sm pt-report-num ${v100.isPass === false && v100.reason?.includes('Ratio') ? 'text-red-700 font-bold' : 'text-blue-600'}`}
+                                                        value={ratioError100}
+                                                        onChange={(e) => handleInputChange(transformer._id, 'preTesting', core, e.target.value, 'ratioError100')}
+                                                        disabled={isReadOnly}
+                                                        readOnly={isReadOnly}
+                                                    />
+                                                </td>
+                                                <td className="border border-black p-0 pt-report-num align-middle">
+                                                    <Input
+                                                        className={`h-8 min-h-0 w-full px-2 py-1 text-sm pt-report-num ${v100.isPass === false && v100.reason?.includes('Phase') ? 'text-red-700 font-bold' : 'text-blue-600'}`}
+                                                        value={phaseError100}
+                                                        onChange={(e) => handleInputChange(transformer._id, 'preTesting', core, e.target.value, 'phaseError100')}
+                                                        disabled={isReadOnly}
+                                                        readOnly={isReadOnly}
+                                                    />
+                                                </td>
+                                                <td className="border border-black p-0 pt-report-num align-middle">
+                                                    <Input
+                                                        className={`h-8 min-h-0 w-full px-2 py-1 text-sm pt-report-num ${v25.isPass === false && v25.reason?.includes('Ratio') ? 'text-red-700 font-bold' : 'text-blue-600'}`}
+                                                        value={ratioError25}
+                                                        onChange={(e) => handleInputChange(transformer._id, 'preTesting', core, e.target.value, 'ratioError25')}
+                                                        disabled={isReadOnly}
+                                                        readOnly={isReadOnly}
+                                                    />
+                                                </td>
+                                                <td className="border border-black p-0 pt-report-num align-middle">
+                                                    <Input
+                                                        className={`h-8 min-h-0 w-full px-2 py-1 text-sm pt-report-num ${v25.isPass === false && v25.reason?.includes('Phase') ? 'text-red-700 font-bold' : 'text-blue-600'}`}
+                                                        value={phaseError25}
+                                                        onChange={(e) => handleInputChange(transformer._id, 'preTesting', core, e.target.value, 'phaseError25')}
+                                                        disabled={isReadOnly}
+                                                        readOnly={isReadOnly}
+                                                    />
+                                                </td>
                                             </tr>
                                         );
                                     })}
                                 </tbody>
                             </table>
-                            <div className="flex justify-between items-center p-2 text-sm">
-                                <div className="flex items-center">
-                                    <span className="font-bold mr-2">Tested By: -</span>
-                                    <Input value={reportData.testedBy || user?.name || user?.fullName || ''} className="w-48 h-7 text-blue-600 italic font-medium bg-transparent border-t-0 border-l-0 border-r-0 border-b border-gray-400 rounded-none px-1" readOnly />
-                                </div>
+                            <div className="flex items-baseline gap-2 px-3 py-2.5 border-t border-black bg-gray-50 text-sm">
+                                <span className="font-semibold shrink-0">Tested by</span>
+                                <Input value={reportData.testedBy || user?.name || user?.fullName || ''} readOnly className="flex-1 min-w-0 h-8 border-0 border-b border-gray-800 rounded-none bg-transparent px-1 text-sm" />
                             </div>
-                        </div>
+                        </section>
 
-                        {/* Section 3: Final Testing */}
-                        <div className="border border-black mb-4">
-                            <div className="text-center font-bold bg-gray-100 border-b border-black py-1">Final Testing</div>
-                            <table className="w-full border-collapse border-hidden table-fixed text-sm text-left">
+                        <section className="mb-5 print:mb-4 border border-black">
+                            <div className="pt-report-section-title text-center py-2.5 bg-gray-100 border-b border-black">Final Testing</div>
+                            <table className="w-full border-collapse border-0 table-fixed text-sm">
                                 <thead>
                                     <tr>
-                                        <th className="border border-black p-1 font-normal text-center w-16">Sr no.</th>
-                                        <th className="border border-black p-1 font-normal w-1/2 text-center">Parameters</th>
-                                        <th className="border border-black p-1 font-normal w-auto text-center">Readings</th>
+                                        <th className="border border-black px-2 py-2 font-semibold text-center w-14 bg-gray-50">Sr.</th>
+                                        <th className="border border-black px-2 py-2 font-semibold text-left bg-gray-50 w-[52%]">Parameters</th>
+                                        <th className="border border-black px-2 py-2 font-semibold text-center bg-gray-50">Readings</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -706,99 +934,155 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                                         { id: 5, label: 'Primary to Secondary', field: 'primaryToSecondary' },
                                         { id: 6, label: 'Primary to Earth', field: 'primaryToEarth' },
                                         { id: 7, label: 'Secondary to Earth', field: 'secondaryToEarth' },
-                                        { id: 9, label: 'H.V.Test on Secondary Winding', field: 'hvSecondary' },
-                                        { id: 10, label: 'H.V.Test on Primary Winding', field: 'hvPrimary' },
+                                        { id: 9, label: 'H.V. Test on Secondary Winding', field: 'hvSecondary' },
+                                        { id: 10, label: 'H.V. Test on Primary Winding', field: 'hvPrimary' },
                                         { id: 11, label: 'Induced Over Voltage Test', field: 'inducedOverVoltage' },
                                     ].map((row) => (
                                         <tr key={row.id}>
-                                            <td className="border border-black p-1 text-center">{row.id}</td>
-                                            <td className="border border-black p-1 pl-4">{row.label}</td>
-                                            <td className="border border-black p-0">
-                                                <Input 
-                                                    className={`h-6 border-none shadow-none text-center bg-transparent w-full ${['OK', '10 GΩ'].includes(reportData.finalTesting?.[row.field]) ? 'text-blue-600' : ''}`}
-                                                    value={reportData.finalTesting?.[row.field] || ''} 
-                                                    onChange={(e) => handleInputChange(transformer._id, 'finalTesting', row.field, e.target.value)} 
-                                                    disabled={isReadOnly} 
+                                            <td className="border border-black px-2 py-1.5 text-center tabular-nums align-middle">{row.id}</td>
+                                            <td className="border border-black px-2 py-1.5 text-left align-middle">{row.label}</td>
+                                            <td className="border border-black p-0 align-middle pt-report-num">
+                                                <Input
+                                                    className="h-8 min-h-0 w-full px-2 py-1 text-sm pt-report-num"
+                                                    value={reportData.finalTesting?.[row.field] || ''}
+                                                    onChange={(e) => handleInputChange(transformer._id, 'finalTesting', row.field, e.target.value)}
+                                                    disabled={isReadOnly}
+                                                    readOnly={isReadOnly}
                                                 />
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
-                        </div>
+                        </section>
 
-                        {/* Section 4: Accuracy Test Layout */}
-                        <div className="border border-black mb-4">
-                            <div className="text-center font-bold bg-gray-100 border-b border-black py-1 uppercase">Accuracy Test Metering</div>
-                            <table className="w-full border-collapse border-hidden table-fixed text-sm text-center">
+                        <section className="mb-5 print:mb-4 border border-black">
+                            <div className="pt-report-section-title text-center py-2.5 bg-gray-100 border-b border-black">Accuracy Testing</div>
+                            <table className="w-full border-collapse border-0 table-fixed text-sm text-center">
                                 <thead>
                                     <tr>
-                                        <td className="border border-black p-1 w-24 align-middle bg-gray-50 font-bold" rowSpan={2}>Core</td>
-                                        <td className="border border-black p-1 w-24 align-middle bg-gray-50 font-bold" rowSpan={2}>% of primary<br/>current</td>
-                                        <td className="border border-black p-1 font-bold w-auto bg-gray-50" colSpan={2}>100% Burden</td>
-                                        <td className="border border-black p-1 font-bold w-auto bg-gray-50" colSpan={2}>25% Burden</td>
+                                        <th className="border border-black px-2 py-2 font-semibold align-middle bg-gray-50 w-[14%]" rowSpan={2}>Core</th>
+                                        <th className="border border-black px-2 py-2 font-semibold align-middle bg-gray-50 w-[14%]" rowSpan={2}>% of primary current</th>
+                                        <th className="border border-black px-2 py-2 font-semibold bg-gray-50" colSpan={2}>100% burden</th>
+                                        <th className="border border-black px-2 py-2 font-semibold bg-gray-50" colSpan={2}>25% burden</th>
                                     </tr>
                                     <tr>
-                                        <td className="border border-black p-1 leading-tight bg-gray-50 font-medium">Ratio Error<br/>(%)</td>
-                                        <td className="border border-black p-1 leading-tight bg-gray-50 font-medium">Phase Error<br/>(min)</td>
-                                        <td className="border border-black p-1 leading-tight bg-gray-50 font-medium">Ratio Error<br/>(%)</td>
-                                        <td className="border border-black p-1 leading-tight bg-gray-50 font-medium">Phase error<br/>(min)</td>
+                                        <th className="border border-black px-1 py-1.5 font-medium leading-tight bg-gray-50">Ratio error<br />(%)</th>
+                                        <th className="border border-black px-1 py-1.5 font-medium leading-tight bg-gray-50">Phase error<br />(min)</th>
+                                        <th className="border border-black px-1 py-1.5 font-medium leading-tight bg-gray-50">Ratio error<br />(%)</th>
+                                        <th className="border border-black px-1 py-1.5 font-medium leading-tight bg-gray-50">Phase error<br />(min)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {activeCores.map((core) => {
+                                    {activeCores.flatMap((core) => {
                                         const isProtection = core.startsWith('protection');
                                         const percentages = isProtection ? ['100'] : ['120', '100', '80'];
                                         const label = isProtection ? 'Protection' : 'Metering';
 
-                                        return percentages.map((perc, idx) => {
-                                            const val100 = accuracyValidations[core]?.[perc]?.val100 || { isPass: null, reason: null };
-                                            const val25 = accuracyValidations[core]?.[perc]?.val25 || { isPass: null, reason: null };
-                                            
-                                            return (
-                                                <tr key={`${core}-${perc}`}>
-                                                    {idx === 0 && (
-                                                        <td className="border border-black p-1 font-bold align-middle bg-gray-100 uppercase" rowSpan={percentages.length}>
-                                                            {label}
-                                                        </td>
-                                                    )}
-                                                    <td className="border border-black p-1 text-center relative font-medium bg-gray-50">
-                                                        {perc}%
-                                                        {(val100.isPass === false || val25.isPass === false) ? (
-                                                            <div className="absolute right-0 top-1 text-[10px] font-bold px-1 py-0.5 rounded bg-red-100 text-red-700">FAIL</div>
-                                                        ) : (val100.isPass && val25.isPass) ? (
-                                                            <div className="absolute right-0 top-1 text-[10px] font-bold px-1 py-0.5 rounded bg-green-100 text-green-700">PASS</div>
-                                                        ) : null}
+                                        return percentages.map((perc, idx) => (
+                                            <tr key={`${core}-${perc}`}>
+                                                {idx === 0 && (
+                                                    <td className="border border-black px-2 py-1.5 font-semibold align-middle bg-gray-100 uppercase text-left" rowSpan={percentages.length}>
+                                                        {label}
                                                     </td>
-                                                    <td className="border border-black p-0"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${val100.isPass === false && val100.reason?.includes('Ratio') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.accuracyTest?.[core]?.[perc]?.ratioError100 || ''} onChange={(e) => handleAccuracyChange(transformer._id, core, perc, 'ratioError100', e.target.value)} disabled={isReadOnly} /></td>
-                                                    <td className="border border-black p-0"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${val100.isPass === false && val100.reason?.includes('Phase') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.accuracyTest?.[core]?.[perc]?.phaseError100 || ''} onChange={(e) => handleAccuracyChange(transformer._id, core, perc, 'phaseError100', e.target.value)} disabled={isReadOnly} /></td>
-                                                    <td className="border border-black p-0"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${val25.isPass === false && val25.reason?.includes('Ratio') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.accuracyTest?.[core]?.[perc]?.ratioError25 || ''} onChange={(e) => handleAccuracyChange(transformer._id, core, perc, 'ratioError25', e.target.value)} disabled={isReadOnly} /></td>
-                                                    <td className="border border-black p-0"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${val25.isPass === false && val25.reason?.includes('Phase') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.accuracyTest?.[core]?.[perc]?.phaseError25 || ''} onChange={(e) => handleAccuracyChange(transformer._id, core, perc, 'phaseError25', e.target.value)} disabled={isReadOnly} /></td>
-                                                </tr>
-                                            );
-                                        });
+                                                )}
+                                                <td className="border border-black px-2 py-1.5 font-medium bg-gray-50 tabular-nums relative">
+                                                    {perc}%
+                                                </td>
+                                                <td className="border border-black p-0 pt-report-num align-middle">
+                                                    <Input
+                                                        className={`h-8 min-h-0 w-full px-2 py-1 text-sm pt-report-num ${
+                                                            (() => {
+                                                                const accuracyClassLocal = order.accuracyClass || '0.2';
+                                                                const rowData = reportData.accuracyTest?.[core]?.[perc] || {};
+                                                                const v100 = isProtection
+                                                                    ? validatePTProtectionUI('3P', rowData.ratioError100, rowData.phaseError100)
+                                                                    : validatePTMeteringUI(accuracyClassLocal, rowData.ratioError100, rowData.phaseError100);
+                                                                return (v100.isPass === false && v100.reason?.includes('Ratio')) ? 'text-red-700 font-bold' : 'text-blue-600';
+                                                            })()
+                                                        }`}
+                                                        value={reportData.accuracyTest?.[core]?.[perc]?.ratioError100 || ''}
+                                                        onChange={(e) => handleAccuracyChange(transformer._id, core, perc, 'ratioError100', e.target.value)}
+                                                        disabled={isReadOnly}
+                                                        readOnly={isReadOnly}
+                                                    />
+                                                </td>
+                                                <td className="border border-black p-0 pt-report-num align-middle">
+                                                    <Input
+                                                        className={`h-8 min-h-0 w-full px-2 py-1 text-sm pt-report-num ${
+                                                            (() => {
+                                                                const accuracyClassLocal = order.accuracyClass || '0.2';
+                                                                const rowData = reportData.accuracyTest?.[core]?.[perc] || {};
+                                                                const v100 = isProtection
+                                                                    ? validatePTProtectionUI('3P', rowData.ratioError100, rowData.phaseError100)
+                                                                    : validatePTMeteringUI(accuracyClassLocal, rowData.ratioError100, rowData.phaseError100);
+                                                                return (v100.isPass === false && v100.reason?.includes('Phase')) ? 'text-red-700 font-bold' : 'text-blue-600';
+                                                            })()
+                                                        }`}
+                                                        value={reportData.accuracyTest?.[core]?.[perc]?.phaseError100 || ''}
+                                                        onChange={(e) => handleAccuracyChange(transformer._id, core, perc, 'phaseError100', e.target.value)}
+                                                        disabled={isReadOnly}
+                                                        readOnly={isReadOnly}
+                                                    />
+                                                </td>
+                                                <td className="border border-black p-0 pt-report-num align-middle">
+                                                    <Input
+                                                        className={`h-8 min-h-0 w-full px-2 py-1 text-sm pt-report-num ${
+                                                            (() => {
+                                                                const accuracyClassLocal = order.accuracyClass || '0.2';
+                                                                const rowData = reportData.accuracyTest?.[core]?.[perc] || {};
+                                                                const v25 = isProtection
+                                                                    ? validatePTProtectionUI('3P', rowData.ratioError25, rowData.phaseError25)
+                                                                    : validatePTMeteringUI(accuracyClassLocal, rowData.ratioError25, rowData.phaseError25);
+                                                                return (v25.isPass === false && v25.reason?.includes('Ratio')) ? 'text-red-700 font-bold' : 'text-blue-600';
+                                                            })()
+                                                        }`}
+                                                        value={reportData.accuracyTest?.[core]?.[perc]?.ratioError25 || ''}
+                                                        onChange={(e) => handleAccuracyChange(transformer._id, core, perc, 'ratioError25', e.target.value)}
+                                                        disabled={isReadOnly}
+                                                        readOnly={isReadOnly}
+                                                    />
+                                                </td>
+                                                <td className="border border-black p-0 pt-report-num align-middle">
+                                                    <Input
+                                                        className={`h-8 min-h-0 w-full px-2 py-1 text-sm pt-report-num ${
+                                                            (() => {
+                                                                const accuracyClassLocal = order.accuracyClass || '0.2';
+                                                                const rowData = reportData.accuracyTest?.[core]?.[perc] || {};
+                                                                const v25 = isProtection
+                                                                    ? validatePTProtectionUI('3P', rowData.ratioError25, rowData.phaseError25)
+                                                                    : validatePTMeteringUI(accuracyClassLocal, rowData.ratioError25, rowData.phaseError25);
+                                                                return (v25.isPass === false && v25.reason?.includes('Phase')) ? 'text-red-700 font-bold' : 'text-blue-600';
+                                                            })()
+                                                        }`}
+                                                        value={reportData.accuracyTest?.[core]?.[perc]?.phaseError25 || ''}
+                                                        onChange={(e) => handleAccuracyChange(transformer._id, core, perc, 'phaseError25', e.target.value)}
+                                                        disabled={isReadOnly}
+                                                        readOnly={isReadOnly}
+                                                    />
+                                                </td>
+                                            </tr>
+                                        ));
                                     })}
                                 </tbody>
                             </table>
-                        </div>
+                        </section>
 
-                        {/* Footer */}
-                        <div className="flex justify-between items-center p-2 text-sm border border-black bg-gray-50 mt-4">
-                            <div className="flex items-center">
-                                <span className="font-bold mr-2 ml-2">Tested By:</span>
-                                <Input value={reportData.testedBy || user?.name || user?.fullName || ''} className="w-48 h-7 text-blue-600 italic font-medium bg-transparent border-t-0 border-l-0 border-r-0 border-b border-gray-400 rounded-none px-1" readOnly disabled={isReadOnly} />
+                        <footer className="mt-6 print:mt-5 pt-4 print:pt-3 border-t-2 border-black flex flex-row justify-between items-end gap-6 text-sm">
+                            <div className="pt-report-sig flex-1 min-w-0">
+                                <div className="font-semibold mb-6 print:mb-5">Tested by</div>
+                                <Input value={reportData.testedBy || user?.name || user?.fullName || ''} readOnly disabled={isReadOnly} className="w-full max-w-[240px] h-9 border-0 border-b border-black rounded-none bg-transparent px-0 text-sm" />
                             </div>
-                            <div className="flex items-center mr-2">
-                                <span className="font-bold mr-2">Authorised Signatory:</span>
-                                <Input 
-                                    value={reportData.signature} 
-                                    onChange={(e) => handleInputChange(transformer._id, '', 'signature', e.target.value)} 
-                                    className="w-40 h-7 text-blue-600 italic font-medium bg-transparent border-t-0 border-l-0 border-r-0 border-b border-gray-400 rounded-none px-1" 
-                                    disabled={isReadOnly} 
-                                    placeholder="Type signature"
+                            <div className="pt-report-sig pt-report-sig-right flex-1 min-w-0 text-right">
+                                <div className="font-semibold mb-6 print:mb-5">Authorised signatory</div>
+                                <Input
+                                    value={reportData.signature}
+                                    onChange={(e) => handleInputChange(transformer._id, '', 'signature', e.target.value)}
+                                    className="w-full max-w-[240px] ml-auto h-9 border-0 border-b border-black rounded-none bg-transparent px-0 text-sm block"
+                                    disabled={isReadOnly}
                                 />
                             </div>
-                        </div>
+                        </footer>
 
                     </div>
                 );

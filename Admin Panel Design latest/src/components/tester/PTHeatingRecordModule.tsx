@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
 import { FileText, Loader2, ArrowLeft, PlayCircle, CheckCircle } from 'lucide-react';
 import { User } from '../../App';
 import { HeatingRecord33KVPT, HeatingRecordBlock, ProcessStep } from './HeatingRecord33KVPT';
-import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 
 interface Order {
   _id: string;
@@ -40,6 +40,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
   
   const [records, setRecords] = useState<HeatingRecordBlock[]>([]);
   const [saving, setSaving] = useState(false);
+  const [isEditingRecord, setIsEditingRecord] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -110,6 +111,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
 
   const handleSelectTransformer = async (t: any) => {
     setSelectedTransformer(t);
+    setIsEditingRecord(false);
 
     // Try to load existing PT records
     try {
@@ -141,6 +143,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
           date: b.date || new Date().toISOString().split('T')[0]
         }));
         setRecords(uiBlocks);
+        setIsEditingRecord(true);
         return;
       }
     } catch (e) {
@@ -241,10 +244,11 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
       };
 
       await axios.post("http://localhost:3002/api/heating-record", payload, { withCredentials: true });
-      alert("PT Heating records saved successfully!");
+      alert(isEditingRecord ? "PT Heating records updated successfully!" : "PT Heating records saved successfully!");
       
       setSelectedTransformer(null);
       setRecords([]);
+      setIsEditingRecord(false);
       await fetchOrders();
     } catch (e) {
       console.error("Error saving PT heating records", e);
@@ -266,26 +270,44 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
       <div className="space-y-6">
         <div className={`flex justify-between items-center p-6 rounded-xl border shadow-sm transition-colors duration-300 ${currentTab === 'completed' ? 'bg-green-50/50 border-green-200' : 'bg-gray-50/50 border-gray-200'}`}>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 tracking-tight uppercase">Heating Record [33KV PT]</h2>
-            <p className="text-gray-600 mt-2 text-base">Select an eligible 33KV PT assigned order to log active heating records.</p>
+            <h2 className="text-2xl font-bold text-gray-900 tracking-tight uppercase">
+              {currentTab === 'assigned' ? 'Assigned PT Orders' : 'Completed PT Orders'}
+            </h2>
+            <p className="text-gray-600 mt-2 text-base">
+              {currentTab === 'assigned'
+                ? 'Select an eligible 33KV PT order to log active heating records.'
+                : 'Review completed PT heating records.'}
+            </p>
           </div>
           
-          <Tabs value={currentTab} onValueChange={(val: string) => setCurrentTab(val as any)} className="bg-white/60 p-1.5 rounded-xl border border-gray-200/50">
-            <TabsList className="bg-transparent h-auto p-0 space-x-3">
-              <TabsTrigger 
-                value="assigned" 
-                className={`px-6 py-2.5 rounded-lg text-sm font-bold tracking-wide uppercase transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-[#003a70] data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-[#003a70] hover:bg-white/50`}
-              >
-                Assigned Orders
-              </TabsTrigger>
-              <TabsTrigger 
-                value="completed" 
-                className={`px-6 py-2.5 rounded-lg text-sm font-bold tracking-wide uppercase transition-all duration-200 data-[state=active]:bg-green-100 data-[state=active]:text-green-800 data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-green-600 hover:bg-green-50/50`}
-              >
-                Completed Records
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => setCurrentTab('assigned')}
+              className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all inline-flex items-center gap-2 ${
+                currentTab === 'assigned'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Assigned Orders
+              <Badge className={currentTab === 'assigned' ? 'bg-blue-500 text-white border-blue-400' : 'bg-blue-100 text-blue-700 border border-blue-200'}>
+                {assignedOrders.length}
+              </Badge>
+            </button>
+            <button
+              onClick={() => setCurrentTab('completed')}
+              className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all inline-flex items-center gap-2 ${
+                currentTab === 'completed'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Completed Orders
+              <Badge className={currentTab === 'completed' ? 'bg-blue-500 text-white border-blue-400' : 'bg-green-100 text-green-700 border border-green-200'}>
+                {completedOrders.length}
+              </Badge>
+            </button>
+          </div>
         </div>
 
         <Card className="overflow-hidden">
@@ -391,11 +413,12 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
     <HeatingRecord33KVPT
       records={records}
       saving={saving}
-      onBack={() => { setSelectedTransformer(null); setRecords([]); }}
+      onBack={() => { setSelectedTransformer(null); setRecords([]); setIsEditingRecord(false); }}
       onAddBlock={addRecordBlock}
       onSave={handleSave}
       onUpdateProcessStep={updateProcessStep}
       onUpdateBlockField={updateBlockField}
+      isEditing={isEditingRecord}
     />
   );
 }
