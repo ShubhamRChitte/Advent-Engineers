@@ -60,8 +60,34 @@ export function AdminReportViewPage() {
             
             if (res.data.success) {
                 const fetchedTransformer = res.data.data;
+                const orderData = fetchedTransformer.orderId;
+
+                // Normalize Transformer Data (Flatten from Order)
+                // This matches the mapping in SecondaryTransformersList.tsx
+                if (orderData) {
+                    fetchedTransformer.clientName = orderData.clientName;
+                    fetchedTransformer.jobId = orderData.jobId;
+                    fetchedTransformer.voltageRating = orderData.voltageRating;
+                    fetchedTransformer.stc = orderData.stc;
+                    fetchedTransformer.burden = orderData.burden;
+                    fetchedTransformer.ratedPrimaryCurrent = orderData.ratedPrimaryCurrent;
+                    fetchedTransformer.ratedSecondaryCurrent = orderData.ratedSecondaryCurrent;
+                    
+                    // Add other derived display fields if missing
+                    if (!fetchedTransformer.name) fetchedTransformer.name = orderData.transformerName || 'Transformer';
+                    if (!fetchedTransformer.rating) {
+                        fetchedTransformer.rating = Array.isArray(orderData.ratio) ? orderData.ratio.join('/') : (orderData.ratio || 'N/A');
+                    }
+                    if (!fetchedTransformer.voltageClass) {
+                        fetchedTransformer.voltageClass = orderData.nominalSystemVoltage ? `${orderData.nominalSystemVoltage}kV` : 'N/A';
+                    }
+                    if (!fetchedTransformer.ratios) {
+                        fetchedTransformer.ratios = Array.isArray(orderData.ratio) ? orderData.ratio : (orderData.ratio ? [orderData.ratio] : ['N/A']);
+                    }
+                }
+
                 setTransformer(fetchedTransformer);
-                setOrder(fetchedTransformer.orderId);
+                setOrder(orderData);
                 setReportData(fetchedTransformer);
 
                 // If core or all, fetch core specific datasets from unified endpoint
@@ -151,7 +177,7 @@ export function AdminReportViewPage() {
     };
 
     const renderHeatingReport = () => {
-        const heatingRecord = transformer?.processHistory?.heatingRecord?.[0];
+        const heatingRecord = transformer?.testHistory?.heating_test;
         
         if (!heatingRecord) {
             return (

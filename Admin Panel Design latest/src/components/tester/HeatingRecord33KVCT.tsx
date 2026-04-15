@@ -142,8 +142,9 @@ function GroupBlock({ block, onUpdateProcessStep, onUpdateBlockField, readOnly }
           <Input
             value={block.serialNumber || ""}
             onChange={(e) => onUpdateBlockField(block.id, 'serialNumber', e.target.value)}
-            className="h-6 text-sm font-bold text-center border-none shadow-none focus-visible:ring-0 bg-transparent w-full p-0 rounded-none bg-white"
+            className={`h-6 text-sm font-bold text-center border-none shadow-none focus-visible:ring-0 bg-transparent w-full p-0 rounded-none ${readOnly ? 'bg-gray-100' : 'bg-white'}`}
             placeholder="33KV - CT = 1"
+            disabled={readOnly}
           />
         </td>
         {/* "Date- DD-MM-YYYY" on right */}
@@ -154,7 +155,8 @@ function GroupBlock({ block, onUpdateProcessStep, onUpdateBlockField, readOnly }
               type="date"
               value={block.startDate || ""}
               onChange={(e) => onUpdateBlockField(block.id, 'startDate', e.target.value)}
-              className="h-6 text-sm border-none bg-transparent shadow-none focus-visible:ring-0 font-bold w-[120px] text-right p-0 rounded-none bg-white"
+              className={`h-6 text-sm border-none bg-transparent shadow-none focus-visible:ring-0 font-bold w-[120px] text-right p-0 rounded-none ${readOnly ? 'bg-gray-100' : 'bg-white'}`}
+              disabled={readOnly}
             />
           </div>
         </td>
@@ -373,6 +375,14 @@ export function HeatingRecord33KVCT({
   readOnly
 }: HeatingRecord33KVCTProps) {
 
+  // Standardize first block steps if empty
+  const defaultSteps = [
+    { process: 'Heating 80°C',       duration: '12 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+    { process: 'Heating 90°C',       duration: '24 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+    { process: 'Cooling 60°C',       duration: '06 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+    { process: 'Oil Filling at 60°C', duration: '04 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+  ];
+
   // Create empty placeholder block
   const createEmptyBlock = (index: number): HeatingRecordBlock => ({
     id: `temp-${index}`,
@@ -382,12 +392,7 @@ export function HeatingRecord33KVCT({
     jobNo: '',
     leftInputs: Array(8).fill(null).map(() => ({ col1: "", col2: "" })),
     startDate: '',
-    processSteps: [
-      { process: 'Heating 80°C', duration: '12 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
-      { process: 'V. Heating 90°C', duration: '24 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
-      { process: 'V. Cooling 60°C', duration: '06 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
-      { process: 'Oil Filling at 60°C', duration: '04 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
-    ],
+    processSteps: defaultSteps,
     preparedBy: '',
     productionManager: '',
     verifiedBy: '',

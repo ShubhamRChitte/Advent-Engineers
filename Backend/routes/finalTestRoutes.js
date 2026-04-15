@@ -210,6 +210,10 @@ router.post('/:id/generate-save', isAuthenticated, async (req, res) => {
 
         if (transformer.currentStage === "final") {
             transformer.currentStage = "shipped";
+            
+            // Notify Admin
+            const { notifyAdmin } = require('../services/notificationService');
+            await notifyAdmin(transformer, `Transformer ${transformer.uniqueId} (Job: ${transformer.jobId}) has completed Final Testing and is ready for shipping.`);
         }
 
         await transformer.save();

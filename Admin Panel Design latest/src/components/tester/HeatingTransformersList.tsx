@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { ArrowLeft, PlayCircle, Loader2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, PlayCircle, Loader2, CheckCircle, FileText } from 'lucide-react';
 import axios from 'axios';
 import { Order, Transformer } from './HeatingTrackingModule';
 
@@ -59,6 +59,12 @@ export function HeatingTransformersList({ order, onStartTest, onBack }: HeatingT
   };
 
   const handleStartHeating = async (transformer: Transformer) => {
+    // If completed or approved, open the full-screen report view (Static Page)
+    if (transformer.status === 'completed' || transformer.status === 'approved') {
+      window.open(`/admin/report/${transformer._id}?type=heating`, '_blank');
+      return;
+    }
+
     if (transformer.status === 'pending') {
       try {
         await axios.put(`http://localhost:3002/api/heating-record/start/${transformer.uniqueId}`, {}, { withCredentials: true });
@@ -168,7 +174,7 @@ export function HeatingTransformersList({ order, onStartTest, onBack }: HeatingT
                           <Button
                             size="sm"
                             onClick={() => handleApprove(transformer)}
-                            className="bg-green-600 hover:bg-green-700"
+                            className="bg-green-600 hover:bg-green-700 font-medium"
                           >
                             <CheckCircle className="w-4 h-4 mr-2" /> Approve
                           </Button>
@@ -176,10 +182,10 @@ export function HeatingTransformersList({ order, onStartTest, onBack }: HeatingT
                         <Button
                           size="sm"
                           onClick={() => handleStartHeating(transformer)}
-                          className={transformer.status === 'completed' ? "bg-blue-600 hover:bg-blue-700" : "bg-[#003a70] hover:bg-[#002f5c]"}
+                          className={(transformer.status === 'completed' || transformer.status === 'approved') ? "bg-blue-600 hover:bg-blue-700 font-medium" : "bg-[#003a70] hover:bg-[#002f5c]"}
                         >
                           {(transformer.status === 'completed' || transformer.status === 'approved') ? (
-                            <><CheckCircle className="w-4 h-4 mr-2" /> View Report</>
+                            <><FileText className="w-4 h-4 mr-2" /> View Report</>
                           ) : (
                             <><PlayCircle className="w-4 h-4 mr-2" /> {transformer.status === 'pending' ? 'Start Heating' : 'Continue'}</>
                           )}

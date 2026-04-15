@@ -3,6 +3,7 @@ import { User } from '../../App';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminHeader } from './AdminHeader';
 import { AdminDashboard } from './AdminDashboard';
+import { AdminAnalyticsDashboard } from './AdminAnalyticsDashboard';
 import { EmployeeManagement } from './EmployeeManagement';
 import { EmployeePerformance } from './EmployeePerformance';
 import { EnhancedStockManagement } from './EnhancedStockManagement';
@@ -31,6 +32,8 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
     switch (activeView) {
       case 'dashboard':
         return <AdminDashboard setActiveView={setActiveView} />;
+      case 'analytics':
+        return <AdminAnalyticsDashboard />;
       case 'employees':
         return <EmployeeManagement />;
       case 'performance':

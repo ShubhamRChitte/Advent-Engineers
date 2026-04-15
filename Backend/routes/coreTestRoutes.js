@@ -93,6 +93,8 @@ router.put('/approve/:orderId', isAuthenticated, async (req, res) => {
                 });
             });
 
+            const { notifyNextStage } = require('../services/notificationService');
+
             orderUpdate = await OrderModel.findByIdAndUpdate(
                 orderId,
                 {
@@ -106,6 +108,11 @@ router.put('/approve/:orderId', isAuthenticated, async (req, res) => {
                 },
                 { new: true }
             );
+
+            // Notify secondary testers
+            if (orderUpdate) {
+                await notifyNextStage(orderUpdate, 'secondary');
+            }
         }
 
         res.status(200).json({

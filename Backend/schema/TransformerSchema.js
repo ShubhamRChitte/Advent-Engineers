@@ -215,14 +215,30 @@ const TransformerSchema = new Schema({
     requestedAt: { type: Date }
   },
 
-  // The 4 Testing Stages
-  testHistory: {
-    core_test: { type: TestStageSchema, default: {} },
-    secondary_test: { type: TestStageSchema, default: {} },
-    primary_test: { type: TestStageSchema, default: {} },
-    final_test: { type: TestStageSchema, default: {} },
-    pt_test: { type: Schema.Types.Mixed, default: {} }
-  },
+    // The 5 Testing Stages (Workflow: Core -> Secondary -> Primary -> Heating -> Final)
+    testHistory: {
+      core_test: { type: TestStageSchema, default: {} },
+      secondary_test: { type: TestStageSchema, default: {} },
+      primary_test: { type: TestStageSchema, default: {} },
+      heating_test: {
+        status: { type: String, enum: ['Pending', 'In Progress', 'Completed', 'Approved'], default: 'Pending' },
+        timestamp: { type: Date, default: Date.now },
+        processSteps: [{
+          process: String,
+          duration: String,
+          startDateTime: Date,
+          completionDateTime: Date,
+          remarks: String
+        }],
+        leftInputs: [{ col1: String, col2: String }],
+        preparedBy: String,
+        productionManager: String,
+        verifiedBy: String,
+        reportDate: { type: Date, default: Date.now }
+      },
+      final_test: { type: TestStageSchema, default: {} },
+      pt_test: { type: Schema.Types.Mixed, default: {} }
+    },
 
   // Granular Assignments (Per-Unit)
   assignments: {

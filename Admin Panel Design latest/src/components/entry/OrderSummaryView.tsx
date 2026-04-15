@@ -62,14 +62,7 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
           <p className="text-gray-500 mt-1">Review all details before saving the order</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-2">
-            <Printer className="w-4 h-4" />
-            Print
-          </Button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Download className="w-4 h-4" />
-            Export
-          </Button>
+          {/* Buttons removed as requested */}
         </div>
       </div>
 
@@ -134,22 +127,10 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
                 <p className="text-sm text-gray-600 mt-1">{transformerType}</p>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <div>
-                  <p className="text-sm text-gray-500">Capacity</p>
-                  <p className="font-medium">{capacity}</p>
-                </div>
+              <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
                 <div>
                   <p className="text-sm text-gray-500">Voltage</p>
                   <p className="font-medium">{voltageRating}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Phase</p>
-                  <p className="font-medium">{phase}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Serial Number</p>
-                  <p className="font-medium font-mono">{serialNumber}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Number of Cores</p>

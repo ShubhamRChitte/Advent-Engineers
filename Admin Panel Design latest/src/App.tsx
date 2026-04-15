@@ -46,8 +46,19 @@ export default function App() {
     return <LoginPage onLogin={handleLogin} />;
   }
 
-  // Admin/Operator Protected Route for Reports
-  if (window.location.pathname.startsWith('/admin/report/') && (user.role === 'admin' || user.role === 'entry-operator')) {
+  // Admin/Operator/Tester Protected Route for Reports
+  const isReportPath = window.location.pathname.startsWith('/admin/report/');
+  const isAuthorizedRole = user && [
+    'admin', 
+    'entry-operator', 
+    'core-tester', 
+    'secondary-tester', 
+    'after-primary-tester', 
+    'final-tester', 
+    'pt-tester'
+  ].includes(user.role);
+
+  if (isReportPath && isAuthorizedRole) {
     return (
       <>
         <AdminReportViewPage />

@@ -10,7 +10,7 @@ import { TesterNotifications } from './TesterNotifications';
 import { SecondaryReportsList } from './SecondaryReportsList';
 import { CoreTrackingDashboard } from '../testing/CoreTrackingDashboard';
 import { Card } from '../ui/card';
-import { ClipboardCheck, FileText, Activity } from 'lucide-react';
+import { ClipboardCheck, Activity, Clock, CheckCircle2 } from 'lucide-react';
 import { AfterPrimaryReportsList } from './reports/AfterPrimaryReportsList';
 import { FinalReportsList } from './reports/FinalReportsList';
 import { FailedCoresPage } from '../../pages/FailedCoresPage';
@@ -22,6 +22,7 @@ import { PTHeatingRecordModule } from './PTHeatingRecordModule';
 import { OrdersListViewEnhanced } from '../entry/OrdersListViewEnhanced';
 import { OrderDetailsView } from './OrderDetailsView';
 import { HeatingTrackingModule } from './HeatingTrackingModule';
+import { useTesterStats } from './useTesterStats';
 
 interface TesterLayoutProps {
   user: User;
@@ -32,6 +33,8 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
   const [activeView, _setActiveView] = useState(() => {
     return localStorage.getItem(`${user.role}_activeView`) || 'home';
   });
+
+  const { stats, recentActivity, loading } = useTesterStats(user.role, user.name);
 
   const [selectedOrderId, _setSelectedOrderId] = useState<string | null>(() => {
     return localStorage.getItem(`${user.role}_selectedOrderId`);
@@ -52,6 +55,30 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
     localStorage.removeItem(`${user.role}_selectedOrderId`);
     _setSelectedOrderId(null);
     setActiveView('home');
+  };
+
+  const renderRecentActivity = (activities: any[]) => {
+    if (loading) return <p className="text-sm text-gray-500">Loading activity...</p>;
+    if (activities.length === 0) return <p className="text-sm text-gray-500">No recent activity found.</p>;
+
+    return (
+      <div className="space-y-3">
+        {activities.map((act, idx) => (
+          <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-100">
+            <div>
+              <p className="font-medium text-sm">{act.id}</p>
+              <p className="text-xs text-gray-500">{act.client}</p>
+            </div>
+            <div className="text-right">
+              <span className={`text-xs px-2 py-1 rounded-full ${act.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                {act.status}
+              </span>
+              <p className="text-[10px] text-gray-400 mt-1">{new Date(act.time).toLocaleString()}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const renderView = () => {
@@ -80,11 +107,11 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
 
     // PT Tester
     if (user.role === 'pt-tester') {
-      if (activeView === 'home') return <PTTesterDashboard setActiveView={setActiveView} />;
+      if (activeView === 'home') return <PTTesterDashboard setActiveView={setActiveView} stats={stats} recentActivity={recentActivity} loading={loading} />;
       if (activeView === 'testing') return <PTTestingModule user={user} />;
       if (activeView === 'pt-heating-record') return <PTHeatingRecordModule user={user} />;
       if (activeView === 'reports') return <PTReportsList onBack={setViewHome} />;
-      return <PTTesterDashboard setActiveView={setActiveView} />;
+      return <PTTesterDashboard setActiveView={setActiveView} stats={stats} recentActivity={recentActivity} loading={loading} />;
     }
 
     // Core Tester Views
@@ -93,50 +120,44 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return (
           <div className="space-y-6">
             <div>
-              <h2>Core Testing Dashboard</h2>
-              <p className="text-gray-500 mt-1">Welcome to your core testing workspace</p>
+              <h2 className="text-2xl font-bold text-gray-800">Core Testing Dashboard</h2>
+              <p className="text-gray-500 mt-1">Real-time status of your assigned core testing tasks</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setActiveView('core-tracking')}>
-                <ClipboardCheck className="w-12 h-12 text-[#003a70] mb-4" />
-                <h3 className="mb-2">Assigned Orders</h3>
-                <p className="text-gray-500 text-sm">View and perform testing on assigned core orders</p>
+              <Card className="p-6 hover:shadow-lg transition-all cursor-pointer border-t-4 border-t-[#003a70]" onClick={() => setActiveView('core-tracking')}>
+                <ClipboardCheck className="w-10 h-10 text-[#003a70] mb-4" />
+                <h3 className="font-semibold text-gray-800">Assigned Orders</h3>
+                <p className="text-gray-500 text-sm mt-2">View and perform testing on assigned core orders</p>
               </Card>
 
-              <Card className="p-6 bg-blue-50 border-blue-200">
-                <Activity className="w-12 h-12 text-blue-600 mb-4" />
-                <h3 className="mb-2">Active Tests</h3>
-                <p className="text-2xl text-blue-700">3</p>
-                <p className="text-gray-500 text-sm mt-1">Currently in progress</p>
+              <Card className="p-6 bg-white border-l-4 border-l-blue-500 shadow-sm">
+                <Activity className="w-10 h-10 text-blue-500 mb-4" />
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Active Units</h3>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.activeTests}</p>
+                <div className="flex items-center mt-2 text-xs text-blue-600">
+                  <Clock className="w-3 h-3 mr-1" />
+                  Currently at core testing stage
+                </div>
               </Card>
 
-              <Card className="p-6 bg-green-50 border-green-200">
-                <FileText className="w-12 h-12 text-green-600 mb-4" />
-                <h3 className="mb-2">Completed</h3>
-                <p className="text-2xl text-green-700">12</p>
-                <p className="text-gray-500 text-sm mt-1">Tests this month</p>
+              <Card className="p-6 bg-white border-l-4 border-l-green-500 shadow-sm">
+                <CheckCircle2 className="w-10 h-10 text-green-500 mb-4" />
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Completed (Month)</h3>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.completedTests}</p>
+                <div className="flex items-center mt-2 text-xs text-green-600">
+                  <Activity className="w-3 h-3 mr-1" />
+                  Successfully tested this month
+                </div>
               </Card>
             </div>
 
-            <Card className="p-6">
-              <h3 className="mb-4">Recent Activity</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                  <div>
-                    <p className="font-medium">JOB-2025-003</p>
-                    <p className="text-sm text-gray-500">National Grid - 8 cores</p>
-                  </div>
-                  <span className="text-sm text-yellow-600">In Progress</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                  <div>
-                    <p className="font-medium">JOB-2025-004</p>
-                    <p className="text-sm text-gray-500">Metro Power - 6 cores</p>
-                  </div>
-                  <span className="text-sm text-green-600">Completed</span>
-                </div>
+            <Card className="p-6 overflow-hidden border-none shadow-md">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold text-gray-800">Recent Activity</h3>
+                <span className="text-xs text-gray-400 font-medium uppercase">Last 5 actions</span>
               </div>
+              {renderRecentActivity(recentActivity)}
             </Card>
           </div>
         );
@@ -157,50 +178,44 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return (
           <div className="space-y-6">
             <div>
-              <h2>Secondary Testing Dashboard</h2>
-              <p className="text-gray-500 mt-1">Welcome to your secondary testing workspace</p>
+              <h2 className="text-2xl font-bold text-gray-800">Secondary Testing Dashboard</h2>
+              <p className="text-gray-500 mt-1">Manage secondary testing for assigned transformers</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setActiveView('testing')}>
-                <ClipboardCheck className="w-12 h-12 text-[#003a70] mb-4" />
-                <h3 className="mb-2">Assigned Orders</h3>
-                <p className="text-gray-500 text-sm">View and perform secondary testing on assigned orders</p>
+              <Card className="p-6 hover:shadow-lg transition-all cursor-pointer border-t-4 border-t-purple-600" onClick={() => setActiveView('testing')}>
+                <ClipboardCheck className="w-10 h-10 text-purple-600 mb-4" />
+                <h3 className="font-semibold text-gray-800">Assigned Orders</h3>
+                <p className="text-gray-500 text-sm mt-2">View and perform secondary testing on assigned orders</p>
               </Card>
 
-              <Card className="p-6 bg-blue-50 border-blue-200">
-                <Activity className="w-12 h-12 text-blue-600 mb-4" />
-                <h3 className="mb-2">Active Tests</h3>
-                <p className="text-2xl text-blue-700">5</p>
-                <p className="text-gray-500 text-sm mt-1">Currently in progress</p>
+              <Card className="p-6 bg-white border-l-4 border-l-blue-500 shadow-sm">
+                <Activity className="w-10 h-10 text-blue-500 mb-4" />
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Units In Progress</h3>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.activeTests}</p>
+                <div className="flex items-center mt-2 text-xs text-blue-600">
+                  <Clock className="w-3 h-3 mr-1" />
+                  Currently at secondary stage
+                </div>
               </Card>
 
-              <Card className="p-6 bg-green-50 border-green-200">
-                <FileText className="w-12 h-12 text-green-600 mb-4" />
-                <h3 className="mb-2">Completed</h3>
-                <p className="text-2xl text-green-700">18</p>
-                <p className="text-gray-500 text-sm mt-1">Tests this month</p>
+              <Card className="p-6 bg-white border-l-4 border-l-green-500 shadow-sm">
+                <CheckCircle2 className="w-10 h-10 text-green-500 mb-4" />
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Units Completed</h3>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.completedTests}</p>
+                <div className="flex items-center mt-2 text-xs text-green-600">
+                  <Activity className="w-3 h-3 mr-1" />
+                  Verified this month
+                </div>
               </Card>
             </div>
 
-            <Card className="p-6">
-              <h3 className="mb-4">Recent Activity</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                  <div>
-                    <p className="font-medium">JOB-2025-003</p>
-                    <p className="text-sm text-gray-500">National Grid - 4 transformers</p>
-                  </div>
-                  <span className="text-sm text-yellow-600">In Progress</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                  <div>
-                    <p className="font-medium">JOB-2025-004</p>
-                    <p className="text-sm text-gray-500">Metro Power - 2 transformers</p>
-                  </div>
-                  <span className="text-sm text-green-600">Completed</span>
-                </div>
+            <Card className="p-6 overflow-hidden border-none shadow-md">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold text-gray-800">Recent Production</h3>
+                <span className="text-xs text-gray-400 font-medium uppercase">Latest updates</span>
               </div>
+              {renderRecentActivity(recentActivity)}
             </Card>
           </div>
         );
@@ -221,50 +236,44 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return (
           <div className="space-y-6">
             <div>
-              <h2>Final Testing Dashboard</h2>
-              <p className="text-gray-500 mt-1">Welcome to your final testing workspace</p>
+              <h2 className="text-2xl font-bold text-gray-800">Final Testing Hub</h2>
+              <p className="text-gray-500 mt-1">Final inspection and quality assurance dashboard</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setActiveView('testing')}>
-                <ClipboardCheck className="w-12 h-12 text-[#003a70] mb-4" />
-                <h3 className="mb-2">Assigned Orders</h3>
-                <p className="text-gray-500 text-sm">View and perform final testing on assigned orders</p>
+              <Card className="p-6 hover:shadow-lg transition-all cursor-pointer border-t-4 border-t-green-600" onClick={() => setActiveView('testing')}>
+                <ClipboardCheck className="w-10 h-10 text-green-600 mb-4" />
+                <h3 className="font-semibold text-gray-800">Ready for Final Test</h3>
+                <p className="text-gray-500 text-sm mt-2">Inspect and approve units for shipping</p>
               </Card>
 
-              <Card className="p-6 bg-blue-50 border-blue-200">
-                <Activity className="w-12 h-12 text-blue-600 mb-4" />
-                <h3 className="mb-2">Active Tests</h3>
-                <p className="text-2xl text-blue-700">3</p>
-                <p className="text-gray-500 text-sm mt-1">Currently in progress</p>
+              <Card className="p-6 bg-white border-l-4 border-l-blue-500 shadow-sm">
+                <Activity className="w-10 h-10 text-blue-500 mb-4" />
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Active Inspections</h3>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.activeTests}</p>
+                <div className="flex items-center mt-2 text-xs text-blue-600">
+                  <Clock className="w-3 h-3 mr-1" />
+                  Units in final stage
+                </div>
               </Card>
 
-              <Card className="p-6 bg-green-50 border-green-200">
-                <FileText className="w-12 h-12 text-green-600 mb-4" />
-                <h3 className="mb-2">Completed</h3>
-                <p className="text-2xl text-green-700">14</p>
-                <p className="text-gray-500 text-sm mt-1">Tests this month</p>
+              <Card className="p-6 bg-white border-l-4 border-l-green-500 shadow-sm">
+                <CheckCircle2 className="w-10 h-10 text-green-500 mb-4" />
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Shipped / Completed</h3>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.completedTests}</p>
+                <div className="flex items-center mt-2 text-xs text-green-600">
+                  <Activity className="w-3 h-3 mr-1" />
+                  Finalized this month
+                </div>
               </Card>
             </div>
 
-            <Card className="p-6">
-              <h3 className="mb-4">Recent Activity</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                  <div>
-                    <p className="font-medium">JOB-2025-001</p>
-                    <p className="text-sm text-gray-500">PowerGrid Corporation - 5 transformers</p>
-                  </div>
-                  <span className="text-sm text-yellow-600">In Progress</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                  <div>
-                    <p className="font-medium">JOB-2025-003</p>
-                    <p className="text-sm text-gray-500">National Grid - 4 transformers</p>
-                  </div>
-                  <span className="text-sm text-green-600">Completed</span>
-                </div>
+            <Card className="p-6 overflow-hidden border-none shadow-md">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold text-gray-800">Final Test Log</h3>
+                <span className="text-xs text-gray-400 font-medium uppercase">Quality checks</span>
               </div>
+              {renderRecentActivity(recentActivity)}
             </Card>
           </div>
         );
@@ -285,50 +294,44 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return (
           <div className="space-y-6">
             <div>
-              <h2>After Primary Testing Dashboard</h2>
-              <p className="text-gray-500 mt-1">Welcome to your after primary testing workspace</p>
+              <h2 className="text-2xl font-bold text-gray-800">Primary Testing Hub</h2>
+              <p className="text-gray-500 mt-1">Managing units after primary testing phase</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setActiveView('testing')}>
-                <ClipboardCheck className="w-12 h-12 text-[#003a70] mb-4" />
-                <h3 className="mb-2">Assigned Orders</h3>
-                <p className="text-gray-500 text-sm">View and perform after primary testing on assigned orders</p>
+              <Card className="p-6 hover:shadow-lg transition-all cursor-pointer border-t-4 border-t-orange-500" onClick={() => setActiveView('testing')}>
+                <ClipboardCheck className="w-10 h-10 text-orange-500 mb-4" />
+                <h3 className="font-semibold text-gray-800">Assigned Units</h3>
+                <p className="text-gray-500 text-sm mt-2">Perform testing on units after primary phase</p>
               </Card>
 
-              <Card className="p-6 bg-blue-50 border-blue-200">
-                <Activity className="w-12 h-12 text-blue-600 mb-4" />
-                <h3 className="mb-2">Active Tests</h3>
-                <p className="text-2xl text-blue-700">4</p>
-                <p className="text-gray-500 text-sm mt-1">Currently in progress</p>
+              <Card className="p-6 bg-white border-l-4 border-l-blue-500 shadow-sm">
+                <Activity className="w-10 h-10 text-blue-500 mb-4" />
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Units in Primary</h3>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.activeTests}</p>
+                <div className="flex items-center mt-2 text-xs text-blue-600">
+                  <Clock className="w-3 h-3 mr-1" />
+                  Currently at primary stage
+                </div>
               </Card>
 
-              <Card className="p-6 bg-green-50 border-green-200">
-                <FileText className="w-12 h-12 text-green-600 mb-4" />
-                <h3 className="mb-2">Completed</h3>
-                <p className="text-2xl text-green-700">15</p>
-                <p className="text-gray-500 text-sm mt-1">Tests this month</p>
+              <Card className="p-6 bg-white border-l-4 border-l-green-500 shadow-sm">
+                <CheckCircle2 className="w-10 h-10 text-green-500 mb-4" />
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Month Completions</h3>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.completedTests}</p>
+                <div className="flex items-center mt-2 text-xs text-green-600">
+                  <Activity className="w-3 h-3 mr-1" />
+                  Primary tests finished
+                </div>
               </Card>
             </div>
 
-            <Card className="p-6">
-              <h3 className="mb-4">Recent Activity</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                  <div>
-                    <p className="font-medium">JOB-2025-001</p>
-                    <p className="text-sm text-gray-500">PowerGrid Corporation - 5 transformers</p>
-                  </div>
-                  <span className="text-sm text-yellow-600">In Progress</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                  <div>
-                    <p className="font-medium">JOB-2025-002</p>
-                    <p className="text-sm text-gray-500">City Electric Ltd - 3 transformers</p>
-                  </div>
-                  <span className="text-sm text-green-600">Completed</span>
-                </div>
+            <Card className="p-6 overflow-hidden border-none shadow-md">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold text-gray-800">Work History</h3>
+                <span className="text-xs text-gray-400 font-medium uppercase">Recent primary tests</span>
               </div>
+              {renderRecentActivity(recentActivity)}
             </Card>
           </div>
         );

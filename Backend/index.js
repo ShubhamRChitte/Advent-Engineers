@@ -28,6 +28,8 @@ const { upload, cloudinary } = require('./config/cloudinary'); // Cloudinary upl
 const heatingRecordRoutes = require('./routes/heatingRecordRoutes'); // Heating Record Routes
 const ptHeatingRecordRoutes = require('./routes/ptHeatingRecordRoutes'); // PT Heating Record Routes
 const { CoreVendorModel } = require("./models/CoreVendorModel");
+const notificationRoutes = require('./routes/notificationRoutes');
+const { NotificationModel } = require('./models/NotificationModel');
 
 
 const app = express();
@@ -129,6 +131,7 @@ app.use('/api/heating-record', heatingRecordRoutes); // Heating Record Routes
 app.use('/api/pt-heating-record', ptHeatingRecordRoutes); // PT Heating Record Routes
 app.use('/api/accuracy-limits', require('./routes/accuracyLimits.cjs')); // Accuracy Limits Management
 app.use('/api/core-vendors', require('./routes/coreVendorRoutes')); // Core Vendors Management
+app.use('/api/notifications', notificationRoutes); // Persistent Notifications
 
 // Provide configuration for Accuracy Classes dynamically to the frontend
 app.get('/api/accuracy-limits', (req, res) => {
@@ -247,6 +250,25 @@ const generateTransformersForOrder = async (order) => {
     // Bulk Insert for performance
     await TransformerModel.insertMany(transformers);
     console.log(`Successfully generated ${quantity} transformers for ${jobId}`);
+
+    // --- CREATE NOTIFICATIONS ---
+    // Identify all unique testers assigned in this order for the starting stage
+    if (assignments && assignments.length > 0) {
+      const uniqueTesters = [...new Set(assignments.filter(a => a.stage === startStage).map(a => a.testerName))];
+      
+      const notificationPromises = uniqueTesters.map(tester => {
+          return new NotificationModel({
+              recipientRole: startStage,
+              recipientName: tester,
+              message: `New testing task assigned: ${quantity} units for ${order.clientName} (Job: ${jobId})`,
+              orderId: order._id,
+              jobId: jobId,
+              type: "ASSIGNMENT"
+          }).save();
+      });
+      await Promise.all(notificationPromises);
+      console.log(`Created ${uniqueTesters.length} notifications for ${startStage} testers.`);
+    }
 
   } catch (error) {
     console.error("Error generating transformers:", error);
@@ -497,10 +519,25 @@ app.put('/api/orders/:orderId', updateOrder); // Generic Update Route
 app.delete('/api/orders/:orderId', isAuthenticated, deleteOrder); // Delete order with Cloudinary cleanup
 app.get('/api/orders/:orderId', async (req, res) => {
   try {
-    const order = await OrderModel.findById(req.params.orderId);
-    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+    const { orderId } = req.params;
+    const mongoose = require('mongoose');
+    let order = null;
+
+    if (mongoose.Types.ObjectId.isValid(orderId)) {
+      order = await OrderModel.findById(orderId);
+    }
+    
+    if (!order) {
+      order = await OrderModel.findOne({ jobId: orderId });
+    }
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    
     res.json({ success: true, data: order });
   } catch (error) {
+    console.error("Fetch Order Error:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

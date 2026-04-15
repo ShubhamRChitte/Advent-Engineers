@@ -16,10 +16,8 @@ import {
   Clock,
   XCircle,
   AlertCircle,
-  Printer,
-  Play,
 } from 'lucide-react';
-import { CoreTestingInitiation } from '../testing/CoreTestingInitiation';
+
 
 interface TransformerUnit {
   id: string;
@@ -52,7 +50,6 @@ interface OrderDetailViewProps {
 
 export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [showCoreTestingInitiation, setShowCoreTestingInitiation] = useState(false);
   const isPT = order.transformerType === 'PT';
 
   // Generate transformer units based on quantity
@@ -67,7 +64,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
         });
 
         // Define the progression of stages
-        const stageOrder = ['core', 'secondary', 'primary', 'final', 'completed', 'shipped'];
+        const stageOrder = ['core', 'secondary', 'primary', 'heating', 'final', 'completed', 'shipped'];
 
         const getStatusForStage = (targetStage: string, currentStage: string, historyStatus?: string, t?: any) => {
           // 1. Explicit History Check
@@ -104,7 +101,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
         const mappedUnits: TransformerUnit[] = response.data.map((t: any) => {
           // Heating Logic
           const hasHeating = t.processHistory?.heatingRecord?.length > 0;
-          const heatingStatus = hasHeating ? 'Complete' : (t.currentStage === 'heating' ? 'In Progress' : 'Pending');
+          const heatingStatus = getStatusForStage('heating', t.currentStage, hasHeating ? 'Completed' : undefined, t);
 
           return {
             id: t._id,
@@ -252,14 +249,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
 
   const testingStats = getTestingStateStats();
 
-  if (showCoreTestingInitiation) {
-    return (
-      <CoreTestingInitiation
-        order={order}
-        onBack={() => setShowCoreTestingInitiation(false)}
-      />
-    );
-  }
+
 
   return (
     <div className="space-y-6">
@@ -269,15 +259,6 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
           <ArrowLeft className="w-4 h-4" />
           Back to Orders
         </Button>
-        {!isPT && (
-          <Button
-            onClick={() => setShowCoreTestingInitiation(true)}
-            className="gap-2 bg-[#003a70] hover:bg-[#002850] ml-auto"
-          >
-            <Play className="w-4 h-4" />
-            Start Core Testing
-          </Button>
-        )}
       </div>
 
       {/* ADVENT ENGINEERS Header */}
@@ -344,16 +325,6 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
             />
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="gap-2">
-              <Printer className="w-4 h-4" />
-              Print All
-            </Button>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Download className="w-4 h-4" />
-              Export
-            </Button>
           </div>
         </div>
       </Card>

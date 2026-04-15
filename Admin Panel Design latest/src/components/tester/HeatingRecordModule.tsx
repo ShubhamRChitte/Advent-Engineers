@@ -28,8 +28,8 @@ interface HeatingRecordModuleProps {
 
 const DEFAULT_PROCESS_STEPS: ProcessStep[] = [
   { process: 'Heating 80°C',       duration: '12 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
-  { process: 'V. Heating 90°C',    duration: '18 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
-  { process: 'V. Cooling 60°C',    duration: '06 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+  { process: 'Heating 90°C',       duration: '18 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+  { process: 'Cooling 60°C',       duration: '06 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
   { process: 'Oil Filling at 60°C', duration: '03 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
 ];
 
@@ -163,11 +163,11 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
   const makeNewBlock = (_jobId: string, blockNumber: number, voltage: string): HeatingRecordBlock => {
     let processSteps = JSON.parse(JSON.stringify(DEFAULT_PROCESS_STEPS));
     
-    if (voltage.includes('33')) {
+    if (voltage.includes('22') || voltage.includes('33')) {
       processSteps = [
         { process: 'Heating 80°C',       duration: '12 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
-        { process: 'V. Heating 80°C',    duration: '24 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
-        { process: 'V. Cooling 60°C',    duration: '06 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+        { process: 'Heating 90°C',       duration: '24 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+        { process: 'Cooling 60°C',       duration: '06 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
         { process: 'Oil Filling at 60°C', duration: '04 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
       ];
     }
@@ -193,12 +193,52 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
     setRecords(prev => [...prev, makeNewBlock(selectedOrder.jobId, prev.length + 1, String(selectedOrder.nominalSystemVoltage))]);
   };
 
+
   const updateProcessStep = (blockId: string, processIndex: number, field: keyof ProcessStep, value: string) => {
     setRecords(records.map(block => {
       if (block.id !== blockId) return block;
-      const newSteps = [...block.processSteps];
-      newSteps[processIndex] = { ...newSteps[processIndex], [field]: value } as ProcessStep;
-      return { ...block, processSteps: newSteps };
+      let updatedSteps = [...block.processSteps];
+      updatedSteps[processIndex] = { ...updatedSteps[processIndex], [field]: value };
+
+      // Ripple Forward Logic
+      const isStartTimeChange = (field === 'startDate' || field === 'startTime');
+      const isEndTimeChange = (field === 'completionDate' || field === 'completionTime');
+
+      if (isStartTimeChange || isEndTimeChange) {
+        for (let i = processIndex; i < updatedSteps.length; i++) {
+          const step = updatedSteps[i];
+          const hoursMatch = step.duration.match(/(\d+)/);
+          const hours = hoursMatch ? parseInt(hoursMatch[1]) : 0;
+
+          if (i === processIndex) {
+            if (isStartTimeChange) {
+              if (step.startDate && step.startTime) {
+                const start = new Date(`${step.startDate}T${step.startTime}`);
+                const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
+                updatedSteps[i] = {
+                  ...step,
+                  completionDate: end.toLocaleDateString('en-CA'),
+                  completionTime: end.toTimeString().slice(0, 5)
+                };
+              }
+            }
+          } else {
+            const prevStep = updatedSteps[i - 1];
+            if (prevStep.completionDate && prevStep.completionTime) {
+              const start = new Date(`${prevStep.completionDate}T${prevStep.completionTime}`);
+              const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
+              updatedSteps[i] = {
+                ...step,
+                startDate: start.toLocaleDateString('en-CA'),
+                startTime: start.toTimeString().slice(0, 5),
+                completionDate: end.toLocaleDateString('en-CA'),
+                completionTime: end.toTimeString().slice(0, 5)
+              };
+            }
+          }
+        }
+      }
+      return { ...block, processSteps: updatedSteps };
     }));
   };
 

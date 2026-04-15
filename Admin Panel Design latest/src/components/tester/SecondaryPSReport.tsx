@@ -585,11 +585,13 @@ interface SecondaryPSReportProps {
   accuracyClass?: string | undefined;
 }
 
-export function SecondaryPSReport({ transformer, coreId, testerName, onBack, readOnly = false, stage = 'secondary', accuracyClass }: SecondaryPSReportProps) {
+export function SecondaryPSReport({ transformer, coreId, testerName, onBack, readOnly = false, stage = 'secondary', accuracyClass: explicitClass }: SecondaryPSReportProps) {
   // Use dynamic ratios from transformer, fallback if missing
   const dynamicRatios = (transformer as any).ratios && (transformer as any).ratios.length > 0
     ? (transformer as any).ratios
     : ((transformer as any).orderId?.ratio || ['200/1']);
+
+  const [accuracyClass, setAccuracyClass] = useState<string>(() => explicitClass || 'PS');
 
   const [psData, setPsData] = useState<PSRow[]>(() => {
     const initial = dynamicRatios.map((ratio: string) => ({
@@ -682,6 +684,10 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
               }
 
               if (savedRow) {
+                if (savedRow.accuracyClass && savedRow.accuracyClass !== 'N/A' && savedRow.accuracyClass !== accuracyClass) {
+                  setAccuracyClass(savedRow.accuracyClass);
+                }
+
                 console.log("Loading PS Row Data:", savedRow); // DEBUG LOG
                 return {
                   ...row,
@@ -1029,6 +1035,10 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
             <div className="header-field">
               <span className="field-label">Unit No :</span>
               <span className="field-value">{transformer.uniqueId}</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Class :</span>
+              <span className="field-value">{accuracyClass || 'PS'}</span>
             </div>
           </div>
         </div>

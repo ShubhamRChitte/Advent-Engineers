@@ -15,6 +15,7 @@ import {
 
 interface TaskNotification {
   id: string;
+  orderObjectId: string;
   orderId: string;
   jobId: string;
   message: string;
@@ -137,47 +138,56 @@ export function TesterNotifications({ userRole, onViewOrder }: TesterNotificatio
 
 
   useEffect(() => {
-    axios
-      .get("http://localhost:3002/api/assigneed_orders?type=active", { withCredentials: true })
-      .then((res) => {
-        // Map Order[] to TaskNotification[]
-        const mappedNotifications: TaskNotification[] = res.data.map((order: any) => ({
-          id: order._id,
-          orderId: order.jobId, // redundancy for UI compatibility
-          jobId: order.jobId,
-          message: 'You have a new testing task assigned',
-          clientName: order.clientName,
-          transformerName: order.transformerName,
-          transformerType: order.transformerType,
-          quantity: order.quantity,
-          deadline: order.deadline,
-          instructions: order.instructions || 'Standard testing procedure.',
-          fromStage: 'Admin', // Static for now, could be dynamic based on history
-          fromEmployee: 'Admin',
-          timestamp: new Date(order.createdAt).toLocaleString(),
-          isRead: false, // Default to false since we don't track per-tester read status yet
-          priority: order.priority || 'Medium'
+    const fetchNotifications = async () => {
+      try {
+        const res = await axios.get("http://localhost:3002/api/notifications", { withCredentials: true });
+        const mapped = res.data.notifications.map((n: any) => ({
+          id: n._id,
+          orderObjectId: n.orderId || n.jobId || 'N/A',
+          orderId: n.jobId || 'N/A',
+          jobId: n.jobId || 'N/A',
+          message: n.message,
+          clientName: 'Attached to Task', // We could populate this if we joined
+          transformerName: 'Check Order',
+          transformerType: 'N/A',
+          quantity: 0,
+          deadline: new Date().toISOString(),
+          instructions: '',
+          fromStage: 'Admin',
+          fromEmployee: 'System',
+          timestamp: new Date(n.createdAt).toLocaleString(),
+          isRead: n.isRead,
+          priority: 'Medium'
         }));
-        setNotifications(mappedNotifications);
-      })
-      .catch((err) => {
+        setNotifications(mapped);
+      } catch (err) {
         console.error("API ERROR:", err);
-      });
+      }
+    };
+
+    fetchNotifications();
   }, []);
-
-
-
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  const handleMarkAsRead = (notificationId: string) => {
-    setNotifications(notifications.map(n =>
-      n.id === notificationId ? { ...n, isRead: true } : n
-    ));
+  const handleMarkAsRead = async (notificationId: string) => {
+    try {
+      await axios.put(`http://localhost:3002/api/notifications/${notificationId}/read`, {}, { withCredentials: true });
+      setNotifications(notifications.map(n =>
+        n.id === notificationId ? { ...n, isRead: true } : n
+      ));
+    } catch (err) {
+      console.error("Error marking read:", err);
+    }
   };
 
-  const handleMarkAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+  const handleMarkAllAsRead = async () => {
+    try {
+      await axios.put("http://localhost:3002/api/notifications/mark-read", {}, { withCredentials: true });
+      setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+    } catch (err) {
+      console.error("Error marking all read:", err);
+    }
   };
 
   const getPriorityColor = (priority: string) => {
@@ -391,7 +401,7 @@ export function TesterNotifications({ userRole, onViewOrder }: TesterNotificatio
                 <Button 
                   variant="outline" 
                   className="gap-2"
-                  onClick={() => onViewOrder && onViewOrder(notification.id)}
+                  onClick={() => onViewOrder && onViewOrder(notification.orderObjectId || notification.id)}
                 >
                   <Package className="w-4 h-4" />
                   View Order Details

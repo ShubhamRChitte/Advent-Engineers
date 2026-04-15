@@ -108,7 +108,7 @@ export function SecondaryProtectionReport({
 
 
   const [testResults, setTestResults] = useState<ProtectionTestRow[]>([]);
-  const [protectionClass] = useState<string>(() => {
+  const [protectionClass, setProtectionClass] = useState<string>(() => {
     if (explicitClass) return explicitClass;
 
     // Fallback: Use the granular accuracyClass from coreDetails
@@ -227,6 +227,11 @@ export function SecondaryProtectionReport({
               if (saved) {
                 // Formatting helper for safe string conversion
                 const safeStr = (val: any) => (val !== undefined && val !== null) ? String(val) : '';
+
+                // Synchronize class from DB if it's different from the current guessed/initial state
+                if (saved.protectionClass && saved.protectionClass !== protectionClass) {
+                  setProtectionClass(saved.protectionClass);
+                }
 
                 return {
                   ...row,
@@ -493,6 +498,37 @@ export function SecondaryProtectionReport({
           border-bottom: none;
         }
         
+        .report-header-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          border: 1.5px solid #000;
+          margin-bottom: 0;
+        }
+        
+        .header-left {
+          padding: 10px;
+          border-right: 1.5px solid #000;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+        
+        .header-right {
+          display: grid;
+          grid-template-rows: repeat(5, 1fr);
+        }
+        
+        .header-field {
+          display: grid;
+          grid-template-columns: 100px 1fr;
+          border-bottom: 1px solid #000;
+          font-size: 11px;
+        }
+        
+        .header-field:last-child {
+          border-bottom: none;
+        }
+        
         .field-label {
           padding: 4px 8px;
           border-right: 1px solid #000;
@@ -586,10 +622,31 @@ export function SecondaryProtectionReport({
       `}</style>
       {!readOnly && (
         <div className="flex items-center justify-between no-print">
-          <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
-            <ArrowLeft className="w-4 h-4" /> Back
-          </Button>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
+              <ArrowLeft className="w-4 h-4" /> Back
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDatabaseSave}
+              className="gap-2"
+              disabled={hasFailures}
+            >
+              <Save className="w-4 h-4" /> Save
+            </Button>
+            {hasFailures && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleMarkAsFailed}
+                className="gap-2"
+              >
+                <AlertTriangle className="w-4 h-4" /> Mark as Failed Core
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
               <Printer className="w-4 h-4" /> Print
             </Button>
@@ -603,17 +660,31 @@ export function SecondaryProtectionReport({
           <div className="header-left">
             <h1 className="text-2xl font-bold italic text-red-600 leading-tight">ADVENT ENGINEERS</h1>
           </div>
-
-          <div className="text-right flex flex-col items-end">
-            <div className="mb-2 flex items-center gap-2">
-              <label className="text-xs font-bold text-gray-700">Class:</label>
-              <span className="font-bold text-sm text-blue-700">{protectionClass}</span>
+          <div className="header-right">
+            <div className="header-field">
+              <span className="field-label">Date :</span>
+              <span className="field-value">
+                {stage && transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate
+                  ? new Date(transformer.testHistory[`${stage}_test` as keyof typeof transformer.testHistory].reportDate).toLocaleDateString('en-GB')
+                  : new Date().toLocaleDateString('en-GB')}
+              </span>
             </div>
-            <p className="text-[10px] text-gray-400 mt-1 uppercase">Date: {
-              stage && transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate
-                ? new Date(transformer.testHistory[`${stage}_test` as keyof typeof transformer.testHistory].reportDate).toLocaleDateString('en-GB')
-                : new Date().toLocaleDateString('en-GB')
-            }</p>
+            <div className="header-field">
+              <span className="field-label">Order No :</span>
+              <span className="field-value">{transformer.jobId || transformer.uniqueId}</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Client :</span>
+              <span className="field-value">{transformer.clientName || 'N/A'}</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Unit No :</span>
+              <span className="field-value">{transformer.uniqueId}</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Class :</span>
+              <span className="field-value">{protectionClass || '5P'}</span>
+            </div>
           </div>
         </div>
 
@@ -864,32 +935,6 @@ export function SecondaryProtectionReport({
         </div>
       </div>
 
-      {/* Database Actions */}
-      <div className="flex gap-3 no-print pt-4">
-        {!readOnly && (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDatabaseSave}
-              className="gap-2"
-              disabled={hasFailures}
-            >
-              <Save className="w-4 h-4" /> Save
-            </Button>
-            {hasFailures && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleMarkAsFailed}
-                className="gap-2 ml-auto"
-              >
-                <AlertTriangle className="w-4 h-4" /> Mark as Failed Core
-              </Button>
-            )}
-          </>
-        )}
-      </div>
     </div>
   );
 }

@@ -40,7 +40,7 @@ const OrderSchema = new Schema(
         testerName: { type: String, required: true }, // e.g., "Rahul Sharma"
         stage: {
           type: String,
-          enum: ["core", "secondary", "primary", "final", "pt"],
+          enum: ["core", "secondary", "primary", "heating", "final", "pt"],
           required: true
         },
         unitRange: {
@@ -54,7 +54,7 @@ const OrderSchema = new Schema(
     // --- WORKFLOW TRACKING (NEW) ---
     currentStage: {
       type: String,
-      enum: ["core", "secondary", "primary", "final", "completed", "pt"],
+      enum: ["core", "secondary", "primary", "heating", "final", "completed", "pt"],
       default: "core" // Determines which dashboard this order appears on
     },
 
@@ -62,6 +62,7 @@ const OrderSchema = new Schema(
       core: { type: Boolean, default: false },
       secondary: { type: Boolean, default: false },
       primary: { type: Boolean, default: false },
+      heating: { type: Boolean, default: false },
       final: { type: Boolean, default: false },
       pt: { type: Boolean, default: false }
     },

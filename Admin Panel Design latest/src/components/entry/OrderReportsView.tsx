@@ -50,7 +50,7 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
         });
 
         // Define the progression of stages
-        const stageOrder = ['core', 'secondary', 'primary', 'final', 'completed', 'shipped'];
+        const stageOrder = ['core', 'secondary', 'primary', 'heating', 'final', 'completed', 'shipped'];
 
         const getStatusForStage = (targetStage: string, currentStage: string, historyStatus?: string) => {
           // 1. Explicit History Check
@@ -81,7 +81,7 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
         const mappedUnits: TransformerUnit[] = response.data.map((t: any) => {
           // Heating Logic
           const hasHeating = t.processHistory?.heatingRecord?.length > 0;
-          const heatingStatus = hasHeating ? 'Complete' : (t.currentStage === 'heating' ? 'In Progress' : 'Pending');
+          const heatingStatus = getStatusForStage('heating', t.currentStage, hasHeating ? 'Completed' : undefined);
 
           return {
             id: t._id,

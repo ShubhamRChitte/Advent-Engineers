@@ -58,7 +58,7 @@ export function SecondaryMeteringReport({
     ? transformer.ratios
     : (transformer.orderId?.ratio || ['200/1']);
 
-  const [accuracyClass] = useState<string>(() => {
+  const [accuracyClass, setAccuracyClass] = useState<string>(() => {
     if (explicitClass) return extractAccuracyClass(explicitClass);
 
     // Fallback: Use the granular accuracyClass from transformer.cores or order.coreDetails
@@ -139,7 +139,14 @@ export function SecondaryMeteringReport({
 
           setDataByRatio(prev => {
             const newState = { ...prev };
-            const accClass = accuracyClass;
+            // Synchronize with the Class stored in the DB record if it exists
+            const savedAccClass = myResults[0]?.accuracyClass;
+            const accClass = savedAccClass ? extractAccuracyClass(savedAccClass) : accuracyClass;
+            
+            // If the DB class is different from current state, update it (for UI display in header)
+            if (savedAccClass && extractAccuracyClass(savedAccClass) !== accuracyClass) {
+              setAccuracyClass(extractAccuracyClass(savedAccClass));
+            }
 
             myResults.forEach((block: any) => {
               // Apply validation to restored rows so highlights reappear
@@ -469,6 +476,10 @@ export function SecondaryMeteringReport({
             <div className="header-field">
               <span className="field-label">Unit No :</span>
               <span className="field-value">{transformer.uniqueId}</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Class :</span>
+              <span className="field-value">{accuracyClass}</span>
             </div>
           </div>
         </div>

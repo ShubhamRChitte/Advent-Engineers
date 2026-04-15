@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -6,72 +7,62 @@ import { Bell, CheckCircle2, AlertTriangle, Info, X, Clock } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
 
 interface Notification {
-  id: string;
-  type: 'success' | 'warning' | 'info' | 'error';
-  title: string;
+  _id: string;
+  type: 'ASSIGNMENT' | 'STAGE_TRANSITION' | 'REASSIGNMENT' | 'ALERT';
   message: string;
-  time: string;
-  read: boolean;
+  jobId?: string;
+  createdAt: string;
+  isRead: boolean;
 }
 
 export function NotificationsPanel() {
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: '1',
-      type: 'warning',
-      title: 'Low Stock Alert',
-      message: 'Dead Tank Type-2 inventory is running low (8 units remaining)',
-      time: '5 min ago',
-      read: false,
-    },
-    {
-      id: '2',
-      type: 'success',
-      title: 'Order Completed',
-      message: 'Order ORD-2025-003 has passed all testing stages',
-      time: '15 min ago',
-      read: false,
-    },
-    {
-      id: '3',
-      type: 'info',
-      title: 'New Order Received',
-      message: 'PowerGrid Corp placed a new order for 5 transformers',
-      time: '1 hour ago',
-      read: false,
-    },
-    {
-      id: '4',
-      type: 'warning',
-      title: 'Testing Delay',
-      message: 'Order ORD-2025-002 testing delayed due to equipment maintenance',
-      time: '2 hours ago',
-      read: true,
-    },
-    {
-      id: '5',
-      type: 'success',
-      title: 'Dispatch Completed',
-      message: '8 transformers successfully dispatched to National Grid',
-      time: '3 hours ago',
-      read: true,
-    },
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  const markAsRead = (id: string) => {
-    setNotifications(notifications.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    ));
+  const fetchUnreadCount = () => {
+    axios.get('http://localhost:3002/api/notifications/unread-count', { withCredentials: true })
+      .then(res => setUnreadCount(res.data.count))
+      .catch(err => console.error("Error fetching unread count:", err));
   };
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
+  const fetchNotifications = () => {
+    axios.get('http://localhost:3002/api/notifications', { withCredentials: true })
+      .then(res => setNotifications(res.data.notifications))
+      .catch(err => console.error("Error fetching notifications:", err));
+  };
+
+  useEffect(() => {
+    fetchUnreadCount();
+    fetchNotifications();
+
+    // Polling for new notifications every 30 seconds
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const markAsRead = async (id: string) => {
+    try {
+      await axios.put(`http://localhost:3002/api/notifications/${id}/read`, {}, { withCredentials: true });
+      setNotifications(notifications.map(n => n._id === id ? { ...n, isRead: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (err) {
+      console.error("Error marking read:", err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await axios.put('http://localhost:3002/api/notifications/mark-read', {}, { withCredentials: true });
+      setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error("Error marking all read:", err);
+    }
   };
 
   const removeNotification = (id: string) => {
-    setNotifications(notifications.filter(n => n.id !== id));
+    // Optionally implement delete API, or just local hide
+    setNotifications(notifications.filter(n => n._id !== id));
   };
 
   const getIcon = (type: string) => {
@@ -132,13 +123,13 @@ export function NotificationsPanel() {
           <div className="space-y-3">
             {notifications.map((notification) => (
               <div
-                key={notification.id}
+                key={notification._id}
                 className={`relative p-4 rounded-lg border ${
-                  notification.read ? 'bg-white border-gray-200' : `${getBackgroundColor(notification.type)} border-transparent`
+                  notification.isRead ? 'bg-white border-gray-200' : `${getBackgroundColor(notification.type)} border-transparent`
                 }`}
               >
                 <button
-                  onClick={() => removeNotification(notification.id)}
+                  onClick={() => removeNotification(notification._id)}
                   className="absolute top-2 right-2 p-1 hover:bg-gray-200 rounded"
                 >
                   <X className="w-4 h-4 text-gray-400" />
@@ -150,23 +141,25 @@ export function NotificationsPanel() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <p className={notification.read ? '' : 'font-medium'}>
-                        {notification.title}
+                      <p className={notification.isRead ? '' : 'font-medium'}>
+                        {notification.type === 'ASSIGNMENT' ? 'New Assignment' : 'Notification'}
                       </p>
-                      {!notification.read && (
+                      {!notification.isRead && (
                         <div className="w-2 h-2 bg-red-500 rounded-full" />
                       )}
                     </div>
                     <p className="text-sm text-gray-600">{notification.message}</p>
                     <div className="flex items-center gap-2 mt-2">
                       <Clock className="w-3 h-3 text-gray-400" />
-                      <p className="text-xs text-gray-500">{notification.time}</p>
-                      {!notification.read && (
+                      <p className="text-xs text-gray-500">
+                        {new Date(notification.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      {!notification.isRead && (
                         <Button
                           variant="link"
                           size="sm"
-                          className="text-xs h-auto p-0"
-                          onClick={() => markAsRead(notification.id)}
+                          className="text-xs h-auto p-0 ml-4"
+                          onClick={() => markAsRead(notification._id)}
                         >
                           Mark as read
                         </Button>

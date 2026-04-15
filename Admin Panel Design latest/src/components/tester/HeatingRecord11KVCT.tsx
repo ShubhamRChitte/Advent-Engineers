@@ -368,6 +368,14 @@ export function HeatingRecord11KVCT({
   readOnly
 }: HeatingRecord11KVCTProps) {
 
+  // Standardize first block steps if empty
+  const defaultSteps = [
+    { process: 'Heating 80°C', duration: '12 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+    { process: 'Heating 90°C', duration: '18 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+    { process: 'Cooling 60°C', duration: '06 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+    { process: 'Oil Filling at 60°C', duration: '03 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+  ];
+
   // Create empty placeholder block
   const createEmptyBlock = (index: number): HeatingRecordBlock => ({
     id: `temp-${index}`,
@@ -377,12 +385,7 @@ export function HeatingRecord11KVCT({
     jobNo: '',
     leftInputs: Array(8).fill(null).map(() => ({ col1: "", col2: "" })),
     startDate: '',
-    processSteps: [
-      { process: 'Heating 80°C', duration: '12 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
-      { process: 'V. Heating 90°C', duration: '18 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
-      { process: 'V. Cooling 60°C', duration: '06 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
-      { process: 'Oil Filling at 60°C', duration: '03 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
-    ],
+    processSteps: defaultSteps,
     preparedBy: '',
     productionManager: '',
     verifiedBy: '',

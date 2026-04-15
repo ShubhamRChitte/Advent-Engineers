@@ -15,7 +15,6 @@ import {
   Package,
   User,
   Filter,
-  Download,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -200,10 +199,6 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
           <h2>Orders List</h2>
           <p className="text-gray-500 mt-1">View and manage all transformer orders with status tracking</p>
         </div>
-        <Button variant="outline" className="gap-2" onClick={fetchOrders}>
-          <Download className="w-4 h-4" />
-          Refresh List
-        </Button>
       </div>
 
       {/* Stats Cards */}

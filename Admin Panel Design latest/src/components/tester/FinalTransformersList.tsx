@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'; // React removed to fix unused warn
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { ArrowLeft, PlayCircle, Loader2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, PlayCircle, Loader2, FileText } from 'lucide-react';
 import axios from 'axios';
 
 interface CoreConfig {
@@ -307,13 +307,19 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                       <div className="flex justify-center items-center gap-2">
                         <Button
                           size="sm"
-                          onClick={() => onStartTest(transformer)}
-                          className={transformer.status === 'completed' ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
+                          onClick={() => {
+                            if (transformer.status === 'completed') {
+                              window.location.href = `/admin/report/${transformer.id}?type=final`;
+                            } else {
+                              onStartTest(transformer);
+                            }
+                          }}
+                          className={transformer.status === 'completed' ? "bg-green-600 hover:bg-green-700 font-medium" : "bg-red-600 hover:bg-red-700"}
                           disabled={false}
                         >
                           {transformer.status === 'completed' ? (
                             <>
-                              <CheckCircle className="w-4 h-4 mr-2" />
+                              <FileText className="w-4 h-4 mr-2" />
                               View Report
                             </>
                           ) : (
