@@ -58,7 +58,34 @@ const notifyAdmin = async (order, message) => {
   }
 };
 
+/**
+ * Marks notifications for a specific order and role as read.
+ * Useful when a stage is approved and we want to clear the 'New Assignment' alerts.
+ */
+const clearNotifications = async (orderId, role, recipientName = null) => {
+    try {
+        const query = {
+            orderId: orderId,
+            recipientRole: role,
+            isRead: false
+        };
+
+        if (recipientName) {
+            query.recipientName = recipientName;
+        }
+
+        const result = await NotificationModel.updateMany(query, {
+            $set: { isRead: true }
+        });
+
+        console.log(`[Notification Cleanup] Marked ${result.modifiedCount} notifications as read for Order ${orderId}, Role: ${role}`);
+    } catch (err) {
+        console.error(`[Notification Cleanup Error] Failed to clear notifications for Order ${orderId}:`, err);
+    }
+};
+
 module.exports = {
     notifyNextStage,
-    notifyAdmin
+    notifyAdmin,
+    clearNotifications
 };

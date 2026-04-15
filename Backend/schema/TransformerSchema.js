@@ -228,6 +228,10 @@ const TransformerSchema = new Schema({
           duration: String,
           startDateTime: Date,
           completionDateTime: Date,
+          startDate: String,
+          startTime: String,
+          completionDate: String,
+          completionTime: String,
           remarks: String
         }],
         leftInputs: [{ col1: String, col2: String }],

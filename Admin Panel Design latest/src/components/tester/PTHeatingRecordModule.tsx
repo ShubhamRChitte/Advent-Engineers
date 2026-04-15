@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { FileText, Loader2, ArrowLeft, PlayCircle } from 'lucide-react';
+import { FileText, Loader2, ArrowLeft, PlayCircle, CheckCircle } from 'lucide-react';
 import { User } from '../../App';
 import {
   UnifiedHeatingRecord,
@@ -108,15 +108,37 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
             jobNo: t.jobId,
             leftInputs: existingRecord.leftInputs || Array(8).fill(null).map(() => ({ col1: "", col2: "" })),
             startDate: existingRecord.startDate || new Date().toISOString().split('T')[0],
-            processSteps: existingRecord.processSteps?.length > 0 ? (existingRecord.processSteps as any[]).map((s: any) => ({
-                process: s.process || '',
-                duration: s.duration || '',
-                startDate: s.startDate || '',
-                startTime: s.startTime || '',
-                completionDate: s.endDate || '',
-                completionTime: s.endTime || '',
-                remarks: s.remarks || ''
-            })) : JSON.parse(JSON.stringify(DEFAULT_PROCESS_STEPS)),
+            processSteps: existingRecord.processSteps?.length > 0 ? (existingRecord.processSteps as any[]).map((s: any) => {
+                let sDate = s.startDate || '';
+                let sTime = s.startTime || '';
+                let eDate = s.endDate || ''; // Legacy
+                let eTime = s.endTime || '';
+
+                if (s.startDateTime) {
+                    const dt = new Date(s.startDateTime);
+                    if (!isNaN(dt.getTime())) {
+                        sDate = dt.toLocaleDateString('en-CA');
+                        sTime = dt.toTimeString().slice(0, 5);
+                    }
+                }
+                if (s.completionDateTime) {
+                    const dt = new Date(s.completionDateTime);
+                    if (!isNaN(dt.getTime())) {
+                        eDate = dt.toLocaleDateString('en-CA');
+                        eTime = dt.toTimeString().slice(0, 5);
+                    }
+                }
+
+                return {
+                    process: s.process || '',
+                    duration: s.duration || '',
+                    startDate: sDate,
+                    startTime: sTime,
+                    completionDate: eDate,
+                    completionTime: eTime,
+                    remarks: s.remarks || ''
+                };
+            }) : JSON.parse(JSON.stringify(DEFAULT_PROCESS_STEPS)),
             preparedBy: existingRecord.preparedBy || user.name || '',
             productionManager: existingRecord.productionManager || '',
             verifiedBy: existingRecord.verifiedBy || '',
@@ -198,15 +220,32 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
     setSaving(true);
     try {
       const payload = {
-        processSteps: record.processSteps.map(step => ({
-          process: step.process,
-          duration: step.duration,
-          startDate: step.startDate,
-          startTime: step.startTime,
-          endDate: step.completionDate, 
-          endTime: step.completionTime,
-          remarks: step.remarks
-        })),
+        processSteps: record.processSteps.map(step => {
+          let startDateTime = null;
+          let completionDateTime = null;
+
+          if (step.startDate && step.startTime) {
+              const dt = new Date(`${step.startDate}T${step.startTime}`);
+              if (!isNaN(dt.getTime())) startDateTime = dt.toISOString();
+          }
+          if (step.completionDate && step.completionTime) {
+              const dt = new Date(`${step.completionDate}T${step.completionTime}`);
+              if (!isNaN(dt.getTime())) completionDateTime = dt.toISOString();
+          }
+
+          return {
+            process: step.process,
+            duration: step.duration,
+            startDateTime: startDateTime,
+            completionDateTime: completionDateTime,
+            // Keep legacy fields for a short while if backend doesn't handle schema change yet
+            startDate: step.startDate,
+            startTime: step.startTime,
+            endDate: step.completionDate,
+            endTime: step.completionTime,
+            remarks: step.remarks
+          };
+        }),
         preparedBy: record.preparedBy,
         productionManager: record.productionManager,
         verifiedBy: record.verifiedBy,
@@ -218,15 +257,37 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
       
       if (res.data.success) {
           alert(isApprove ? "PT Heating Approved Successfully!" : "PT Heating Record Saved!");
+
+          // Refresh transformers list to ensure local state has newest testHistory
+          if (selectedOrder) {
+            handleSelectOrder(selectedOrder);
+          }
+
           if (isApprove) {
               setSelectedTransformer(null);
               setRecord(null);
-              handleSelectOrder(selectedOrder);
           }
       }
     } catch (e: any) {
       console.error("Error saving PT heating records", e);
       alert(e.response?.data?.message || "Failed to save PT heating records.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleApproveByUniqueId = async (uniqueId: string) => {
+    if (!window.confirm("Are you sure you want to approve this PT heating record and move it to Final Test?")) return;
+    try {
+      setSaving(true);
+      await axios.post(`http://localhost:3002/api/heating-record/save/${uniqueId}`, {
+        isApproveCall: true
+      }, { withCredentials: true });
+      alert("PT Heating Approved! Transformer sent to Final Stage.");
+      if (selectedOrder) handleSelectOrder(selectedOrder);
+    } catch (e: any) {
+      console.error("Error approving PT heating record", e);
+      alert(e.response?.data?.message || "Failed to approve PT record.");
     } finally {
       setSaving(false);
     }
@@ -329,8 +390,14 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
               </thead>
               <tbody>
                 {transformersList.map((t: any) => {
-                  const hStatus = t.processHistory?.heatingRecord?.[0]?.status || 'Pending';
+                  const hStatus = t.testHistory?.heating_test?.status || 'Pending';
                   const isApproved = hStatus === 'Approved';
+                  
+                  // Check if all 4 mandatory process steps have date and time filled
+                  const pSteps = t.testHistory?.heating_test?.processSteps || [];
+                  const isFilled = pSteps.length >= 4 && pSteps.every((s: any) => 
+                    s.startDate && s.startTime && s.endDate && s.endTime
+                  );
 
                   return (
                     <tr key={t._id} className="border-b hover:bg-gray-50">
@@ -338,21 +405,37 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
                       <td className="p-4">
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${
                             isApproved ? 'bg-green-100 text-green-800' : 
-                            hStatus === 'Completed' ? 'bg-blue-100 text-blue-800' :
+                            hStatus === 'Completed' || isFilled ? 'bg-blue-100 text-blue-800' :
                             'bg-yellow-100 text-yellow-800'
                         }`}>
-                          {hStatus}
+                          {isApproved ? 'Approved' : (isFilled ? 'Ready for Approval' : hStatus)}
                         </span>
                       </td>
                       <td className="p-4 text-center">
-                        <Button 
-                            size="sm" 
-                            onClick={() => handleSelectTransformer(t)} 
-                            className={`${isApproved ? 'bg-green-600 hover:bg-green-700' : 'bg-[#003a70] hover:bg-[#002f5c]'} gap-2`}
-                        >
-                          <PlayCircle className="w-4 h-4" />
-                          {isApproved ? "View Approved Record" : hStatus === 'Pending' ? "Start Reading" : "Continue Reading"}
-                        </Button>
+                        <div className="flex justify-center gap-2">
+                          {isFilled && !isApproved && (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                handleSelectTransformer(t).then(() => {
+                                  handleApproveByUniqueId(t.uniqueId);
+                                });
+                              }}
+                              className="bg-green-600 hover:bg-green-700 font-medium"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" /> Approve
+                            </Button>
+                          )}
+
+                          <Button 
+                              size="sm" 
+                              onClick={() => handleSelectTransformer(t)} 
+                              className={`${isApproved ? 'bg-green-600 hover:bg-green-700' : 'bg-[#003a70] hover:bg-[#002f5c]'} gap-2 font-medium`}
+                          >
+                            <PlayCircle className="w-4 h-4" />
+                            {isApproved ? "View Approved Record" : (isFilled ? "Edit Data" : (hStatus === 'Pending' ? "Start Reading" : "Continue"))}
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );

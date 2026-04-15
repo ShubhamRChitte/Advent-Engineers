@@ -63,12 +63,16 @@ router.get('/assigned-orders', async (req, res) => {
             ]
         };
 
+        // Note: We populate orderId to get transformerType and other details
         const transformers = await TransformerModel.find(transQuery).populate('orderId').lean();
         
         const ordersMap = new Map();
         for (const t of transformers) {
+            // Only include if order exists and matches requested type (CT/PT)
             if (t.orderId && t.orderId.transformerType === typeStr) {
                 const oid = t.orderId._id.toString();
+                
+                // Add to map if not present
                 if (!ordersMap.has(oid)) {
                     ordersMap.set(oid, t.orderId);
                 }
@@ -76,7 +80,6 @@ router.get('/assigned-orders', async (req, res) => {
         }
 
         const orders = Array.from(ordersMap.values());
-
         res.status(200).json({ success: true, orders });
     } catch (error) {
         console.error('Error fetching heating record orders:', error);
@@ -99,6 +102,8 @@ router.get('/transformers/:orderId', isAuthenticated, async (req, res) => {
         const order = await OrderModel.findById(queryOrderId).lean();
         const jobNo = order ? order.jobId : null;
 
+        const includeApproved = req.query.includeApproved === 'true';
+
         const query = {
             $and: [
                 {
@@ -109,12 +114,16 @@ router.get('/transformers/:orderId', isAuthenticated, async (req, res) => {
                     ]
                 },
                 {
-                    // Robust Filter: Show transformers that are ready for OR in heating/final stages.
-                    // OR those that have explicitly passed their primary test even if stage hasn't moved yet.
-                    $or: [
-                        { currentStage: { $in: ["heating", "final", "shipped"] } },
-                        { "testHistory.primary_test.status": "Completed" },
-                        { "testHistory.pt_test": { $exists: true, $ne: {} } }
+                    // Robust Filter: Show transformers that are ready for OR in heating stage.
+                    $and: [
+                        ...(includeApproved ? [] : [{ "testHistory.heating_test.status": { $ne: "Approved" } }]),
+                        {
+                            $or: [
+                                { currentStage: "heating" },
+                                { "testHistory.primary_test.status": "Completed" },
+                                { "testHistory.pt_test": { $exists: true, $ne: {} } }
+                            ]
+                        }
                     ]
                 }
             ]
@@ -158,16 +167,33 @@ router.post('/completed-status', async (req, res) => {
     try {
         const { orderIds, prefix } = req.body;
         
-        // Find transformers for these orders that have an approved heating record
-        const query = { 
+        // Find ALL transformers for these orders that have REACHED the heating stage potential
+        // (Must match the transQuery criteria used in assigned-orders)
+        const eligibleTransformers = await TransformerModel.find({ 
             orderId: { $in: orderIds },
-            "testHistory.heating_test.status": { $in: ["Approved", "Completed"] }
-        };
+            $or: [
+                { currentStage: "heating" },
+                { "testHistory.primary_test.status": "Completed" },
+                { "testHistory.pt_test.status": "Completed" }
+            ]
+        }).select('orderId testHistory.heating_test.status').lean();
 
-        const transformers = await TransformerModel.find(query).select('orderId').lean();
-        
-        // Filter unique completed IDs
-        const completedIds = [...new Set(transformers.map(t => t.orderId ? t.orderId.toString() : null).filter(id => id !== null))];
+        // Group by OrderId and check completion relative to ELIGIBLE units
+        const orderStatusMap = {};
+        eligibleTransformers.forEach(t => {
+            const oid = t.orderId.toString();
+            if (!orderStatusMap[oid]) orderStatusMap[oid] = { eligibleTotal: 0, completed: 0 };
+            orderStatusMap[oid].eligibleTotal++;
+            
+            const status = t.testHistory?.heating_test?.status;
+            if (status === "Approved") {
+                orderStatusMap[oid].completed++;
+            }
+        });
+
+        const completedIds = Object.keys(orderStatusMap).filter(oid => 
+            orderStatusMap[oid].eligibleTotal > 0 && orderStatusMap[oid].completed === orderStatusMap[oid].eligibleTotal
+        );
 
         res.status(200).json({ success: true, completedIds });
     } catch (error) {
@@ -233,7 +259,11 @@ router.put('/:orderId/approve', async (req, res) => {
 
             // 4. Notify next stage testers (Final Test Stage)
             try {
-                const { notifyNextStage } = require('../services/notificationService');
+                const { notifyNextStage, clearNotifications } = require('../services/notificationService');
+                
+                // Clear current stage notifications
+                await clearNotifications(order._id, 'heating');
+                
                 await notifyNextStage(order, 'final');
             } catch (notifyErr) {
                 console.error("[ERROR] Notification failed during heating approval:", notifyErr);
@@ -323,8 +353,16 @@ router.post('/save/:uniqueId', isAuthenticated, async (req, res) => {
             heatingTest.status = "Approved";
             transformer.currentStage = "final";
             console.log(`[STRICT WORKFLOW] Transformer ${uniqueId} Approved in Heating. Moving to final.`);
+            
+            // Notification Cleanup
+            try {
+                const { clearNotifications } = require('../services/notificationService');
+                await clearNotifications(transformer.orderId, 'heating');
+            } catch (err) {
+                console.warn("Notification clear failed in heating save:", err);
+            }
         } else {
-            heatingTest.status = "Completed";
+            heatingTest.status = "In Progress";
         }
 
         // Use markModified for sub-documents to ensure Mongoose detects changes

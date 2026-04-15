@@ -152,16 +152,42 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
           }
 
 
-          // Helper to check completeness - MOVED OUTSIDE RETURN
-          const checkCompleteness = () => {
-            return t.testHistory?.final_test?.status === 'Completed';
-          };
+          // New logic: Check if all critical readings are filled in testHistory
+          const finalHistory = t.testHistory?.final_test || {};
+          const isFullyComplete = finalHistory.status === 'Completed';
+          
+          // Strict non-empty string check for comprehensive fields
+          const isValidValue = (val: any) => val !== undefined && val !== null && String(val).trim() !== "" && String(val) !== "N/A";
 
-          const isFullyComplete = checkCompleteness();
+          const comprehensiveFilled = 
+            isValidValue(finalHistory.polarityResult) && 
+            isValidValue(finalHistory.hvSecondaryWinding) && 
+            isValidValue(finalHistory.hvPrimaryWinding) &&
+            isValidValue(finalHistory.hvBetweenCore) && 
+            isValidValue(finalHistory.ovitTest) && 
+            isValidValue(finalHistory.meggarPrimaryToSecondary) &&
+            isValidValue(finalHistory.meggarPrimaryToEarth) && 
+            isValidValue(finalHistory.meggarSecondaryToEarth) && 
+            isValidValue(finalHistory.meggarCoreToCore);
+
+          // Count unique cores tested in final stage
+          const meteringCores = new Set((finalHistory.metering_results || []).map((r: any) => r.internalCoreNo || r.coreId));
+          const psCores = new Set((finalHistory.ps_results || []).map((r: any) => r.internalCoreNo || r.coreId));
+          const protectionCores = new Set((finalHistory.protection_results || []).map((r: any) => r.internalCoreNo || r.coreId));
+          const uniqueCoresTested = new Set([...meteringCores, ...psCores, ...protectionCores]);
+          
+          const expectedCoresCount = coresList.length;
+          const coresFilled = uniqueCoresTested.size >= expectedCoresCount;
+
+          const isFilled = comprehensiveFilled && coresFilled;
+          
+          // Strict completion: Must have 'Completed' status AND actual filled data
+          const isFullyComplete = finalHistory.status === 'Completed' && isFilled;
 
           if (t.currentStage === 'final') {
             if (isFullyComplete) status = 'completed';
-            else if (t.testHistory?.final_test?.tester) status = 'in-progress';
+            else if (isFilled) status = 'in-progress'; // Treat "Filled" as "Ready for Approval"
+            else if (finalHistory.tester) status = 'in-progress';
           } else if (t.currentStage === 'shipped') {
             status = 'completed';
           }
@@ -174,6 +200,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
             voltageClass: order.nominalSystemVoltage ? `${order.nominalSystemVoltage}kV` : 'N/A',
             cores: coresList,
             status: status,
+            isFilled: isFilled, // Pass this to UI
             ratios: t.ratios || (Array.isArray(order.ratio) ? order.ratio : [order.ratio]),
             testHistory: t.testHistory,
             orderId: order,
@@ -300,7 +327,8 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                     <td className="p-4">{transformer.voltageClass}</td>
                     <td className="p-4">
                       <Badge className={getStatusColor(transformer.status)}>
-                        {transformer.status.replace('-', ' ')}
+                        {transformer.status === 'completed' ? 'Approved' : 
+                         (transformer.isFilled ? 'Ready for Approval' : transformer.status.replace('-', ' '))}
                       </Badge>
                     </td>
                     <td className="p-4">
@@ -325,12 +353,12 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                           ) : (
                             <>
                               <PlayCircle className="w-4 h-4 mr-2" />
-                              {transformer.status === 'pending' ? 'Start Test' : 'Continue Test'}
+                              {transformer.status === 'pending' ? 'Start Test' : 'Edit / Continue'}
                             </>
                           )}
                         </Button>
 
-                        {transformer.status === 'completed' && (
+                        {transformer.status === 'in-progress' && (transformer as any).isFilled && (transformer.currentStage === 'final') && (
                           <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white"

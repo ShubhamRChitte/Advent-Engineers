@@ -344,7 +344,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
       } else if (activeView === 'failed-cores') {
         return <FailedCoresPage />;
       } else if (activeView === 'heating-record') {
-        return <HeatingRecordModule user={user} />;
+        return <HeatingTrackingModule user={user} />;
       }
     }
 

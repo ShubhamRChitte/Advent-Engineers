@@ -93,7 +93,7 @@ router.put('/approve/:orderId', isAuthenticated, async (req, res) => {
                 });
             });
 
-            const { notifyNextStage } = require('../services/notificationService');
+            const { notifyNextStage, clearNotifications } = require('../services/notificationService');
 
             orderUpdate = await OrderModel.findByIdAndUpdate(
                 orderId,
@@ -109,7 +109,10 @@ router.put('/approve/:orderId', isAuthenticated, async (req, res) => {
                 { new: true }
             );
 
-            // Notify secondary testers
+            // 1. Clear current stage notifications (for core testers)
+            await clearNotifications(orderId, 'core');
+
+            // 2. Notify secondary testers
             if (orderUpdate) {
                 await notifyNextStage(orderUpdate, 'secondary');
             }

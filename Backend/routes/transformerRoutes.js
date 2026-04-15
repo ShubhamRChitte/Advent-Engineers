@@ -214,14 +214,16 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
                     if (stage === 'final') order.completionStages.final = true;
                 }
 
+                const { clearNotifications, notifyNextStage } = require('../services/notificationService');
+                
+                // Clear notifications for the current stage/order
+                await clearNotifications(order._id, stage);
+
                 if (stage === 'final') {
                     order.currentStage = 'completed';
                     order.status = 'Completed';
                 } else {
                     order.currentStage = nextStage;
-                    
-                    // Notify testers assigned to the next stage
-                    const { notifyNextStage } = require('../services/notificationService');
                     await notifyNextStage(order, nextStage);
                 }
             }

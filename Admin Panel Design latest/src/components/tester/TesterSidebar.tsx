@@ -57,6 +57,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
       { id: 'notifications', label: 'Notifications', icon: Bell },
       { id: 'testing', label: 'Testing', icon: ClipboardCheck },
       { id: 'view-orders', label: 'View Orders', icon: FileText },
+      { id: 'heating-tracking', label: 'Heating Tracking', icon: Zap },
       { id: 'failed-cores', label: 'Failed Cores', icon: AlertTriangle, badge: failedCount > 0 ? failedCount : undefined },
       { id: 'reports', label: 'My Reports', icon: FileText },
     ];

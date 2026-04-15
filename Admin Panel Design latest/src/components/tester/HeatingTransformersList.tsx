@@ -31,21 +31,26 @@ export function HeatingTransformersList({ order, onStartTest, onBack }: HeatingT
       const dbTransformers = resTrans.data.transformers || [];
 
       const mappedTransformers: Transformer[] = dbTransformers.map((t: any) => {
+        const hStatus = t.testHistory?.heating_test?.status || 'Pending';
         let status: 'pending' | 'in-progress' | 'completed' | 'approved' = 'pending';
         
-        if (t.processHistory?.heatingRecord && t.processHistory.heatingRecord.length > 0) {
-            const hrStatus = t.processHistory.heatingRecord[0].status;
-            if (hrStatus === 'In Progress') status = 'in-progress';
-            else if (hrStatus === 'Completed') status = 'completed';
-            else if (hrStatus === 'Approved') status = 'approved';
-        }
+        if (hStatus === 'In Progress') status = 'in-progress';
+        else if (hStatus === 'Completed') status = 'completed';
+        else if (hStatus === 'Approved') status = 'approved';
+
+        // Check if all 4 mandatory process steps have date and time filled
+        const pSteps = t.testHistory?.heating_test?.processSteps || [];
+        const isFilled = pSteps.length >= 4 && pSteps.every((s: any) => 
+          s.startDate && s.startTime && s.endDate && s.endTime
+        );
 
         return {
           _id: t._id,
           uniqueId: t.uniqueId,
           name: order.transformerType || 'Transformer',
           rating: Array.isArray(order.transformerType) ? order.transformerType.join('/') : (order.transformerType || 'N/A'),
-          status
+          status,
+          isFilled: isFilled
         };
       });
 
@@ -170,7 +175,7 @@ export function HeatingTransformersList({ order, onStartTest, onBack }: HeatingT
                     </td>
                     <td className="p-4">
                       <div className="flex justify-center gap-2">
-                        {transformer.status === 'completed' && (
+                        {transformer.isFilled && transformer.status !== 'approved' && (
                           <Button
                             size="sm"
                             onClick={() => handleApprove(transformer)}
@@ -182,12 +187,12 @@ export function HeatingTransformersList({ order, onStartTest, onBack }: HeatingT
                         <Button
                           size="sm"
                           onClick={() => handleStartHeating(transformer)}
-                          className={(transformer.status === 'completed' || transformer.status === 'approved') ? "bg-blue-600 hover:bg-blue-700 font-medium" : "bg-[#003a70] hover:bg-[#002f5c]"}
+                          className={(transformer.isFilled || transformer.status === 'approved') ? "bg-blue-600 hover:bg-blue-700 font-medium" : "bg-[#003a70] hover:bg-[#002f5c]"}
                         >
-                          {(transformer.status === 'completed' || transformer.status === 'approved') ? (
+                          {transformer.status === 'approved' ? (
                             <><FileText className="w-4 h-4 mr-2" /> View Report</>
                           ) : (
-                            <><PlayCircle className="w-4 h-4 mr-2" /> {transformer.status === 'pending' ? 'Start Heating' : 'Continue'}</>
+                            <><PlayCircle className="w-4 h-4 mr-2" /> {transformer.status === 'pending' ? 'Start Heating' : (transformer.isFilled ? 'Edit Data' : 'Continue')}</>
                           )}
                         </Button>
                       </div>
