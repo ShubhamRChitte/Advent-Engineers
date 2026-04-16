@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { SecondaryMeteringReport } from './SecondaryMeteringReport';
 import { SecondaryProtectionReport } from './SecondaryProtectionReport';
 import { SecondaryPSReport } from './SecondaryPSReport';
+import { FinalQASummary } from './FinalQASummary';
 
 interface SecondaryReportViewProps {
     transformer: any;
     onBack: () => void;
     stage?: 'secondary' | 'primary' | 'final';
-    activeTab?: 'Metering' | 'Protection' | 'PS';
-    onTabChange?: (tab: 'Metering' | 'Protection' | 'PS') => void;
+    activeTab?: 'Metering' | 'Protection' | 'PS' | 'QA';
+    onTabChange?: (tab: 'Metering' | 'Protection' | 'PS' | 'QA') => void;
 }
 
 export function SecondaryReportView({ 
@@ -24,22 +25,23 @@ export function SecondaryReportView({
     const hasMetering = history?.metering_results?.length > 0;
     const hasProtection = history?.protection_results?.length > 0;
     const hasPS = history?.ps_results?.length > 0;
+    const hasQA = stage === 'final' && history?.polarityResult;
 
     // Get available types
-    const availableTypes: ('Metering' | 'Protection' | 'PS')[] = [];
+    const availableTypes: ('Metering' | 'Protection' | 'PS' | 'QA')[] = [];
     if (hasMetering) availableTypes.push('Metering');
     if (hasProtection) availableTypes.push('Protection');
     if (hasPS) availableTypes.push('PS');
+    if (hasQA) availableTypes.push('QA');
 
     // Default to first available or 'Metering'
-    // Default to first available or 'Metering'
-    const [internalActiveTab, setInternalActiveTab] = useState<'Metering' | 'Protection' | 'PS'>(() => {
+    const [internalActiveTab, setInternalActiveTab] = useState<'Metering' | 'Protection' | 'PS' | 'QA'>(() => {
         if (availableTypes.length > 0) return availableTypes[0]!;
         return 'Metering';
     });
 
     const activeTab = externalActiveTab || internalActiveTab;
-    const setActiveTab = (tab: 'Metering' | 'Protection' | 'PS') => {
+    const setActiveTab = (tab: 'Metering' | 'Protection' | 'PS' | 'QA') => {
         if (onTabChange) {
             onTabChange(tab);
         } else {
@@ -74,7 +76,7 @@ export function SecondaryReportView({
                                 }
                             `}
                         >
-                            {type} Test
+                            {type === 'QA' ? 'QA Test' : `${type} Test`}
                             {isSelected && <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-[#003a70] animate-pulse"></span>}
                         </button>
                     );
@@ -113,6 +115,13 @@ export function SecondaryReportView({
                         onBack={onBack}
                         readOnly={true}
                         stage={stage}
+                    />
+                )}
+
+                {activeTab === 'QA' && (
+                    <FinalQASummary
+                        transformer={transformer}
+                        testerName={history?.tester || 'Verified Administrator'}
                     />
                 )}
             </div>
