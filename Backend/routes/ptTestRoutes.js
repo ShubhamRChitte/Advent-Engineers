@@ -110,6 +110,63 @@ router.put('/:orderId/approve', isAuthenticated, async (req, res) => {
   }
 });
 
+// @route   PUT /api/pt-tests/transformer/:transformerId/approve
+// @desc    Manually approve a specific transformer after PT test is done
+// @access  Private
+router.put('/transformer/:transformerId/approve', isAuthenticated, async (req, res) => {
+  try {
+    const { transformerId } = req.params;
+
+    const transformer = await TransformerModel.findById(transformerId);
+    if (!transformer) {
+      return res.status(404).json({ success: false, message: "Transformer not found." });
+    }
+
+    if (!transformer.testHistory || !transformer.testHistory.pt_test || Object.keys(transformer.testHistory.pt_test).length === 0) {
+      return res.status(400).json({ success: false, message: "Cannot approve. Transformer doesn't have PT testing data." });
+    }
+
+    // Set approved flag on transformer's PT test
+    const ptTestUpdate = { ...transformer.testHistory.pt_test, approved: true };
+    await TransformerModel.findByIdAndUpdate(transformerId, {
+      $set: { 'testHistory.pt_test': ptTestUpdate }
+    });
+
+    // Check if ALL transformers for the same order are approved now
+    const orderId = transformer.orderId;
+    const allTransformers = await TransformerModel.find({
+      $or: [{ orderId: orderId }, { orderId: orderId.toString() }]
+    });
+
+    // Consider all completed and approved
+    // Using an optional chaining like t.testHistory?.pt_test?.approved
+    // and older orders might not have this, so we maintain backward compatibility
+    const allApproved = allTransformers.length > 0 && allTransformers.every(
+      t => t.testHistory && t.testHistory.pt_test && (t.testHistory.pt_test.approved === true || t.testHistory.pt_test.approved === "true")
+    );
+
+    if (allApproved) {
+      await OrderModel.findByIdAndUpdate(orderId, {
+        $set: { 
+          status: 'PT Testing Completed',
+          'completionStages.pt': true
+        }
+      });
+    } else {
+      // Partially approved - order status remains in progress
+      await OrderModel.findByIdAndUpdate(orderId, {
+         $set: { status: 'PT Testing In Progress' }
+      });
+    }
+
+    res.status(200).json({ success: true, message: "Transformer approved successfully.", allApproved });
+  } catch (error) {
+    console.error("Error approving transformer:", error);
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+  }
+});
+
+
 
 // POST /api/pt-tests/failed
 // Log a failed PT transformer
@@ -154,12 +211,40 @@ router.post('/failed', isAuthenticated, async (req, res) => {
     }
 });
 
+// GET /api/pt-tests/all-transformers
+// Fetch all transformers for PT Orders for the dashboard
+router.get('/all-transformers', isAuthenticated, async (req, res) => {
+    try {
+        // Find all PT Orders
+        // You can optimize by filtering out older fully completed orders if needed, 
+        // but for safety we get recent ones or all
+        const ptOrders = await OrderModel.find({ transformerType: 'PT' }).select('_id quantity jobId clientName status assignedDate deadline ratio');
+        const orderIds = ptOrders.map(o => o._id);
+
+        const transformers = await TransformerModel.find({ orderId: { $in: orderIds } })
+            .populate({
+                path: 'orderId',
+                select: 'jobId clientName quantity ratio status assignedDate deadline transformerName accuracyClass coreDetails'
+            })
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({ success: true, transformers });
+    } catch (err) {
+        console.error("Error fetching all pt transformers:", err);
+        res.status(500).json({ success: false, message: "Server Error", error: err.message });
+    }
+});
+
 // GET /api/pt-tests/reports
 // Fetch all transformers that have PT test history
 router.get('/reports', isAuthenticated, async (req, res) => {
     try {
         const query = {
-            'testHistory.pt_test': { $exists: true, $ne: {} } // ensure it's not the default empty object
+            'testHistory.pt_test': { $exists: true, $ne: {} }, // ensure it's not the default empty object
+            $or: [
+                { 'testHistory.pt_test.approved': true },
+                { 'testHistory.pt_test.approved': "true" }
+            ]
         };
 
         const transformers = await TransformerModel.find(query)
@@ -178,7 +263,18 @@ router.get('/reports', isAuthenticated, async (req, res) => {
              Object.keys(t.testHistory.pt_test).length > 0
         );
 
-        res.json(validTransformers);
+        // Enrich with jobId and clientName from populated order (mirrors secondary/reports route)
+        const enrichedTransformers = validTransformers.map(t => {
+            const obj = t.toObject();
+            if (obj.orderId) {
+                obj.jobId = obj.orderId.jobId;
+                obj.clientName = obj.orderId.clientName;
+                obj.accuracyClass = obj.orderId.accuracyClass;
+            }
+            return obj;
+        });
+
+        res.json(enrichedTransformers);
     } catch (error) {
         console.error("Error fetching PT reports:", error);
         res.status(500).json({ message: "Server Error", error: error.message });

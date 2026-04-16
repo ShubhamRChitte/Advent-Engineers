@@ -19,7 +19,7 @@ export interface Transformer {
   rating: string;
   ratios: string[]; 
   cores: CoreConfig[];
-  status: 'pending' | 'in-progress' | 'completed';
+  status: 'pending' | 'in-progress' | 'completed' | 'approved';
   testHistory?: any;
   currentStage: string;
 }
@@ -86,9 +86,8 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
           }
 
           const hasPtTest = t.testHistory && t.testHistory.pt_test && Object.keys(t.testHistory.pt_test).length > 0;
-          // IMPORTANT: Only mark as 'completed' if there is actual PT test data saved.
-          // Do NOT check currentStage here — stage changes after save should not hide the transformer.
-          const currentStatus: 'pending' | 'in-progress' | 'completed' = hasPtTest ? 'completed' : 'pending';
+          const isApproved = t.testHistory?.pt_test?.approved === true || t.testHistory?.pt_test?.approved === "true";
+          const currentStatus: 'pending' | 'in-progress' | 'completed' | 'approved' = isApproved ? 'approved' : hasPtTest ? 'completed' : 'pending';
 
           return {
             _id: t._id,
@@ -103,10 +102,13 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
           };
         });
 
-        // Filter by assignedUnitIds if needed
+        // Filter 1: Only show active units that have not been approved yet (CT Equivalent logic)
+        const activeUnitsOnly = mappedTransformers.filter(t => t.status !== 'approved');
+
+        // Filter 2: Filter by assignedUnitIds if needed
         const filtered = (!order.assignedUnitIds || order.assignedUnitIds.length === 0)
-          ? mappedTransformers
-          : mappedTransformers.filter(t => order.assignedUnitIds?.some(assignedId =>
+          ? activeUnitsOnly
+          : activeUnitsOnly.filter(t => order.assignedUnitIds?.some(assignedId =>
             assignedId === t.uniqueId || assignedId.includes(t.uniqueId)
           ));
 
@@ -127,22 +129,25 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
       case 'pending': return 'bg-blue-100 text-blue-700';
       case 'in-progress': return 'bg-yellow-100 text-yellow-700';
       case 'completed': return 'bg-green-100 text-green-700';
+      case 'approved': return 'bg-purple-100 text-purple-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
 
-  const handleApproveOrder = async () => {
+  const handleApproveTransformer = async (transformer: Transformer) => {
     try {
-      await axios.put(`http://localhost:3002/api/pt-tests/${order._id}/approve`, {}, { withCredentials: true });
-      alert("PT testing approved successfully!");
-      onBack();
+      if (!window.confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId}?`)) return;
+      await axios.put(`http://localhost:3002/api/pt-tests/transformer/${transformer._id}/approve`, {}, { withCredentials: true });
+      alert("Transformer approved successfully!");
+      // Update local state to reflect approval (remove from active list)
+      setTransformers(prev => prev.filter(t => t._id !== transformer._id));
     } catch (e: any) {
-      console.error("Error approving order:", e);
-      alert(e.response?.data?.message || "Failed to approve order.");
+      console.error("Error approving transformer:", e);
+      alert(e.response?.data?.message || "Failed to approve transformer.");
     }
   };
 
-  const allTestsCompleted = transformers.length > 0 && transformers.every(t => t.status === 'completed');
+  const allTestsCompleted = transformers.length > 0 && transformers.every(t => t.status === 'completed' || t.status === 'approved');
 
   return (
     <div className="space-y-6">
@@ -156,11 +161,6 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
             <h2 className="text-xl font-bold">Transformers for {order.jobId}</h2>
             <p className="text-gray-500 mt-1">Select a PT unit to begin testing</p>
           </div>
-          {allTestsCompleted && !order.status.includes('Completed') && (
-            <Button size="sm" onClick={handleApproveOrder} className="bg-green-600 hover:bg-green-700 gap-2 shrink-0">
-              <CheckCircle className="w-4 h-4" /> Approve Order
-            </Button>
-          )}
         </div>
         
         {/*
@@ -244,25 +244,37 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
                     </td>
                     <td className="p-4">
                       <Badge className={getStatusColor(transformer.status)}>
-                        {transformer.status === 'pending' ? 'Pending' : 'Completed'}
+                        {transformer.status === 'pending' ? 'Pending' : transformer.status === 'completed' ? 'Completed' : 'Approved'}
                       </Badge>
                     </td>
                     <td className="p-4 text-center">
-                      <Button
-                        size="sm"
-                        onClick={() => onStartTest(transformer)}
-                        className={transformer.status === 'completed' ? "bg-green-600 hover:bg-green-700 text-white" : "bg-[#003a70] hover:bg-[#002850] text-white"}
-                      >
-                        {transformer.status === 'completed' ? (
-                          <>
-                            <CheckCircle className="w-4 h-4 mr-2" /> View Report
-                          </>
-                        ) : (
-                          <>
-                            <PlayCircle className="w-4 h-4 mr-2" /> Start Test
-                          </>
+                      <div className="flex items-center gap-2 justify-center">
+                        <Button
+                          size="sm"
+                          onClick={() => onStartTest(transformer)}
+                          className={(transformer.status === 'completed' || transformer.status === 'approved') ? "bg-green-600 hover:bg-green-700 text-white" : "bg-[#003a70] hover:bg-[#002850] text-white"}
+                        >
+                          {(transformer.status === 'completed' || transformer.status === 'approved') ? (
+                            <>
+                              <CheckCircle className="w-4 h-4 mr-2" /> View Report
+                            </>
+                          ) : (
+                            <>
+                              <PlayCircle className="w-4 h-4 mr-2" /> Start Test
+                            </>
+                          )}
+                        </Button>
+                        
+                        {transformer.status === 'completed' && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleApproveTransformer(transformer)}
+                            className="bg-purple-600 hover:bg-purple-700 text-white whitespace-nowrap"
+                          >
+                            Approve
+                          </Button>
                         )}
-                      </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

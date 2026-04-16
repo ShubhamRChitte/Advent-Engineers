@@ -3,9 +3,12 @@ import axios from 'axios';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { FileText, Loader2, ArrowLeft, PlayCircle, CheckCircle } from 'lucide-react';
+import { Input } from '../ui/input';
+import { FileText, Loader2, ArrowLeft, PlayCircle, CheckCircle, Search } from 'lucide-react';
 import { User } from '../../App';
 import { HeatingRecord33KVPT, HeatingRecordBlock, ProcessStep } from './HeatingRecord33KVPT';
+
+// ─── Interfaces ────────────────────────────────────────────────────────────────
 
 interface Order {
   _id: string;
@@ -15,11 +18,27 @@ interface Order {
   nominalSystemVoltage: string | number;
   voltageRating: string;
   quantity: number;
+  transformerQuantity?: number;
+  assignedDate: string;
+  deadline: string;
+  status: string;
+  priority: string;
+  assignedUnitIds?: string[];
+}
+
+interface Transformer {
+  _id: string;
+  uniqueId: string;
+  currentStage: string;
+  testHistory?: any;
+  orderId?: any;
 }
 
 interface PTHeatingRecordModuleProps {
   user: User;
 }
+
+// ─── Constants ─────────────────────────────────────────────────────────────────
 
 const DEFAULT_PROCESS_STEPS = [
   { process: 'Heating 80°C', duration: '12 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
@@ -28,19 +47,33 @@ const DEFAULT_PROCESS_STEPS = [
   { process: 'Oil Filling 60°C', duration: '04 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' }
 ];
 
+// ─── Main Component ────────────────────────────────────────────────────────────
+
 export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
-  const [assignedOrders, setAssignedOrders] = useState<Order[]>([]);
-  const [completedOrders, setCompletedOrders] = useState<Order[]>([]);
-  const [currentTab, setCurrentTab] = useState<'assigned' | 'completed'>('assigned');
-  const [loading, setLoading] = useState(true);
+
+  // Navigation state: orders → transformers → heating
+  type View = 'orders' | 'transformers' | 'heating';
+  const [view, setView] = useState<View>('orders');
+
+  // Orders list state
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Selected order / transformer
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [selectedTransformer, setSelectedTransformer] = useState<any | null>(null);
-  const [transformersList, setTransformersList] = useState<any[]>([]);
-  const [loadingTransformers, setLoadingTransformers] = useState(false);
-  
+  const [selectedTransformer, setSelectedTransformer] = useState<Transformer | null>(null);
+
+  // Transformers list state
+  const [transformers, setTransformers] = useState<Transformer[]>([]);
+  const [transformersLoading, setTransformersLoading] = useState(false);
+
+  // Heating record state
   const [records, setRecords] = useState<HeatingRecordBlock[]>([]);
   const [saving, setSaving] = useState(false);
   const [isEditingRecord, setIsEditingRecord] = useState(false);
+
+  // ── Fetch Orders (same endpoint as PT Testing) ──────────────────────────────
 
   useEffect(() => {
     fetchOrders();
@@ -48,76 +81,80 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
 
   const fetchOrders = async () => {
     try {
-      // Use dedicated heating-record endpoint which has NO stage restriction.
-      // /assigneed_orders filters by transformer.currentStage = 'pt' and misses
-      // orders where transformers have already moved to later stages.
-      const response = await axios.get("http://localhost:3002/api/heating-record/assigned-orders?type=PT", {
+      setOrdersLoading(true);
+      const response = await axios.get('http://localhost:3002/api/assigneed_orders?type=active', {
+        withCredentials: true
+      });
+      setOrders(response.data || []);
+    } catch (err) {
+      console.error('Error fetching PT heating orders:', err);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  // ── Fetch Transformers for selected order ───────────────────────────────────
+
+  const fetchTransformers = async (order: Order) => {
+    try {
+      setTransformersLoading(true);
+      const response = await axios.get(`http://localhost:3002/api/transformers/order/${order._id}`, {
         withCredentials: true
       });
 
-      // Show ALL PT orders — no voltage filtering.
-      const eligibleOrders = response.data.success ? response.data.orders : [];
+      const dbTransformers: Transformer[] = response.data || [];
 
-      const orderIds = eligibleOrders.map((o: any) => o._id);
-      if (orderIds.length > 0) {
-        const completedRes = await axios.post("http://localhost:3002/api/heating-record/completed-status", {
-            orderIds,
-            prefix: "PT"
-        }, { withCredentials: true });
-        
-        const completedIds = completedRes.data.success ? completedRes.data.completedIds : [];
-        setCompletedOrders(eligibleOrders.filter((o: any) => completedIds.includes(o._id)));
-        setAssignedOrders(eligibleOrders.filter((o: any) => !completedIds.includes(o._id)));
-      } else {
-        setAssignedOrders([]);
-        setCompletedOrders([]);
-      }
+      // Active-only filter: exclude approved transformers (identical to PTTransformersList)
+      const activeOnly = dbTransformers.filter((t: any) => {
+        const approved = t.testHistory?.pt_test?.approved;
+        return approved !== true && approved !== 'true';
+      });
+
+      // If assignedUnitIds exist, further restrict to assigned units
+      const filtered = (!order.assignedUnitIds || order.assignedUnitIds.length === 0)
+        ? activeOnly
+        : activeOnly.filter(t =>
+          order.assignedUnitIds!.some(id => id === t.uniqueId || id.includes(t.uniqueId))
+        );
+
+      setTransformers(filtered);
     } catch (err) {
-      console.error("API Error fetching PT heating record orders:", err);
+      console.error('Error fetching transformers:', err);
     } finally {
-      setLoading(false);
+      setTransformersLoading(false);
     }
   };
 
-  const handleApproveOrder = async () => {
-    if (!selectedOrder) return;
-    try {
-      await axios.put(`http://localhost:3002/api/heating-record/${selectedOrder._id}/approve`, {
-        type: 'PT'
-      }, { withCredentials: true });
-      alert("Heating record approved successfully!");
-      setSelectedOrder(null);
-      setTransformersList([]);
-      await fetchOrders();
-    } catch (e) {
-      console.error("Error approving order:", e);
-      alert("Failed to approve order.");
-    }
-  };
+  // ── Handle Order Click ──────────────────────────────────────────────────────
 
-  const handleSelectOrder = async (order: Order) => {
+  const handleOrderClick = (order: Order) => {
     setSelectedOrder(order);
-    setLoadingTransformers(true);
-    try {
-      const res = await axios.get(`http://localhost:3002/api/transformers/order/${order._id}`, { withCredentials: true });
-      setTransformersList(Array.isArray(res.data) ? res.data : []);
-    } catch (e) {
-      console.error('Failed to fetch transformers for order', e);
-      setTransformersList([]);
-    } finally {
-      setLoadingTransformers(false);
-    }
+    setView('transformers');
+    fetchTransformers(order);
   };
 
-  const handleSelectTransformer = async (t: any) => {
+  // ── Handle Transformer Click → Load or Init Heating Form ───────────────────
+
+  const ensureLeftInputs = (inputs: any) => {
+    const base = Array(8).fill(null).map(() => ({ col1: '', col2: '' }));
+    if (!inputs) return base;
+    return base.map((_, i) => ({
+      col1: inputs[i]?.col1 || '',
+      col2: inputs[i]?.col2 || ''
+    }));
+  };
+
+  const handleTransformerClick = async (t: Transformer) => {
     setSelectedTransformer(t);
     setIsEditingRecord(false);
 
-    // Try to load existing PT records
+    const order = selectedOrder!;
+
     try {
-      const res = await axios.get(`http://localhost:3002/api/heating-record/${selectedOrder!._id}/33KV_PT`, {
-        withCredentials: true
-      });
+      const res = await axios.get(
+        `http://localhost:3002/api/heating-record/${order._id}/33KV_PT`,
+        { withCredentials: true }
+      );
 
       if (res.data.success && res.data.data?.blocks?.length > 0) {
         const uiBlocks = res.data.data.blocks.map((b: any) => ({
@@ -125,18 +162,20 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
           transformerId: '',
           groupNo: b.groupNo || '',
           serialNumber: b.serialNumber || '',
-          jobNo: selectedOrder!.jobId,
+          jobNo: order.jobId,
           leftInputs: ensureLeftInputs(b.leftInputs),
           startDate: b.startDate || new Date().toISOString().split('T')[0],
-          processSteps: b.processSteps && b.processSteps.length > 0 ? b.processSteps.map((s: any) => ({
-            process: s.process,
-            duration: s.duration,
-            startDate: s.startDate,
-            startTime: s.startTime,
-            completionDate: s.endDate,
-            completionTime: s.endTime,
-            remarks: s.remarks
-          })) : JSON.parse(JSON.stringify(DEFAULT_PROCESS_STEPS)),
+          processSteps: b.processSteps && b.processSteps.length > 0
+            ? b.processSteps.map((s: any) => ({
+              process: s.process,
+              duration: s.duration,
+              startDate: s.startDate,
+              startTime: s.startTime,
+              completionDate: s.endDate,
+              completionTime: s.endTime,
+              remarks: s.remarks
+            }))
+            : JSON.parse(JSON.stringify(DEFAULT_PROCESS_STEPS)),
           preparedBy: b.preparedBy || user.name || '',
           productionManager: b.productionManager || '',
           verifiedBy: b.verifiedBy || '',
@@ -144,47 +183,70 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
         }));
         setRecords(uiBlocks);
         setIsEditingRecord(true);
+        setView('heating');
         return;
       }
     } catch (e) {
-      console.error("Error fetching existing heating records:", e);
+      console.error('Error fetching existing heating records:', e);
     }
 
-    // Default initialization pre-filled with the selected transformer
-    const today = new Date().toISOString().split('T')[0] as string;
+    // Default: initialize fresh block
+    const today = new Date().toISOString().split('T')[0];
     const block: HeatingRecordBlock = {
       id: Math.random().toString(36).substr(2, 9),
       transformerId: '',
-      groupNo: `No.-1`,
-      serialNumber: t.uniqueId || `33KV - PT = 1`,
-      jobNo: selectedOrder!.jobId,
-      leftInputs: Array(8).fill(null).map(() => ({ col1: "", col2: "" })),
+      groupNo: 'No.-1',
+      serialNumber: t.uniqueId || '33KV - PT = 1',
+      jobNo: order.jobId,
+      leftInputs: Array(8).fill(null).map(() => ({ col1: '', col2: '' })),
       startDate: today,
-      processSteps: (JSON.parse(JSON.stringify(DEFAULT_PROCESS_STEPS)) as ProcessStep[]),
+      processSteps: JSON.parse(JSON.stringify(DEFAULT_PROCESS_STEPS)) as ProcessStep[],
       preparedBy: user.name || '',
       productionManager: '',
       verifiedBy: '',
-      date: today,
+      date: today
     };
     setRecords([block]);
+    setView('heating');
   };
+
+  // ── Approve transformer ─────────────────────────────────────────────────────
+
+  const handleApproveTransformer = async (t: Transformer) => {
+    try {
+      if (!window.confirm(`Approve Heating Record for Transformer ${t.uniqueId}?`)) return;
+      await axios.put(
+        `http://localhost:3002/api/pt-tests/transformer/${t._id}/approve`,
+        {},
+        { withCredentials: true }
+      );
+      alert('Transformer approved successfully!');
+      // Remove from local list immediately (CT Secondary pattern)
+      setTransformers(prev => prev.filter(tr => tr._id !== t._id));
+    } catch (e: any) {
+      console.error('Error approving transformer:', e);
+      alert(e.response?.data?.message || 'Failed to approve transformer.');
+    }
+  };
+
+  // ── Add record block ────────────────────────────────────────────────────────
 
   const addRecordBlock = () => {
     if (!selectedOrder) return;
-    const today = new Date().toISOString().split('T')[0] as string;
+    const today = new Date().toISOString().split('T')[0];
     setRecords(prev => [...prev, {
       id: Math.random().toString(36).substr(2, 9),
       transformerId: '',
       groupNo: `No.-${prev.length + 1}`,
       serialNumber: `33KV - PT = ${prev.length + 1}`,
       jobNo: selectedOrder.jobId,
-      leftInputs: Array(8).fill(null).map(() => ({ col1: "", col2: "" })),
+      leftInputs: Array(8).fill(null).map(() => ({ col1: '', col2: '' })),
       startDate: today,
-      processSteps: (JSON.parse(JSON.stringify(DEFAULT_PROCESS_STEPS)) as ProcessStep[]),
+      processSteps: JSON.parse(JSON.stringify(DEFAULT_PROCESS_STEPS)) as ProcessStep[],
       preparedBy: user.name || '',
       productionManager: '',
       verifiedBy: '',
-      date: today,
+      date: today
     }]);
   };
 
@@ -204,14 +266,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
     }));
   };
 
-  const ensureLeftInputs = (inputs: any) => {
-    const base = Array(8).fill(null).map(() => ({ col1: "", col2: "" }));
-    if (!inputs) return base;
-    return base.map((_, i) => ({
-      col1: inputs[i]?.col1 || "",
-      col2: inputs[i]?.col2 || ""
-    }));
-  };
+  // ── Save heating record ─────────────────────────────────────────────────────
 
   const handleSave = async () => {
     if (!selectedOrder) return;
@@ -227,7 +282,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
           duration: step.duration,
           startDate: step.startDate,
           startTime: step.startTime,
-          endDate: step.completionDate, 
+          endDate: step.completionDate,
           endTime: step.completionTime,
           remarks: step.remarks
         })),
@@ -243,182 +298,331 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
         blocks: blocksPayload
       };
 
-      await axios.post("http://localhost:3002/api/heating-record", payload, { withCredentials: true });
-      alert(isEditingRecord ? "PT Heating records updated successfully!" : "PT Heating records saved successfully!");
-      
+      await axios.post('http://localhost:3002/api/heating-record', payload, { withCredentials: true });
+      alert(isEditingRecord ? 'PT Heating records updated successfully!' : 'PT Heating records saved successfully!');
+
+      // Go back to transformers list
+      setView('transformers');
       setSelectedTransformer(null);
       setRecords([]);
       setIsEditingRecord(false);
-      await fetchOrders();
+      // Re-fetch transformers to reflect any status changes
+      await fetchTransformers(selectedOrder);
     } catch (e) {
-      console.error("Error saving PT heating records", e);
-      alert("Failed to save PT heating records. Please try again.");
+      console.error('Error saving PT heating records', e);
+      alert('Failed to save PT heating records. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return <div className="flex items-center justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>;
+  // ─── VIEW: HEATING RECORD FORM ──────────────────────────────────────────────
+
+  if (view === 'heating') {
+    return (
+      <HeatingRecord33KVPT
+        records={records}
+        saving={saving}
+        onBack={() => {
+          setView('transformers');
+          setSelectedTransformer(null);
+          setRecords([]);
+          setIsEditingRecord(false);
+        }}
+        onAddBlock={addRecordBlock}
+        onSave={handleSave}
+        onUpdateProcessStep={updateProcessStep}
+        onUpdateBlockField={updateBlockField}
+        isEditing={isEditingRecord}
+      />
+    );
   }
 
-  // ==== 1. ORDER LIST VIEW ====
-  if (!selectedOrder) {
-    const displayedOrders = currentTab === 'assigned' ? assignedOrders : completedOrders;
+  // ─── VIEW: TRANSFORMERS LIST ────────────────────────────────────────────────
+
+  if (view === 'transformers' && selectedOrder) {
+    const getStatusColor = (t: Transformer) => {
+      const approved = t.testHistory?.pt_test?.approved;
+      const hasPtTest = t.testHistory?.pt_test && Object.keys(t.testHistory.pt_test).length > 0;
+      if (approved === true || approved === 'true') return 'bg-purple-100 text-purple-700';
+      if (hasPtTest) return 'bg-green-100 text-green-700';
+      return 'bg-blue-100 text-blue-700';
+    };
+
+    const getStatusLabel = (t: Transformer) => {
+      const approved = t.testHistory?.pt_test?.approved;
+      const hasPtTest = t.testHistory?.pt_test && Object.keys(t.testHistory.pt_test).length > 0;
+      if (approved === true || approved === 'true') return 'Approved';
+      if (hasPtTest) return 'Testing Completed';
+      return 'Pending';
+    };
 
     return (
       <div className="space-y-6">
-        <div className={`flex justify-between items-center p-6 rounded-xl border shadow-sm transition-colors duration-300 ${currentTab === 'completed' ? 'bg-green-50/50 border-green-200' : 'bg-gray-50/50 border-gray-200'}`}>
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 tracking-tight uppercase">
-              {currentTab === 'assigned' ? 'Assigned PT Orders' : 'Completed PT Orders'}
-            </h2>
-            <p className="text-gray-600 mt-2 text-base">
-              {currentTab === 'assigned'
-                ? 'Select an eligible 33KV PT order to log active heating records.'
-                : 'Review completed PT heating records.'}
-            </p>
-          </div>
-          
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-            <button
-              onClick={() => setCurrentTab('assigned')}
-              className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all inline-flex items-center gap-2 ${
-                currentTab === 'assigned'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Assigned Orders
-              <Badge className={currentTab === 'assigned' ? 'bg-blue-500 text-white border-blue-400' : 'bg-blue-100 text-blue-700 border border-blue-200'}>
-                {assignedOrders.length}
-              </Badge>
-            </button>
-            <button
-              onClick={() => setCurrentTab('completed')}
-              className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all inline-flex items-center gap-2 ${
-                currentTab === 'completed'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Completed Orders
-              <Badge className={currentTab === 'completed' ? 'bg-blue-500 text-white border-blue-400' : 'bg-green-100 text-green-700 border border-green-200'}>
-                {completedOrders.length}
-              </Badge>
-            </button>
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setView('orders'); setSelectedOrder(null); setTransformers([]); }}
+            className="gap-2 shrink-0"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Orders
+          </Button>
+          <div className="flex-1">
+            <h2 className="text-xl font-bold">Transformers — {selectedOrder.jobId}</h2>
+            <p className="text-gray-500 mt-1">Select a PT transformer to log heating records</p>
           </div>
         </div>
 
+        {/* Order Summary */}
+        <Card className="p-4 bg-gray-50 border-gray-200">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-sm text-gray-500">Job ID</p>
+              <p className="font-medium mt-1">{selectedOrder.jobId}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Client</p>
+              <p className="font-medium mt-1">{selectedOrder.clientName}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Total Transformers</p>
+              <p className="font-medium mt-1">
+                {selectedOrder.assignedUnitIds
+                  ? <span className="text-blue-600">Assigned: {selectedOrder.assignedUnitIds.length}</span>
+                  : <span>{selectedOrder.quantity || selectedOrder.transformerQuantity}</span>}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Deadline</p>
+              <p className="font-medium mt-1">
+                {selectedOrder.deadline && !isNaN(new Date(selectedOrder.deadline).getTime())
+                  ? new Date(selectedOrder.deadline).toLocaleDateString('en-GB')
+                  : 'N/A'}
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Transformers Table */}
         <Card className="overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-[#003a70] text-white">
-              <tr>
-                <th className="p-4 text-left font-medium">Job ID</th>
-                <th className="p-4 text-left font-medium">Client</th>
-                <th className="p-4 text-left font-medium">Type &amp; Voltage</th>
-                <th className="p-4 text-center font-medium">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayedOrders.length > 0 ? (
-                displayedOrders.map(order => (
-                  <tr key={order._id} className="border-b hover:bg-gray-50">
-                    <td className="p-4 font-bold">{order.jobId}</td>
-                    <td className="p-4">{order.clientName}</td>
-                    <td className="p-4">
-                       <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-semibold">
-                         33KV PT
-                       </span>
-                    </td>
-                    <td className="p-4 text-center">
-                      <Button onClick={() => handleSelectOrder(order)} className={currentTab === 'completed' ? "bg-green-600 hover:bg-green-700" : "bg-[#003a70] hover:bg-[#002f5c]"}>
-                        <FileText className="w-4 h-4 mr-2" />
-                        {currentTab === 'completed' ? "View / Edit Record" : "Open PT Heating Sheet"}
-                      </Button>
-                    </td>
+          {transformersLoading ? (
+            <div className="p-8 flex justify-center items-center">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              <span className="ml-2 text-gray-600">Loading PT transformers...</span>
+            </div>
+          ) : transformers.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              No active PT transformers found for this order.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-[#003a70] text-white">
+                  <tr>
+                    <th className="p-4 font-medium">Unique ID</th>
+                    <th className="p-4 font-medium">Status</th>
+                    <th className="p-4 text-center font-medium">Action</th>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4} className="p-8 text-center text-gray-500">
-                    {currentTab === 'assigned' ? "No 33KV PT orders assigned to you currently." : "No completed heating records found."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {transformers.map(t => {
+                    const hasPtTest = t.testHistory?.pt_test && Object.keys(t.testHistory.pt_test).length > 0;
+                    const isApproved = t.testHistory?.pt_test?.approved === true || t.testHistory?.pt_test?.approved === 'true';
+
+                    return (
+                      <tr key={t._id} className="border-b hover:bg-gray-50 transition-colors">
+                        <td className="p-4 font-bold">{t.uniqueId}</td>
+                        <td className="p-4">
+                          <Badge className={getStatusColor(t)}>
+                            {getStatusLabel(t)}
+                          </Badge>
+                        </td>
+                        <td className="p-4 text-center">
+                          <div className="flex items-center gap-2 justify-center">
+                            <Button
+                              size="sm"
+                              onClick={() => handleTransformerClick(t)}
+                              className={isApproved
+                                ? 'bg-green-600 hover:bg-green-700'
+                                : 'bg-[#003a70] hover:bg-[#002f5c]'}
+                            >
+                              <FileText className="w-4 h-4 mr-2" />
+                              {isApproved ? 'View Record' : 'Edit Record'}
+                            </Button>
+
+                            {hasPtTest && !isApproved && (
+                              <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700 gap-2 whitespace-nowrap"
+                                onClick={() => handleApproveTransformer(t)}
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                                Approve
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       </div>
     );
   }
 
-  // ==== 2. TRANSFORMER LIST VIEW ====
-  if (selectedOrder && !selectedTransformer) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={() => { setSelectedOrder(null); setTransformersList([]); }} className="gap-2">
-            <ArrowLeft className="w-4 h-4" /> Back to Orders
-          </Button>
-          <div className="flex-1">
-            <h2 className="text-xl font-bold">Transformers for {selectedOrder.jobId}</h2>
-            <p className="text-gray-500 mt-1">Select a PT unit to begin the Heating Record</p>
-          </div>
-          {currentTab === 'assigned' && (
-            <Button size="sm" onClick={handleApproveOrder} className="bg-green-600 hover:bg-green-700 gap-2">
-              <CheckCircle className="w-4 h-4" /> Approve Order
-            </Button>
-          )}
-        </div>
+  // ─── VIEW: ORDERS LIST ──────────────────────────────────────────────────────
 
-        <Card className="overflow-hidden">
-          {loadingTransformers ? (
-            <div className="p-8 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>
-          ) : transformersList.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">No transformers found for this order.</div>
-          ) : (
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'Low': return 'bg-green-100 text-green-700';
+      case 'Medium': return 'bg-orange-100 text-orange-700';
+      case 'High': return 'bg-red-100 text-red-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const getOrderStatusColor = (status: string) => {
+    const s = (status || '').toLowerCase();
+    if (s.includes('completed')) return 'bg-green-100 text-green-700';
+    if (s.includes('progress') || s.includes('testing')) return 'bg-yellow-100 text-yellow-700';
+    return 'bg-blue-100 text-blue-700';
+  };
+
+  const filteredOrders = orders.filter(order => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    return (
+      (order.jobId || '').toLowerCase().includes(q) ||
+      (order.clientName || '').toLowerCase().includes(q)
+    );
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight uppercase">
+            PT Heating Records
+          </h2>
+          <p className="text-gray-600 mt-1">
+            Select an assigned PT order to log heating records for its transformers.
+          </p>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-300">
+          <p className="text-sm text-gray-600">Total Orders</p>
+          <p className="text-2xl font-bold text-blue-700 mt-1">{orders.length}</p>
+        </Card>
+        <Card className="p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-300">
+          <p className="text-sm text-gray-600">In Progress</p>
+          <p className="text-2xl font-bold text-yellow-700 mt-1">
+            {orders.filter(o => (o.status || '').toLowerCase().includes('progress')).length}
+          </p>
+        </Card>
+        <Card className="p-4 bg-gradient-to-br from-green-50 to-green-100 border-green-300">
+          <p className="text-sm text-gray-600">Completed</p>
+          <p className="text-2xl font-bold text-green-700 mt-1">
+            {orders.filter(o => (o.status || '').toLowerCase().includes('completed')).length}
+          </p>
+        </Card>
+      </div>
+
+      {/* Search */}
+      <div className="relative w-full md:w-80">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+        <Input
+          placeholder="Search by Job ID or Client..."
+          className="pl-9 w-full bg-white shadow-sm"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+        />
+      </div>
+
+      {/* Orders Table */}
+      <Card className="overflow-hidden">
+        {ordersLoading ? (
+          <div className="p-8 flex justify-center items-center">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <span className="ml-2 text-gray-600">Loading PT orders...</span>
+          </div>
+        ) : filteredOrders.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            {orders.length === 0
+              ? 'No PT orders currently assigned to you.'
+              : 'No orders match your search.'}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-[#003a70] text-white">
+              <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="p-4 text-left font-medium">Unique ID</th>
-                  <th className="p-4 text-left font-medium">Current Stage</th>
-                  <th className="p-4 text-center font-medium">Action</th>
+                  <th className="text-left p-4 text-sm">Job ID</th>
+                  <th className="text-left p-4 text-sm">Client</th>
+                  <th className="text-center p-4 text-sm">Units</th>
+                  <th className="text-left p-4 text-sm">Deadline</th>
+                  <th className="text-left p-4 text-sm">Status</th>
+                  <th className="text-left p-4 text-sm">Priority</th>
+                  <th className="text-center p-4 text-sm">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {transformersList.map((t: any) => (
-                  <tr key={t._id} className="border-b hover:bg-gray-50">
-                    <td className="p-4 font-bold">{t.uniqueId}</td>
-                    <td className="p-4">
-                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">{t.currentStage || 'N/A'}</span>
-                    </td>
-                    <td className="p-4 text-center">
-                      <Button size="sm" onClick={() => handleSelectTransformer(t)} className="bg-[#003a70] hover:bg-[#002f5c] gap-2">
-                        <PlayCircle className="w-4 h-4" /> Start Record
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                {filteredOrders.map(order => {
+                  const totalQty = order.quantity || order.transformerQuantity || 0;
+                  const assignedQty = order.assignedUnitIds ? order.assignedUnitIds.length : totalQty;
+
+                  return (
+                    <tr key={order._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                      <td className="p-4 font-medium">{order.jobId}</td>
+                      <td className="p-4">{order.clientName}</td>
+                      <td className="p-4 text-center">
+                        <Badge variant="outline" className="bg-blue-50">
+                          {assignedQty} / {totalQty}
+                        </Badge>
+                      </td>
+                      <td className="p-4">
+                        {order.deadline && !isNaN(new Date(order.deadline).getTime())
+                          ? new Date(order.deadline).toLocaleDateString('en-GB')
+                          : 'N/A'}
+                      </td>
+                      <td className="p-4">
+                        <Badge className={getOrderStatusColor(order.status)}>
+                          {order.status}
+                        </Badge>
+                      </td>
+                      <td className="p-4">
+                        <Badge className={getPriorityColor(order.priority || 'Medium')}>
+                          {order.priority || 'Medium'}
+                        </Badge>
+                      </td>
+                      <td className="p-4 text-center">
+                        <Button
+                          size="sm"
+                          onClick={() => handleOrderClick(order)}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          <PlayCircle className="w-4 h-4 mr-2" />
+                          View Transformers
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-          )}
-        </Card>
-      </div>
-    );
-  }
-
-  // ==== 3. HEATING SHEET VIEW ====
-  return (
-    <HeatingRecord33KVPT
-      records={records}
-      saving={saving}
-      onBack={() => { setSelectedTransformer(null); setRecords([]); setIsEditingRecord(false); }}
-      onAddBlock={addRecordBlock}
-      onSave={handleSave}
-      onUpdateProcessStep={updateProcessStep}
-      onUpdateBlockField={updateBlockField}
-      isEditing={isEditingRecord}
-    />
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }

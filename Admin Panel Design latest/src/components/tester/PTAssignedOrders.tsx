@@ -1,167 +1,215 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { PlayCircle, Eye } from 'lucide-react';
+import { Input } from '../ui/input';
+import { PlayCircle, Search } from 'lucide-react';
+import axios from 'axios';
 
 interface Order {
-  _id: string;
+  _id: string; // Updated to match backend
   jobId: string;
   clientName: string;
-  transformerType: string;
   quantity: number;
+  transformerQuantity?: number;
+  assignedDate: string;
+  deadline: string;
   status: string;
   priority: string;
-  // Fields needed by PTTestingReport
-  ratio?: string[];
-  voltageRating?: string;
-  nominalSystemVoltage?: string | number;
-  burden?: string;
-  accuracyClass?: string;
-  coreDetails?: any[];
-  coreConfigs?: any[];
+  assignedUnitIds?: string[]; // Added
 }
 
 interface PTAssignedOrdersProps {
-  onStartTesting?: (order: any) => void;
+  onStartTesting: (order: Order) => void;
+  onViewReports?: (order: Order) => void;
+  refreshTrigger?: number; // Added to trigger re-fetch
 }
 
-export function PTAssignedOrders({ onStartTesting }: PTAssignedOrdersProps) {
+export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0 }: PTAssignedOrdersProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'assigned' | 'completed'>('assigned');
-  const [assignedCount, setAssignedCount] = useState(0);
-  const [completedCount, setCompletedCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
   useEffect(() => {
     fetchOrders();
-  }, [activeTab]);
+  }, [refreshTrigger]);
 
   const fetchOrders = async () => {
     try {
-      setLoading(true);
-      // Use the stage-unrestricted endpoint so we see all PT orders regardless of
-      // which stage the transformers are currently at.
-      const response = await axios.get('http://localhost:3002/api/heating-record/assigned-orders?type=PT', {
+      // The backend /assigneed_orders route automatically filters by the user's role (PT Test)
+      // and finding orders in the 'pt' stage.
+      const response = await axios.get("http://localhost:3002/api/assigneed_orders?type=active", {
         withCredentials: true
       });
-
-      const allOrders: Order[] = response.data.success ? response.data.orders : [];
-
-      const assigned = allOrders.filter(o => !o.status.includes('PT Testing Completed'));
-      const completed = allOrders.filter(o => o.status.includes('PT Testing Completed') || o.status.includes('Completed'));
-
-      setAssignedCount(assigned.length);
-      setCompletedCount(completed.length);
-
-      // Keep UI data synced with active tab selection
-      if (activeTab === 'assigned') setOrders(assigned);
-      else setOrders(completed);
-    } catch (error) {
-      console.error("Error fetching PT orders:", error);
+      setOrders(response.data);
+    } catch (err) {
+      console.error("API ERROR:", err);
     } finally {
       setLoading(false);
     }
   };
 
   const getStatusColor = (status: string) => {
-    if (!status) return 'bg-gray-100 text-gray-700';
-    if (status.includes('Progress')) return 'bg-blue-100 text-blue-700';
-    if (status.includes('Completed')) return 'bg-green-100 text-green-700';
-    return 'bg-gray-100 text-gray-700';
+    switch (status) {
+      case 'assigned': return 'bg-blue-100 text-blue-700';
+      case 'in-testing': return 'bg-yellow-100 text-yellow-700';
+      case 'completed': return 'bg-green-100 text-green-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'Low': return 'bg-green-100 text-green-700';
+      case 'Medium': return 'bg-orange-100 text-orange-700';
+      case 'High': return 'bg-red-100 text-red-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const filteredOrders = orders.filter((order) => {
+    const q = searchQuery.toLowerCase().trim();
+    const status = order.status || '';
+
+    let matchesSearch = true;
+    if (q) {
+      const normalJobId = (order.jobId || '').toLowerCase().replace(/\s+/g, '');
+      const normalQuery = q.replace(/\s+/g, '');
+
+      const extractedJobMatch = q.match(/job-?\d{4}-?\d{1,4}/i)?.[0];
+      const isTransformerSearch = q.startsWith('tr-') && q.includes(normalJobId);
+
+      const jobMatch = normalJobId.includes(normalQuery) ||
+        (normalQuery.length > 5 && normalJobId.length > 0 && normalQuery.includes(normalJobId)) ||
+        (extractedJobMatch && normalJobId.includes(extractedJobMatch.toLowerCase().replace(/\s+/g, '')));
+
+      matchesSearch = jobMatch || isTransformerSearch || (order.clientName || '').toLowerCase().includes(q);
+    }
+
+    if (selectedStatus === 'all') return matchesSearch;
+    if (selectedStatus === 'assigned') return matchesSearch && (status === 'assigned' || status === 'assigned to Secondary' || status === 'PT Testing Assigned');
+    if (selectedStatus === 'in-testing') return matchesSearch && (status === 'in-testing' || status === 'PT Testing In Progress');
+    if (selectedStatus === 'completed') return matchesSearch && (status === 'completed' || status === 'PT Testing Completed');
+    return matchesSearch && status === selectedStatus;
+  });
+
+  const statusCounts = {
+    all: orders.length,
+    assigned: orders.filter((o) => {
+      const s = o.status || '';
+      return s === 'assigned' || s === 'assigned to Secondary' || s.includes('Assigned');
+    }).length,
+    inTesting: orders.filter((o) => (o.status || '').includes('In Progress')).length,
+    completed: orders.filter((o) => (o.status || '').includes('Completed')).length,
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-gray-500">Loading your assigned PT orders...</div>;
+    return <div className="p-8 text-center text-gray-500">Loading PT orders...</div>;
   }
 
   return (
     <div className="space-y-6">
-      <div className={`flex justify-between items-center p-6 rounded-xl border shadow-sm transition-colors duration-300 ${activeTab === 'completed' ? 'bg-green-50/50 border-green-200' : 'bg-gray-50/50 border-gray-200'}`}>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 tracking-tight uppercase">
-            {activeTab === 'assigned' ? 'Assigned PT Orders' : 'Completed PT Orders'}
-          </h2>
-          <p className="text-gray-600 mt-2 text-base">
-            {activeTab === 'assigned'
-              ? 'Select an eligible 33KV PT order to start heating record entry.'
-              : 'Review completed PT heating records.'}
-          </p>
+          <h2>Assigned PT Orders</h2>
+          <p className="text-gray-500 mt-1">View and start PT testing on assigned orders</p>
         </div>
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-            <button
-              onClick={() => setActiveTab('assigned')}
-              className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all inline-flex items-center gap-2 ${
-                activeTab === 'assigned'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Assigned Orders
-              <Badge className={activeTab === 'assigned' ? 'bg-blue-500 text-white border-blue-400' : 'bg-blue-100 text-blue-700 border border-blue-200'}>
-                {assignedCount}
-              </Badge>
-            </button>
-            <button
-              onClick={() => setActiveTab('completed')}
-              className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-all inline-flex items-center gap-2 ${
-                activeTab === 'completed'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Completed Orders
-              <Badge className={activeTab === 'completed' ? 'bg-blue-500 text-white border-blue-400' : 'bg-green-100 text-green-700 border border-green-200'}>
-                {completedCount}
-              </Badge>
-            </button>
-          </div>
       </div>
-      
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-300 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedStatus('all')}>
+          <p className="text-sm text-gray-600">All Orders</p>
+          <p className="text-2xl font-bold text-blue-700 mt-1">{statusCounts.all}</p>
+        </Card>
+        <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-300 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedStatus('assigned')}>
+          <p className="text-sm text-gray-600">Active / Assigned</p>
+          <p className="text-2xl font-bold text-blue-700 mt-1">{statusCounts.assigned}</p>
+        </Card>
+        <Card className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-300 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedStatus('in-testing')}>
+          <p className="text-sm text-gray-600">In Testing</p>
+          <p className="text-2xl font-bold text-purple-700 mt-1">{statusCounts.inTesting}</p>
+        </Card>
+        <Card className="p-4 bg-gradient-to-br from-green-50 to-green-100 border-green-300 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedStatus('completed')}>
+          <p className="text-sm text-gray-600">Completed</p>
+          <p className="text-2xl font-bold text-green-700 mt-1">{statusCounts.completed}</p>
+        </Card>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <Input
+            placeholder="Search by Job ID or Transformer ID..."
+            className="pl-9 w-full bg-white shadow-sm"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Orders Table */}
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left p-4 text-sm font-medium text-gray-600">Job ID</th>
-                <th className="text-left p-4 text-sm font-medium text-gray-600">Client</th>
-                <th className="text-left p-4 text-sm font-medium text-gray-600">Type</th>
-                <th className="text-center p-4 text-sm font-medium text-gray-600">Quantity</th>
-                <th className="text-left p-4 text-sm font-medium text-gray-600">Status</th>
-                <th className="text-center p-4 text-sm font-medium text-gray-600">Action</th>
+               <tr>
+                <th className="text-left p-4 text-sm">Job ID</th>
+                <th className="text-left p-4 text-sm">Client</th>
+                <th className="text-center p-4 text-sm">Assigned / Total</th>
+                <th className="text-left p-4 text-sm">Deadline</th>
+                <th className="text-left p-4 text-sm">Status</th>
+                <th className="text-left p-4 text-sm">Priority</th>
+                <th className="text-center p-4 text-sm">Action</th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => (
-                <tr key={order._id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="p-4 font-medium">{order.jobId}</td>
-                  <td className="p-4 text-sm">{order.clientName}</td>
-                  <td className="p-4 text-sm">{order.transformerType}</td>
-                  <td className="p-4 text-center text-sm">{order.quantity}</td>
-                  <td className="p-4">
-                    <Badge className={getStatusColor(order.status)}>
-                      {order.status}
-                    </Badge>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex justify-center">
-                      <Button 
-                        size="sm" 
-                        className={order.status.includes('Completed') ? "bg-green-600 hover:bg-green-700" : "bg-[#003a70] hover:bg-[#002850]"}
-                        onClick={() => onStartTesting && onStartTesting(order)}
-                      >
-                        {order.status.includes('Completed') ? <Eye className="w-4 h-4 mr-2" /> : <PlayCircle className="w-4 h-4 mr-2" />}
-                        {order.status.includes('Completed') ? 'View / Edit Report' : 'Start Testing'}
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {orders.length === 0 && (
+              {filteredOrders.length > 0 ? (
+                filteredOrders.map((order) => {
+                  const totalQty = order.quantity || order.transformerQuantity || 0;
+                  const assignedQty = order.assignedUnitIds ? order.assignedUnitIds.length : totalQty;
+
+                  return (
+                    <tr key={order._id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="p-4 font-medium">{order.jobId}</td>
+                      <td className="p-4">{order.clientName}</td>
+                      <td className="p-4 text-center">
+                        <Badge variant="outline" className="bg-blue-50">
+                          {assignedQty} / {totalQty}
+                        </Badge>
+                      </td>
+                      <td className="p-4">{order.deadline && !isNaN(new Date(order.deadline).getTime()) ? new Date(order.deadline).toLocaleDateString() : 'N/A'}</td>
+                      <td className="p-4">
+                        <Badge className={getStatusColor(order.status?.toLowerCase() || '')}>
+                          {order.status}
+                        </Badge>
+                      </td>
+                      <td className="p-4">
+                        <Badge className={getPriorityColor(order.priority || 'Medium')}>
+                          {order.priority || 'Medium'}
+                        </Badge>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex justify-center gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => onStartTesting(order)}
+                            className="bg-blue-600 hover:bg-blue-700"
+                          >
+                            <PlayCircle className="w-4 h-4 mr-2" />
+                            Start / Continue
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-500">
-                    {activeTab === 'assigned' ? 'No assigned PT orders found.' : 'No completed PT orders found.'}
+                  <td colSpan={7} className="p-8 text-center text-gray-500">
+                    No assigned PT orders found.
                   </td>
                 </tr>
               )}
