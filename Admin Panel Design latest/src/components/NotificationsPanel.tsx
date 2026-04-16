@@ -20,13 +20,13 @@ export function NotificationsPanel() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchUnreadCount = () => {
-    axios.get('http://localhost:3002/api/notifications/unread-count', { withCredentials: true })
+    axios.get('http://localhost:5000/api/notifications/unread-count', { withCredentials: true })
       .then(res => setUnreadCount(res.data.count))
       .catch(err => console.error("Error fetching unread count:", err));
   };
 
   const fetchNotifications = () => {
-    axios.get('http://localhost:3002/api/notifications', { withCredentials: true })
+    axios.get('http://localhost:5000/api/notifications', { withCredentials: true })
       .then(res => setNotifications(res.data.notifications))
       .catch(err => console.error("Error fetching notifications:", err));
   };
@@ -42,7 +42,7 @@ export function NotificationsPanel() {
 
   const markAsRead = async (id: string) => {
     try {
-      await axios.put(`http://localhost:3002/api/notifications/${id}/read`, {}, { withCredentials: true });
+      await axios.put(`http://localhost:5000/api/notifications/${id}/read`, {}, { withCredentials: true });
       setNotifications(notifications.map(n => n._id === id ? { ...n, isRead: true } : n));
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (err) {
@@ -52,7 +52,7 @@ export function NotificationsPanel() {
 
   const markAllAsRead = async () => {
     try {
-      await axios.put('http://localhost:3002/api/notifications/mark-read', {}, { withCredentials: true });
+      await axios.put('http://localhost:5000/api/notifications/mark-read', {}, { withCredentials: true });
       setNotifications(notifications.map(n => ({ ...n, isRead: true })));
       setUnreadCount(0);
     } catch (err) {

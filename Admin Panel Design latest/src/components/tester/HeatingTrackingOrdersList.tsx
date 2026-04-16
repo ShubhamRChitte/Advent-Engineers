@@ -28,7 +28,7 @@ export function HeatingTrackingOrdersList({ onStartTesting, user }: HeatingTrack
     try {
       setLoading(true);
       const endpoint = currentTab === 'assigned' ? 'orders' : 'completed';
-      const response = await axios.get(`http://localhost:3002/api/heating-record/${endpoint}`, {
+      const response = await axios.get(`http://localhost:5000/api/heating-record/${endpoint}`, {
         withCredentials: true
       });
       

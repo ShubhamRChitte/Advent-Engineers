@@ -38,7 +38,7 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
   useEffect(() => {
     const fetchVendors = async () => {
       try {
-        const response = await axios.get('http://localhost:3002/api/core-vendors', { withCredentials: true });
+        const response = await axios.get('http://localhost:5000/api/core-vendors', { withCredentials: true });
         if (response.data.success) {
           setAllVendors(response.data.data);
         }
@@ -169,7 +169,7 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
         }
       });
 
-      const response = await axios.post('http://localhost:3002/api/create-order', formData, {
+      const response = await axios.post('http://localhost:5000/api/create-order', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

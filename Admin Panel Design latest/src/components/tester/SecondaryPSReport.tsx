@@ -641,7 +641,7 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
   React.useEffect(() => {
     const fetchLimit = async () => {
       try {
-        const response = await axios.get('http://localhost:3002/api/accuracy-limits/ps', { withCredentials: true });
+        const response = await axios.get('http://localhost:5000/api/accuracy-limits/ps', { withCredentials: true });
         if (response.data && response.data.length > 0) {
           setPsLimit(response.data[0]);
         }
@@ -656,7 +656,7 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
   React.useEffect(() => {
     const fetchLatestData = async () => {
       try {
-        const res = await axios.get(`http://localhost:3002/api/transformers/${(transformer as any).uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`http://localhost:5000/api/transformers/${(transformer as any).uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
 
         // Dynamic Path
@@ -759,7 +759,7 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
 
       console.log("handleDatabaseSave (PS): Payload ready", payload);
 
-      const endpoint = `http://localhost:3002/transformer-${stage}-ps-tests`;
+      const endpoint = `http://localhost:5000/transformer-${stage}-ps-tests`;
 
       // 2. Execute POST request
       const response = await axios.post(
@@ -845,7 +845,7 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
 
       console.log("[DEBUG] Frontend Failed Core Payload:", payload);
 
-      await axios.post(`http://localhost:3002/api/failed-cores`, payload, { withCredentials: true });
+      await axios.post(`http://localhost:5000/api/failed-cores`, payload, { withCredentials: true });
       toast.success("Added to Failed Cores successfully!");
     } catch (error: any) {
       console.error("Mark as failed error:", error);

@@ -50,7 +50,7 @@ export function AfterPrimaryPSReport({
   useEffect(() => {
     const fetchLimit = async () => {
       try {
-        const response = await axios.get('http://localhost:3002/api/accuracy-limits/ps', { withCredentials: true });
+        const response = await axios.get('http://localhost:5000/api/accuracy-limits/ps', { withCredentials: true });
         if (response.data && response.data.length > 0) {
           setPsLimit(response.data[0]);
         }
@@ -71,7 +71,7 @@ export function AfterPrimaryPSReport({
     // 2. Fetch fresh data from backend (reliable load)
     const fetchLatestData = async () => {
       try {
-        const res = await axios.get(`http://localhost:3002/api/transformers/${transformer.uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`http://localhost:5000/api/transformers/${transformer.uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
         if (freshTransformer?.testHistory?.primary_test?.ps_results?.length > 0) {
           console.log("PS Report: Fetched latest data from backend");
@@ -163,7 +163,7 @@ export function AfterPrimaryPSReport({
 
       // 2. Execute POST request
       const response = await axios.post(
-        "http://localhost:3002/transformer-primary-ps-tests",
+        "http://localhost:5000/transformer-primary-ps-tests",
         payload,
         { withCredentials: true }
       );
@@ -234,7 +234,7 @@ export function AfterPrimaryPSReport({
         dynamicValues: psData
       };
 
-      await axios.post(`http://localhost:3002/api/failed-cores`, payload, { withCredentials: true });
+      await axios.post(`http://localhost:5000/api/failed-cores`, payload, { withCredentials: true });
       toast.success("Added to Failed Cores successfully!");
     } catch (error: any) {
       console.error("Mark as failed error:", error);

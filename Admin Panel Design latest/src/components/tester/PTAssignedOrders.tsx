@@ -33,7 +33,7 @@ export function PTAssignedOrders({ onStartTesting }: PTAssignedOrdersProps) {
       setLoading(true);
       // Use the stage-unrestricted endpoint so we see all PT orders regardless of
       // which stage the transformers are currently at.
-      const response = await axios.get('http://localhost:3002/api/heating-record/assigned-orders?type=PT', {
+      const response = await axios.get('http://localhost:5000/api/heating-record/assigned-orders?type=PT', {
         withCredentials: true
       });
 

@@ -58,7 +58,7 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
       setError(null);
       try {
         const orderId = order._id;
-        const response = await axios.get(`http://localhost:3002/api/transformers/order/${orderId}`, {
+        const response = await axios.get(`http://localhost:5000/api/transformers/order/${orderId}`, {
           withCredentials: true
         });
 
@@ -133,7 +133,7 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
 
   const handleApproveOrder = async () => {
     try {
-      await axios.put(`http://localhost:3002/api/pt-tests/${order._id}/approve`, {}, { withCredentials: true });
+      await axios.put(`http://localhost:5000/api/pt-tests/${order._id}/approve`, {}, { withCredentials: true });
       alert("PT testing approved successfully!");
       onBack();
     } catch (e: any) {

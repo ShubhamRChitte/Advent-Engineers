@@ -146,7 +146,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
         const typeParam = !isMeteringCheck ? `?type=${coreType}` : '';
 
         // Fetch existing data
-        const response = await axios.get(`http://localhost:3002/api${endpoint}/${txnOrderId}${typeParam}`, {
+        const response = await axios.get(`http://localhost:5000/api${endpoint}/${txnOrderId}${typeParam}`, {
           withCredentials: true
         });
 
@@ -680,7 +680,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
         };
       }
 
-      await axios.post(`http://localhost:3002/api${endpoint}`, finalPayload, {
+      await axios.post(`http://localhost:5000/api${endpoint}`, finalPayload, {
         withCredentials: true,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -745,7 +745,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
       const internalCoreNos = rows.map(r => r.internalCoreNo);
 
       // Send Batch Approval
-      const response = await axios.put(`http://localhost:3002/api/core-tests/approve-batch`, {
+      const response = await axios.put(`http://localhost:5000/api/core-tests/approve-batch`, {
         jobId: order.jobId,
         internalCoreNos
       }, { withCredentials: true });

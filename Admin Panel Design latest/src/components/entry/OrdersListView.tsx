@@ -49,7 +49,7 @@ export function OrdersListView(_props: OrdersListViewProps) {
   const fetchOrders = async () => {
     try {
       // Using admin/orders or a generic orders endpoint. Assuming Entry Operator can access this.
-      const response = await axios.get('http://localhost:3002/api/admin/orders', {
+      const response = await axios.get('http://localhost:5000/api/admin/orders', {
         withCredentials: true
       });
       setOrders(response.data);

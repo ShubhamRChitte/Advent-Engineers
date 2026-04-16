@@ -55,7 +55,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
       // Use dedicated heating-record endpoint which has NO stage restriction.
       // /assigneed_orders filters by transformer.currentStage and misses orders
       // where transformers have already moved past 'heating' stage.
-      const response = await axios.get("http://localhost:3002/api/heating-record/assigned-orders?type=CT", {
+      const response = await axios.get("http://localhost:5000/api/heating-record/assigned-orders?type=CT", {
         withCredentials: true
       });
 
@@ -65,7 +65,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
 
       const orderIds = eligibleOrders.map((o: any) => o._id);
       if (orderIds.length > 0) {
-        const completedRes = await axios.post("http://localhost:3002/api/heating-record/completed-status", {
+        const completedRes = await axios.post("http://localhost:5000/api/heating-record/completed-status", {
             orderIds,
             prefix: "CT"
         }, { withCredentials: true });
@@ -88,7 +88,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
     setSelectedOrder(order);
     setLoadingTransformers(true);
     try {
-      const res = await axios.get(`http://localhost:3002/api/transformers/order/${order._id}`, { withCredentials: true });
+      const res = await axios.get(`http://localhost:5000/api/transformers/order/${order._id}`, { withCredentials: true });
       setTransformersList(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
       console.error('Failed to fetch transformers for order', e);
@@ -104,7 +104,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
       const voltageStr = String((selectedOrder as any).voltageRating || selectedOrder.nominalSystemVoltage || '');
       const transformerType = voltageStr.includes('33') ? '33KV_CT' : '11KV_CT';
 
-      await axios.put(`http://localhost:3002/api/heating-record/${selectedOrder._id}/approve`, {
+      await axios.put(`http://localhost:5000/api/heating-record/${selectedOrder._id}/approve`, {
         type: transformerType
       }, { withCredentials: true });
       alert("Heating record approved successfully!");
@@ -123,7 +123,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
     const transformerType = voltageStr.includes('33') ? '33KV_CT' : '11KV_CT';
 
     try {
-      const res = await axios.get(`http://localhost:3002/api/heating-record/${selectedOrder!._id}/${transformerType}`, { withCredentials: true });
+      const res = await axios.get(`http://localhost:5000/api/heating-record/${selectedOrder!._id}/${transformerType}`, { withCredentials: true });
       if (res.data.success && res.data.data?.blocks?.length > 0) {
         const uiBlocks = res.data.data.blocks.map((b: any) => ({
           id: Math.random().toString(36).substr(2, 9),
@@ -291,7 +291,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
         blocks: blocksPayload
       };
 
-      await axios.post("http://localhost:3002/api/heating-record", payload, { withCredentials: true });
+      await axios.post("http://localhost:5000/api/heating-record", payload, { withCredentials: true });
       alert("Heating records saved successfully!");
 
       setSelectedTransformer(null);

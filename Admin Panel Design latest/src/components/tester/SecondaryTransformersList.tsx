@@ -82,7 +82,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
       setError(null);
       try {
         const orderId = order._id;
-        const response = await axios.get(`http://localhost:3002/api/orders/${orderId}/transformers`, {
+        const response = await axios.get(`http://localhost:5000/api/orders/${orderId}/transformers`, {
           withCredentials: true
         });
 
@@ -333,7 +333,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
     try {
       if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Primary Testing?`)) return;
 
-      const response = await axios.put(`http://localhost:3002/api/transformers/${transformer.uniqueId}/approve-stage`, {
+      const response = await axios.put(`http://localhost:5000/api/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'secondary',
         nextStage: 'primary'
       }, { withCredentials: true });

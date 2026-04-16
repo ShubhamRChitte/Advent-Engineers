@@ -71,7 +71,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
       setError(null);
       try {
         const orderId = order._id;
-        const response = await axios.get(`http://localhost:3002/api/orders/${orderId}/transformers`, {
+        const response = await axios.get(`http://localhost:5000/api/orders/${orderId}/transformers`, {
           withCredentials: true
         });
 
@@ -154,7 +154,6 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
 
           // New logic: Check if all critical readings are filled in testHistory
           const finalHistory = t.testHistory?.final_test || {};
-          const isFullyComplete = finalHistory.status === 'Completed';
           
           // Strict non-empty string check for comprehensive fields
           const isValidValue = (val: any) => val !== undefined && val !== null && String(val).trim() !== "" && String(val) !== "N/A";

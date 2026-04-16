@@ -51,7 +51,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
 
   const fetchOrders = async () => {
     try {
-      const response = await axios.get("http://localhost:3002/api/heating-record/assigned-orders?type=PT", {
+      const response = await axios.get("http://localhost:5000/api/heating-record/assigned-orders?type=PT", {
         withCredentials: true
       });
 
@@ -59,7 +59,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
 
       const orderIds = eligibleOrders.map((o: any) => o._id);
       if (orderIds.length > 0) {
-        const completedRes = await axios.post("http://localhost:3002/api/heating-record/completed-status", {
+        const completedRes = await axios.post("http://localhost:5000/api/heating-record/completed-status", {
             orderIds,
             prefix: "PT"
         }, { withCredentials: true });
@@ -83,7 +83,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
     setLoadingTransformers(true);
     try {
       // Use standard transformer list for order
-      const res = await axios.get(`http://localhost:3002/api/heating-record/transformers/${order._id}`, { withCredentials: true });
+      const res = await axios.get(`http://localhost:5000/api/heating-record/transformers/${order._id}`, { withCredentials: true });
       setTransformersList(Array.isArray(res.data.transformers) ? res.data.transformers : []);
     } catch (e) {
       console.error('Failed to fetch transformers for order', e);
@@ -253,7 +253,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
         isApproveCall: isApprove
       };
 
-      const res = await axios.post(`http://localhost:3002/api/heating-record/save/${selectedTransformer.uniqueId}`, payload, { withCredentials: true });
+      const res = await axios.post(`http://localhost:5000/api/heating-record/save/${selectedTransformer.uniqueId}`, payload, { withCredentials: true });
       
       if (res.data.success) {
           alert(isApprove ? "PT Heating Approved Successfully!" : "PT Heating Record Saved!");
@@ -280,7 +280,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
     if (!window.confirm("Are you sure you want to approve this PT heating record and move it to Final Test?")) return;
     try {
       setSaving(true);
-      await axios.post(`http://localhost:3002/api/heating-record/save/${uniqueId}`, {
+      await axios.post(`http://localhost:5000/api/heating-record/save/${uniqueId}`, {
         isApproveCall: true
       }, { withCredentials: true });
       alert("PT Heating Approved! Transformer sent to Final Stage.");

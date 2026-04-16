@@ -108,7 +108,7 @@ export function FinalTestReport({
         ovitTest,
       };
 
-      const res = await axios.post(`http://localhost:3002/api/final/${transformer.uniqueId}`, payload, {
+      const res = await axios.post(`http://localhost:5000/api/final/${transformer.uniqueId}`, payload, {
         withCredentials: true
       });
 
@@ -133,7 +133,7 @@ export function FinalTestReport({
         polarityResult, meggarPrimaryToSecondary, meggarPrimaryToEarth, meggarSecondaryToEarth, meggarCoreToCore,
         hvSecondaryWinding, hvPrimaryWinding, hvBetweenCore, ovitTest
       };
-      await axios.post(`http://localhost:3002/api/final/${encodeURIComponent(transformer.uniqueId)}`, testPayload, { withCredentials: true });
+      await axios.post(`http://localhost:5000/api/final/${encodeURIComponent(transformer.uniqueId)}`, testPayload, { withCredentials: true });
 
       const payload = {
         orderId: (transformer as any).orderId?._id || (transformer as any).orderId,
@@ -142,7 +142,7 @@ export function FinalTestReport({
         failureStage: 'FINAL_QA', // Dynamic depending on specific exact stage if necessary
       };
 
-      const failedRes = await axios.post('http://localhost:3002/api/failed-cores', payload, { withCredentials: true });
+      const failedRes = await axios.post('http://localhost:5000/api/failed-cores', payload, { withCredentials: true });
       if (failedRes.data?.success || failedRes.status === 200 || failedRes.status === 201) {
         toast.success("Transformer marked as failed successfully.");
         if (onBack) onBack();
@@ -182,7 +182,7 @@ export function FinalTestReport({
       };
 
       // 1. Save directly to FinalReportData
-      const res = await axios.post(`http://localhost:3002/api/final/${encodeURIComponent(transformer.uniqueId)}/generate-save`, reportData, {
+      const res = await axios.post(`http://localhost:5000/api/final/${encodeURIComponent(transformer.uniqueId)}/generate-save`, reportData, {
         withCredentials: true
       });
 

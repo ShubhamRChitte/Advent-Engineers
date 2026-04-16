@@ -51,7 +51,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
 
   const fetchOrders = async () => {
     try {
-      const response = await axios.get("http://localhost:3002/api/heating-record/assigned-orders?type=CT", {
+      const response = await axios.get("http://localhost:5000/api/heating-record/assigned-orders?type=CT", {
         withCredentials: true
       });
 
@@ -61,7 +61,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
       // For now keeping existing tab logic but focusing on inside the order
       const orderIds = eligibleOrders.map((o: any) => o._id);
       if (orderIds.length > 0) {
-        const completedRes = await axios.post("http://localhost:3002/api/heating-record/completed-status", {
+        const completedRes = await axios.post("http://localhost:5000/api/heating-record/completed-status", {
             orderIds,
             prefix: "CT"
         }, { withCredentials: true });
@@ -86,7 +86,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
     try {
       // Pass includeApproved=true if we are in the completed tab
       const includeApproved = currentTab === 'completed';
-      const res = await axios.get(`http://localhost:3002/api/heating-record/transformers/${order._id}?includeApproved=${includeApproved}`, { withCredentials: true });
+      const res = await axios.get(`http://localhost:5000/api/heating-record/transformers/${order._id}?includeApproved=${includeApproved}`, { withCredentials: true });
       setTransformersList(Array.isArray(res.data.transformers) ? res.data.transformers : []);
     } catch (e) {
       console.error('Failed to fetch transformers for order', e);
@@ -276,7 +276,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
         isApproveCall: isApprove
       };
 
-      const res = await axios.post(`http://localhost:3002/api/heating-record/save/${selectedTransformer.uniqueId}`, payload, { withCredentials: true });
+      const res = await axios.post(`http://localhost:5000/api/heating-record/save/${selectedTransformer.uniqueId}`, payload, { withCredentials: true });
       
       if (res.data.success) {
           alert(isApprove ? "Heating Approved Successfully!" : "Heating Record Saved Successfully!");
@@ -303,7 +303,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
     if (!window.confirm("Are you sure you want to approve this heating record and move it to Final Test?")) return;
     try {
       setSaving(true);
-      await axios.post(`http://localhost:3002/api/heating-record/save/${uniqueId}`, {
+      await axios.post(`http://localhost:5000/api/heating-record/save/${uniqueId}`, {
         isApproveCall: true
       }, { withCredentials: true });
       alert("Heating Approved Successfully! Transformer sent to Final Stage.");

@@ -54,7 +54,7 @@ export function AdminReportViewPage() {
         setLoading(true);
         try {
             // First fetch the basic transformer info
-            const res = await axios.get(`http://localhost:3002/api/reports/${id}?stage=${type}`, {
+            const res = await axios.get(`http://localhost:5000/api/reports/${id}?stage=${type}`, {
                 withCredentials: true
             });
             
@@ -95,7 +95,7 @@ export function AdminReportViewPage() {
                     const jobId = fetchedTransformer.jobId;
                     if (jobId) {
                         try {
-                            const coreRes = await axios.get(`http://localhost:3002/api/core-tests/report/${jobId}`, {
+                            const coreRes = await axios.get(`http://localhost:5000/api/core-tests/report/${jobId}`, {
                                 withCredentials: true
                             });
                             if (coreRes.data) {

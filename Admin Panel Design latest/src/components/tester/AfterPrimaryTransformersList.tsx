@@ -70,7 +70,7 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
       setError(null);
       try {
         const orderId = order._id;
-        const response = await axios.get(`http://localhost:3002/api/orders/${orderId}/transformers`, {
+        const response = await axios.get(`http://localhost:5000/api/orders/${orderId}/transformers`, {
           withCredentials: true
         });
 
@@ -287,7 +287,7 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
     try {
       if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Heating?`)) return;
 
-      const response = await axios.put(`http://localhost:3002/api/transformers/${transformer.uniqueId}/approve-stage`, {
+      const response = await axios.put(`http://localhost:5000/api/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'primary',
         nextStage: 'heating'
       }, { withCredentials: true });

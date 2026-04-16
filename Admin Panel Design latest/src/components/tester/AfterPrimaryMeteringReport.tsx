@@ -39,7 +39,7 @@ export function AfterPrimaryMeteringReport({
   useEffect(() => {
     const fetchLimits = async () => {
       try {
-        const response = await axios.get('http://localhost:3002/api/accuracy-limits/metering', { withCredentials: true });
+        const response = await axios.get('http://localhost:5000/api/accuracy-limits/metering', { withCredentials: true });
         setDbLimits(response.data);
       } catch (error) {
         console.error('Failed to fetch dynamic metering limits', error);
@@ -78,7 +78,7 @@ export function AfterPrimaryMeteringReport({
   useEffect(() => {
     const fetchLatestData = async () => {
       try {
-        const res = await axios.get(`http://localhost:3002/api/transformers/${transformer.uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`http://localhost:5000/api/transformers/${transformer.uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
 
         if (freshTransformer?.testHistory?.primary_test?.metering_results?.length > 0) {
@@ -169,7 +169,7 @@ export function AfterPrimaryMeteringReport({
       console.log("handleDatabaseSave: Payload ready to send:", payload);
 
       const response = await axios.post(
-        "http://localhost:3002/transformer-primary-metering-tests",
+        "http://localhost:5000/transformer-primary-metering-tests",
         payload,
         { withCredentials: true }
       );
@@ -204,7 +204,7 @@ export function AfterPrimaryMeteringReport({
         failureStage: "primary_metering_test",
         dynamicValues: dataByRatio
       };
-      await axios.post('http://localhost:3002/api/failed-cores', payload, { withCredentials: true });
+      await axios.post('http://localhost:5000/api/failed-cores', payload, { withCredentials: true });
       toast.success("Core marked as failed successfully.");
     } catch (error: any) {
       console.error("Mark as failed error:", error);

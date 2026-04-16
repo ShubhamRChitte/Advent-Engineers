@@ -61,7 +61,7 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
 
   const fetchOrders = async () => {
     try {
-      const response = await axios.get('http://localhost:3002/api/admin/orders', {
+      const response = await axios.get('http://localhost:5000/api/admin/orders', {
         withCredentials: true
       });
       // Map API response to match interface if needed, or ensure backend sends orderId
@@ -86,7 +86,7 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
   const handleApprove = async (orderId: string, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent row click or expansion
     try {
-      const response = await axios.put(`http://localhost:3002/api/orders/${orderId}/approve`, {}, {
+      const response = await axios.put(`http://localhost:5000/api/orders/${orderId}/approve`, {}, {
         withCredentials: true
       });
       if (response.data.success) {
