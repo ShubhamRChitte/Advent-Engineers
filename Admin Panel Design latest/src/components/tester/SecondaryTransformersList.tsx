@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { ArrowLeft, PlayCircle, Loader2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, PlayCircle, Loader2, CheckCircle, FileText } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -82,7 +82,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
       setError(null);
       try {
         const orderId = order._id;
-        const response = await axios.get(`http://localhost:3002/api/orders/${orderId}/transformers`, {
+        const response = await axios.get(`http://localhost:5000/api/orders/${orderId}/transformers`, {
           withCredentials: true
         });
 
@@ -153,23 +153,35 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
             const requiredCount = coresList.filter(c => c.coreType === type).length;
             if (results.length < requiredCount) return false;
 
+            // Helper to check if a value is effectively "filled" (allowing 0)
+            const isFilled = (val: any) => val !== undefined && val !== null && String(val).trim() !== '';
+
             // And every result must be fully filled
             if (type === 'metering') {
               return results.every((res: any) =>
                 res.rows && res.rows.length > 0 && res.rows.every((row: any) =>
-                  row.r100 && row.p100 && row.r25 && row.p25
+                  isFilled(row.r100) && isFilled(row.p100) && isFilled(row.r25) && isFilled(row.p25)
                 )
               );
             } else if (type === 'protection') {
               return results.every((res: any) =>
-                res.ratioError100 && res.phaseError && res.resistance &&
-                (res.secondaryLimitingVoltage || res.secondaryLimitingVtg) &&
-                res.excitationCurrent && res.compositeError && res.alf
+                // Check new field names with legacy fallbacks
+                isFilled(res.ratioError100 || res.burden100_1) && 
+                isFilled(res.phaseError || res.burden100_2) && 
+                isFilled(res.resistance) &&
+                isFilled(res.secondaryLimitingVoltage || res.secondaryLimitingVtg) &&
+                isFilled(res.excitationCurrent) && 
+                isFilled(res.compositeError) && 
+                isFilled(res.alf)
               );
             } else if (type === 'ps') {
               return results.every((res: any) =>
-                res.turnRatioError && res.resistance && res.vk &&
-                res.vkVal && res.iexVk && res.iex11Vk
+                isFilled(res.turnRatioError) && 
+                isFilled(res.resistance) && 
+                isFilled(res.vk) &&
+                isFilled(res.vkVal) && 
+                isFilled(res.iexVk) && 
+                isFilled(res.iex11Vk)
               );
             }
             return true;
@@ -180,6 +192,17 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
           const psDone = requiredPsCount === 0 || checkStrictCompletion('ps', secTest.ps_results);
 
           const canApprove = meteringDone && protectionDone && psDone && t.currentStage === 'secondary';
+
+          if (!canApprove && secTest && t.currentStage === 'secondary' && (completedMeteringCount > 0 || completedProtectionCount > 0 || completedPsCount > 0)) {
+            console.log(`[DEBUG] Transformer ${t.uniqueId} cannot approve. Status:`, {
+                meteringDone,
+                protectionDone, 
+                psDone,
+                requiredM: requiredMeteringCount, completedM: completedMeteringCount,
+                requiredP: requiredProtectionCount, completedP: completedProtectionCount,
+                requiredPS: requiredPsCount, completedPS: completedPsCount
+            });
+          }
 
           // Refined Status Logic based on granular counts
           // Note: Ignoring `t.testHistory.secondary_test.status` because backend might set it prematurely.
@@ -310,7 +333,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
     try {
       if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Primary Testing?`)) return;
 
-      const response = await axios.put(`http://localhost:3002/api/transformers/${transformer.uniqueId}/approve-stage`, {
+      const response = await axios.put(`http://localhost:5000/api/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'secondary',
         nextStage: 'primary'
       }, { withCredentials: true });
@@ -475,25 +498,29 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
                               id.endsWith(typeSuffix) || id.includes(typeSuffix);
                           });
 
-                          // 2. Strict Check: Are there results AND are they fully filled?
+                          // 2. Strict Check: Are there results AND are they fully filled? (Allowing 0)
+                          const isFilled = (val: any) => val !== undefined && val !== null && String(val).trim() !== '';
                           let isCompleted = false;
                           if (coreResults.length > 0) {
                             if (core.coreType === 'metering') {
                               isCompleted = coreResults.every((res: any) =>
                                 res.rows && res.rows.length > 0 && res.rows.every((row: any) =>
-                                  row.r100 && row.p100 && row.r25 && row.p25
+                                  isFilled(row.r100) && isFilled(row.p100) && isFilled(row.r25) && isFilled(row.p25)
                                 )
                               );
                             } else if (core.coreType === 'protection') {
                               isCompleted = coreResults.every((res: any) =>
-                                res.ratioError100 && res.phaseError && res.resistance &&
-                                (res.secondaryLimitingVoltage || res.secondaryLimitingVtg) &&
-                                res.excitationCurrent && res.compositeError && res.alf
+                                isFilled(res.ratioError100 || res.burden100_1) && 
+                                isFilled(res.phaseError || res.burden100_2) && 
+                                isFilled(res.resistance) &&
+                                isFilled(res.secondaryLimitingVoltage || res.secondaryLimitingVtg) &&
+                                isFilled(res.excitationCurrent) && 
+                                isFilled(res.compositeError) && isFilled(res.alf)
                               );
                             } else if (core.coreType === 'ps') {
                               isCompleted = coreResults.every((res: any) =>
-                                res.turnRatioError && res.resistance && res.vk &&
-                                res.vkVal && res.iexVk && res.iex11Vk
+                                isFilled(res.turnRatioError) && isFilled(res.resistance) && isFilled(res.vk) &&
+                                isFilled(res.vkVal) && isFilled(res.iexVk) && isFilled(res.iex11Vk)
                               );
                             }
                           }
@@ -521,13 +548,19 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
                       <div className="flex justify-center">
                         <Button
                           size="sm"
-                          onClick={() => onStartTest(transformer)}
-                          className={transformer.status === 'completed' ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"}
+                          onClick={() => {
+                            if (transformer.status === 'completed') {
+                              window.location.href = `/admin/report/${transformer.id}?type=secondary`;
+                            } else {
+                              onStartTest(transformer);
+                            }
+                          }}
+                          className={transformer.status === 'completed' ? "bg-green-600 hover:bg-green-700 font-medium" : "bg-blue-600 hover:bg-blue-700"}
                           disabled={false} // Always allow viewing
                         >
                           {transformer.status === 'completed' ? (
                             <>
-                              <CheckCircle className="w-4 h-4 mr-2" /> View Report
+                              <FileText className="w-4 h-4 mr-2" /> View Report
                             </>
                           ) : (
                             <>

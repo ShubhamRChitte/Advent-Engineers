@@ -44,7 +44,7 @@ export function FinalOrdersList({ onStartTesting }: FinalOrdersListProps) {
       // Assuming the backend handles "Final" stage filtering based on the logged-in user's role 
       // or returns all assigned orders which we might need to filter if the backend doesn't.
       // For now, mirroring SecondaryOrdersList behavior.
-      const response = await axios.get("http://localhost:3002/api/assigneed_orders", {
+      const response = await axios.get("http://localhost:5000/api/assigneed_orders", {
         withCredentials: true
       });
       setOrders(response.data);

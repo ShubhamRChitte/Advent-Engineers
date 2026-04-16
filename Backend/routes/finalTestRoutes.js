@@ -194,7 +194,7 @@ router.post('/:id/generate-save', isAuthenticated, async (req, res) => {
         transformer.testHistory = transformer.testHistory || {};
         transformer.testHistory.final_test = {
             ...transformer.testHistory.final_test,
-            status: "Completed",
+            status: "In Progress", // Decoupled from stage transition
             tester: testerName,
             polarityResult: payload.polarityResult,
             hvSecondaryWinding: payload.hvSecondaryWinding,
@@ -208,15 +208,14 @@ router.post('/:id/generate-save', isAuthenticated, async (req, res) => {
             timestamp: new Date()
         };
 
-        if (transformer.currentStage === "final") {
-            transformer.currentStage = "shipped";
-        }
+        // Automatic stage transition removed. 
+        // Must be approved via /api/transformers/:uniqueId/approve-stage now.
 
         await transformer.save();
 
         res.json({
             success: true,
-            message: "Final report data saved and transformer marked as completed."
+            message: "Final report data saved. Unit is now ready for Approval."
         });
 
     } catch (error) {

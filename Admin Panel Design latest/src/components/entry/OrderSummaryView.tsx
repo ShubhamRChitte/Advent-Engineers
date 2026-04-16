@@ -62,14 +62,7 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
           <p className="text-gray-500 mt-1">Review all details before saving the order</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-2">
-            <Printer className="w-4 h-4" />
-            Print
-          </Button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Download className="w-4 h-4" />
-            Export
-          </Button>
+          {/* Buttons removed as requested */}
         </div>
       </div>
 
@@ -95,10 +88,6 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
           <Card className="p-6">
             <h3 className="mb-4 pb-3 border-b-2 border-gray-200">Order Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Order ID</p>
-                <p className="font-medium font-mono">{orderData.orderId}</p>
-              </div>
               <div>
                 <p className="text-sm text-gray-500 mb-1">Order Date</p>
                 <div className="flex items-center gap-2">
@@ -138,22 +127,10 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
                 <p className="text-sm text-gray-600 mt-1">{transformerType}</p>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <div>
-                  <p className="text-sm text-gray-500">Capacity</p>
-                  <p className="font-medium">{capacity}</p>
-                </div>
+              <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
                 <div>
                   <p className="text-sm text-gray-500">Voltage</p>
                   <p className="font-medium">{voltageRating}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Phase</p>
-                  <p className="font-medium">{phase}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Serial Number</p>
-                  <p className="font-medium font-mono">{serialNumber}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Number of Cores</p>
@@ -226,54 +203,45 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
           </Card>
 
           {/* Selected Vendors */}
-          {(orderData.metering_core_vendors?.length > 0 ||
-            orderData.protection_core_vendors?.length > 0 ||
-            orderData.ps_core_vendors?.length > 0) && (
+          {(orderData.coreVendors?.metering?.length > 0 ||
+            orderData.coreVendors?.protection?.length > 0 ||
+            orderData.coreVendors?.ps?.length > 0) && (
               <Card className="p-6">
                 <h3 className="mb-4 pb-3 border-b-2 border-gray-200">Core Vendors</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {orderData.metering_core_vendors?.length > 0 && (
+                  {orderData.coreVendors?.metering?.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-sm text-gray-500">Metering Core Vendors</p>
                       <div className="flex flex-wrap gap-2">
-                        {orderData.metering_core_vendors.map((vId: string) => {
-                          const vendor = (orderData.allVendors || []).find((v: any) => v._id === vId || v.id === vId);
-                          return (
-                            <Badge key={vId} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 h-auto">
-                              {vendor ? `${vendor.vendor_no} - ${vendor.vendor_name}` : 'Vendor Loading...'}
-                            </Badge>
-                          );
-                        })}
+                        {orderData.coreVendors.metering.map((v: any, index: number) => (
+                          <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 h-auto">
+                            {v.serialNo} - {v.name}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
                   )}
-                  {orderData.protection_core_vendors?.length > 0 && (
+                  {orderData.coreVendors?.protection?.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-sm text-gray-500">Protection Core Vendors</p>
                       <div className="flex flex-wrap gap-2">
-                        {orderData.protection_core_vendors.map((vId: string) => {
-                          const vendor = (orderData.allVendors || []).find((v: any) => v._id === vId || v.id === vId);
-                          return (
-                            <Badge key={vId} variant="outline" className="bg-green-50 text-green-700 border-green-200 h-auto">
-                              {vendor ? `${vendor.vendor_no} - ${vendor.vendor_name}` : 'Vendor Loading...'}
-                            </Badge>
-                          );
-                        })}
+                        {orderData.coreVendors.protection.map((v: any, index: number) => (
+                          <Badge key={index} variant="outline" className="bg-green-50 text-green-700 border-green-200 h-auto">
+                            {v.serialNo} - {v.name}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
                   )}
-                  {orderData.ps_core_vendors?.length > 0 && (
+                  {orderData.coreVendors?.ps?.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-sm text-gray-500">PS Core Vendors</p>
                       <div className="flex flex-wrap gap-2">
-                        {orderData.ps_core_vendors.map((vId: string) => {
-                          const vendor = (orderData.allVendors || []).find((v: any) => v._id === vId || v.id === vId);
-                          return (
-                            <Badge key={vId} variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 h-auto">
-                              {vendor ? `${vendor.vendor_no} - ${vendor.vendor_name}` : 'Vendor Loading...'}
-                            </Badge>
-                          );
-                        })}
+                        {orderData.coreVendors.ps.map((v: any, index: number) => (
+                          <Badge key={index} variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 h-auto">
+                            {v.serialNo} - {v.name}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
                   )}

@@ -11,13 +11,33 @@ router.get('/order/:orderId', isAuthenticated, async (req, res) => {
         const { orderId } = req.params;
         const { MeteringCoreTestModel } = require('../models/MeteringCoreTestModel');
         const { ProtectionCoreTestModel } = require('../models/ProtectionCoreTestModel');
+        
+        const mongoose = require('mongoose');
+        let queryOrderId = orderId;
+        if (mongoose.Types.ObjectId.isValid(orderId)) {
+            queryOrderId = new mongoose.Types.ObjectId(orderId);
+        }
+
+        // Fetch Order to get jobId for triple-match
+        const order = await OrderModel.findOne({ 
+            $or: [{ _id: queryOrderId }, { jobId: orderId }] 
+        }).lean();
+        const jobNo = order ? order.jobId : (orderId.startsWith('JOB-') ? orderId : null);
+
+        const tripleQuery = {
+            $or: [
+                { orderId: queryOrderId },
+                { orderId: orderId.toString() },
+                ...(jobNo ? [{ jobId: jobNo }] : [])
+            ]
+        };
 
         // 1. Fetch Transformers
-        const transformers = await TransformerModel.find({ orderId }).populate('orderId').lean();
+        const transformers = await TransformerModel.find(tripleQuery).populate('orderId').sort({ internalCoreNo: 1 }).lean();
 
         // 2. Fetch Core Test Data
-        const meteringTests = await MeteringCoreTestModel.find({ orderId }).lean();
-        const protectionTests = await ProtectionCoreTestModel.find({ orderId }).lean();
+        const meteringTests = await MeteringCoreTestModel.find(tripleQuery).lean();
+        const protectionTests = await ProtectionCoreTestModel.find(tripleQuery).lean();
 
         // 3. Attach Readings to Transformers
         const transformersWithReadings = transformers.map(transformer => {
@@ -172,10 +192,15 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
 
             // --- GLOBAL ORDER STAGE TRANSITION ---
             // Check if ALL units in the entire order have moved beyond the current stage
-            const pendingTotalCount = await TransformerModel.countDocuments({
-                orderId: order._id,
+            const tripleQuery = {
+                $or: [
+                    { orderId: order._id },
+                    { orderId: order._id.toString() },
+                    { jobId: order.jobId }
+                ],
                 currentStage: stage
-            });
+            };
+            const pendingTotalCount = await TransformerModel.countDocuments(tripleQuery);
 
             if (pendingTotalCount === 0) {
                 console.log(`Order ${order.jobId} transitioning from ${stage} to ${nextStage}`);
@@ -185,14 +210,21 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
                     if (stage === 'core') order.completionStages.core = true;
                     if (stage === 'secondary') order.completionStages.secondary = true;
                     if (stage === 'primary') order.completionStages.primary = true;
+                    if (stage === 'heating') order.completionStages.heating = true;
                     if (stage === 'final') order.completionStages.final = true;
                 }
+
+                const { clearNotifications, notifyNextStage } = require('../services/notificationService');
+                
+                // Clear notifications for the current stage/order
+                await clearNotifications(order._id, stage);
 
                 if (stage === 'final') {
                     order.currentStage = 'completed';
                     order.status = 'Completed';
                 } else {
                     order.currentStage = nextStage;
+                    await notifyNextStage(order, nextStage);
                 }
             }
 

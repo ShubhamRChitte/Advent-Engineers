@@ -59,7 +59,7 @@ export function CoreOrdersList({ onStartTesting, onViewReports, user, type = 'ac
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:3002/api/assigneed_orders', {
+      const response = await axios.get('http://localhost:5000/api/assigneed_orders', {
         params: { type },
         withCredentials: true
       });

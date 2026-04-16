@@ -15,7 +15,7 @@ export function AdminSidebar({ activeView, setActiveView }: AdminSidebarProps) {
   useEffect(() => {
     const fetchCount = async () => {
       try {
-        const res = await axios.get('http://localhost:3002/api/failed-cores/count', { withCredentials: true });
+        const res = await axios.get('http://localhost:5000/api/failed-cores/count', { withCredentials: true });
         if (res.data.success) {
           setFailedCount(res.data.count);
         }

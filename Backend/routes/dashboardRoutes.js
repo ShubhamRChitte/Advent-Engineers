@@ -15,11 +15,9 @@ router.get('/tester-stats', async (req, res) => {
         const stageMap = {
             'core-tester': 'core',
             'secondary-tester': 'secondary',
-            'after-primary-tester': 'primary', // Note: role is 'after-primary-tester' but stage is 'primary' in DB? Or 'primary_test'?
-            // Standardizing map based on DB schema
-            // DB Stage Enum: ["core", "secondary", "primary", "final", "shipped"]
-            // DB History Keys: core_test, secondary_test, primary_test, final_test
-            'final-tester': 'final'
+            'after-primary-tester': 'primary',
+            'final-tester': 'final',
+            'pt-tester': 'pt'
         };
 
         const stage = stageMap[role];
@@ -30,34 +28,18 @@ router.get('/tester-stats', async (req, res) => {
         // So 'secondary' -> 'secondary_test'.
         // 'primary' -> 'primary_test'.
 
-        const dbStageVal = stage; // e.g. 'core'
-        const dbHistoryKey = `${stage}_test`; // e.g. 'core_test'
+        const dbStageVal = stage;
+        const dbHistoryKey = `${stage}_test`;
 
-        // 1. Active Tests
-        // Logic: Transformers currently at this stage.
-        // Refinement: If assigned, check assignment. For Dashboard "Active Tests" count, usually means "Available to work on".
-        // Let's filter by currentStage = stage.
-        // Optional: Filter by specific assignment if userName provided.
+        // 1. Active Tests: Transformers currently at this stage AND assigned to this specific user (or unassigned if we want to show available)
         const activeQuery = { currentStage: dbStageVal };
-        if (userName) {
-            // Add granular assignment check similar to tasks route using generic 'assignments.stage_tester'
-            // const assignmentField = `assignments.${stage}_tester`;
-            // activeQuery.$or = [
-            //    { [assignmentField]: userName },
-            //    { [assignmentField]: null }, // Unassigned
-            //    { [assignmentField]: { $exists: false } }
-            // ];
-            // Simplified for dashboard stats: All in stage.
+        if (userName && userName !== 'undefined') {
+            activeQuery[`assignments.${stage}_tester`] = userName;
         }
         const activeTests = await TransformerModel.countDocuments(activeQuery);
 
 
-        // 2. Completed Tests (Month)
-        // Logic: testHistory.stage.status = 'Completed'
-        /* 
-           Note: We want "Tests this month". 
-           Need to filter by timestamp in history.
-        */
+        // 2. Completed Tests (Month): Count tests completed by this user this month
         const startOfMonth = new Date();
         startOfMonth.setDate(1);
         startOfMonth.setHours(0, 0, 0, 0);
@@ -66,17 +48,23 @@ router.get('/tester-stats', async (req, res) => {
             [`testHistory.${dbHistoryKey}.status`]: 'Completed',
             [`testHistory.${dbHistoryKey}.timestamp`]: { $gte: startOfMonth }
         };
-        // If we want ONLY this user's completions:
-        // completedQuery[`testHistory.${dbHistoryKey}.tester`] = userName; // Optional strictness
+        
+        if (userName && userName !== 'undefined') {
+            completedQuery[`testHistory.${dbHistoryKey}.tester`] = userName;
+        }
 
         const completedTests = await TransformerModel.countDocuments(completedQuery);
 
 
-        // 3. Recent Activity
-        // Fetch last 5 interactions for this stage
-        const recentTransformers = await TransformerModel.find({
+        // 3. Recent Activity: Fetch last 5 interactions for this stage by this user
+        const recentQuery = {
             [`testHistory.${dbHistoryKey}.timestamp`]: { $exists: true }
-        })
+        };
+        if (userName && userName !== 'undefined') {
+            recentQuery[`testHistory.${dbHistoryKey}.tester`] = userName;
+        }
+
+        const recentTransformers = await TransformerModel.find(recentQuery)
             .sort({ [`testHistory.${dbHistoryKey}.timestamp`]: -1 })
             .limit(5)
             .populate('orderId', 'clientName')
@@ -84,14 +72,14 @@ router.get('/tester-stats', async (req, res) => {
 
         const recentActivity = recentTransformers.map(t => {
             const history = t.testHistory[dbHistoryKey];
-            const isCompleted = history.status === 'Completed';
+            const isCompleted = history?.status === 'Completed';
             return {
                 id: t.uniqueId,
                 jobId: t.jobId,
                 client: t.orderId ? t.orderId.clientName : 'Unknown Client',
-                status: isCompleted ? 'Completed' : 'In Progress', // Logic check
-                time: history.timestamp,
-                details: `${t.uniqueId} - ${isCompleted ? 'Test Completed' : 'Updated'}`
+                status: isCompleted ? 'Completed' : 'Updated',
+                time: history?.timestamp,
+                details: `${t.uniqueId} - ${isCompleted ? 'Test Completed' : 'Progress Updated'}`
             };
         });
 

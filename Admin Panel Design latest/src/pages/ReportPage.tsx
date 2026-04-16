@@ -29,7 +29,7 @@ export function ReportPage() {
     const fetchReport = async (jobId: string) => {
         try {
             setLoading(true);
-            const res = await axios.get(`http://localhost:3002/api/core-tests/report/${jobId}`, {
+            const res = await axios.get(`http://localhost:5000/api/core-tests/report/${jobId}`, {
                 withCredentials: true,
             });
 

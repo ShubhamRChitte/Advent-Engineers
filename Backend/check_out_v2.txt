@@ -1,0 +1,15 @@
+[dotenv@17.3.1] injecting env (4) from .env -- tip: ???? agentic secret storage: https://dotenvx.com/as2
+Transformers found: 2
+TR: TR-JOB-2026-138-001
+- orderId value: 69ca94d646d6fe4815d4722f
+- orderId type: object
+- is ObjectId: true
+- currentStage: shipped
+- primary test status: Completed
+TR: TR-JOB-2026-138-002
+- orderId value: 69ca94d646d6fe4815d4722f
+- orderId type: object
+- is ObjectId: true
+- currentStage: primary
+- primary test status: Pending
+

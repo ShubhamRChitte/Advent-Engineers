@@ -8,7 +8,7 @@ interface PTReportViewProps {
   onBack: () => void;
 }
 
-export function PTReportView({ transformer, order, onBack }: PTReportViewProps) {
+export function PTReportView({ transformer, order, onBack, readOnly = false }: PTReportViewProps & { readOnly?: boolean }) {
   const reportData = transformer?.testHistory?.pt_test || {};
 
   // Find if Config B (1 Metering, 2 Protection)
@@ -28,16 +28,18 @@ export function PTReportView({ transformer, order, onBack }: PTReportViewProps) 
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between no-print">
-            <Button onClick={onBack} variant="outline" className="gap-2">
-                <ArrowLeft className="w-4 h-4" />
-                Back
-            </Button>
-            <Button onClick={() => window.print()} className="bg-[#003a70] hover:bg-[#002850] gap-2">
-                <Printer className="w-4 h-4" />
-                Print Report
-            </Button>
-        </div>
+        {!readOnly && (
+            <div className="flex items-center justify-between no-print">
+                <Button onClick={onBack} variant="outline" className="gap-2">
+                    <ArrowLeft className="w-4 h-4" />
+                    Back
+                </Button>
+                <Button onClick={() => window.print()} className="bg-[#003a70] hover:bg-[#002850] gap-2">
+                    <Printer className="w-4 h-4" />
+                    Print Report
+                </Button>
+            </div>
+        )}
 
         {/* PRINTABLE REPORT FORMAT */}
         <div className="bg-white p-8 rounded-lg border border-gray-300 shadow-sm max-w-[800px] mx-auto text-sm" id="printable-report">
@@ -167,12 +169,10 @@ export function PTReportView({ transformer, order, onBack }: PTReportViewProps) 
                             <tr key={row.id}>
                                 <td className="border border-black p-1 text-center">{row.id}</td>
                                 <td className="border border-black p-1 pl-4">{row.label}</td>
-                                <td className="border border-black p-0">
-                                    <Input 
-                                        className={`h-6 border-none shadow-none text-center bg-transparent w-full ${['OK', '10 GΩ'].includes(reportData.finalTesting?.[row.field]) ? 'text-blue-600' : ''}`}
-                                        value={reportData.finalTesting?.[row.field] || ''} 
-                                        readOnly
-                                    />
+                                <td className="border border-black p-0 h-7">
+                                    <div className={`text-center text-xs font-medium ${['OK', '10 GΩ'].includes(reportData.finalTesting?.[row.field]) ? 'text-blue-600' : ''}`}>
+                                        {reportData.finalTesting?.[row.field] || '-'}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -201,10 +201,10 @@ export function PTReportView({ transformer, order, onBack }: PTReportViewProps) 
                         {['120', '100', '80'].map((perc) => (
                             <tr key={perc}>
                                 <td className="border border-black p-1 text-center">{perc}%</td>
-                                <td className="border border-black p-0"><Input className="h-7 border-none shadow-none text-center text-blue-600 bg-transparent" value={reportData.accuracyTest?.[perc]?.ratioError100 || ''} readOnly /></td>
-                                <td className="border border-black p-0"><Input className="h-7 border-none shadow-none text-center text-blue-600 bg-transparent" value={reportData.accuracyTest?.[perc]?.phaseError100 || ''} readOnly /></td>
-                                <td className="border border-black p-0"><Input className="h-7 border-none shadow-none text-center text-blue-600 bg-transparent" value={reportData.accuracyTest?.[perc]?.ratioError25 || ''} readOnly /></td>
-                                <td className="border border-black p-0"><Input className="h-7 border-none shadow-none text-center text-blue-600 bg-transparent" value={reportData.accuracyTest?.[perc]?.phaseError25 || ''} readOnly /></td>
+                                <td className="border border-black p-1 h-7 text-center text-blue-600 text-xs font-medium">{reportData.accuracyTest?.[perc]?.ratioError100 || '-'}</td>
+                                <td className="border border-black p-1 h-7 text-center text-blue-600 text-xs font-medium">{reportData.accuracyTest?.[perc]?.phaseError100 || '-'}</td>
+                                <td className="border border-black p-1 h-7 text-center text-blue-600 text-xs font-medium">{reportData.accuracyTest?.[perc]?.ratioError25 || '-'}</td>
+                                <td className="border border-black p-1 h-7 text-center text-blue-600 text-xs font-medium">{reportData.accuracyTest?.[perc]?.phaseerror25 || reportData.accuracyTest?.[perc]?.phaseError25 || '-'}</td>
                             </tr>
                         ))}
                     </tbody>

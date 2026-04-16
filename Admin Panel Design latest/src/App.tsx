@@ -5,6 +5,7 @@ import { EntryOperatorLayout } from './components/entry/EntryOperatorLayout';
 import { TesterLayout } from './components/tester/TesterLayout';
 import { Toaster } from 'sonner';
 import { ReportPage } from './pages/ReportPage';
+import { AdminReportViewPage } from './pages/AdminReportViewPage';
 
 export interface User {
   id: string;
@@ -16,13 +17,18 @@ export interface User {
 }
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    const savedUser = localStorage.getItem('user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
 
   const handleLogin = (userData: User) => {
+    localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('user');
     setUser(null);
   };
 
@@ -38,6 +44,27 @@ export default function App() {
 
   if (!user) {
     return <LoginPage onLogin={handleLogin} />;
+  }
+
+  // Admin/Operator/Tester Protected Route for Reports
+  const isReportPath = window.location.pathname.startsWith('/admin/report/');
+  const isAuthorizedRole = user && [
+    'admin', 
+    'entry-operator', 
+    'core-tester', 
+    'secondary-tester', 
+    'after-primary-tester', 
+    'final-tester', 
+    'pt-tester'
+  ].includes(user.role);
+
+  if (isReportPath && isAuthorizedRole) {
+    return (
+      <>
+        <AdminReportViewPage />
+        <Toaster />
+      </>
+    );
   }
 
   // Route based on user role

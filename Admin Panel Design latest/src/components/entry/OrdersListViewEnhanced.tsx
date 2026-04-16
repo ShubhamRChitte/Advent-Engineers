@@ -15,7 +15,6 @@ import {
   Package,
   User,
   Filter,
-  Download,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -43,14 +42,26 @@ interface OrdersListViewEnhancedProps {
 export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrder, _setSelectedOrder] = useState<Order | null>(() => {
+    const saved = localStorage.getItem('selectedOrder');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const setSelectedOrder = (order: Order | null) => {
+    if (order) {
+      localStorage.setItem('selectedOrder', JSON.stringify(order));
+    } else {
+      localStorage.removeItem('selectedOrder');
+    }
+    _setSelectedOrder(order);
+  };
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchOrders = async () => {
     try {
-      const response = await axios.get('http://localhost:3002/api/admin/orders', {
+      const response = await axios.get('http://localhost:5000/api/admin/orders', {
         withCredentials: true
       });
       // Map API response to match interface if needed, or ensure backend sends orderId
@@ -75,7 +86,7 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
   const handleApprove = async (orderId: string, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent row click or expansion
     try {
-      const response = await axios.put(`http://localhost:3002/api/orders/${orderId}/approve`, {}, {
+      const response = await axios.put(`http://localhost:5000/api/orders/${orderId}/approve`, {}, {
         withCredentials: true
       });
       if (response.data.success) {
@@ -188,10 +199,6 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
           <h2>Orders List</h2>
           <p className="text-gray-500 mt-1">View and manage all transformer orders with status tracking</p>
         </div>
-        <Button variant="outline" className="gap-2" onClick={fetchOrders}>
-          <Download className="w-4 h-4" />
-          Refresh List
-        </Button>
       </div>
 
       {/* Stats Cards */}

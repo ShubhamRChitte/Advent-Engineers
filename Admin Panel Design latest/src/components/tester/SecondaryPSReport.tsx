@@ -585,11 +585,13 @@ interface SecondaryPSReportProps {
   accuracyClass?: string | undefined;
 }
 
-export function SecondaryPSReport({ transformer, coreId, testerName, onBack, readOnly = false, stage = 'secondary', accuracyClass }: SecondaryPSReportProps) {
+export function SecondaryPSReport({ transformer, coreId, testerName, onBack, readOnly = false, stage = 'secondary', accuracyClass: explicitClass }: SecondaryPSReportProps) {
   // Use dynamic ratios from transformer, fallback if missing
   const dynamicRatios = (transformer as any).ratios && (transformer as any).ratios.length > 0
     ? (transformer as any).ratios
     : ((transformer as any).orderId?.ratio || ['200/1']);
+
+  const [accuracyClass, setAccuracyClass] = useState<string>(() => explicitClass || 'PS');
 
   const [psData, setPsData] = useState<PSRow[]>(() => {
     const initial = dynamicRatios.map((ratio: string) => ({
@@ -639,7 +641,7 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
   React.useEffect(() => {
     const fetchLimit = async () => {
       try {
-        const response = await axios.get('http://localhost:3002/api/accuracy-limits/ps', { withCredentials: true });
+        const response = await axios.get('http://localhost:5000/api/accuracy-limits/ps', { withCredentials: true });
         if (response.data && response.data.length > 0) {
           setPsLimit(response.data[0]);
         }
@@ -654,7 +656,7 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
   React.useEffect(() => {
     const fetchLatestData = async () => {
       try {
-        const res = await axios.get(`http://localhost:3002/api/transformers/${(transformer as any).uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`http://localhost:5000/api/transformers/${(transformer as any).uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
 
         // Dynamic Path
@@ -682,6 +684,10 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
               }
 
               if (savedRow) {
+                if (savedRow.accuracyClass && savedRow.accuracyClass !== 'N/A' && savedRow.accuracyClass !== accuracyClass) {
+                  setAccuracyClass(savedRow.accuracyClass);
+                }
+
                 console.log("Loading PS Row Data:", savedRow); // DEBUG LOG
                 return {
                   ...row,
@@ -753,7 +759,7 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
 
       console.log("handleDatabaseSave (PS): Payload ready", payload);
 
-      const endpoint = `http://localhost:3002/transformer-${stage}-ps-tests`;
+      const endpoint = `http://localhost:5000/transformer-${stage}-ps-tests`;
 
       // 2. Execute POST request
       const response = await axios.post(
@@ -839,7 +845,7 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
 
       console.log("[DEBUG] Frontend Failed Core Payload:", payload);
 
-      await axios.post(`http://localhost:3002/api/failed-cores`, payload, { withCredentials: true });
+      await axios.post(`http://localhost:5000/api/failed-cores`, payload, { withCredentials: true });
       toast.success("Added to Failed Cores successfully!");
     } catch (error: any) {
       console.error("Mark as failed error:", error);
@@ -975,49 +981,33 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
             size: A4 portrait;
             margin: 10mm;
           }
-          body * {
-            visibility: hidden;
-          }
-          #print-section, #print-section * {
-            visibility: visible;
-          }
           #print-section {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 190mm;
-          }
-          input, select {
-            border: none !important;
-            background: transparent !important;
-            outline: none !important;
-            font-weight: 500 !important;
-            text-align: center !important;
             width: 100% !important;
-            color: black !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
         }
       `}</style>
-      <div className="flex items-center justify-between no-print">
-        <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
-          <ArrowLeft className="w-4 h-4" /> Back
-        </Button>
-        <div className="flex gap-2">
-          {!readOnly && hasFailures && (
-            <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
-              <AlertTriangle className="w-4 h-4" /> Add to Failed Cores
-            </Button>
-          )}
-          {!readOnly && (
+      {!readOnly && (
+        <div className="flex items-center justify-between no-print">
+          <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
+            <ArrowLeft className="w-4 h-4" /> Back
+          </Button>
+          <div className="flex gap-2">
+            {hasFailures && (
+              <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
+                <AlertTriangle className="w-4 h-4" /> Add to Failed Cores
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2" disabled={hasFailures}>
               <Save className="w-4 h-4" /> Save
             </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
-            <Printer className="w-4 h-4" /> Print
-          </Button>
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
+              <Printer className="w-4 h-4" /> Print
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div id="print-section">
         {/* Header Grid */}
@@ -1045,6 +1035,10 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
             <div className="header-field">
               <span className="field-label">Unit No :</span>
               <span className="field-value">{transformer.uniqueId}</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Class :</span>
+              <span className="field-value">{accuracyClass || 'PS'}</span>
             </div>
           </div>
         </div>
@@ -1117,56 +1111,93 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
                         PS Core Ratio - {row.ratioValue}
                       </td>
                       <td className="border border-gray-400 p-0" rowSpan={2}>
-                        <Input
-                          className={`border-none text-center h-16 shadow-none font-bold disabled:opacity-100 disabled:cursor-not-allowed ${row.turnRatioError && !isNaN(parseFloat(row.turnRatioError)) && !(parseFloat(row.turnRatioError) > -(psLimit?.psRatioErrorLimit ?? 0.25) && parseFloat(row.turnRatioError) < (psLimit?.psRatioErrorLimit ?? 0.25))
+                        {readOnly ? (
+                          <div className={`p-2 text-center font-bold text-xs h-16 flex items-center justify-center ${row.turnRatioError && !isNaN(parseFloat(row.turnRatioError)) && !(parseFloat(row.turnRatioError) > -(psLimit?.psRatioErrorLimit ?? 0.25) && parseFloat(row.turnRatioError) < (psLimit?.psRatioErrorLimit ?? 0.25))
                             ? 'text-red-700'
                             : 'text-blue-800'
-                            }`}
-                          value={row.turnRatioError}
-                          onChange={e => handleUpdate(i, 'turnRatioError', e.target.value)}
-                          disabled={readOnly}
-                        />
-                      </td>
-                      <td className="border border-gray-400 p-0" rowSpan={2}>
-                        <Input
-                          className="border-none text-center h-16 shadow-none text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
-                          value={row.resistance}
-                          onChange={e => handleUpdate(i, 'resistance', e.target.value)}
-                          disabled={readOnly}
-                        />
-                      </td>
-                      <td className="border border-gray-400 p-1 bg-white border-b-0 h-8">
-                        <div className="flex items-center w-full h-full">
-                          <span className="font-bold text-[#0070c0] mr-2 whitespace-nowrap">Vk :</span>
+                            }`}>
+                            {row.turnRatioError || '-'}
+                          </div>
+                        ) : (
                           <Input
-                            className="border-none text-[#0070c0] font-bold h-6 shadow-none flex-1 min-w-[60px] disabled:opacity-100 disabled:cursor-not-allowed"
-                            value={row.vk || ''}
-                            onChange={e => handleUpdate(i, 'vk', e.target.value)}
+                            className={`border-none text-center h-16 shadow-none font-bold disabled:opacity-100 disabled:cursor-not-allowed ${row.turnRatioError && !isNaN(parseFloat(row.turnRatioError)) && !(parseFloat(row.turnRatioError) > -(psLimit?.psRatioErrorLimit ?? 0.25) && parseFloat(row.turnRatioError) < (psLimit?.psRatioErrorLimit ?? 0.25))
+                              ? 'text-red-700'
+                              : 'text-blue-800'
+                              }`}
+                            value={row.turnRatioError}
+                            onChange={e => handleUpdate(i, 'turnRatioError', e.target.value)}
                             disabled={readOnly}
                           />
+                        )}
+                      </td>
+                      <td className="border border-gray-400 p-0" rowSpan={2}>
+                        {readOnly ? (
+                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-16 flex items-center justify-center">
+                            {row.resistance || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className="border-none text-center h-16 shadow-none text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
+                            value={row.resistance}
+                            onChange={e => handleUpdate(i, 'resistance', e.target.value)}
+                            disabled={readOnly}
+                          />
+                        )}
+                      </td>
+                      <td className="border border-gray-400 p-1 bg-white border-b-0 h-8">
+                        <div className="flex items-center w-full h-full min-h-[24px]">
+                          <span className="font-bold text-[#0070c0] mr-2 whitespace-nowrap text-xs">Vk :</span>
+                          {readOnly ? (
+                            <span className="text-[#0070c0] font-bold text-xs">{row.vk || '-'}</span>
+                          ) : (
+                            <Input
+                              className="border-none text-[#0070c0] font-bold h-6 shadow-none flex-1 min-w-[60px] disabled:opacity-100 disabled:cursor-not-allowed px-0"
+                              value={row.vk || ''}
+                              onChange={e => handleUpdate(i, 'vk', e.target.value)}
+                              disabled={readOnly}
+                            />
+                          )}
                         </div>
                       </td>
                       <td className="border border-gray-400 p-0" rowSpan={2}>
-                        <Input
-                          className={`border-none text-center h-16 shadow-none font-bold disabled:opacity-100 disabled:cursor-not-allowed ${row.iexVk && row.iex11Vk && !isNaN(parseFloat(row.iexVk)) && !isNaN(parseFloat(row.iex11Vk)) && !((parseFloat(row.iexVk) * (psLimit?.psExcitationMultiplier ?? 1.5)) > parseFloat(row.iex11Vk))
+                        {readOnly ? (
+                          <div className={`p-2 text-center font-bold text-xs h-16 flex items-center justify-center ${row.iexVk && row.iex11Vk && !isNaN(parseFloat(row.iexVk)) && !isNaN(parseFloat(row.iex11Vk)) && !((parseFloat(row.iexVk) * (psLimit?.psExcitationMultiplier ?? 1.5)) > parseFloat(row.iex11Vk))
                             ? 'text-red-700'
                             : 'text-blue-800'
-                            }`}
-                          value={row.iexVk}
-                          onChange={e => handleUpdate(i, 'iexVk', e.target.value)}
-                          disabled={readOnly}
-                        />
+                            }`}>
+                            {row.iexVk || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className={`border-none text-center h-16 shadow-none font-bold disabled:opacity-100 disabled:cursor-not-allowed ${row.iexVk && row.iex11Vk && !isNaN(parseFloat(row.iexVk)) && !isNaN(parseFloat(row.iex11Vk)) && !((parseFloat(row.iexVk) * (psLimit?.psExcitationMultiplier ?? 1.5)) > parseFloat(row.iex11Vk))
+                              ? 'text-red-700'
+                              : 'text-blue-800'
+                              }`}
+                            value={row.iexVk}
+                            onChange={e => handleUpdate(i, 'iexVk', e.target.value)}
+                            disabled={readOnly}
+                          />
+                        )}
                       </td>
                       <td className="border border-gray-400 p-0" rowSpan={2}>
-                        <Input
-                          className={`border-none text-center h-16 shadow-none font-bold disabled:opacity-100 disabled:cursor-not-allowed ${row.iexVk && row.iex11Vk && !isNaN(parseFloat(row.iexVk)) && !isNaN(parseFloat(row.iex11Vk)) && !((parseFloat(row.iexVk) * (psLimit?.psExcitationMultiplier ?? 1.5)) > parseFloat(row.iex11Vk))
+                        {readOnly ? (
+                          <div className={`p-2 text-center font-bold text-xs h-16 flex items-center justify-center ${row.iexVk && row.iex11Vk && !isNaN(parseFloat(row.iexVk)) && !isNaN(parseFloat(row.iex11Vk)) && !((parseFloat(row.iexVk) * (psLimit?.psExcitationMultiplier ?? 1.5)) > parseFloat(row.iex11Vk))
                             ? 'text-red-700'
                             : 'text-blue-800'
-                            }`}
-                          value={row.iex11Vk}
-                          onChange={e => handleUpdate(i, 'iex11Vk', e.target.value)}
-                          disabled={readOnly}
-                        />
+                            }`}>
+                            {row.iex11Vk || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className={`border-none text-center h-16 shadow-none font-bold disabled:opacity-100 disabled:cursor-not-allowed ${row.iexVk && row.iex11Vk && !isNaN(parseFloat(row.iexVk)) && !isNaN(parseFloat(row.iex11Vk)) && !((parseFloat(row.iexVk) * (psLimit?.psExcitationMultiplier ?? 1.5)) > parseFloat(row.iex11Vk))
+                              ? 'text-red-700'
+                              : 'text-blue-800'
+                              }`}
+                            value={row.iex11Vk}
+                            onChange={e => handleUpdate(i, 'iex11Vk', e.target.value)}
+                            disabled={readOnly}
+                          />
+                        )}
                       </td>
                       <td className="border border-gray-400 p-1 bg-white text-center align-middle font-bold" rowSpan={2}>
                         {(() => {
@@ -1181,15 +1212,19 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
                       </td>
                     </tr>
                     <tr className="border-b border-gray-400">
-                      <td className="border border-gray-400 p-1 bg-white h-8">
-                        <div className="flex items-center w-full h-full">
-                          <span className="font-bold text-[#0070c0] mr-2 whitespace-nowrap">1.1Vk :</span>
-                          <Input
-                            className="border-none text-[#0070c0] font-bold h-6 shadow-none flex-1 min-w-[60px] disabled:opacity-100 disabled:cursor-not-allowed"
-                            value={row.vkVal || ''}
-                            onChange={e => handleUpdate(i, 'vkVal', e.target.value)}
-                            disabled={readOnly}
-                          />
+                      <td className="border border-gray-400 p-1 bg-white h-8 border-t-0">
+                        <div className="flex items-center w-full h-full min-h-[24px]">
+                          <span className="font-bold text-[#0070c0] mr-2 whitespace-nowrap text-xs">1.1Vk :</span>
+                          {readOnly ? (
+                            <span className="text-[#0070c0] font-bold text-xs">{row.vkVal || '-'}</span>
+                          ) : (
+                            <Input
+                              className="border-none text-[#0070c0] font-bold h-6 shadow-none flex-1 min-w-[60px] disabled:opacity-100 disabled:cursor-not-allowed px-0"
+                              value={row.vkVal || ''}
+                              onChange={e => handleUpdate(i, 'vkVal', e.target.value)}
+                              disabled={readOnly}
+                            />
+                          )}
                         </div>
                       </td>
                     </tr>

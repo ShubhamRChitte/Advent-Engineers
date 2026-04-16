@@ -16,11 +16,8 @@ import {
   Clock,
   XCircle,
   AlertCircle,
-  Printer,
-  Play,
 } from 'lucide-react';
-import { CoreTestingInitiation } from '../testing/CoreTestingInitiation';
-import { TestReportModal } from '../common/TestReportModal';
+
 
 interface TransformerUnit {
   id: string;
@@ -28,13 +25,15 @@ interface TransformerUnit {
   coreTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
   secondaryTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
   primaryTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
+  heatingStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
   finalTestStatus: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
   ptTestStatus?: 'Complete' | 'Pending' | 'In Progress' | 'Rejected';
   reportStatus: 'Open' | 'In Progress' | 'Pending';
 }
 
 interface Order {
-  id: string;
+  id: string;      // Frontend internal ID
+  _id: string;     // Backend MongoDB ID
   orderId: string;
   clientName: string;
   transformerName: string;
@@ -51,30 +50,21 @@ interface OrderDetailViewProps {
 
 export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [showCoreTestingInitiation, setShowCoreTestingInitiation] = useState(false);
   const isPT = order.transformerType === 'PT';
 
   // Generate transformer units based on quantity
   const [transformerUnits, setTransformerUnits] = useState<TransformerUnit[]>([]);
   const [rawTransformers, setRawTransformers] = useState<any[]>([]);
-  const [reportModal, setReportModal] = useState<{ isOpen: boolean; transformer: any; order?: any; type: 'core' | 'secondary' | 'primary' | 'final' | 'all' | 'pt' }>({
-    isOpen: false,
-    transformer: null,
-    order: null,
-    type: 'core'
-  });
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchTransformers = async () => {
       try {
-        const response = await axios.get(`http://localhost:3002/api/transformers/order/${order.id}`, {
+        const response = await axios.get(`http://localhost:5000/api/transformers/order/${order.id}`, {
           withCredentials: true
         });
 
         // Define the progression of stages
-        const stageOrder = ['core', 'secondary', 'primary', 'final', 'completed', 'shipped'];
+        const stageOrder = ['core', 'secondary', 'primary', 'heating', 'final', 'completed', 'shipped'];
 
         const getStatusForStage = (targetStage: string, currentStage: string, historyStatus?: string, t?: any) => {
           // 1. Explicit History Check
@@ -108,24 +98,28 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
           return 'Pending'; // Not reached yet
         };
 
-        const mappedUnits: TransformerUnit[] = response.data.map((t: any) => ({
-          id: t._id,
-          // Use the uniqueId from DB (TR-JOB-...), fallback to constructing it if missing
-          transformerId: t.uniqueId || `TR-${t.jobId || 'UNKNOWN'}-${String(t.internalCoreNo || '').split('-').pop() || '???'}`,
-          coreTestStatus: getStatusForStage('core', t.currentStage, t.testHistory?.core_test?.status, t),
-          secondaryTestStatus: getStatusForStage('secondary', t.currentStage, t.testHistory?.secondary_test?.status, t),
-          primaryTestStatus: getStatusForStage('primary', t.currentStage, t.testHistory?.primary_test?.status, t),
-          finalTestStatus: getStatusForStage('final', t.currentStage, t.testHistory?.final_test?.status, t),
-          ptTestStatus: (t.currentStage === 'shipped' || t.currentStage === 'completed' || (t.testHistory?.pt_test && Object.keys(t.testHistory.pt_test).length > 0)) ? 'Complete' : t.currentStage === 'pt' ? 'In Progress' : 'Pending',
-          reportStatus: (t.currentStage === 'completed' || t.currentStage === 'shipped') ? 'Open' : 'Pending'
-        }));
+        const mappedUnits: TransformerUnit[] = response.data.map((t: any) => {
+          // Heating Logic
+          const hasHeating = t.processHistory?.heatingRecord?.length > 0;
+          const heatingStatus = getStatusForStage('heating', t.currentStage, hasHeating ? 'Completed' : undefined, t);
+
+          return {
+            id: t._id,
+            transformerId: t.uniqueId || `TR-${t.jobId || 'UNKNOWN'}-${String(t.internalCoreNo || '').split('-').pop() || '???'}`,
+            coreTestStatus: getStatusForStage('core', t.currentStage, t.testHistory?.core_test?.status, t),
+            secondaryTestStatus: getStatusForStage('secondary', t.currentStage, t.testHistory?.secondary_test?.status, t),
+            primaryTestStatus: getStatusForStage('primary', t.currentStage, t.testHistory?.primary_test?.status, t),
+            heatingStatus: heatingStatus as any,
+            finalTestStatus: getStatusForStage('final', t.currentStage, t.testHistory?.final_test?.status, t),
+            ptTestStatus: (t.currentStage === 'shipped' || t.currentStage === 'completed' || (t.testHistory?.pt_test && Object.keys(t.testHistory.pt_test).length > 0)) ? 'Complete' : t.currentStage === 'pt' ? 'In Progress' : 'Pending',
+            reportStatus: (t.currentStage === 'completed' || t.currentStage === 'shipped') ? 'Open' : 'Pending'
+          };
+        });
 
         setRawTransformers(response.data);
         setTransformerUnits(mappedUnits);
       } catch (error) {
         console.error("Error fetching transformers:", error);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -180,35 +174,28 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
       unit.coreTestStatus === 'Complete' &&
       unit.secondaryTestStatus === 'Complete' &&
       unit.primaryTestStatus === 'Complete' &&
+      unit.heatingStatus === 'Complete' &&
       unit.finalTestStatus === 'Complete'
     );
   };
 
   const handleViewReport = (transformerId: string, testType: string) => {
-    // Find the full transformer object
-    // Note: transformerId passed here is the DISPLAY ID (uniqueId)
-    // We should look it up in rawTransformers
     const transformer = rawTransformers.find(t =>
       t.uniqueId === transformerId ||
       `TR-${t.jobId || 'UNKNOWN'}-${String(t.internalCoreNo || '').split('-').pop() || '???'}` === transformerId
     );
 
     if (transformer) {
-      let type: 'core' | 'secondary' | 'primary' | 'final' | 'all' | 'pt' = 'core';
+      let type = 'core';
       if (testType.includes('Core')) type = 'core';
       else if (testType.includes('Secondary')) type = 'secondary';
       else if (testType.includes('Primary')) type = 'primary';
+      else if (testType.includes('Heating')) type = 'heating';
       else if (testType.includes('Final')) type = 'final';
       else if (testType.includes('PT')) type = 'pt';
 
-      setReportModal({
-        isOpen: true,
-        transformer,
-        order,
-        type
-      });
-    } else {
-      console.error("Transformer not found for ID:", transformerId);
+      const id = transformer._id || transformer.id;
+      window.location.href = `/admin/report/${id}?type=${type}`;
     }
   };
 
@@ -219,12 +206,8 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
     );
 
     if (transformer) {
-      setReportModal({
-        isOpen: true,
-        transformer,
-        order,
-        type: 'all'
-      });
+      const id = transformer._id || transformer.id;
+      window.location.href = `/admin/report/${id}?type=all`;
     }
   };
 
@@ -235,6 +218,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
     let coreComplete = 0;
     let secondaryComplete = 0;
     let primaryComplete = 0;
+    let heatingComplete = 0;
     let finalComplete = 0;
     let ptComplete = 0;
 
@@ -242,6 +226,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
       if (unit.coreTestStatus === 'Complete') coreComplete++;
       if (unit.secondaryTestStatus === 'Complete') secondaryComplete++;
       if (unit.primaryTestStatus === 'Complete') primaryComplete++;
+      if (unit.heatingStatus === 'Complete') heatingComplete++;
       if (unit.finalTestStatus === 'Complete') finalComplete++;
       if (unit.ptTestStatus === 'Complete') ptComplete++;
     });
@@ -250,11 +235,13 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
       coreComplete,
       secondaryComplete,
       primaryComplete,
+      heatingComplete,
       finalComplete,
       ptComplete,
       coreRemaining: order.quantity - coreComplete,
       secondaryRemaining: order.quantity - secondaryComplete,
       primaryRemaining: order.quantity - primaryComplete,
+      heatingRemaining: order.quantity - heatingComplete,
       finalRemaining: order.quantity - finalComplete,
       ptRemaining: order.quantity - ptComplete,
     };
@@ -262,14 +249,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
 
   const testingStats = getTestingStateStats();
 
-  if (showCoreTestingInitiation) {
-    return (
-      <CoreTestingInitiation
-        order={order}
-        onBack={() => setShowCoreTestingInitiation(false)}
-      />
-    );
-  }
+
 
   return (
     <div className="space-y-6">
@@ -279,15 +259,6 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
           <ArrowLeft className="w-4 h-4" />
           Back to Orders
         </Button>
-        {!isPT && (
-          <Button
-            onClick={() => setShowCoreTestingInitiation(true)}
-            className="gap-2 bg-[#003a70] hover:bg-[#002850] ml-auto"
-          >
-            <Play className="w-4 h-4" />
-            Start Core Testing
-          </Button>
-        )}
       </div>
 
       {/* ADVENT ENGINEERS Header */}
@@ -355,16 +326,6 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
               className="pl-10"
             />
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="gap-2">
-              <Printer className="w-4 h-4" />
-              Print All
-            </Button>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Download className="w-4 h-4" />
-              Export
-            </Button>
-          </div>
         </div>
       </Card>
 
@@ -380,8 +341,9 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
                 ) : (
                   <>
                     <th className="text-center p-4 font-medium text-gray-700">Core Testing</th>
-                    <th className="text-center p-4 font-medium text-gray-700">After Secondary Testing</th>
-                    <th className="text-center p-4 font-medium text-gray-700">After Primary Testing</th>
+                    <th className="text-center p-4 font-medium text-gray-700">After Secondary</th>
+                    <th className="text-center p-4 font-medium text-gray-700">After Primary</th>
+                    <th className="text-center p-4 font-medium text-gray-700">After Heating</th>
                     <th className="text-center p-4 font-medium text-gray-700">Final Testing</th>
                   </>
                 )}
@@ -470,6 +432,27 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
                                 variant="outline"
                                 className="text-xs h-7 gap-1"
                                 onClick={() => handleViewReport(unit.transformerId, 'After Primary Test')}
+                              >
+                                <FileText className="w-3 h-3" />
+                                View Report
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* After Heating Test */}
+                        <td className="p-4">
+                          <div className="flex flex-col items-center gap-2">
+                            <Badge className={`${getStatusColor(unit.heatingStatus)} flex items-center gap-1`}>
+                              {getStatusIcon(unit.heatingStatus)}
+                              {unit.heatingStatus}
+                            </Badge>
+                            {unit.heatingStatus === 'Complete' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7 gap-1"
+                                onClick={() => handleViewReport(unit.transformerId, 'After Heating Test')}
                               >
                                 <FileText className="w-3 h-3" />
                                 View Report
@@ -668,6 +651,22 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
                     </p>
                   </div>
 
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">After Heating Testing</span>
+                      <Badge className="bg-red-600 text-white">{testingStats.heatingComplete} Completed</Badge>
+                    </div>
+                    <div className="w-full bg-red-200 rounded-full h-2">
+                      <div
+                        className="bg-red-600 h-2 rounded-full transition-all"
+                        style={{ width: `${(testingStats.heatingComplete / order.quantity) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {testingStats.heatingComplete} out of {order.quantity} transformers
+                    </p>
+                  </div>
+
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-gray-700">Final Testing</span>
@@ -760,6 +759,22 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
 
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">After Heating Testing</span>
+                      <Badge className="bg-red-600 text-white">{testingStats.heatingRemaining} Remaining</Badge>
+                    </div>
+                    <div className="w-full bg-red-200 rounded-full h-2">
+                      <div
+                        className="bg-red-600 h-2 rounded-full transition-all"
+                        style={{ width: `${(testingStats.heatingRemaining / order.quantity) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {testingStats.heatingRemaining} out of {order.quantity} transformers pending
+                    </p>
+                  </div>
+
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-gray-700">Final Testing</span>
                       <Badge className="bg-red-600 text-white">{testingStats.finalRemaining} Remaining</Badge>
                     </div>
@@ -780,13 +795,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
         </div>
       </Card>
 
-      {/* Report Modal */}
-      <TestReportModal
-        isOpen={reportModal.isOpen}
-        onClose={() => setReportModal({ ...reportModal, isOpen: false })}
-        transformer={reportModal.transformer}
-        testType={reportModal.type}
-      />
+      {/* Report Modal removed */}
     </div>
   );
 }

@@ -108,7 +108,7 @@ export function SecondaryProtectionReport({
 
 
   const [testResults, setTestResults] = useState<ProtectionTestRow[]>([]);
-  const [protectionClass] = useState<string>(() => {
+  const [protectionClass, setProtectionClass] = useState<string>(() => {
     if (explicitClass) return explicitClass;
 
     // Fallback: Use the granular accuracyClass from coreDetails
@@ -126,7 +126,7 @@ export function SecondaryProtectionReport({
   useEffect(() => {
     const fetchLimits = async () => {
       try {
-        const response = await axios.get('http://localhost:3002/api/accuracy-limits/protection', { withCredentials: true });
+        const response = await axios.get('http://localhost:5000/api/accuracy-limits/protection', { withCredentials: true });
         setDbLimits(response.data);
       } catch (error) {
         console.error('Failed to fetch dynamic protection limits', error);
@@ -202,7 +202,7 @@ export function SecondaryProtectionReport({
   useEffect(() => {
     const fetchLatestData = async () => {
       try {
-        const res = await axios.get(`http://localhost:3002/api/transformers/${transformer.uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`http://localhost:5000/api/transformers/${transformer.uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
 
         // Dynamic Path
@@ -227,6 +227,11 @@ export function SecondaryProtectionReport({
               if (saved) {
                 // Formatting helper for safe string conversion
                 const safeStr = (val: any) => (val !== undefined && val !== null) ? String(val) : '';
+
+                // Synchronize class from DB if it's different from the current guessed/initial state
+                if (saved.protectionClass && saved.protectionClass !== protectionClass) {
+                  setProtectionClass(saved.protectionClass);
+                }
 
                 return {
                   ...row,
@@ -398,7 +403,7 @@ export function SecondaryProtectionReport({
       };
 
       console.log("handleDatabaseSave: Payload ready", payload);
-      const endpoint = `http://localhost:3002/transformer-${stage}-protection-tests`;
+      const endpoint = `http://localhost:5000/transformer-${stage}-protection-tests`;
       console.log(`handleDatabaseSave: Sending Request to ${endpoint}...`);
 
       const response = await axios.post(
@@ -441,7 +446,7 @@ export function SecondaryProtectionReport({
         dynamicValues: testResults
       };
 
-      await axios.post(`http://localhost:3002/api/failed-cores`, payload, { withCredentials: true });
+      await axios.post(`http://localhost:5000/api/failed-cores`, payload, { withCredentials: true });
       toast.success("Added to Failed Cores!");
     } catch (err: any) {
       console.error("Mark as failed error:", err);
@@ -460,6 +465,37 @@ export function SecondaryProtectionReport({
           box-sizing: border-box;
           color: black;
           font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        .report-header-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          border: 1.5px solid #000;
+          margin-bottom: 0;
+        }
+        
+        .header-left {
+          padding: 10px;
+          border-right: 1.5px solid #000;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+        
+        .header-right {
+          display: grid;
+          grid-template-rows: repeat(5, 1fr);
+        }
+        
+        .header-field {
+          display: grid;
+          grid-template-columns: 100px 1fr;
+          border-bottom: 1px solid #000;
+          font-size: 11px;
+        }
+        
+        .header-field:last-child {
+          border-bottom: none;
         }
         
         .report-header-grid {
@@ -577,40 +613,46 @@ export function SecondaryProtectionReport({
             size: A4 portrait;
             margin: 10mm;
           }
-          body * {
-            visibility: hidden;
-          }
-          #print-section, #print-section * {
-            visibility: visible;
-          }
           #print-section {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 190mm;
-          }
-          input, select {
-            border: none !important;
-            background: transparent !important;
-            outline: none !important;
-            font-weight: 500 !important;
-            text-align: center !important;
             width: 100% !important;
-            color: black !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
         }
       `}</style>
-      {/* Top Navigation */}
-      <div className="flex items-center justify-between no-print">
-        <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
-          <ArrowLeft className="w-4 h-4" /> Back
-        </Button>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
-            <Printer className="w-4 h-4" /> Print
-          </Button>
+      {!readOnly && (
+        <div className="flex items-center justify-between no-print">
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
+              <ArrowLeft className="w-4 h-4" /> Back
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDatabaseSave}
+              className="gap-2"
+              disabled={hasFailures}
+            >
+              <Save className="w-4 h-4" /> Save
+            </Button>
+            {hasFailures && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleMarkAsFailed}
+                className="gap-2"
+              >
+                <AlertTriangle className="w-4 h-4" /> Mark as Failed Core
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
+              <Printer className="w-4 h-4" /> Print
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div id="print-section">
         {/* Header Grid */}
@@ -618,17 +660,31 @@ export function SecondaryProtectionReport({
           <div className="header-left">
             <h1 className="text-2xl font-bold italic text-red-600 leading-tight">ADVENT ENGINEERS</h1>
           </div>
-
-          <div className="text-right flex flex-col items-end">
-            <div className="mb-2 flex items-center gap-2">
-              <label className="text-xs font-bold text-gray-700">Class:</label>
-              <span className="font-bold text-sm text-blue-700">{protectionClass}</span>
+          <div className="header-right">
+            <div className="header-field">
+              <span className="field-label">Date :</span>
+              <span className="field-value">
+                {stage && transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate
+                  ? new Date(transformer.testHistory[`${stage}_test` as keyof typeof transformer.testHistory].reportDate).toLocaleDateString('en-GB')
+                  : new Date().toLocaleDateString('en-GB')}
+              </span>
             </div>
-            <p className="text-[10px] text-gray-400 mt-1 uppercase">Date: {
-              stage && transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate
-                ? new Date(transformer.testHistory[`${stage}_test` as keyof typeof transformer.testHistory].reportDate).toLocaleDateString('en-GB')
-                : new Date().toLocaleDateString('en-GB')
-            }</p>
+            <div className="header-field">
+              <span className="field-label">Order No :</span>
+              <span className="field-value">{transformer.jobId || transformer.uniqueId}</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Client :</span>
+              <span className="field-value">{transformer.clientName || 'N/A'}</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Unit No :</span>
+              <span className="field-value">{transformer.uniqueId}</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Class :</span>
+              <span className="field-value">{protectionClass || '5P'}</span>
+            </div>
           </div>
         </div>
 
@@ -723,24 +779,36 @@ export function SecondaryProtectionReport({
 
                       {/* COL 3: Ratio Error (was Burden 1) */}
                       <td className="border border-gray-400 p-0 w-[120px]">
-                        <Input
-                          className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full"
-                          value={row.ratioError100}
-                          onChange={(e) => handleInputChange(index, 'ratioError100', e.target.value)}
-                          placeholder=""
-                          disabled={readOnly}
-                        />
+                        {readOnly ? (
+                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
+                            {row.ratioError100 || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full shadow-none"
+                            value={row.ratioError100}
+                            onChange={(e) => handleInputChange(index, 'ratioError100', e.target.value)}
+                            placeholder=""
+                            disabled={readOnly}
+                          />
+                        )}
                       </td>
 
                       {/* COL 4: Phase Error (was Burden 2) */}
                       <td className="border border-gray-400 p-0 w-[120px]">
-                        <Input
-                          className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full"
-                          value={row.phaseError}
-                          onChange={(e) => handleInputChange(index, 'phaseError', e.target.value)}
-                          placeholder=""
-                          disabled={readOnly}
-                        />
+                        {readOnly ? (
+                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
+                            {row.phaseError || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full shadow-none"
+                            value={row.phaseError}
+                            onChange={(e) => handleInputChange(index, 'phaseError', e.target.value)}
+                            placeholder=""
+                            disabled={readOnly}
+                          />
+                        )}
                       </td>
 
                       {/* COL 5 & 6: Empty Cells */}
@@ -772,51 +840,79 @@ export function SecondaryProtectionReport({
                     <tr>
                       {/* Ratio occupied above */}
                       <td className="border border-gray-400 p-0">
-                        <Input
-                          className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
-                          value={row.resistance}
-                          onChange={(e) => handleInputChange(index, 'resistance', e.target.value)}
-                          disabled={readOnly}
-                        />
+                        {readOnly ? (
+                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
+                            {row.resistance || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full shadow-none"
+                            value={row.resistance}
+                            onChange={(e) => handleInputChange(index, 'resistance', e.target.value)}
+                            disabled={readOnly}
+                          />
+                        )}
                       </td>
                       <td className="border border-gray-400 p-0">
-                        {/* ALF Input BOUND TO NEW FIELD */}
-                        <Input
-                          className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
-                          value={row.alf}
-                          onChange={(e) => handleInputChange(index, 'alf', e.target.value)}
-                          placeholder=""
-                          disabled={readOnly}
-                        />
+                        {/* ALF Input */}
+                        {readOnly ? (
+                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
+                            {row.alf || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full shadow-none"
+                            value={row.alf}
+                            onChange={(e) => handleInputChange(index, 'alf', e.target.value)}
+                            placeholder=""
+                            disabled={readOnly}
+                          />
+                        )}
                       </td>
                       <td className="border border-gray-400 p-0">
-                        <Input
-                          className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full"
-                          value={row.excitationCurrent}
-                          onChange={(e) => handleInputChange(index, 'excitationCurrent', e.target.value)}
-                          disabled={readOnly}
-                        />
+                        {readOnly ? (
+                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
+                            {row.excitationCurrent || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full shadow-none"
+                            value={row.excitationCurrent}
+                            onChange={(e) => handleInputChange(index, 'excitationCurrent', e.target.value)}
+                            disabled={readOnly}
+                          />
+                        )}
                       </td>
                       <td className="border border-gray-400 p-0">
                         {/* MAPPED to secondaryLimitingVoltage */}
-                        <Input
-                          className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50"
-                          value={row.secondaryLimitingVoltage}
-                          // onChange handler removed/ignored since it's auto-calculated
-                          onChange={() => { }}
-                          readOnly={true} // Strictly derived
-                          disabled={readOnly} // Keeps styling consistent if whole form is readOnly
-                        />
+                        {readOnly ? (
+                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center bg-gray-50">
+                            {row.secondaryLimitingVoltage || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50 shadow-none"
+                            value={row.secondaryLimitingVoltage}
+                            onChange={() => { }}
+                            readOnly={true}
+                            disabled={readOnly}
+                          />
+                        )}
                       </td>
                       <td className="border border-gray-400 p-0">
-                        <Input
-                          className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50"
-                          value={row.compositeError}
-                          // onChange handler removed/ignored
-                          onChange={() => { }}
-                          readOnly={true} // Strictly derived
-                          disabled={readOnly}
-                        />
+                        {readOnly ? (
+                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center bg-gray-50">
+                            {row.compositeError || '-'}
+                          </div>
+                        ) : (
+                          <Input
+                            className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50 shadow-none"
+                            value={row.compositeError}
+                            onChange={() => { }}
+                            readOnly={true}
+                            disabled={readOnly}
+                          />
+                        )}
                       </td>
                     </tr>
                   </React.Fragment>
@@ -839,32 +935,6 @@ export function SecondaryProtectionReport({
         </div>
       </div>
 
-      {/* Database Actions */}
-      <div className="flex gap-3 no-print pt-4">
-        {!readOnly && (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDatabaseSave}
-              className="gap-2"
-              disabled={hasFailures}
-            >
-              <Save className="w-4 h-4" /> Save
-            </Button>
-            {hasFailures && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleMarkAsFailed}
-                className="gap-2 ml-auto"
-              >
-                <AlertTriangle className="w-4 h-4" /> Mark as Failed Core
-              </Button>
-            )}
-          </>
-        )}
-      </div>
     </div>
   );
 }

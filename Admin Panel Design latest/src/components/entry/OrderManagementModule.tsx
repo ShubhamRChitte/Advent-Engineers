@@ -38,7 +38,7 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
   useEffect(() => {
     const fetchVendors = async () => {
       try {
-        const response = await axios.get('http://localhost:3002/api/core-vendors', { withCredentials: true });
+        const response = await axios.get('http://localhost:5000/api/core-vendors', { withCredentials: true });
         if (response.data.success) {
           setAllVendors(response.data.data);
         }
@@ -148,9 +148,7 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
 
         deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // Default 14 days constraints via ISO string
 
-        metering_core_vendors: orderData.metering_core_vendors || [],
-        protection_core_vendors: orderData.protection_core_vendors || [],
-        ps_core_vendors: orderData.ps_core_vendors || [],
+        coreVendors: orderData.coreVendors || { metering: [], protection: [], ps: [] },
 
         assignments: assignmentsByStage,
         bypassApproval: isAdmin // If Admin, bypass approval (Auto-Approve)
@@ -171,7 +169,7 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
         }
       });
 
-      const response = await axios.post('http://localhost:3002/api/create-order', formData, {
+      const response = await axios.post('http://localhost:5000/api/create-order', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

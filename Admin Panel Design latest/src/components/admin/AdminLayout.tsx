@@ -3,6 +3,7 @@ import { User } from '../../App';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminHeader } from './AdminHeader';
 import { AdminDashboard } from './AdminDashboard';
+import { AdminAnalyticsDashboard } from './AdminAnalyticsDashboard';
 import { EmployeeManagement } from './EmployeeManagement';
 import { EmployeePerformance } from './EmployeePerformance';
 import { EnhancedStockManagement } from './EnhancedStockManagement';
@@ -18,12 +19,21 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
-  const [activeView, setActiveView] = useState('dashboard');
+  const [activeView, _setActiveView] = useState(() => {
+    return localStorage.getItem(`${user.role}_activeView`) || 'dashboard';
+  });
+
+  const setActiveView = (view: string) => {
+    localStorage.setItem(`${user.role}_activeView`, view);
+    _setActiveView(view);
+  };
 
   const renderView = () => {
     switch (activeView) {
       case 'dashboard':
         return <AdminDashboard setActiveView={setActiveView} />;
+      case 'analytics':
+        return <AdminAnalyticsDashboard />;
       case 'employees':
         return <EmployeeManagement />;
       case 'performance':

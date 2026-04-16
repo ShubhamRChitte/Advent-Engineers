@@ -67,7 +67,7 @@ export function NotificationsModule() {
 
   const fetchTesters = async () => {
     try {
-      const response = await axios.get('http://localhost:3002/auth/testers');
+      const response = await axios.get('http://localhost:5000/auth/testers');
       if (response.data.success) {
         setEmployees(response.data.users);
       }
@@ -78,7 +78,7 @@ export function NotificationsModule() {
 
   const fetchNotifications = async () => {
     try {
-      const response = await axios.get('http://localhost:3002/api/admin/notifications', {
+      const response = await axios.get('http://localhost:5000/api/admin/notifications', {
         withCredentials: true
       });
 
@@ -200,7 +200,7 @@ export function NotificationsModule() {
 
     if (assignKey) {
       try {
-        await axios.put(`http://localhost:3002/api/orders/${selectedNotification.id}`, {
+        await axios.put(`http://localhost:5000/api/orders/${selectedNotification.id}`, {
           [`assignments.${assignKey}`]: newEmployee.fullName // Store Name
         }, { withCredentials: true });
 
@@ -233,7 +233,7 @@ export function NotificationsModule() {
 
   const handleApproveOrder = async (notificationId: string) => {
     try {
-      const response = await axios.put(`http://localhost:3002/api/orders/${notificationId}/approve`, {}, {
+      const response = await axios.put(`http://localhost:5000/api/orders/${notificationId}/approve`, {}, {
         withCredentials: true
       });
 

@@ -35,7 +35,7 @@ export function Orders(_props: OrdersProps) {
     const fetchCompletedOrders = async () => {
         try {
             setLoading(true);
-            const res = await axios.get('http://localhost:3002/api/core-tests/orders/approved', {
+            const res = await axios.get('http://localhost:5000/api/core-tests/orders/approved', {
                 withCredentials: true,
             });
             setOrders(res.data);
@@ -137,9 +137,6 @@ export function Orders(_props: OrdersProps) {
                                             <tr>
                                                 <th className="text-left p-4 text-sm font-semibold text-gray-600">Job ID</th>
                                                 <th className="text-left p-4 text-sm font-semibold text-gray-600">Type</th>
-                                                <th className="text-center p-4 text-sm font-semibold text-gray-600">Tests Completed</th>
-                                                <th className="text-center p-4 text-sm font-semibold text-gray-600">Pass / Fail</th>
-                                                <th className="text-left p-4 text-sm font-semibold text-gray-600">Status</th>
                                                 <th className="text-center p-4 text-sm font-semibold text-gray-600">Action</th>
                                             </tr>
                                         </thead>
@@ -148,21 +145,6 @@ export function Orders(_props: OrdersProps) {
                                                 <tr key={order._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors last:border-0">
                                                     <td className="p-4 font-medium text-gray-900">{order.jobId}</td>
                                                     <td className="p-4 text-sm text-gray-600">{order.transformerType || 'N/A'}</td>
-                                                    <td className="p-4 text-center">
-                                                        <span className="font-medium text-gray-900">{order.testsCompleted || 0}</span>
-                                                    </td>
-                                                    <td className="p-4 text-center">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <span className="text-green-600 font-medium">{order.passCount || 0}</span>
-                                                            <span className="text-gray-300">/</span>
-                                                            <span className="text-red-600 font-medium">{order.failCount || 0}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-4">
-                                                        <Badge className="bg-green-100 text-green-700">
-                                                            {order.status}
-                                                        </Badge>
-                                                    </td>
                                                     <td className="p-4">
                                                         <div className="flex gap-2 justify-center">
                                                             <Button

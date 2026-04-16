@@ -57,7 +57,7 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
   useEffect(() => {
     const fetchTesters = async () => {
       try {
-        const response = await axios.get('http://localhost:3002/auth/testers');
+        const response = await axios.get('http://localhost:5000/auth/testers');
         if (response.data.success) {
           const mappedWorkers: Worker[] = response.data.users.map((user: any) => {
             // Map Department to Skill Category
@@ -394,10 +394,6 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
           <Card className="p-6 sticky top-6">
             <h3 className="mb-4">Order Summary</h3>
             <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-500">Order ID</p>
-                <p className="font-medium font-mono">{orderData.orderId}</p>
-              </div>
               <div>
                 <p className="text-sm text-gray-500">Client Name</p>
                 <p className="font-medium">{orderData.clientName}</p>

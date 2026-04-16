@@ -67,7 +67,7 @@ export function CreateOrderView() {
   useEffect(() => {
     const fetchTesters = async () => {
       try {
-        const response = await axios.get('http://localhost:3002/auth/testers');
+        const response = await axios.get('http://localhost:5000/auth/testers');
         if (response.data.success) {
           setTesters(response.data.users);
         }
@@ -247,7 +247,7 @@ export function CreateOrderView() {
         ratio: formData.ratio ? formData.ratio.split(',').map(r => r.trim()).filter(Boolean) : []
       };
 
-      const res = await axios.post('http://localhost:3002/api/create-order', payload);
+      const res = await axios.post('http://localhost:5000/api/create-order', payload);
 
       if (res.data.success) {
         toast.success(`Order ${res.data.jobId} Created & ${qty} Units Generated!`);

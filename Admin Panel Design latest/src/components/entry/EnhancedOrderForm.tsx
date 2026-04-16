@@ -155,7 +155,6 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
     }
 
     const orderData = {
-      orderId: `ORD-${Date.now()}`,
       orderDate: new Date().toLocaleDateString(),
       clientName,
       clientContact,
@@ -177,11 +176,21 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
         ratedSecondaryCurrent,
         stc,
       },
-      additionalParams,
       images,
-      metering_core_vendors: selectedMeteringVendors,
-      protection_core_vendors: selectedProtectionVendors,
-      ps_core_vendors: selectedPSVendors,
+      coreVendors: {
+        metering: selectedMeteringVendors.map((id, index) => {
+          const v = allVendors.find(v => v._id === id);
+          return { serialNo: index + 1, name: v ? v.vendor_name : 'Unknown' };
+        }),
+        protection: selectedProtectionVendors.map((id, index) => {
+          const v = allVendors.find(v => v._id === id);
+          return { serialNo: index + 1, name: v ? v.vendor_name : 'Unknown' };
+        }),
+        ps: selectedPSVendors.map((id, index) => {
+          const v = allVendors.find(v => v._id === id);
+          return { serialNo: index + 1, name: v ? v.vendor_name : 'Unknown' };
+        }),
+      },
       bypassApproval: !isEntryOperator, // If Entry Operator, do NOT bypass approval
     };
 
@@ -251,8 +260,11 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                       
                       if(newType === 'PT') {
                          setCoreConfigs(prev => prev.map(config => 
-                           config.coreType === 'ps' ? { ...config, coreType: 'metering', accuracyClass: '' } : config
+                           config.coreType === 'ps' ? { ...config, coreType: 'metering', accuracyClass: '', vendorNo: '' } : { ...config, vendorNo: '' }
                          ));
+                         setSelectedMeteringVendors([]);
+                         setSelectedProtectionVendors([]);
+                         setSelectedPSVendors([]);
                       }
                     }}
                     className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
@@ -490,30 +502,34 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                           </select>
                         </div>
 
-                        <div>
-                          <Label>Core Vendor *</Label>
-                          <select
-                            value={coreConfigs[index]?.vendorNo || ''}
-                            onChange={(e) => handleCoreVendorChange(index, e.target.value)}
-                            className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
-                          >
-                            <option value="">Select Vendor</option>
-                            {(() => {
-                              const type = coreConfigs[index].coreType;
-                              const selectedIds = type === 'metering' ? selectedMeteringVendors :
-                                type === 'protection' ? selectedProtectionVendors :
-                                  selectedPSVendors;
+                        {transformerType === 'CT' && (
+                          <div>
+                            <Label>Core Vendor *</Label>
+                            <select
+                              value={coreConfigs[index]?.vendorNo || ''}
+                              onChange={(e) => handleCoreVendorChange(index, e.target.value)}
+                              className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                            >
+                              <option value="">Select Vendor</option>
+                              {(() => {
+                                const type = coreConfigs[index].coreType;
+                                const selectedIds = type === 'metering' ? selectedMeteringVendors :
+                                  type === 'protection' ? selectedProtectionVendors :
+                                    selectedPSVendors;
 
-                              return allVendors
-                                .filter(v => selectedIds.includes(v._id))
-                                .map(v => (
-                                  <option key={v._id} value={v.vendor_no}>
-                                    {v.vendor_no} - {v.vendor_name}
-                                  </option>
-                                ));
-                            })()}
-                          </select>
-                        </div>
+                                // Map directly from all vendors, ensuring distinct objects based on unique IDs
+                                const uniqueVendors = Array.from(new Map(allVendors.map(v => [v._id, v])).values());
+                                return uniqueVendors
+                                  .filter(v => selectedIds.includes(v._id))
+                                  .map(v => (
+                                    <option key={v._id} value={v.vendor_no}>
+                                      {v.vendor_no} - {v.vendor_name}
+                                    </option>
+                                  ));
+                              })()}
+                            </select>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -522,9 +538,10 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
             </div>
           )}
 
-          {/* Core Vendors Section */}
-          <div className="space-y-4">
-            <h3 className="pb-2 border-b-2 border-gray-200">Core Vendors</h3>
+          {/* Core Vendors Section (ONLY for CT) */}
+          {transformerType === 'CT' && parseInt(numberOfCores) > 0 && (
+            <div className="space-y-4">
+              <h3 className="pb-2 border-b-2 border-gray-200">Core Vendors</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {coreConfigs.some(c => c.coreType === 'metering') && (
                 <div className="space-y-2">
@@ -532,7 +549,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                   <VendorMultiSelect
                     vendors={allVendors}
                     selectedIds={selectedMeteringVendors}
-                    onChange={setSelectedMeteringVendors}
+                    onChange={(ids) => setSelectedMeteringVendors(ids)}
                     placeholder="Select Metering Vendors"
                   />
                 </div>
@@ -543,7 +560,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                   <VendorMultiSelect
                     vendors={allVendors}
                     selectedIds={selectedProtectionVendors}
-                    onChange={setSelectedProtectionVendors}
+                    onChange={(ids) => setSelectedProtectionVendors(ids)}
                     placeholder="Select Protection Vendors"
                   />
                 </div>
@@ -554,13 +571,14 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                   <VendorMultiSelect
                     vendors={allVendors}
                     selectedIds={selectedPSVendors}
-                    onChange={setSelectedPSVendors}
+                    onChange={(ids) => setSelectedPSVendors(ids)}
                     placeholder="Select PS Vendors"
                   />
                 </div>
               )}
             </div>
           </div>
+        )}
 
           {/* Transformer Parameters Section */}
           <div className="space-y-4">
@@ -829,7 +847,8 @@ function VendorMultiSelect({ vendors, selectedIds, onChange, placeholder }: Vend
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredVendors = vendors.filter(v =>
+  const uniqueVendors = Array.from(new Map(vendors.map(v => [v._id, v])).values());
+  const filteredVendors = uniqueVendors.filter(v =>
     v.vendor_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     v.vendor_no.toString().includes(searchTerm)
   );
@@ -847,8 +866,8 @@ function VendorMultiSelect({ vendors, selectedIds, onChange, placeholder }: Vend
   return (
     <div className="relative">
       <div
-        className="min-h-10 w-full p-2 border rounded-md bg-white cursor-pointer flex flex-wrap gap-2 items-center"
-        onClick={() => setIsOpen(!isOpen)}
+        className="min-h-10 w-full p-2 border rounded-md bg-white cursor-pointer flex flex-wrap gap-2 items-center relative z-50"
+        onClick={(e) => { e.preventDefault(); setIsOpen(!isOpen); }}
       >
         {selectedVendors.length > 0 ? (
           selectedVendors.map(v => (

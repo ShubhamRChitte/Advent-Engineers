@@ -12,11 +12,8 @@ export function PTTestingModule({ user }: PTTestingModuleProps) {
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [selectedTransformer, setSelectedTransformer] = useState<Transformer | null>(null);
 
-  const handleStartTesting = (order: any, transformer?: Transformer) => {
+  const handleStartTesting = (order: any) => {
     setSelectedOrder(order);
-    if (transformer) {
-      setSelectedTransformer(transformer);
-    }
   };
 
   const handleTransformerSelect = (transformer: Transformer) => {
@@ -30,7 +27,6 @@ export function PTTestingModule({ user }: PTTestingModuleProps) {
 
   const handleBackToList = () => {
     setSelectedTransformer(null);
-    setSelectedOrder(null);
   };
 
   if (selectedTransformer) {

@@ -1,24 +1,57 @@
-const axios = require('axios');
+const mongoose = require('mongoose');
+const { OrderModel } = require('./models/OrderModel');
+const { TransformerModel } = require('./models/TransformerModel');
 
-async function testApi() {
+async function verify() {
     try {
-        console.log("Testing with Amit Patel (Tester)...");
-        // Note: In a real scenario we'd need to login first to get a session cookie.
-        // For this test script, we assume the server is running and we might not be able to easy mock the session 
-        // without a full login flow or mocking the middleware.
-        // However, we can try to hit the endpoint and see if it at least stays alive or returns 401 (which means route exists).
+        const uri = 'mongodb+srv://shubhamvrchitte_db_user:AOUnbkDzZYHOSDfh@adventengineerscluster.mbj8fg1.mongodb.net/?appName=AdventEngineersCluster';
+        await mongoose.connect(uri);
 
-        // Since we can't easily mock auth state in a standalone script without login, 
-        // checking the server logs when running the actual app or a more complex script is better.
-        // But let's try a login if possible.
+        console.log("--- TRANS QUERY START ---");
+        const typeStr = 'CT';
+        const transQuery = {
+            $or: [
+                { currentStage: "heating" },
+                { "testHistory.primary_test.status": "Completed" },
+                { "testHistory.pt_test.status": "Completed" }
+            ]
+        };
 
-        // Actually, let's just create a quick test by modifying the `verify_roles.ps1` idea but in JS
-        // We'll trust the Manual Verification phase instructions more, but I'll write a script to try login.
+        const transformers = await TransformerModel.find(transQuery).populate('orderId').lean();
+        console.log(`Found ${transformers.length} total transformers in broad query.`);
 
-        console.log("Since auth is session-based, this script is limited. Please manually verify in browser.");
-    } catch (error) {
-        console.error("Error:", error.message);
+        const ordersMap = new Map();
+        for (const t of transformers) {
+            if (t.orderId && t.orderId.transformerType === typeStr) {
+                const oid = t.orderId._id.toString();
+                if (!ordersMap.has(oid)) {
+                    ordersMap.set(oid, t.orderId);
+                }
+            }
+        }
+
+        const orders = Array.from(ordersMap.values());
+        console.log(`Found ${orders.length} orders for CT in Heating Tracking.`);
+        const job145 = orders.find(o => o.jobId === 'JOB-2026-145');
+        console.log(`Job 145 found: ${!!job145}`);
+
+        if (job145) {
+            console.log("--- COMPLETED STATUS TEST ---");
+            const orderIds = [job145._id.toString()];
+            const compQuery = { 
+                orderId: { $in: orderIds },
+                "processHistory.heatingRecord.status": { $in: ["Approved", "Completed"] }
+            };
+            const compTransformers = await TransformerModel.find(compQuery).lean();
+            const completedIds = [...new Set(compTransformers.map(t => t.orderId ? t.orderId.toString() : null).filter(id => id !== null))];
+            console.log(`Order ${job145.jobId} is completed: ${completedIds.includes(job145._id.toString())}`);
+        }
+
+    } catch (e) {
+        console.error(e);
+    } finally {
+        mongoose.connection.close();
     }
 }
 
-testApi();
+verify();

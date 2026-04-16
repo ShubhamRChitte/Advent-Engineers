@@ -9,8 +9,6 @@ import {
   Save, 
   CheckCircle, 
   XCircle,
-  Download,
-  FileText,
   Printer,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -27,6 +25,7 @@ interface ToroidalCoreTestingFormProps {
   coreType: string;
   orderId: string;
   clientName: string;
+  order?: any; // Added to access coreVendors
   onBack: () => void;
   onComplete: () => void;
 }
@@ -36,6 +35,7 @@ export function ToroidalCoreTestingForm({
   coreType,
   orderId,
   clientName,
+  order,
   onBack,
   onComplete,
 }: ToroidalCoreTestingFormProps) {
@@ -73,10 +73,12 @@ export function ToroidalCoreTestingForm({
 
   const handleTestResultChange = (index: number, field: keyof CoreTestData, value: string) => {
     const newTestResults = [...formData.testResults];
-    newTestResults[index] = {
+    const updatedRow = {
       ...newTestResults[index],
       [field]: value,
-    };
+    } as CoreTestData;
+    
+    newTestResults[index] = updatedRow;
     
     setFormData(prev => ({
       ...prev,
@@ -349,14 +351,36 @@ export function ToroidalCoreTestingForm({
                     {index + 1}
                   </td>
                   <td className="border border-gray-300 p-2">
-                    <Input
-                      value={result.coreVendorNo}
-                      onChange={(e) =>
-                        handleTestResultChange(index, 'coreVendorNo', e.target.value)
+                    {(() => {
+                      const vendorsObj = (order?.coreVendors) || {};
+                      const options = vendorsObj[coreType.toLowerCase()] || [];
+                      if (options.length > 0) {
+                        return (
+                          <select
+                            value={result.coreVendorNo}
+                            onChange={(e) => handleTestResultChange(index, 'coreVendorNo', e.target.value)}
+                            className="w-full h-8 text-sm border border-gray-300 rounded px-1"
+                          >
+                            <option value="">Select Vendor</option>
+                            {options.map((v: any) => (
+                              <option key={`${v.serialNo}-${v.name}`} value={`${v.serialNo} - ${v.name}`}>
+                                {v.serialNo} - {v.name}
+                              </option>
+                            ))}
+                          </select>
+                        );
                       }
-                      placeholder="Vendor No"
-                      className="h-8 text-sm"
-                    />
+                      return (
+                        <Input
+                          value={result.coreVendorNo}
+                          onChange={(e) =>
+                            handleTestResultChange(index, 'coreVendorNo', e.target.value)
+                          }
+                          placeholder="Vendor No"
+                          className="h-8 text-sm"
+                        />
+                      );
+                    })()}
                   </td>
                   <td className="border border-gray-300 p-2">
                     <Input

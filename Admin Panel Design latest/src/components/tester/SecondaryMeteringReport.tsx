@@ -43,7 +43,7 @@ export function SecondaryMeteringReport({
   useEffect(() => {
     const fetchLimits = async () => {
       try {
-        const response = await axios.get('http://localhost:3002/api/accuracy-limits/metering', { withCredentials: true });
+        const response = await axios.get('http://localhost:5000/api/accuracy-limits/metering', { withCredentials: true });
         setDbLimits(response.data);
       } catch (error) {
         console.error('Failed to fetch dynamic metering limits', error);
@@ -58,7 +58,7 @@ export function SecondaryMeteringReport({
     ? transformer.ratios
     : (transformer.orderId?.ratio || ['200/1']);
 
-  const [accuracyClass] = useState<string>(() => {
+  const [accuracyClass, setAccuracyClass] = useState<string>(() => {
     if (explicitClass) return extractAccuracyClass(explicitClass);
 
     // Fallback: Use the granular accuracyClass from transformer.cores or order.coreDetails
@@ -122,7 +122,7 @@ export function SecondaryMeteringReport({
   useEffect(() => {
     const fetchLatestData = async () => {
       try {
-        const res = await axios.get(`http://localhost:3002/api/transformers/${transformer.uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`http://localhost:5000/api/transformers/${transformer.uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
 
         // Dynamic path: testHistory.secondary_test or testHistory.primary_test
@@ -139,7 +139,14 @@ export function SecondaryMeteringReport({
 
           setDataByRatio(prev => {
             const newState = { ...prev };
-            const accClass = accuracyClass;
+            // Synchronize with the Class stored in the DB record if it exists
+            const savedAccClass = myResults[0]?.accuracyClass;
+            const accClass = savedAccClass ? extractAccuracyClass(savedAccClass) : accuracyClass;
+            
+            // If the DB class is different from current state, update it (for UI display in header)
+            if (savedAccClass && extractAccuracyClass(savedAccClass) !== accuracyClass) {
+              setAccuracyClass(extractAccuracyClass(savedAccClass));
+            }
 
             myResults.forEach((block: any) => {
               // Apply validation to restored rows so highlights reappear
@@ -228,7 +235,7 @@ export function SecondaryMeteringReport({
 
       console.log("handleDatabaseSave: Payload ready", payload);
 
-      const endpoint = `http://localhost:3002/transformer-${stage}-metering-tests`;
+      const endpoint = `http://localhost:5000/transformer-${stage}-metering-tests`;
       console.log(`handleDatabaseSave: Posting to ${endpoint}`);
 
       const response = await axios.post(
@@ -271,7 +278,7 @@ export function SecondaryMeteringReport({
         failureStage: `${stage}_metering_test`, // dynamic based on stage
         dynamicValues: dataByRatio
       };
-      await axios.post('http://localhost:3002/api/failed-cores', payload, { withCredentials: true });
+      await axios.post('http://localhost:5000/api/failed-cores', payload, { withCredentials: true });
       toast.success("Core marked as failed successfully.");
     } catch (error: any) {
       console.error("Mark as failed error:", error);
@@ -413,49 +420,35 @@ export function SecondaryMeteringReport({
             size: A4 portrait;
             margin: 10mm;
           }
-          body * {
-            visibility: hidden;
-          }
-          #print-section, #print-section * {
-            visibility: visible;
-          }
           #print-section {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 190mm;
-          }
-          input, select {
-            border: none !important;
-            background: transparent !important;
-            outline: none !important;
-            font-weight: 500 !important;
-            text-align: center !important;
             width: 100% !important;
-            color: black !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
         }
       `}</style>
-      <div className="flex items-center justify-between no-print">
-        <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
-          <ArrowLeft className="w-4 h-4" /> Back
-        </Button>
-        <div className="flex gap-2">
-          {!readOnly && hasAnyFailures && (
-            <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
-              <AlertTriangle className="w-4 h-4" /> Add to Failed Cores
-            </Button>
-          )}
-          {!readOnly && (
-            <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2" disabled={hasAnyFailures}>
-              <Save className="w-4 h-4" /> Save
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
-            <Printer className="w-4 h-4" /> Print
+      {!readOnly && (
+        <div className="flex items-center justify-between no-print">
+          <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
+            <ArrowLeft className="w-4 h-4" /> Back
           </Button>
+          <div className="flex gap-2">
+            {!readOnly && hasAnyFailures && (
+              <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
+                <AlertTriangle className="w-4 h-4" /> Add to Failed Cores
+              </Button>
+            )}
+            {!readOnly && (
+              <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2" disabled={hasAnyFailures}>
+                <Save className="w-4 h-4" /> Save
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
+              <Printer className="w-4 h-4" /> Print
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div id="print-section">
         {/* Header Grid */}
@@ -483,6 +476,10 @@ export function SecondaryMeteringReport({
             <div className="header-field">
               <span className="field-label">Unit No :</span>
               <span className="field-value">{transformer.uniqueId}</span>
+            </div>
+            <div className="header-field">
+              <span className="field-label">Class :</span>
+              <span className="field-value">{accuracyClass}</span>
             </div>
           </div>
         </div>
@@ -589,45 +586,64 @@ function MeteringTable({ ratio, rows, onUpdate, readOnly }: { ratio: string, row
             <tr key={idx}>
 
               <td className="text-center bg-gray-50">{row.current}</td>
-              <td>
-
-
-                <Input
-                  className={`h-7 text-xs text-center border-none shadow-none focus-visible:ring-1 disabled:opacity-100 disabled:cursor-not-allowed bg-transparent ${row.r100_pass === false ? 'text-red-700 font-bold' : ''}`}
-                  value={row.r100}
-                  onChange={(e) => onUpdate(idx, 'r100', e.target.value)}
-                  disabled={readOnly}
-                />
+              <td className="p-0 border border-gray-400">
+                {readOnly ? (
+                  <div className={`p-1.5 text-xs text-center font-bold ${row.r100_pass === false ? 'text-red-700' : 'text-blue-800'}`}>
+                    {row.r100 || '-'}
+                  </div>
+                ) : (
+                  <Input
+                    className={`h-7 text-xs text-center border-none shadow-none focus-visible:ring-1 disabled:opacity-100 disabled:cursor-not-allowed bg-transparent ${row.r100_pass === false ? 'text-red-700 font-bold' : ''}`}
+                    value={row.r100}
+                    onChange={(e) => onUpdate(idx, 'r100', e.target.value)}
+                    disabled={readOnly}
+                  />
+                )}
               </td>
 
-              <td>
-
-                <Input
-                  className={`h-7 text-xs text-center border-none shadow-none disabled:opacity-100 disabled:cursor-not-allowed bg-transparent ${row.r100_pass === false ? 'text-red-700 font-bold' : ''}`}
-                  value={row.p100}
-                  onChange={(e) => onUpdate(idx, 'p100', e.target.value)}
-                  disabled={readOnly}
-                />
+              <td className="p-0 border border-gray-400">
+                {readOnly ? (
+                  <div className={`p-1.5 text-xs text-center font-bold ${row.r100_pass === false ? 'text-red-700' : 'text-blue-800'}`}>
+                    {row.p100 || '-'}
+                  </div>
+                ) : (
+                  <Input
+                    className={`h-7 text-xs text-center border-none shadow-none disabled:opacity-100 disabled:cursor-not-allowed bg-transparent ${row.r100_pass === false ? 'text-red-700 font-bold' : ''}`}
+                    value={row.p100}
+                    onChange={(e) => onUpdate(idx, 'p100', e.target.value)}
+                    disabled={readOnly}
+                  />
+                )}
               </td>
 
-              <td>
-
-                <Input
-                  className={`h-7 text-xs text-center border-none shadow-none disabled:opacity-100 disabled:cursor-not-allowed bg-transparent ${row.r25_pass === false ? 'text-red-700 font-bold' : ''}`}
-                  value={row.r25}
-                  onChange={(e) => onUpdate(idx, 'r25', e.target.value)}
-                  disabled={readOnly}
-                />
+              <td className="p-0 border border-gray-400">
+                {readOnly ? (
+                  <div className={`p-1.5 text-xs text-center font-bold ${row.r25_pass === false ? 'text-red-700' : 'text-blue-800'}`}>
+                    {row.r25 || '-'}
+                  </div>
+                ) : (
+                  <Input
+                    className={`h-7 text-xs text-center border-none shadow-none disabled:opacity-100 disabled:cursor-not-allowed bg-transparent ${row.r25_pass === false ? 'text-red-700 font-bold' : ''}`}
+                    value={row.r25}
+                    onChange={(e) => onUpdate(idx, 'r25', e.target.value)}
+                    disabled={readOnly}
+                  />
+                )}
               </td>
 
-              <td>
-
-                <Input
-                  className={`h-7 text-xs text-center border-none shadow-none disabled:opacity-100 disabled:cursor-not-allowed bg-transparent ${row.r25_pass === false ? 'text-red-700 font-bold' : ''}`}
-                  value={row.p25}
-                  onChange={(e) => onUpdate(idx, 'p25', e.target.value)}
-                  disabled={readOnly}
-                />
+              <td className="p-0 border border-gray-400">
+                {readOnly ? (
+                  <div className={`p-1.5 text-xs text-center font-bold ${row.r25_pass === false ? 'text-red-700' : 'text-blue-800'}`}>
+                    {row.p25 || '-'}
+                  </div>
+                ) : (
+                  <Input
+                    className={`h-7 text-xs text-center border-none shadow-none disabled:opacity-100 disabled:cursor-not-allowed bg-transparent ${row.r25_pass === false ? 'text-red-700 font-bold' : ''}`}
+                    value={row.p25}
+                    onChange={(e) => onUpdate(idx, 'p25', e.target.value)}
+                    disabled={readOnly}
+                  />
+                )}
               </td>
             </tr>
           ))}

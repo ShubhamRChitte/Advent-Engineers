@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'; // React removed to fix unused warn
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { ArrowLeft, PlayCircle, Loader2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, PlayCircle, Loader2, FileText } from 'lucide-react';
 import axios from 'axios';
 
 interface CoreConfig {
@@ -71,7 +71,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
       setError(null);
       try {
         const orderId = order._id;
-        const response = await axios.get(`http://localhost:3002/api/orders/${orderId}/transformers`, {
+        const response = await axios.get(`http://localhost:5000/api/orders/${orderId}/transformers`, {
           withCredentials: true
         });
 
@@ -152,60 +152,41 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
           }
 
 
-          // Helper to check completeness - MOVED OUTSIDE RETURN
-          const checkCompleteness = () => {
-            const finalTest = t.testHistory?.final_test || {};
+          // New logic: Check if all critical readings are filled in testHistory
+          const finalHistory = t.testHistory?.final_test || {};
+          
+          // Strict non-empty string check for comprehensive fields
+          const isValidValue = (val: any) => val !== undefined && val !== null && String(val).trim() !== "" && String(val) !== "N/A";
 
-            // 1. MUST have comprehensive Final Test Report completed
-            if (finalTest.status !== 'Completed') return false;
+          const comprehensiveFilled = 
+            isValidValue(finalHistory.polarityResult) && 
+            isValidValue(finalHistory.hvSecondaryWinding) && 
+            isValidValue(finalHistory.hvPrimaryWinding) &&
+            isValidValue(finalHistory.hvBetweenCore) && 
+            isValidValue(finalHistory.ovitTest) && 
+            isValidValue(finalHistory.meggarPrimaryToSecondary) &&
+            isValidValue(finalHistory.meggarPrimaryToEarth) && 
+            isValidValue(finalHistory.meggarSecondaryToEarth) && 
+            isValidValue(finalHistory.meggarCoreToCore);
 
-            // If no cores defined (shouldn't happen), use strict backend status
-            if (coresList.length === 0) return true;
+          // Count unique cores tested in final stage
+          const meteringCores = new Set((finalHistory.metering_results || []).map((r: any) => r.internalCoreNo || r.coreId));
+          const psCores = new Set((finalHistory.ps_results || []).map((r: any) => r.internalCoreNo || r.coreId));
+          const protectionCores = new Set((finalHistory.protection_results || []).map((r: any) => r.internalCoreNo || r.coreId));
+          const uniqueCoresTested = new Set([...meteringCores, ...psCores, ...protectionCores]);
+          
+          const expectedCoresCount = coresList.length;
+          const coresFilled = uniqueCoresTested.size >= expectedCoresCount;
 
-            // 2. Check EVERY core has results
-            return coresList.every(core => {
-              if (core.coreType === 'metering') {
-                const results = finalTest.metering_results?.filter((r: any) =>
-                  r.coreId === core.coreId || r.internalCoreNo === core.coreId
-                );
-                if (!results || results.length === 0) return false;
-
-                // Check for empty fields in rows
-                return results.every((res: any) =>
-                  Array.isArray(res.rows) && res.rows.every((row: any) =>
-                    row.r100 && row.p100 && row.r25 && row.p25
-                  )
-                );
-
-              } else if (core.coreType === 'ps') {
-                const results = finalTest.ps_results?.filter((r: any) =>
-                  r.coreId === core.coreId || r.internalCoreNo === core.coreId
-                );
-                if (!results || results.length === 0) return false;
-
-                return results.every((res: any) =>
-                  // Simple check for key fields
-                  res.turnRatioError && res.resistance && res.vk && res.iexVk
-                );
-              } else if (core.coreType === 'protection') {
-                const results = finalTest.protection_results?.filter((r: any) =>
-                  r.coreId === core.coreId || r.internalCoreNo === core.coreId
-                );
-                if (!results || results.length === 0) return false;
-
-                return results.every((res: any) =>
-                  res.currentError && res.phaseError && res.compositeError
-                );
-              }
-              return true;
-            });
-          };
-
-          const isFullyComplete = checkCompleteness();
+          const isFilled = comprehensiveFilled && coresFilled;
+          
+          // Strict completion: Must have 'Completed' status AND actual filled data
+          const isFullyComplete = finalHistory.status === 'Completed' && isFilled;
 
           if (t.currentStage === 'final') {
             if (isFullyComplete) status = 'completed';
-            else if (t.testHistory?.final_test?.tester) status = 'in-progress';
+            else if (isFilled) status = 'in-progress'; // Treat "Filled" as "Ready for Approval"
+            else if (finalHistory.tester) status = 'in-progress';
           } else if (t.currentStage === 'shipped') {
             status = 'completed';
           }
@@ -218,6 +199,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
             voltageClass: order.nominalSystemVoltage ? `${order.nominalSystemVoltage}kV` : 'N/A',
             cores: coresList,
             status: status,
+            isFilled: isFilled, // Pass this to UI
             ratios: t.ratios || (Array.isArray(order.ratio) ? order.ratio : [order.ratio]),
             testHistory: t.testHistory,
             orderId: order,
@@ -344,31 +326,38 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                     <td className="p-4">{transformer.voltageClass}</td>
                     <td className="p-4">
                       <Badge className={getStatusColor(transformer.status)}>
-                        {transformer.status.replace('-', ' ')}
+                        {transformer.status === 'completed' ? 'Approved' : 
+                         (transformer.isFilled ? 'Ready for Approval' : transformer.status.replace('-', ' '))}
                       </Badge>
                     </td>
                     <td className="p-4">
                       <div className="flex justify-center items-center gap-2">
                         <Button
                           size="sm"
-                          onClick={() => onStartTest(transformer)}
-                          className={transformer.status === 'completed' ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
+                          onClick={() => {
+                            if (transformer.status === 'completed') {
+                              window.location.href = `/admin/report/${transformer.id}?type=final`;
+                            } else {
+                              onStartTest(transformer);
+                            }
+                          }}
+                          className={transformer.status === 'completed' ? "bg-green-600 hover:bg-green-700 font-medium" : "bg-red-600 hover:bg-red-700"}
                           disabled={false}
                         >
                           {transformer.status === 'completed' ? (
                             <>
-                              <CheckCircle className="w-4 h-4 mr-2" />
+                              <FileText className="w-4 h-4 mr-2" />
                               View Report
                             </>
                           ) : (
                             <>
                               <PlayCircle className="w-4 h-4 mr-2" />
-                              {transformer.status === 'pending' ? 'Start Test' : 'Continue Test'}
+                              {transformer.status === 'pending' ? 'Start Test' : 'Edit / Continue'}
                             </>
                           )}
                         </Button>
 
-                        {transformer.status === 'completed' && (
+                        {transformer.status === 'in-progress' && (transformer as any).isFilled && (transformer.currentStage === 'final') && (
                           <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white"

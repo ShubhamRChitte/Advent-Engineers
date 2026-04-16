@@ -60,7 +60,7 @@ export function CoreTestingOrders({ onStartTesting, user: _user, type = 'active'
 
   useEffect(() => {
     axios
-      .get("http://localhost:3002/api/assigneed_orders", {
+      .get("http://localhost:5000/api/assigneed_orders", {
         params: { type },
         withCredentials: true
       })

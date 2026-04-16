@@ -47,7 +47,7 @@ export function SecondaryReportsList({ onBack }: SecondaryReportsListProps) {
     const fetchReports = async () => {
         setLoading(true);
         try {
-            const response = await axios.get('http://localhost:3002/api/secondary/reports', {
+            const response = await axios.get('http://localhost:5000/api/secondary/reports', {
                 withCredentials: true
             });
 

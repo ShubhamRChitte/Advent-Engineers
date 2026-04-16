@@ -28,8 +28,8 @@ interface HeatingRecordModuleProps {
 
 const DEFAULT_PROCESS_STEPS: ProcessStep[] = [
   { process: 'Heating 80°C',       duration: '12 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
-  { process: 'V. Heating 90°C',    duration: '18 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
-  { process: 'V. Cooling 60°C',    duration: '06 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+  { process: 'Heating 90°C',       duration: '18 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+  { process: 'Cooling 60°C',       duration: '06 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
   { process: 'Oil Filling at 60°C', duration: '03 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
 ];
 
@@ -55,7 +55,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
       // Use dedicated heating-record endpoint which has NO stage restriction.
       // /assigneed_orders filters by transformer.currentStage and misses orders
       // where transformers have already moved past 'heating' stage.
-      const response = await axios.get("http://localhost:3002/api/heating-record/assigned-orders?type=CT", {
+      const response = await axios.get("http://localhost:5000/api/heating-record/assigned-orders?type=CT", {
         withCredentials: true
       });
 
@@ -65,7 +65,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
 
       const orderIds = eligibleOrders.map((o: any) => o._id);
       if (orderIds.length > 0) {
-        const completedRes = await axios.post("http://localhost:3002/api/heating-record/completed-status", {
+        const completedRes = await axios.post("http://localhost:5000/api/heating-record/completed-status", {
             orderIds,
             prefix: "CT"
         }, { withCredentials: true });
@@ -88,7 +88,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
     setSelectedOrder(order);
     setLoadingTransformers(true);
     try {
-      const res = await axios.get(`http://localhost:3002/api/transformers/order/${order._id}`, { withCredentials: true });
+      const res = await axios.get(`http://localhost:5000/api/transformers/order/${order._id}`, { withCredentials: true });
       setTransformersList(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
       console.error('Failed to fetch transformers for order', e);
@@ -104,7 +104,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
       const voltageStr = String((selectedOrder as any).voltageRating || selectedOrder.nominalSystemVoltage || '');
       const transformerType = voltageStr.includes('33') ? '33KV_CT' : '11KV_CT';
 
-      await axios.put(`http://localhost:3002/api/heating-record/${selectedOrder._id}/approve`, {
+      await axios.put(`http://localhost:5000/api/heating-record/${selectedOrder._id}/approve`, {
         type: transformerType
       }, { withCredentials: true });
       alert("Heating record approved successfully!");
@@ -123,7 +123,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
     const transformerType = voltageStr.includes('33') ? '33KV_CT' : '11KV_CT';
 
     try {
-      const res = await axios.get(`http://localhost:3002/api/heating-record/${selectedOrder!._id}/${transformerType}`, { withCredentials: true });
+      const res = await axios.get(`http://localhost:5000/api/heating-record/${selectedOrder!._id}/${transformerType}`, { withCredentials: true });
       if (res.data.success && res.data.data?.blocks?.length > 0) {
         const uiBlocks = res.data.data.blocks.map((b: any) => ({
           id: Math.random().toString(36).substr(2, 9),
@@ -163,11 +163,11 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
   const makeNewBlock = (_jobId: string, blockNumber: number, voltage: string): HeatingRecordBlock => {
     let processSteps = JSON.parse(JSON.stringify(DEFAULT_PROCESS_STEPS));
     
-    if (voltage.includes('33')) {
+    if (voltage.includes('22') || voltage.includes('33')) {
       processSteps = [
         { process: 'Heating 80°C',       duration: '12 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
-        { process: 'V. Heating 80°C',    duration: '24 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
-        { process: 'V. Cooling 60°C',    duration: '06 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+        { process: 'Heating 90°C',       duration: '24 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+        { process: 'Cooling 60°C',       duration: '06 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
         { process: 'Oil Filling at 60°C', duration: '04 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
       ];
     }
@@ -193,12 +193,52 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
     setRecords(prev => [...prev, makeNewBlock(selectedOrder.jobId, prev.length + 1, String(selectedOrder.nominalSystemVoltage))]);
   };
 
+
   const updateProcessStep = (blockId: string, processIndex: number, field: keyof ProcessStep, value: string) => {
     setRecords(records.map(block => {
       if (block.id !== blockId) return block;
-      const newSteps = [...block.processSteps];
-      newSteps[processIndex] = { ...newSteps[processIndex], [field]: value } as ProcessStep;
-      return { ...block, processSteps: newSteps };
+      let updatedSteps = [...block.processSteps];
+      updatedSteps[processIndex] = { ...updatedSteps[processIndex], [field]: value };
+
+      // Ripple Forward Logic
+      const isStartTimeChange = (field === 'startDate' || field === 'startTime');
+      const isEndTimeChange = (field === 'completionDate' || field === 'completionTime');
+
+      if (isStartTimeChange || isEndTimeChange) {
+        for (let i = processIndex; i < updatedSteps.length; i++) {
+          const step = updatedSteps[i];
+          const hoursMatch = step.duration.match(/(\d+)/);
+          const hours = hoursMatch ? parseInt(hoursMatch[1]) : 0;
+
+          if (i === processIndex) {
+            if (isStartTimeChange) {
+              if (step.startDate && step.startTime) {
+                const start = new Date(`${step.startDate}T${step.startTime}`);
+                const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
+                updatedSteps[i] = {
+                  ...step,
+                  completionDate: end.toLocaleDateString('en-CA'),
+                  completionTime: end.toTimeString().slice(0, 5)
+                };
+              }
+            }
+          } else {
+            const prevStep = updatedSteps[i - 1];
+            if (prevStep.completionDate && prevStep.completionTime) {
+              const start = new Date(`${prevStep.completionDate}T${prevStep.completionTime}`);
+              const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
+              updatedSteps[i] = {
+                ...step,
+                startDate: start.toLocaleDateString('en-CA'),
+                startTime: start.toTimeString().slice(0, 5),
+                completionDate: end.toLocaleDateString('en-CA'),
+                completionTime: end.toTimeString().slice(0, 5)
+              };
+            }
+          }
+        }
+      }
+      return { ...block, processSteps: updatedSteps };
     }));
   };
 
@@ -251,7 +291,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
         blocks: blocksPayload
       };
 
-      await axios.post("http://localhost:3002/api/heating-record", payload, { withCredentials: true });
+      await axios.post("http://localhost:5000/api/heating-record", payload, { withCredentials: true });
       alert("Heating records saved successfully!");
 
       setSelectedTransformer(null);

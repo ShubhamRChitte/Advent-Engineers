@@ -146,7 +146,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
         const typeParam = !isMeteringCheck ? `?type=${coreType}` : '';
 
         // Fetch existing data
-        const response = await axios.get(`http://localhost:3002/api${endpoint}/${txnOrderId}${typeParam}`, {
+        const response = await axios.get(`http://localhost:5000/api${endpoint}/${txnOrderId}${typeParam}`, {
           withCredentials: true
         });
 
@@ -680,7 +680,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
         };
       }
 
-      await axios.post(`http://localhost:3002/api${endpoint}`, finalPayload, {
+      await axios.post(`http://localhost:5000/api${endpoint}`, finalPayload, {
         withCredentials: true,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -745,7 +745,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
       const internalCoreNos = rows.map(r => r.internalCoreNo);
 
       // Send Batch Approval
-      const response = await axios.put(`http://localhost:3002/api/core-tests/approve-batch`, {
+      const response = await axios.put(`http://localhost:5000/api/core-tests/approve-batch`, {
         jobId: order.jobId,
         internalCoreNos
       }, { withCredentials: true });
@@ -1293,12 +1293,34 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                       />
                     </td>
                     <td className="p-2 border border-gray-300">
-                      <Input
-                        value={String(row.coreVendorNo || '')}
-                        onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
-                        className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
-                        placeholder="16"
-                      />
+                      {(() => {
+                        const vendorsObj = ((order as any).coreVendors || (order as any).order?.coreVendors) || {};
+                        const options = vendorsObj[coreType.toLowerCase()] || [];
+                        if (options.length > 0) {
+                          return (
+                            <select
+                              value={String(row.coreVendorNo || '')}
+                              onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
+                              className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 bg-transparent text-center"
+                            >
+                              <option value="">- Select -</option>
+                              {options.map((v: any, i: number) => (
+                                <option key={i} value={`${v.serialNo} - ${v.name}`}>
+                                  {v.serialNo} - {v.name}
+                                </option>
+                              ))}
+                            </select>
+                          );
+                        }
+                        return (
+                          <Input
+                            value={String(row.coreVendorNo || '')}
+                            onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
+                            className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
+                            placeholder="Vendor"
+                          />
+                        );
+                      })()}
                     </td>
                     <td colSpan={2} className="p-2 border border-gray-300">
                       <div className="flex items-center gap-1">
@@ -1927,12 +1949,34 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                       />
                     </td>
                     <td className="p-2 border border-gray-300">
-                      <Input
-                        value={String(row.coreVendorNo || '')}
-                        onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
-                        className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
-                        placeholder="16"
-                      />
+                      {(() => {
+                        const vendorsObj = ((order as any).coreVendors || (order as any).order?.coreVendors) || {};
+                        const options = vendorsObj[coreType.toLowerCase()] || [];
+                        if (options.length > 0) {
+                          return (
+                            <select
+                              value={String(row.coreVendorNo || '')}
+                              onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
+                              className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 bg-transparent text-center"
+                            >
+                              <option value="">- Select -</option>
+                              {options.map((v: any, i: number) => (
+                                <option key={i} value={`${v.serialNo} - ${v.name}`}>
+                                  {v.serialNo} - {v.name}
+                                </option>
+                              ))}
+                            </select>
+                          );
+                        }
+                        return (
+                          <Input
+                            value={String(row.coreVendorNo || '')}
+                            onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
+                            className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
+                            placeholder="Vendor"
+                          />
+                        );
+                      })()}
                     </td>
                     <td colSpan={2} className="p-2 border border-gray-300">
                       <div className="flex items-center gap-1">
@@ -2555,12 +2599,34 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                   </td>
 
                   <td className="p-2 border border-gray-300">
-                    <Input
-                      value={String(row.coreVendorNo || '')}
-                      onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
-                      className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
-                      placeholder="16"
-                    />
+                    {(() => {
+                      const vendorsObj = ((order as any).coreVendors || (order as any).order?.coreVendors) || {};
+                      const options = vendorsObj[coreType.toLowerCase()] || [];
+                      if (options.length > 0) {
+                        return (
+                          <select
+                            value={String(row.coreVendorNo || '')}
+                            onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
+                            className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 bg-transparent text-center"
+                          >
+                            <option value="">- Select -</option>
+                            {options.map((v: any, i: number) => (
+                              <option key={i} value={`${v.serialNo} - ${v.name}`}>
+                                {v.serialNo} - {v.name}
+                              </option>
+                            ))}
+                          </select>
+                        );
+                      }
+                      return (
+                        <Input
+                          value={String(row.coreVendorNo || '')}
+                          onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
+                          className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
+                          placeholder="Vendor"
+                        />
+                      );
+                    })()}
                   </td>
                   {/* <td colSpan={2} className="p-2 border border-gray-300">
                     <div className="flex items-center gap-1">

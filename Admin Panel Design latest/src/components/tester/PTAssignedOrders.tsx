@@ -3,7 +3,7 @@ import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { PlayCircle, Search } from 'lucide-react';
+import { PlayCircle, Search, Eye } from 'lucide-react';
 import axios from 'axios';
 
 interface Order {
@@ -28,23 +28,38 @@ interface PTAssignedOrdersProps {
 export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0 }: PTAssignedOrdersProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
   useEffect(() => {
     fetchOrders();
-  }, [refreshTrigger]);
+  }, [refreshTrigger, activeTab]);
 
   const fetchOrders = async () => {
     try {
-      // The backend /assigneed_orders route automatically filters by the user's role (PT Test)
-      // and finding orders in the 'pt' stage.
-      const response = await axios.get("http://localhost:3002/api/assigneed_orders?type=active", {
+      setLoading(true);
+      // Use the stage-unrestricted endpoint so we see all PT orders regardless of
+      // which stage the transformers are currently at.
+      const response = await axios.get('http://localhost:5000/api/heating-record/assigned-orders?type=PT', {
         withCredentials: true
       });
-      setOrders(response.data);
-    } catch (err) {
-      console.error("API ERROR:", err);
+
+      const allOrders: Order[] = response.data.success ? response.data.orders : [];
+
+      if (activeTab === 'active') {
+        // Show orders NOT yet fully completed
+        setOrders(allOrders.filter(o =>
+          !o.status.includes('PT Testing Completed')
+        ));
+      } else {
+        // Show fully completed PT testing orders
+        setOrders(allOrders.filter(o =>
+          o.status.includes('PT Testing Completed') || o.status.includes('Completed')
+        ));
+      }
+    } catch (error) {
+      console.error("Error fetching PT orders:", error);
     } finally {
       setLoading(false);
     }
@@ -113,9 +128,32 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0 }: PTAssig
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2>Assigned PT Orders</h2>
-          <p className="text-gray-500 mt-1">View and start PT testing on assigned orders</p>
+          <p className="text-gray-500 mt-1">View your assigned PT orders</p>
+        </div>
+        <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg">
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'active' 
+                ? 'bg-white text-[#003a70] shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Active Orders
+          </button>
+          <button
+            onClick={() => setActiveTab('completed')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'completed' 
+                ? 'bg-white text-[#003a70] shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Completed Orders
+          </button>
         </div>
       </div>
+
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -170,6 +208,8 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0 }: PTAssig
                 filteredOrders.map((order) => {
                   const totalQty = order.quantity || order.transformerQuantity || 0;
                   const assignedQty = order.assignedUnitIds ? order.assignedUnitIds.length : totalQty;
+                  
+                  const isCompleted = order.status.includes('Completed');
 
                   return (
                     <tr key={order._id} className="border-b border-gray-100 hover:bg-gray-50">
@@ -192,14 +232,14 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0 }: PTAssig
                         </Badge>
                       </td>
                       <td className="p-4">
-                        <div className="flex justify-center gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => onStartTesting(order)}
-                            className="bg-blue-600 hover:bg-blue-700"
+                        <div className="flex justify-center flex-col sm:flex-row gap-2">
+                           <Button 
+                            size="sm" 
+                            className={isCompleted ? "bg-green-600 hover:bg-green-700 w-full" : "bg-blue-600 hover:bg-blue-700 w-full"}
+                            onClick={() => onStartTesting && onStartTesting(order)}
                           >
-                            <PlayCircle className="w-4 h-4 mr-2" />
-                            Start / Continue
+                            {isCompleted ? <Eye className="w-4 h-4 mr-2" /> : <PlayCircle className="w-4 h-4 mr-2" />}
+                            {isCompleted ? 'View Report' : 'Start / Continue'}
                           </Button>
                         </div>
                       </td>
@@ -209,10 +249,11 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0 }: PTAssig
               ) : (
                 <tr>
                   <td colSpan={7} className="p-8 text-center text-gray-500">
-                    No assigned PT orders found.
+                    {activeTab === 'active' ? 'No active PT orders found.' : 'No completed PT orders found.'}
                   </td>
                 </tr>
               )}
+
             </tbody>
           </table>
         </div>

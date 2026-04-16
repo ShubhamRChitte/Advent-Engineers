@@ -145,7 +145,7 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
       setIsApproving(true);
       // Call the Granular Batch Approval Endpoint
       const response = await axios.put(
-        `http://localhost:3002/api/core-tests/approve/${order._id}`,
+        `http://localhost:5000/api/core-tests/approve/${order._id}`,
         {},
         { withCredentials: true }
       );
