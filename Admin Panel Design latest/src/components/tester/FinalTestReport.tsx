@@ -3,7 +3,6 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { ArrowLeft, Save, Download, Printer, AlertTriangle } from 'lucide-react';
 import { FinalTransformer } from './FinalTransformersList';
-import { exportFinalTestReport } from '../../utils/pdfExport';
 import { toast } from 'sonner';
 import axios from 'axios';
 
@@ -187,11 +186,7 @@ export function FinalTestReport({
       });
 
       if (res.data.success) {
-        toast.success("Final report data saved to database!");
-
-        // 2. Generate PDF using existing logic
-        exportFinalTestReport(reportData);
-        toast.success('Final test report downloaded successfully!');
+        toast.success("Final report data saved successfully!");
         if (onBack) onBack();
       } else {
         toast.error(res.data.message || 'Failed to save final test record.');
@@ -632,8 +627,8 @@ export function FinalTestReport({
             </Button>
           ) : isComplete ? (
             <Button onClick={handleGenerateAndSave} className="bg-blue-600 text-white hover:bg-blue-700 gap-2 font-bold h-10 shadow">
-              <Download className="w-4 h-4" />
-              GENERATE AND SAVE
+              <Save className="w-4 h-4" />
+              SAVE FINAL READINGS
             </Button>
           ) : (
             <Button onClick={handleSave} variant="outline" size="sm" className="gap-2 border-gray-400">
