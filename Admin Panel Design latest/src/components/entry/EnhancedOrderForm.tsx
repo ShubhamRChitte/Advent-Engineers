@@ -199,17 +199,19 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
     const hasProtection = coreConfigs.some(c => c.coreType === 'protection');
     const hasPS = coreConfigs.some(c => c.coreType === 'ps');
 
-    if (hasMetering && selectedMeteringVendors.length === 0) {
-      toast.error("At least one Metering vendor is required");
-      return;
-    }
-    if (hasProtection && selectedProtectionVendors.length === 0) {
-      toast.error("At least one Protection vendor is required");
-      return;
-    }
-    if (hasPS && selectedPSVendors.length === 0) {
-      toast.error("At least one PS vendor is required");
-      return;
+    if (transformerType === 'CT') {
+      if (hasMetering && selectedMeteringVendors.length === 0) {
+        toast.error("At least one Metering vendor is required");
+        return;
+      }
+      if (hasProtection && selectedProtectionVendors.length === 0) {
+        toast.error("At least one Protection vendor is required");
+        return;
+      }
+      if (hasPS && selectedPSVendors.length === 0) {
+        toast.error("At least one PS vendor is required");
+        return;
+      }
     }
 
     onSubmit(orderData);

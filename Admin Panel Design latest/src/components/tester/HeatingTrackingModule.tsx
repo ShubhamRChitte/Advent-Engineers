@@ -51,7 +51,8 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
 
   const fetchOrders = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/heating-record/assigned-orders?type=CT", {
+      const typeParam = user.role === 'pt-tester' ? 'PT' : 'CT';
+      const response = await axios.get(`http://localhost:5000/api/heating-record/assigned-orders?type=${typeParam}`, {
         withCredentials: true
       });
 
@@ -63,7 +64,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
       if (orderIds.length > 0) {
         const completedRes = await axios.post("http://localhost:5000/api/heating-record/completed-status", {
             orderIds,
-            prefix: "CT"
+            prefix: typeParam
         }, { withCredentials: true });
         
         const completedIds = completedRes.data.success ? completedRes.data.completedIds : [];
@@ -171,7 +172,22 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
 
   const getStepsForVoltage = (voltage: string): ProcessStep[] => {
     const vStr = String(voltage);
-    if (vStr.includes('22') || vStr.includes('33')) {
+    const isHighVoltage = vStr.includes('22') || vStr.includes('33');
+    
+    // PT Specific Logic
+    if (user.role === 'pt-tester' || selectedOrder?.transformerType === 'PT') {
+        const d2 = isHighVoltage ? '24 hrs' : '18 hrs';
+        const d4 = isHighVoltage ? '04 hrs' : '03 hrs';
+        return [
+          { process: 'Heating at 90°C (Voltage applied)', duration: '12 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+          { process: 'Heating at 90°C (Voltage applied)', duration: d2, startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+          { process: 'Cooling at 60°C', duration: '06 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+          { process: 'Oil Filling at 60°C', duration: d4, startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' }
+        ];
+    }
+
+    // Existing CT Logic
+    if (isHighVoltage) {
         return [
           { process: 'Heating 80°C',       duration: '12 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
           { process: 'Heating 90°C',       duration: '24 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
@@ -415,7 +431,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
               <tbody>
                 {transformersList.map((t: any) => {
                   const hStatus = t.testHistory?.heating_test?.status || 'Pending';
-                  const isApproved = hStatus === 'Approved';
+                  const isApproved = hStatus === 'Approved' || hStatus === 'Completed';
                   
                   // Check if all 4 mandatory process steps have date and time filled
                   const pSteps = t.testHistory?.heating_test?.processSteps || [];
@@ -433,7 +449,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
                             hStatus === 'In Progress' || hStatus === 'Completed' || isFilled ? 'bg-blue-100 text-blue-800' :
                             'bg-yellow-100 text-yellow-800'
                         }`}>
-                          {isApproved ? 'Approved' : (isFilled ? 'Ready for Approval' : (hStatus === 'In Progress' ? 'Saved (In Progress)' : hStatus))}
+                          {isApproved ? (hStatus === 'Completed' ? 'Heating Test Completed' : 'Approved') : (isFilled ? 'Ready for Approval' : (hStatus === 'In Progress' ? 'Saved (In Progress)' : hStatus))}
                         </span>
                       </td>
                       <td className="p-4 text-center">
@@ -498,14 +514,14 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
       return (
         <UnifiedHeatingRecord
             voltage={voltage}
-            type="CT"
+            type={selectedOrder.transformerType || (user.role === 'pt-tester' ? 'PT' : 'CT')}
             record={record}
             saving={saving}
             onBack={() => { setSelectedTransformer(null); setRecord(null); }}
             onSave={handleSave}
             onUpdateProcessStep={updateProcessStep}
             onUpdateBlockField={updateBlockField}
-            readOnly={selectedTransformer.testHistory?.heating_test?.status === 'Approved' || currentTab === 'completed'}
+            readOnly={selectedTransformer.testHistory?.heating_test?.status === 'Approved' || selectedTransformer.testHistory?.heating_test?.status === 'Completed' || currentTab === 'completed'}
         />
       );
   }

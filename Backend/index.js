@@ -84,7 +84,9 @@ const protectionTestRoutes = require('./routes/protectionTestRoutes');
 
 // 1. CORS (Must be first)
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:3001"],
+  origin: function(origin, callback) {
+    return callback(null, true);
+  },
   credentials: true
 }));
 

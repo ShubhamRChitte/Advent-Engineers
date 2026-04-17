@@ -108,7 +108,22 @@ export function HeatingTrackingReport({ order, transformer, user, onBack }: Heat
 
   const getStepsForVoltage = (): ProcessStep[] => {
     const voltage = String(order.voltageRating || order.nominalSystemVoltage || '');
-    if (voltage.includes('33')) {
+    const isHighVoltage = voltage.includes('22') || voltage.includes('33');
+
+    // PT Specific Logic
+    if (order.transformerType === 'PT') {
+        const d2 = isHighVoltage ? '24 hrs' : '18 hrs';
+        const d4 = isHighVoltage ? '04 hrs' : '03 hrs';
+        return [
+          { process: 'Heating at 90°C (Voltage applied)', duration: '12 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+          { process: 'Heating at 90°C (Voltage applied)', duration: d2, startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+          { process: 'Cooling at 60°C', duration: '06 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
+          { process: 'Oil Filling at 60°C', duration: d4, startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' }
+        ];
+    }
+
+    // Existing CT Logic
+    if (isHighVoltage) {
         return [
           { process: 'Heating 80°C',       duration: '12 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },
           { process: 'V. Heating 80°C',    duration: '24 hrs', startDate: '', startTime: '', completionDate: '', completionTime: '', remarks: '' },

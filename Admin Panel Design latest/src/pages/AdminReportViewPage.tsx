@@ -177,7 +177,7 @@ export function AdminReportViewPage() {
     };
 
     const renderHeatingReport = () => {
-        const heatingRecord = transformer?.testHistory?.heating_test;
+        const heatingRecord = transformer?.testHistory?.heating_test || transformer?.processHistory?.heatingRecord?.[0];
         
         if (!heatingRecord) {
             return (
@@ -207,7 +207,9 @@ export function AdminReportViewPage() {
                     <div className="flex justify-between items-start mb-6">
                         <div>
                             <h1 className="text-3xl font-bold text-gray-900 mb-1 tracking-tight">HEATING RECORD{titleSuffix}</h1>
-                            <p className="text-gray-500 font-medium italic">Toroidal Transformer Process Record</p>
+                            <p className="text-gray-500 font-medium italic">
+                                {type === 'PT' ? "Potential Transformer Process Record" : "Toroidal Transformer Process Record"}
+                            </p>
                         </div>
                         <div className="text-right space-y-1">
                             <div className="flex justify-end gap-3 text-sm">
@@ -291,7 +293,23 @@ export function AdminReportViewPage() {
         const isPT = transformer?.currentStage === 'pt' || transformer?.testHistory?.pt_test || orderData?.transformerType === 'PT';
         
         if (isPT) {
-            return <PTReportView transformer={transformer} order={orderData} onBack={handleBack} readOnly={true} />;
+            return (
+                <div className="space-y-12">
+                    <div className="report-section print:border-none print:pt-0">
+                        <PTReportView transformer={transformer} order={orderData} onBack={handleBack} readOnly={true} />
+                    </div>
+                
+                    <div className="pt-12 border-t-4 border-double border-gray-300 report-section print:border-none print:pt-0 print:break-before-page">
+                        <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2 print:hidden">
+                            <span className="w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center text-sm">2</span>
+                            Heating Test Report
+                        </h2>
+                        <Card className="p-0 overflow-hidden shadow-xl border-none print:shadow-none print:border-none print:p-0 bg-white">
+                            {renderHeatingReport()}
+                        </Card>
+                    </div>
+                </div>
+            );
         }
 
         return (

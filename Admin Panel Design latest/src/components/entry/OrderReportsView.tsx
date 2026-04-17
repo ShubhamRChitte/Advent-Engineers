@@ -244,7 +244,10 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
               <tr>
                 <th className="text-left p-4 font-medium text-gray-700">Transformer Id ⬆</th>
                 {isPTContext ? (
-                  <th className="text-center p-4 font-medium text-gray-700">PT Testing</th>
+                  <>
+                    <th className="text-center p-4 font-medium text-gray-700">PT Testing</th>
+                    <th className="text-center p-4 font-medium text-gray-700">After Heating</th>
+                  </>
                 ) : (
                   <>
                     <th className="text-center p-4 font-medium text-gray-700">Core Testing</th>
@@ -281,25 +284,49 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
                     </td>
 
                     {isPTOrder(unit.raw) ? (
-                      <td className="p-4">
-                        <div className="flex flex-col items-center gap-2">
-                          <Badge className={`${getStatusColor(unit.ptTestStatus || 'Pending')} flex items-center gap-1`}>
-                            {getStatusIcon(unit.ptTestStatus || 'Pending')}
-                            {unit.ptTestStatus || 'Pending'}
-                          </Badge>
-                          {unit.ptTestStatus === 'Complete' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs h-7 gap-1"
-                              onClick={() => handleOpenReport(unit.raw, 'pt')}
-                            >
-                              <FileText className="w-3 h-3" />
-                              View Report
-                            </Button>
-                          )}
-                        </div>
-                      </td>
+                      <>
+                        <td className="p-4">
+                          <div className="flex flex-col items-center gap-2">
+                            <Badge className={`${getStatusColor(unit.ptTestStatus || 'Pending')} flex items-center gap-1`}>
+                              {getStatusIcon(unit.ptTestStatus || 'Pending')}
+                              {unit.ptTestStatus || 'Pending'}
+                            </Badge>
+                            {unit.ptTestStatus === 'Complete' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7 gap-1"
+                                onClick={() => handleOpenReport(unit.raw, 'pt')}
+                              >
+                                <FileText className="w-3 h-3" />
+                                View Report
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex flex-col items-center gap-2">
+                            <Badge className={`${getStatusColor(unit.heatingStatus)} flex items-center gap-1`}>
+                              {getStatusIcon(unit.heatingStatus)}
+                              {unit.heatingStatus}
+                            </Badge>
+                            {unit.raw?.processHistory?.heatingRecord?.[0]?.preparedBy && unit.heatingStatus === 'Complete' && (
+                              <span className="text-[10px] text-gray-500 font-medium">By: {unit.raw.processHistory.heatingRecord[0].preparedBy}</span>
+                            )}
+                            {unit.heatingStatus === 'Complete' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7 gap-1"
+                                onClick={() => handleOpenReport(unit.raw, 'heating')}
+                              >
+                                <FileText className="w-3 h-3" />
+                                View Report
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </>
                     ) : (
                       <>
                         {/* Core Test */}

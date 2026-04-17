@@ -54,14 +54,26 @@ router.get('/assigned-orders', async (req, res) => {
 
         const typeStr = type.toString().toUpperCase();
 
-        // 1. Find transformers that are ready for heating or in heating
-        const transQuery = {
-            $or: [
-                { currentStage: "heating" },
-                { "testHistory.primary_test.status": "Completed" },
-                { "testHistory.pt_test.status": "Completed" }
-            ]
-        };
+        let transQuery = {};
+        if (typeStr === 'PT') {
+            transQuery = {
+                $or: [
+                    { currentStage: "core" },
+                    { currentStage: "pt" },
+                    { currentStage: "heating" },
+                    { currentStage: "final" },
+                    { "testHistory.pt_test.status": "Completed" }
+                ]
+            };
+        } else {
+            transQuery = {
+                $or: [
+                    { currentStage: "heating" },
+                    { "testHistory.primary_test.status": "Completed" },
+                    { "testHistory.pt_test.status": "Completed" }
+                ]
+            };
+        }
 
         // Note: We populate orderId to get transformerType and other details
         const transformers = await TransformerModel.find(transQuery).populate('orderId').lean();
@@ -186,7 +198,7 @@ router.post('/completed-status', async (req, res) => {
             orderStatusMap[oid].eligibleTotal++;
             
             const status = t.testHistory?.heating_test?.status;
-            if (status === "Approved") {
+            if (status === "Approved" || status === "Completed") {
                 orderStatusMap[oid].completed++;
             }
         });
@@ -324,7 +336,7 @@ router.post('/save/:uniqueId', isAuthenticated, async (req, res) => {
         const { uniqueId } = req.params;
         const { processSteps, preparedBy, verifiedBy, productionManager, leftInputs, isApproveCall } = req.body;
         
-        const transformer = await TransformerModel.findOne({ uniqueId });
+        const transformer = await TransformerModel.findOne({ uniqueId }).populate('orderId');
         if (!transformer) return res.status(404).json({ success: false, message: "Transformer not found" });
 
         // Ensure testHistory.heating_test exists
@@ -349,17 +361,23 @@ router.post('/save/:uniqueId', isAuthenticated, async (req, res) => {
         heatingTest.reportDate = new Date();
 
         if (isApproveCall) {
-            // OPTIONAL: Add strict validation here if needed
-            heatingTest.status = "Approved";
-            transformer.currentStage = "final";
-            console.log(`[STRICT WORKFLOW] Transformer ${uniqueId} Approved in Heating. Moving to final.`);
-            
-            // Notification Cleanup
-            try {
-                const { clearNotifications } = require('../services/notificationService');
-                await clearNotifications(transformer.orderId, 'heating');
-            } catch (err) {
-                console.warn("Notification clear failed in heating save:", err);
+            const isPT = transformer.orderId && transformer.orderId.transformerType === 'PT';
+
+            if (isPT) {
+                heatingTest.status = "Completed";
+                console.log(`[STRICT WORKFLOW] Transformer ${uniqueId} Completed Heating for PT. Stopping workflow.`);
+            } else {
+                heatingTest.status = "Approved";
+                transformer.currentStage = "final";
+                console.log(`[STRICT WORKFLOW] Transformer ${uniqueId} Approved in Heating for CT. Moving to final.`);
+                
+                // Notification Cleanup for CT
+                try {
+                    const { clearNotifications } = require('../services/notificationService');
+                    await clearNotifications(transformer.orderId._id, 'heating');
+                } catch (err) {
+                    console.warn("Notification clear failed in heating save:", err);
+                }
             }
         } else {
             heatingTest.status = "In Progress";

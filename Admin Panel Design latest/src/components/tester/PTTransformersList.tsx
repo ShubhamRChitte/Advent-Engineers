@@ -58,7 +58,7 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
       setError(null);
       try {
         const orderId = order._id;
-        const response = await axios.get(`http://localhost:3002/api/transformers/order/${orderId}`, {
+        const response = await axios.get(`http://localhost:5000/api/transformers/order/${orderId}`, {
           withCredentials: true
         });
 
@@ -137,7 +137,7 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
   const handleApproveTransformer = async (transformer: Transformer) => {
     try {
       if (!window.confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId}?`)) return;
-      await axios.put(`http://localhost:3002/api/pt-tests/transformer/${transformer._id}/approve`, {}, { withCredentials: true });
+      await axios.put(`http://localhost:5000/api/pt-tests/transformer/${transformer._id}/approve`, {}, { withCredentials: true });
       alert("Transformer approved successfully!");
       // Update local state to reflect approval (remove from active list)
       setTransformers(prev => prev.filter(t => t._id !== transformer._id));

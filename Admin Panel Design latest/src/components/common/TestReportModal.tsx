@@ -46,7 +46,7 @@ export function TestReportModal({ isOpen, onClose, transformer, order, testType 
         setLoading(true);
         try {
             const id = transformer._id || transformer.id;
-            const res = await fetch(`http://localhost:3002/api/reports/${id}?stage=${testType}`);
+            const res = await fetch(`http://localhost:5000/api/reports/${id}?stage=${testType}`);
             const result = await res.json();
             if (result.success) {
                 setReportData(result.data);
@@ -64,17 +64,17 @@ export function TestReportModal({ isOpen, onClose, transformer, order, testType 
             const orderId = transformer.orderId._id || transformer.orderId; // Handle populated or raw ID
 
             // Fetch Metering
-            const metRes = await fetch(`http://localhost:3002/api/metering-tests/${orderId}`);
+            const metRes = await fetch(`http://localhost:5000/api/metering-tests/${orderId}`);
             const metData = await metRes.json();
             if (metData) setMeteringData(metData);
 
             // Fetch Protection
-            const protRes = await fetch(`http://localhost:3002/api/protection-tests/${orderId}?type=Protection`);
+            const protRes = await fetch(`http://localhost:5000/api/protection-tests/${orderId}?type=Protection`);
             const protData = await protRes.json();
             if (protData) setProtectionData(protData);
 
             // Fetch PS
-            const psRes = await fetch(`http://localhost:3002/api/protection-tests/${orderId}?type=PS`);
+            const psRes = await fetch(`http://localhost:5000/api/protection-tests/${orderId}?type=PS`);
             const psData = await psRes.json();
             if (psData) setPsData(psData);
 
