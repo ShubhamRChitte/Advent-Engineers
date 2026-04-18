@@ -143,11 +143,11 @@ router.put('/:id/undo-return', isAuthenticated, async (req, res, next) => {
 });
 
 // GET /api/failed-cores
-// Fetch failed cores with filtering
-// GET /api/failed-cores
 // Fetch failed cores with advanced filtering and pagination
 router.get('/', isAuthenticated, async (req, res) => {
     try {
+        console.log(`[DEBUG] Fetching failed cores. Query:`, req.query);
+        
         const {
             page = 1,
             limit = 50,
@@ -164,15 +164,15 @@ router.get('/', isAuthenticated, async (req, res) => {
         const query = {};
 
         // 1. Exact Filters
-        if (orderId) query.orderId = orderId;
-        if (vendorId) query.vendorId = vendorId;
-        if (coreType) query.coreType = coreType;
-        if (failureStage) query.failureStage = failureStage;
-        if (status) query.status = status;
+        if (orderId && orderId !== 'undefined' && orderId !== 'null') query.orderId = orderId;
+        if (vendorId && vendorId !== 'undefined') query.vendorId = vendorId;
+        if (coreType && coreType !== 'undefined') query.coreType = coreType;
+        if (failureStage && failureStage !== 'undefined') query.failureStage = failureStage;
+        if (status && status !== 'undefined') query.status = status;
 
         // 2. Search (Multi-field)
-        if (search) {
-            const searchRegex = new RegExp(search, 'i');
+        if (search && search.trim() !== "") {
+            const searchRegex = new RegExp(search.trim(), 'i');
             query.$or = [
                 { internalCoreNo: searchRegex },
                 { vendorCoreNo: searchRegex },
@@ -186,27 +186,32 @@ router.get('/', isAuthenticated, async (req, res) => {
         // 3. Date Range
         if (startDate || endDate) {
             query.failedAt = {};
-            if (startDate) query.failedAt.$gte = new Date(startDate);
-            if (endDate) query.failedAt.$lte = new Date(endDate);
+            if (startDate && startDate !== 'null') query.failedAt.$gte = new Date(startDate);
+            if (endDate && endDate !== 'null') query.failedAt.$lte = new Date(endDate);
+            
+            // Cleanup empty ranges
+            if (Object.keys(query.failedAt).length === 0) delete query.failedAt;
         }
 
-        // 4. Pagination
-        const pageNum = parseInt(page);
-        const limitNum = parseInt(limit);
+        // 4. Pagination Validation (Prevents 500 errors from NaN/Negative values)
+        const pageNum = Math.max(1, parseInt(page) || 1);
+        const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 50));
         const skip = (pageNum - 1) * limitNum;
 
         // 5. Execute Query
         const [data, total] = await Promise.all([
             FailedCoreModel.find(query)
-                .sort({ failedAt: -1 })
+                .sort({ failedAt: -1, createdAt: -1 })
                 .skip(skip)
                 .limit(limitNum)
-                .lean(), // Performance optimization
+                .lean(),
             FailedCoreModel.countDocuments(query)
         ]);
 
-        res.json({
+        res.status(200).json({
             success: true,
+            count: data.length,
+            total,
             data,
             pagination: {
                 total,
@@ -217,8 +222,16 @@ router.get('/', isAuthenticated, async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Failed Cores Fetch Error:", error);
-        res.status(500).json({ success: false, message: error.message });
+        console.error("Critical: Failed Cores Fetch API Error:", {
+            message: error.message,
+            stack: error.stack,
+            query: req.query
+        });
+        res.status(500).json({ 
+            success: false, 
+            message: "Internal server error while fetching failed cores summary.",
+            debug: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 });
 

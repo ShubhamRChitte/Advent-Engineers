@@ -106,6 +106,11 @@ const FailedCoreSchema = new Schema(
             type: String,
             trim: true
         },
+        returnFormId: {
+            type: Schema.Types.ObjectId,
+            ref: "ReturnForm",
+            index: true
+        },
 
         // --- Workflow Control for Final Testing Routing ---
         retestStatus: {
