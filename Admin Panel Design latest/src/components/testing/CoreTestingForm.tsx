@@ -48,6 +48,7 @@ interface CoreTestRow {
   remark: string;
   isReplacement?: boolean;
   replacedCoreId?: string;
+  status?: 'PENDING' | 'PASS' | 'FAIL' | 'RETURNED';
 }
 
 interface BSATColumn {
@@ -129,6 +130,79 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
 
   const getSystemDate = () => new Date().toLocaleDateString('en-GB');
 
+  // Vendor selection helpers
+  const getVendors = () => {
+    const vendorsObj = ((order as any).coreVendors || (order as any).order?.coreVendors) || {};
+    return (vendorsObj[coreType.toLowerCase()] || []) as { serialNo: string; name: string }[];
+  };
+
+  const applyVendorToAll = () => {
+    if (rows.length === 0) return;
+    const firstRowVendor = rows[0]?.coreVendorNo;
+    if (!firstRowVendor) {
+      alert("Please select a vendor in the first row first.");
+      return;
+    }
+    const updatedRows = rows.map(row => ({ ...row, coreVendorNo: firstRowVendor }));
+    setRows(updatedRows);
+  };
+
+  const renderVendorHeader = () => {
+    const vendors = getVendors();
+    return (
+      <td className="p-3 border border-gray-400 font-semibold text-gray-700 text-center text-xs">
+        <div className="flex flex-col items-center gap-1">
+          <span>Vendor core No.</span>
+          {vendors.length > 1 && !isReadOnly && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                applyVendorToAll();
+              }}
+              className="text-[10px] text-blue-600 hover:text-blue-800 underline font-normal whitespace-nowrap"
+              type="button"
+            >
+              Apply to All
+            </button>
+          )}
+        </div>
+      </td>
+    );
+  };
+
+  const renderVendorCell = (row: CoreTestRow, index: number) => {
+    const vendors = getVendors();
+
+    return (
+      <td className="p-2 border border-gray-300">
+        {vendors.length > 0 ? (
+          <select
+            value={String(row.coreVendorNo || '')}
+            onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
+            disabled={isReadOnly}
+            className="w-full h-7 text-xs border border-gray-300 text-center focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white rounded cursor-pointer appearance-none hover:bg-gray-50 transition-colors"
+            title="Click to select vendor"
+          >
+            <option value="">- Select Vendor -</option>
+            {vendors.map((v: any, i: number) => (
+              <option key={i} value={`${v.serialNo} - ${v.name}`}>
+                {v.serialNo} - {v.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <Input
+            value={String(row.coreVendorNo || '')}
+            onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
+            disabled={isReadOnly}
+            className="w-full h-7 text-xs border-gray-300 text-center mx-auto focus:ring-1 focus:ring-blue-500"
+            placeholder="Enter Vendor"
+          />
+        )}
+      </td>
+    );
+  };
+
 
 
   const [isLoading, setIsLoading] = useState(true);
@@ -169,37 +243,48 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
             remark: r.result || ''
           }));
 
-          // Merge logic considering Granular Visibility
-          // 1. Get the skeleton of what we SHOULD display based on assignment
+          // Merge logic considering replacements and visibility
           const initializedSkeleton = initializeRows();
-          const validInternalNos = new Set(initializedSkeleton.map(r => r.internalCoreNo));
+          const mappedSavedRows = response.data.readings.map((r: any) => ({
+            date: r.date ? new Date(r.date).toLocaleDateString('en-GB') : getSystemDate(),
+            coreVendorNo: r.vendorCoreNo || '',
+            internalCoreNo: r.internalCoreNo || '',
+            dynamicValues: isMeteringCheck
+              ? Object.fromEntries(bsatColumns.map((col, i) => [col.id, String(r.measuredMa?.[i] || '')]))
+              : ((r.value !== undefined && protectionBColumns[0]) ? { [protectionBColumns[0]?.id ?? '']: String(r.value) } : {}),
+            singleValue: r.value !== undefined ? String(r.value) : '',
+            remark: r.result || '',
+            status: r.status || 'PENDING',
+            isReplacement: r.isReplacement || false,
+            replacedCoreId: r.replacedCoreId || null
+          }));
 
-          // 2. Map saved rows, but only keep if they match our assignment and aren't rejected
-          const filteredSavedRows = response.data.readings
-            .map((r: any) => ({
-              date: r.date ? new Date(r.date).toLocaleDateString('en-GB') : getSystemDate(),
-              coreVendorNo: r.vendorCoreNo || '',
-              internalCoreNo: r.internalCoreNo || '',
-              dynamicValues: isMeteringCheck
-                ? Object.fromEntries(bsatColumns.map((col, i) => [col.id, String(r.measuredMa?.[i] || '')]))
-                : ((r.value !== undefined && protectionBColumns[0]) ? { [protectionBColumns[0]?.id ?? '']: String(r.value) } : {}),
-              singleValue: r.value !== undefined ? String(r.value) : '',
-              remark: r.result || '',
-              status: r.status || 'PENDING'
-            }))
-            .filter((r: { internalCoreNo: string, status: string }) =>
-              validInternalNos.has(r.internalCoreNo) &&
-              r.status !== 'FAIL' &&
-              r.status !== 'RETURNED'
-            );
+          const finalRowsToShow: CoreTestRow[] = [];
+          const validBaseInternalNos = new Set(initializedSkeleton.map(r => r.internalCoreNo));
 
-          // 3. Merge: Use saved row if exists, else use skeleton default
-          const mergedRows = initializedSkeleton.map(skel => {
-            const saved = filteredSavedRows.find((s: { internalCoreNo: string }) => s.internalCoreNo === skel.internalCoreNo);
-            return saved ? { ...saved } : skel;
+          initializedSkeleton.forEach(skel => {
+            // 1. Add the base core (either from saved data or skeleton)
+            const baseReading = mappedSavedRows.find((s: any) => s.internalCoreNo === skel.internalCoreNo);
+            if (baseReading) {
+              finalRowsToShow.push(baseReading);
+            } else {
+              finalRowsToShow.push(skel);
+            }
+
+            // 2. Transitive Replacements: Find any replacements for THIS base core,
+            // or replacements of those replacements, and show them in sequence.
+            let lastId = skel.internalCoreNo;
+            let foundChild;
+            do {
+              foundChild = mappedSavedRows.find((s: any) => s.isReplacement && s.replacedCoreId === lastId);
+              if (foundChild) {
+                finalRowsToShow.push(foundChild);
+                lastId = foundChild.internalCoreNo;
+              }
+            } while (foundChild);
           });
 
-          setRows(mergedRows);
+          setRows(finalRowsToShow);
         } else {
           if (!isReadOnly) setRows(initializeRows());
           else setRows([]); // No data to show in read-only
@@ -276,9 +361,12 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
       rowsToCreate = Array.from({ length: totalPossibleRows }, (_, i) => ({ seqNum: i + 1 }));
     }
 
+    const vendors = getVendors();
+    const defaultVendor = vendors.length === 1 && vendors[0] ? `${vendors[0].serialNo} - ${vendors[0].name}` : '';
+
     return rowsToCreate.map(item => ({
       date: getSystemDate(),
-      coreVendorNo: '',
+      coreVendorNo: defaultVendor,
       internalCoreNo: generateCoreId(item.seqNum),
       value1000: '', value3000: '', value5000: '', value7000: '',
       singleValue: '',
@@ -521,19 +609,26 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
     setFailedCores([...failedCores, failedCore]);
 
     // Generate a NEW ID based on the total count of cores existing in the table
-    const nextSeq = getNextSequenceNumber(rows);
     const updatedRows = [...rows];
+    const replacementId = `${failedRow.internalCoreNo} (R)`;
 
-    updatedRows[index] = {
+    // Insert the replacement row immediately after the failed row
+    updatedRows.splice(index + 1, 0, {
       date: systemDate,
-      coreVendorNo: '',
-      internalCoreNo: generateCoreId(nextSeq), // Fixed naming here
+      coreVendorNo: failedRow.coreVendorNo, // Keep same vendor by default
+      internalCoreNo: replacementId,
       value1000: '', value3000: '', value5000: '', value7000: '',
       singleValue: '',
       dynamicValues: {},
       remark: '',
       isReplacement: true,
       replacedCoreId: failedRow.internalCoreNo,
+    });
+
+    // Mark the parent row as FAIL in status to ensure backend sync
+    updatedRows[index] = {
+      ...failedRow,
+      status: 'FAIL'
     };
 
     setRows(updatedRows);
@@ -544,9 +639,12 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
   const addRow = () => {
     if (isReadOnly) return;
     const nextSeq = getNextSequenceNumber(rows);
+    const vendors = getVendors();
+    const defaultVendor = vendors.length === 1 && vendors[0] ? `${vendors[0].serialNo} - ${vendors[0].name}` : '';
+
     setRows([...rows, {
       date: getSystemDate(),
-      coreVendorNo: '',
+      coreVendorNo: defaultVendor,
       internalCoreNo: generateCoreId(nextSeq), // Fixed naming here
       value1000: '',
       value3000: '',
@@ -598,7 +696,8 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
         const hasId = row.internalCoreNo && String(row.internalCoreNo).trim() !== '';
         const hasDynValues = Object.values(row.dynamicValues || {}).some(v => v !== '' && v !== null);
         const hasSingleValue = row.singleValue !== '' && row.singleValue !== null;
-        return hasId && (hasDynValues || hasSingleValue); // Include row if it has any data
+        // Include row if it has any data OR if it's a replacement/failed record that needs to persist
+        return hasId && (hasDynValues || hasSingleValue || row.isReplacement || row.status);
       });
 
       if (validReadings.length === 0) {
@@ -662,7 +761,9 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
             ? { measuredMa: bsatColumns.map(col => parseFloat(row.dynamicValues[col.id] || '0') || 0) }
             : { value: parseFloat(row.singleValue || Object.values(row.dynamicValues)[0] || '0') }
           ),
-          result: row.remark || "F"
+          result: row.remark || "F",
+          isReplacement: !!row.isReplacement,
+          replacedCoreId: row.replacedCoreId || null
         }))
       };
 
@@ -1264,7 +1365,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                 {/* Column Headers - Data Entry Section */}
                 <tr className="bg-gray-100">
                   <td className="p-3 border border-gray-400 font-semibold text-gray-700 text-center text-xs">Date</td>
-                  <td className="p-3 border border-gray-400 font-semibold text-gray-700 text-center text-xs">Vendor core No.</td>
+                  {renderVendorHeader()}
                   <td colSpan={2} className="p-3 border border-gray-400 font-semibold text-gray-700 text-center text-xs">Internal core No.</td>
                   {protectionBColumns.map(column => (
                     <td key={column.id} className="p-3 border border-gray-400 font-semibold text-gray-700 text-center text-xs bg-amber-50">
@@ -1292,36 +1393,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                         className="w-28 h-7 text-xs border-gray-300 text-center mx-auto"
                       />
                     </td>
-                    <td className="p-2 border border-gray-300">
-                      {(() => {
-                        const vendorsObj = ((order as any).coreVendors || (order as any).order?.coreVendors) || {};
-                        const options = vendorsObj[coreType.toLowerCase()] || [];
-                        if (options.length > 0) {
-                          return (
-                            <select
-                              value={String(row.coreVendorNo || '')}
-                              onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
-                              className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 bg-transparent text-center"
-                            >
-                              <option value="">- Select -</option>
-                              {options.map((v: any, i: number) => (
-                                <option key={i} value={`${v.serialNo} - ${v.name}`}>
-                                  {v.serialNo} - {v.name}
-                                </option>
-                              ))}
-                            </select>
-                          );
-                        }
-                        return (
-                          <Input
-                            value={String(row.coreVendorNo || '')}
-                            onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
-                            className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
-                            placeholder="Vendor"
-                          />
-                        );
-                      })()}
-                    </td>
+                    {renderVendorCell(row, index)}
                     <td colSpan={2} className="p-2 border border-gray-300">
                       <div className="flex items-center gap-1">
                         <Input
@@ -1920,7 +1992,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                 {/* Column Headers - Data Entry Section */}
                 <tr className="bg-gray-100">
                   <td className="p-3 border border-gray-400 font-semibold text-gray-700 text-center text-xs">Date</td>
-                  <td className="p-3 border border-gray-400 font-semibold text-gray-700 text-center text-xs">Vendor core No.</td>
+                  {renderVendorHeader()}
                   <td colSpan={2} className="p-3 border border-gray-400 font-semibold text-gray-700 text-center text-xs">Internal core No.</td>
                   {psBColumns.map(column => (
                     <td key={column.id} className="p-3 border border-gray-400 font-semibold text-gray-700 text-center text-xs bg-amber-50">
@@ -1948,36 +2020,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                         className="w-28 h-7 text-xs border-gray-300 text-center mx-auto"
                       />
                     </td>
-                    <td className="p-2 border border-gray-300">
-                      {(() => {
-                        const vendorsObj = ((order as any).coreVendors || (order as any).order?.coreVendors) || {};
-                        const options = vendorsObj[coreType.toLowerCase()] || [];
-                        if (options.length > 0) {
-                          return (
-                            <select
-                              value={String(row.coreVendorNo || '')}
-                              onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
-                              className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 bg-transparent text-center"
-                            >
-                              <option value="">- Select -</option>
-                              {options.map((v: any, i: number) => (
-                                <option key={i} value={`${v.serialNo} - ${v.name}`}>
-                                  {v.serialNo} - {v.name}
-                                </option>
-                              ))}
-                            </select>
-                          );
-                        }
-                        return (
-                          <Input
-                            value={String(row.coreVendorNo || '')}
-                            onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
-                            className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
-                            placeholder="Vendor"
-                          />
-                        );
-                      })()}
-                    </td>
+                    {renderVendorCell(row, index)}
                     <td colSpan={2} className="p-2 border border-gray-300">
                       <div className="flex items-center gap-1">
                         <Input
@@ -2576,7 +2619,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
               {/* Column Headers - Data Entry Section */}
               <tr className="bg-gray-100">
                 <td className="p-3 border border-gray-400 font-semibold text-gray-700 text-center text-xs">Date</td>
-                <td className="p-3 border border-gray-400 font-semibold text-gray-700 text-center text-xs">Vendor core No.</td>
+                {renderVendorHeader()}
                 <td colSpan={2} className="p-3 border border-gray-400 font-semibold text-gray-700 text-center text-xs">Internal core No.</td>
                 {bsatColumns.map(column => (
                   <td key={column.id} className="p-3 border border-gray-400 font-semibold text-gray-700 text-center text-xs bg-amber-50">
@@ -2597,37 +2640,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                       placeholder="DD/MM/YY"
                     />
                   </td>
-
-                  <td className="p-2 border border-gray-300">
-                    {(() => {
-                      const vendorsObj = ((order as any).coreVendors || (order as any).order?.coreVendors) || {};
-                      const options = vendorsObj[coreType.toLowerCase()] || [];
-                      if (options.length > 0) {
-                        return (
-                          <select
-                            value={String(row.coreVendorNo || '')}
-                            onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
-                            className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 bg-transparent text-center"
-                          >
-                            <option value="">- Select -</option>
-                            {options.map((v: any, i: number) => (
-                              <option key={i} value={`${v.serialNo} - ${v.name}`}>
-                                {v.serialNo} - {v.name}
-                              </option>
-                            ))}
-                          </select>
-                        );
-                      }
-                      return (
-                        <Input
-                          value={String(row.coreVendorNo || '')}
-                          onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
-                          className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
-                          placeholder="Vendor"
-                        />
-                      );
-                    })()}
-                  </td>
+                  {renderVendorCell(row, index)}
                   {/* <td colSpan={2} className="p-2 border border-gray-300">
                     <div className="flex items-center gap-1">
                       <Input

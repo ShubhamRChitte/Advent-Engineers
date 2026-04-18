@@ -58,6 +58,14 @@ const ProtectionCoreTestSchema = new Schema({
         type: String,
         enum: ["PENDING", "PASS", "FAIL", "RETURNED"],
         default: "PENDING"
+      },
+      isReplacement: {
+        type: Boolean,
+        default: false
+      },
+      replacedCoreId: {
+        type: String,
+        trim: true
       }
     }
   ],

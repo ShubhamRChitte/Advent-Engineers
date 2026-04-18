@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { FailedCore } from './CoreTestingForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { FailedCoreReturnForm } from './FailedCoreReturnForm';
+import { FailedCoreSummaryReport } from './FailedCoreSummaryReport';
 
 interface FailedCoresManagerProps {
   failedCores: FailedCore[];
@@ -25,17 +27,21 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
   const [searchTerm, setSearchTerm] = useState('');
   const [localCores, setLocalCores] = useState<FailedCore[]>([]);
   const [selectedCores, setSelectedCores] = useState<string[]>([]);
+  
+  // Return Form Modal State
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnModalVendor, setReturnModalVendor] = useState('');
+  const [returnModalCores, setReturnModalCores] = useState<FailedCore[]>([]);
 
   useEffect(() => {
     // 1. Structural Protection: Ensure failedCores is always an array
     setLocalCores(Array.isArray(failedCores) ? failedCores : []);
   }, [failedCores]);
 
-  // Debug Visibility (Temporary for verification, remove in final prod if noisy)
-  // console.log("FAILED CORES API:", localCores); 
+  // 2. Filter logic: Show only non-returned cores by default unless searched specifically
+  const visibleCores = localCores.filter(c => (c as any).status !== 'RETURNED');
 
-  // 2. Safe Filtering Logic
-  const filteredCores = localCores.filter(core => {
+  const filteredCores = visibleCores.filter(core => {
     if (!core) return false;
     const searchLow = safeLower(searchTerm);
     return (
@@ -44,14 +50,13 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
       safeLower(core.clientName).includes(searchLow) ||
       safeLower(core.internalCoreNo).includes(searchLow) ||
       safeLower(core.coreVendorNo).includes(searchLow) ||
-      safeLower(core.vendorCoreNo).includes(searchLow) // Added potential backend field match
+      safeLower(core.vendorCoreNo).includes(searchLow)
     );
   });
 
   const groupByVendor = () => {
     const grouped: { [key: string]: FailedCore[] } = {};
-    localCores.forEach(core => {
-      // Handle missing vendor numbers gracefully
+    visibleCores.forEach(core => {
       const vendorKey = core.coreVendorNo || core.vendorCoreNo || "Unknown Vendor";
       if (!grouped[vendorKey]) {
         grouped[vendorKey] = [];
@@ -61,10 +66,27 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
     return grouped;
   };
 
+  const handleOpenReturnModal = (vendorName: string, cores: FailedCore[]) => {
+    setReturnModalVendor(vendorName);
+    setReturnModalCores(cores);
+    setShowReturnModal(true);
+  };
+
+  const handleReturnSuccess = (newForm: any) => {
+    // Update local state to reflect returned status
+    const returnedIds = returnModalCores.map(c => (c as any)._id);
+    setLocalCores(prev => prev.map(c => 
+      returnedIds.includes((c as any)._id) 
+      ? { ...c, status: 'RETURNED' } 
+      : c
+    ));
+    setSelectedCores(prev => prev.filter(id => !returnedIds.includes(id)));
+    setShowReturnModal(false);
+  };
+
   const groupByOrder = () => {
     const grouped: { [key: string]: FailedCore[] } = {};
-    localCores.forEach(core => {
-      // Handle missing order IDs gracefully
+    visibleCores.forEach(core => {
       const orderKey = core.orderId ? String(core.orderId) : "Unknown Order";
       if (!grouped[orderKey]) {
         grouped[orderKey] = [];
@@ -182,9 +204,14 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1" onClick={handlePrint}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-1 border-gray-300 text-gray-700 hover:bg-gray-100" 
+            onClick={handlePrint}
+          >
             <Printer className="w-3 h-3" />
-            Print Report
+            Print Summary Report
           </Button>
         </div>
       </div>
@@ -221,10 +248,22 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
       {/* Bulk Actions */}
       {selectedCores.length > 0 && (
         <div className="bg-red-50 p-3 rounded-md flex items-center justify-between border border-red-200">
-          <span className="text-red-700 font-medium">{selectedCores.length} cores selected for return</span>
-          <Button onClick={handleBulkReturn} size="sm" className="bg-red-600 hover:bg-red-700 text-white">
-            Return Selected to Vendor
-          </Button>
+          <span className="text-red-700 font-medium">{selectedCores.length} cores selected</span>
+          <div className="flex gap-2">
+            <Button 
+                onClick={() => {
+                   const cores = localCores.filter(c => c._id && selectedCores.includes(c._id));
+                   handleOpenReturnModal('Multiple Vendors', cores);
+                }} 
+                size="sm" 
+                className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Generate Return Form
+            </Button>
+            <Button onClick={handleBulkReturn} size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
+              Bulk Mark as Returned
+            </Button>
+          </div>
         </div>
       )}
 
@@ -365,7 +404,12 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                       <h4 className="font-bold text-red-900">Vendor No: {vendorNo}</h4>
                       <p className="text-sm text-red-700">Total Failed Cores: {cores.length}</p>
                     </div>
-                    <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
+                    <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="border-red-300 text-red-600 hover:bg-red-50"
+                        onClick={() => handleOpenReturnModal(vendorNo, cores)}
+                    >
                       Generate Return Form
                     </Button>
                   </div>
@@ -592,6 +636,21 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
           <li>Follow company policy for core handling and vendor communication</li>
         </ul>
       </Card>
+
+      {/* Return Form Modal */}
+      {showReturnModal && (
+        <FailedCoreReturnForm 
+            vendorName={returnModalVendor}
+            selectedCores={returnModalCores}
+            onClose={() => setShowReturnModal(false)}
+            onSuccess={handleReturnSuccess}
+        />
+      )}
+
+      {/* Hidden Print Report - Auto-rendered on window.print() */}
+      <div className="hidden print:block">
+        <FailedCoreSummaryReport data={localCores} />
+      </div>
     </div>
   );
 }
