@@ -36,6 +36,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
         { id: 'home', label: 'Home Dashboard', icon: Home },
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'testing', label: 'PT Testing', icon: ClipboardCheck },
+        { id: 'view-orders', label: 'View Orders', icon: FileText },
         { id: 'heating-tracking', label: 'Heating Tracking', icon: Zap },
         { id: 'reports', label: 'PT Reports', icon: FileText },
       ];

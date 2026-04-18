@@ -54,25 +54,25 @@ router.get('/assigned-orders', async (req, res) => {
 
         const typeStr = type.toString().toUpperCase();
 
-        let transQuery = {};
+        let transQuery = {
+            // EXCLUDE: Transformers already approved in heating
+            "testHistory.heating_test.status": { $ne: "Approved" }
+        };
+
         if (typeStr === 'PT') {
-            transQuery = {
-                $or: [
-                    { currentStage: "core" },
-                    { currentStage: "pt" },
-                    { currentStage: "heating" },
-                    { currentStage: "final" },
-                    { "testHistory.pt_test.status": "Completed" }
-                ]
-            };
+            transQuery.$or = [
+                { currentStage: "core" },
+                { currentStage: "pt" },
+                { currentStage: "heating" },
+                { currentStage: "final" },
+                { "testHistory.pt_test.status": "Completed" }
+            ];
         } else {
-            transQuery = {
-                $or: [
-                    { currentStage: "heating" },
-                    { "testHistory.primary_test.status": "Completed" },
-                    { "testHistory.pt_test.status": "Completed" }
-                ]
-            };
+            transQuery.$or = [
+                { currentStage: "heating" },
+                { "testHistory.primary_test.status": "Completed" },
+                { "testHistory.pt_test.status": "Completed" }
+            ];
         }
 
         // Note: We populate orderId to get transformerType and other details
@@ -364,8 +364,8 @@ router.post('/save/:uniqueId', isAuthenticated, async (req, res) => {
             const isPT = transformer.orderId && transformer.orderId.transformerType === 'PT';
 
             if (isPT) {
-                heatingTest.status = "Completed";
-                console.log(`[STRICT WORKFLOW] Transformer ${uniqueId} Completed Heating for PT. Stopping workflow.`);
+                heatingTest.status = "Approved";
+                console.log(`[STRICT WORKFLOW] Transformer ${uniqueId} Approved in Heating for PT. Stopping workflow.`);
             } else {
                 heatingTest.status = "Approved";
                 transformer.currentStage = "final";

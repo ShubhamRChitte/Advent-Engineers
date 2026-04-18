@@ -177,7 +177,10 @@ export function AdminReportViewPage() {
     };
 
     const renderHeatingReport = () => {
-        const heatingRecord = transformer?.testHistory?.heating_test || transformer?.processHistory?.heatingRecord?.[0];
+        const heatingRecord = 
+            transformer?.testHistory?.heating_test || 
+            transformer?.heatingRecordFromCollection || 
+            transformer?.processHistory?.heatingRecord?.[0];
         
         if (!heatingRecord) {
             return (
@@ -213,6 +216,10 @@ export function AdminReportViewPage() {
                         </div>
                         <div className="text-right space-y-1">
                             <div className="flex justify-end gap-3 text-sm">
+                                <span className="font-bold text-gray-500 uppercase">Client Name:</span>
+                                <span className="font-semibold">{transformer.clientName || transformer.orderId?.clientName || "N/A"}</span>
+                            </div>
+                            <div className="flex justify-end gap-3 text-sm">
                                 <span className="font-bold text-gray-500 uppercase">Job ID:</span>
                                 <span className="font-semibold">{transformer.jobId || "N/A"}</span>
                             </div>
@@ -227,20 +234,7 @@ export function AdminReportViewPage() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-6 pt-4 border-t border-gray-100">
-                        <div>
-                            <span className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Prepared By</span>
-                            <span className="font-semibold text-gray-800">{heatingRecord.preparedBy || "N/A"}</span>
-                        </div>
-                        <div>
-                            <span className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Production Manager</span>
-                            <span className="font-semibold text-gray-800">{heatingRecord.productionManager || "N/A"}</span>
-                        </div>
-                        <div>
-                            <span className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Verified By</span>
-                            <span className="font-semibold text-gray-800">{heatingRecord.verifiedBy || "N/A"}</span>
-                        </div>
-                    </div>
+
                 </div>
 
                 {/* Process Table */}
@@ -249,9 +243,8 @@ export function AdminReportViewPage() {
                         <tr className="bg-gray-50">
                             <th className="border border-black p-3 font-bold text-left w-[25%] uppercase tracking-wider">Process</th>
                             <th className="border border-black p-3 font-bold text-center w-[12%] uppercase tracking-wider">Duration</th>
-                            <th className="border border-black p-3 font-bold text-center w-[20%] uppercase tracking-wider">Start Date & Time</th>
-                            <th className="border border-black p-3 font-bold text-center w-[20%] uppercase tracking-wider">Completion Date & Time</th>
-                            <th className="border border-black p-3 font-bold text-left w-[23%] uppercase tracking-wider">Remarks</th>
+                            <th className="border border-black p-3 font-bold text-center w-[25%] uppercase tracking-wider">Start Date & Time</th>
+                            <th className="border border-black p-3 font-bold text-center w-[25%] uppercase tracking-wider">Completion Date & Time</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -261,12 +254,11 @@ export function AdminReportViewPage() {
                                 <td className="border border-black p-3 font-medium text-center text-gray-600">{step.duration || "-"}</td>
                                 <td className="border border-black p-3 font-medium text-center text-gray-700">{formatDateTimeStr(step.startDateTime)}</td>
                                 <td className="border border-black p-3 font-medium text-center text-gray-700">{formatDateTimeStr(step.completionDateTime)}</td>
-                                <td className="border border-black p-3 text-gray-600 italic">{step.remarks || "-"}</td>
                             </tr>
                         ))}
                         {(!heatingRecord.processSteps || heatingRecord.processSteps.length === 0) && (
                             <tr>
-                                <td colSpan={5} className="border border-black p-8 text-center text-gray-400 italic">No process steps recorded.</td>
+                                <td colSpan={4} className="border border-black p-8 text-center text-gray-400 italic">No process steps recorded.</td>
                             </tr>
                         )}
                     </tbody>
@@ -277,10 +269,6 @@ export function AdminReportViewPage() {
                     <div className="text-center pt-2 border-t border-gray-300 w-48">
                         <span className="text-[11px] font-bold text-gray-400 uppercase">Tested By</span>
                         <p className="font-semibold text-gray-800 mt-1">{heatingRecord.preparedBy || "N/A"}</p>
-                    </div>
-                    <div className="text-center pt-2 border-t border-gray-300 w-48">
-                        <span className="text-[11px] font-bold text-gray-400 uppercase">Authorised Signatory</span>
-                        <p className="font-semibold text-gray-800 mt-1">For Advent Engineers</p>
                     </div>
                 </div>
             </div>

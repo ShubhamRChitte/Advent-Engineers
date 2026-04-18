@@ -109,6 +109,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
       if (activeView === 'home') return <PTTesterDashboard setActiveView={setActiveView} stats={stats} recentActivity={recentActivity} loading={loading} />;
       if (activeView === 'testing') return <PTTestingModule user={user} />;
       if (activeView === 'pt-heating-record') return <PTHeatingRecordModule user={user} />;
+      if (activeView === 'view-orders') return <OrdersListViewEnhanced userRole={user.role} />;
       if (activeView === 'reports') return <PTReportsList onBack={setViewHome} />;
       return <PTTesterDashboard setActiveView={setActiveView} stats={stats} recentActivity={recentActivity} loading={loading} />;
     }

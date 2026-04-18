@@ -112,18 +112,21 @@ export function FinalOrdersList({ onStartTesting }: FinalOrdersListProps) {
       matchesSearch = jobMatch || isTransformerSearch || (order.clientName || order.client || '').toLowerCase().includes(q);
     }
 
+    const normalizedStatus = (order.status || '').toLowerCase();
+    const isCompleted = normalizedStatus === 'completed' || normalizedStatus === 'shipped';
+
     if (selectedStatus === 'all') return matchesSearch;
-    if (selectedStatus === 'assigned') return matchesSearch && status === 'assigned';
-    if (selectedStatus === 'in-testing') return matchesSearch && status === 'in-testing';
-    if (selectedStatus === 'completed') return matchesSearch && status === 'completed';
-    return matchesSearch && status === selectedStatus;
+    if (selectedStatus === 'assigned') return matchesSearch && !isCompleted;
+    if (selectedStatus === 'in-testing') return matchesSearch && !isCompleted;
+    if (selectedStatus === 'completed') return matchesSearch && isCompleted;
+    return matchesSearch && (status === selectedStatus.toLowerCase());
   });
 
   const statusCounts = {
     all: orders.length,
-    assigned: orders.filter((o) => (o.status || '') === 'assigned').length,
-    inTesting: orders.filter((o) => (o.status || '') === 'in-testing').length,
-    completed: orders.filter((o) => (o.status || '') === 'completed').length,
+    assigned: orders.filter((o) => (o.status || '').toLowerCase() !== 'completed' && (o.status || '').toLowerCase() !== 'shipped').length,
+    inTesting: orders.filter((o) => (o.status || '').toLowerCase() !== 'completed').length,
+    completed: orders.filter((o) => (o.status || '').toLowerCase() === 'completed' || (o.status || '').toLowerCase() === 'shipped').length,
   };
 
   return (

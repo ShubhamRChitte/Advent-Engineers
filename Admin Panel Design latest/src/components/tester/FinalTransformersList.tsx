@@ -61,8 +61,6 @@ interface FinalTransformersListProps {
 export function FinalTransformersList({ order, onStartTest, onBack, onApprove }: FinalTransformersListProps) {
   const [transformers, setTransformers] = useState<FinalTransformer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // const [accuracyClass, setAccuracyClass] = useState<string>(explicitClass || '');
-  // removed unused setAccuracyClass to fix lint
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -155,40 +153,46 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
           // New logic: Check if all critical readings are filled in testHistory
           const finalHistory = t.testHistory?.final_test || {};
           
-          // Strict non-empty string check for comprehensive fields
+          // Helper for non-empty string check
           const isValidValue = (val: any) => val !== undefined && val !== null && String(val).trim() !== "" && String(val) !== "N/A";
 
+          // NEW: Practical completion check
+          // 1. Minimum Comprehensive: Polarity + Pri-Sec Megger (proxy for 'started results')
           const comprehensiveFilled = 
             isValidValue(finalHistory.polarityResult) && 
-            isValidValue(finalHistory.hvSecondaryWinding) && 
-            isValidValue(finalHistory.hvPrimaryWinding) &&
-            isValidValue(finalHistory.hvBetweenCore) && 
-            isValidValue(finalHistory.ovitTest) && 
-            isValidValue(finalHistory.meggarPrimaryToSecondary) &&
-            isValidValue(finalHistory.meggarPrimaryToEarth) && 
-            isValidValue(finalHistory.meggarSecondaryToEarth) && 
-            isValidValue(finalHistory.meggarCoreToCore);
+            isValidValue(finalHistory.meggarPrimaryToSecondary);
 
-          // Count unique cores tested in final stage
+          // 2. Minimum Cores: At least one core result exists (if cores expected)
+          const expectedCoresCount = coresList.length;
           const meteringCores = new Set((finalHistory.metering_results || []).map((r: any) => r.internalCoreNo || r.coreId));
           const psCores = new Set((finalHistory.ps_results || []).map((r: any) => r.internalCoreNo || r.coreId));
           const protectionCores = new Set((finalHistory.protection_results || []).map((r: any) => r.internalCoreNo || r.coreId));
-          const uniqueCoresTested = new Set([...meteringCores, ...psCores, ...protectionCores]);
+          const actualCoresCount = new Set([...meteringCores, ...psCores, ...protectionCores]).size;
           
-          const expectedCoresCount = coresList.length;
-          const coresFilled = uniqueCoresTested.size >= expectedCoresCount;
+          const coresFilled = expectedCoresCount === 0 || actualCoresCount > 0;
 
-          const isFilled = comprehensiveFilled && coresFilled;
+          // NEW: Extreme relaxed completion check for "Ready for Approval"
+          // If ANY main reading is present, mark as filled.
+          const isFilled = 
+            isValidValue(finalHistory.polarityResult) || 
+            isValidValue(finalHistory.hvSecondaryWinding) ||
+            isValidValue(finalHistory.hvPrimaryWinding) ||
+            isValidValue(finalHistory.ovitTest) ||
+            isValidValue(finalHistory.meggarPrimaryToSecondary) ||
+            actualCoresCount > 0;
           
-          // Strict completion: Must have 'Completed' status AND actual filled data
-          const isFullyComplete = finalHistory.status === 'Completed' && isFilled;
+          // Strict completion: Must have 'Completed' status
+          const isFullyComplete = finalHistory.status === 'Completed';
 
           if (t.currentStage === 'final') {
             if (isFullyComplete) status = 'completed';
-            else if (isFilled) status = 'in-progress'; // Treat "Filled" as "Ready for Approval"
-            else if (finalHistory.tester) status = 'in-progress';
-          } else if (t.currentStage === 'shipped') {
+            else if (isFilled) status = 'in-progress'; 
+            else status = 'pending';
+          } else if (t.currentStage === 'shipped' || t.currentStage === 'completed') {
             status = 'completed';
+          } else {
+            // Not yet in Final stage
+            status = 'locked'; 
           }
 
           return {
@@ -213,9 +217,14 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
           };
         });
 
+        // Filter: ONLY show transformers that are actually in the 'final' stage.
+        // Once approved, they move to 'shipped' and will vanish from this list automatically.
+        const activeUnitsOnly = mappedTransformers.filter(t => t.currentStage === 'final');
+        
+        // Also apply granular assignment filter if present
         const filtered = (!order.assignedUnitIds || order.assignedUnitIds.length === 0)
-          ? mappedTransformers
-          : mappedTransformers.filter(t => order.assignedUnitIds?.some(assignedId =>
+          ? activeUnitsOnly
+          : activeUnitsOnly.filter(t => order.assignedUnitIds?.some(assignedId =>
             assignedId === t.uniqueId || assignedId.includes(t.uniqueId)
           ));
 
@@ -238,8 +247,16 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
       case 'pending': return 'bg-blue-100 text-blue-700';
       case 'in-progress': return 'bg-yellow-100 text-yellow-700';
       case 'completed': return 'bg-green-100 text-green-700';
+      case 'locked': return 'bg-gray-100 text-gray-500 border-dashed';
       default: return 'bg-gray-100 text-gray-700';
     }
+  };
+
+  const getStatusText = (status: string, currentStage: string) => {
+    if (status === 'locked') return `In ${currentStage} Stage`;
+    if (status === 'completed') return 'Approved';
+    if (status === 'in-progress') return 'Ready for Approval';
+    return 'Pending';
   };
 
   return (
@@ -282,14 +299,20 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Assigned Date</p>
-            <p className="font-medium mt-1">{new Date(order.assignedDate).toLocaleDateString()}</p>
+            <p className="text-sm text-gray-500 font-semibold italic">Assigned Date</p>
+            <p className="font-medium mt-1">
+              {order.assignedDate && !isNaN(new Date(order.assignedDate).getTime()) 
+                ? new Date(order.assignedDate).toLocaleDateString('en-GB') 
+                : (order.deadline && !isNaN(new Date(order.deadline).getTime()) 
+                    ? new Date(order.deadline).toLocaleDateString('en-GB') 
+                    : 'N/A')}
+            </p>
           </div>
         </div>
       </Card>
-
+      
       {/* Transformers Table */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden mt-6">
         {isLoading ? (
           <div className="p-8 flex justify-center items-center">
             <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -301,66 +324,50 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
             <Button variant="link" onClick={() => window.location.reload()}>Retry</Button>
           </div>
         ) : transformers.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            No transformers found for this order.
+          <div className="p-8 text-center text-gray-500 italic">
+            No pending transformers for this order.
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+            <table className="w-full text-sm">
+              <thead className="bg-[#003a70] text-white">
                 <tr>
-                  <th className="text-left p-4 text-sm">Transformer Name</th>
-                  <th className="text-left p-4 text-sm">Rating</th>
-                  <th className="text-left p-4 text-sm">Unique Transformer ID</th>
-                  <th className="text-left p-4 text-sm">Voltage Class</th>
-                  <th className="text-left p-4 text-sm">Status</th>
-                  <th className="text-center p-4 text-sm">Action</th>
+                  <th className="text-left p-4 font-semibold">Transformer Name</th>
+                  <th className="text-left p-4 font-semibold">Rating</th>
+                  <th className="text-left p-4 font-semibold">Unique Transformer ID</th>
+                  <th className="text-left p-4 font-semibold">Voltage Class</th>
+                  <th className="text-center p-4 font-semibold">Status</th>
+                  <th className="text-right p-4 font-semibold">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {transformers.map((transformer) => (
-                  <tr key={transformer.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <tr key={transformer.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                     <td className="p-4 font-medium">{transformer.name}</td>
                     <td className="p-4">{transformer.rating}</td>
                     <td className="p-4 font-medium text-blue-600">{transformer.uniqueId}</td>
                     <td className="p-4">{transformer.voltageClass}</td>
-                    <td className="p-4">
+                    <td className="p-4 text-center">
                       <Badge className={getStatusColor(transformer.status)}>
-                        {transformer.status === 'completed' ? 'Approved' : 
-                         (transformer.isFilled ? 'Ready for Approval' : transformer.status.replace('-', ' '))}
+                        {getStatusText(transformer.status, transformer.currentStage)}
                       </Badge>
                     </td>
                     <td className="p-4">
-                      <div className="flex justify-center items-center gap-2">
+                      <div className="flex justify-end gap-2">
                         <Button
+                          variant="outline"
                           size="sm"
-                          onClick={() => {
-                            if (transformer.status === 'completed') {
-                              window.location.href = `/admin/report/${transformer.id}?type=final`;
-                            } else {
-                              onStartTest(transformer);
-                            }
-                          }}
-                          className={transformer.status === 'completed' ? "bg-green-600 hover:bg-green-700 font-medium" : "bg-red-600 hover:bg-red-700"}
-                          disabled={false}
+                          onClick={() => onStartTest(transformer)}
+                          className="border-[#003a70] text-[#003a70] hover:bg-blue-50"
                         >
-                          {transformer.status === 'completed' ? (
-                            <>
-                              <FileText className="w-4 h-4 mr-2" />
-                              View Report
-                            </>
-                          ) : (
-                            <>
-                              <PlayCircle className="w-4 h-4 mr-2" />
-                              {transformer.status === 'pending' ? 'Start Test' : 'Edit / Continue'}
-                            </>
-                          )}
+                          <PlayCircle className="w-4 h-4 mr-2" />
+                          {transformer.status === 'pending' ? 'Start Test' : 'Edit / Continue'}
                         </Button>
 
-                        {transformer.status === 'in-progress' && (transformer as any).isFilled && (transformer.currentStage === 'final') && (
+                        {(transformer.status === 'in-progress' || transformer.isFilled) && (
                           <Button
                             size="sm"
-                            className="bg-green-600 hover:bg-green-700 text-white"
+                            className="bg-green-600 hover:bg-green-700 text-white font-bold shadow-md"
                             onClick={(e: React.MouseEvent) => {
                               e.stopPropagation();
                               onApprove(transformer);

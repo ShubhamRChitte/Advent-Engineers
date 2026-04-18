@@ -171,32 +171,15 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
     let finalOrderQuery = {};
 
     if (filterType === 'active') {
-      // 1. Orders from Assigned Transformers
-      const transformerBasedQuery = { _id: { $in: activeOrderIds } };
-
-      // 2. Direct Order Assignment (Fallback/Robustness)
-      const directAssignmentQuery = {
-        currentStage: stageKey,
-        assignments: {
-          $elemMatch: {
-            testerName: { $in: namesToCheck },
-            stage: stageKey,
-            status: { $ne: "Completed" }
-          }
-        },
-        isApproved: true // Only show orders that have been approved by Admin
-        // status: { $regex: /In Progress/i } // Optional: Filter by status if needed
+      // User Request: Automatic Cleanup. 
+      // Only show orders if the user has at least one PENDING transformer in the current stage.
+      // This uses the activeOrderIds calculated above from TransformerModel.find({ currentStage: stageKey }).
+      finalOrderQuery = { 
+        _id: { $in: activeOrderIds },
+        isApproved: true
       };
 
-      // Combine: Show order if (Transformers are assigned OR Order says I'm assigned)
-      finalOrderQuery = {
-        $or: [
-          transformerBasedQuery,
-          directAssignmentQuery
-        ]
-      };
-
-      // If filtering by stage specifically (User override)
+      // Special case: If user override stage is provided
       if (req.query.stage) {
         finalOrderQuery.currentStage = req.query.stage;
       }

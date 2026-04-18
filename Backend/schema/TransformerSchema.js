@@ -188,7 +188,21 @@ const TestStageSchema = new Schema({
   // These arrays will hold the results based on the Order's core configuration
   metering_results: [MeteringBlockSchema],
   protection_results: [ProtectionBlockSchema],
-  ps_results: [PSBlockSchema]
+  ps_results: [PSBlockSchema],
+
+  // New: Final QA Specific Fields (Stored in testHistory.final_test)
+  polarityResult: { type: String },
+  meggarPrimaryToSecondary: { type: String },
+  meggarSecondaryToEarth: { type: String },
+  meggarPrimaryToEarth: { type: String },
+  hvTestPrimaryToSecondary: { type: String },
+  hvTestSecondaryToEarth: { type: String },
+  hvTestPrimaryToEarth: { type: String },
+  ovitTest: { type: String },
+  ovitDuration: { type: String },
+  ovitRemarks: { type: String },
+  generalRemarks: { type: String },
+  isApproved: { type: Boolean, default: false }
 }, { strict: false });
 
 // --- 3. MAIN TRANSFORMER SCHEMA ---

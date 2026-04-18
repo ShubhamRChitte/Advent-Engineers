@@ -141,24 +141,27 @@ export function TesterNotifications({ userRole, onViewOrder }: TesterNotificatio
     const fetchNotifications = async () => {
       try {
         const res = await axios.get("http://localhost:5000/api/notifications", { withCredentials: true });
-        const mapped = res.data.notifications.map((n: any) => ({
-          id: n._id,
-          orderObjectId: n.orderId || n.jobId || 'N/A',
-          orderId: n.jobId || 'N/A',
-          jobId: n.jobId || 'N/A',
-          message: n.message,
-          clientName: 'Attached to Task', // We could populate this if we joined
-          transformerName: 'Check Order',
-          transformerType: 'N/A',
-          quantity: 0,
-          deadline: new Date().toISOString(),
-          instructions: '',
-          fromStage: 'Admin',
-          fromEmployee: 'System',
-          timestamp: new Date(n.createdAt).toLocaleString(),
-          isRead: n.isRead,
-          priority: 'Medium'
-        }));
+        const mapped = res.data.notifications.map((n: any) => {
+          const order = n.orderId || {}; // Use the populated order or an empty object
+          return {
+            id: n._id,
+            orderObjectId: order._id || 'N/A',
+            orderId: order.jobId || 'N/A',
+            jobId: order.jobId || 'N/A',
+            message: n.message,
+            clientName: order.clientName || 'N/A',
+            transformerName: order.transformerName || 'Check Order',
+            transformerType: order.transformerType || 'N/A',
+            quantity: order.quantity || 0,
+            deadline: order.deadline || new Date().toISOString(),
+            instructions: order.instructions || '',
+            fromStage: 'Admin',
+            fromEmployee: 'System',
+            timestamp: new Date(n.createdAt).toLocaleString(),
+            isRead: n.isRead,
+            priority: order.priority || 'Medium'
+          };
+        });
         setNotifications(mapped);
       } catch (err) {
         console.error("API ERROR:", err);
@@ -302,11 +305,6 @@ export function TesterNotifications({ userRole, onViewOrder }: TesterNotificatio
                         <h3 className="text-gray-900 mb-1">You have a new testing task assigned</h3>
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm text-gray-600">{notification.jobId}</p>
-                          <span className="text-gray-400">•</span>
-                          <p className="text-sm text-gray-600">{notification.orderId}</p>
-                          <Badge className={getPriorityColor(notification.priority)}>
-                            {notification.priority} Priority
-                          </Badge>
                         </div>
                       </div>
                       {!notification.isRead && (
@@ -359,35 +357,7 @@ export function TesterNotifications({ userRole, onViewOrder }: TesterNotificatio
                 </div>
               </div>
 
-              {/* Deadline */}
-              <div className="p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border border-orange-200">
-                <div className="flex items-start gap-3">
-                  <Clock className="w-5 h-5 text-orange-600 mt-0.5" />
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-900 mb-1">Deadline</h4>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm text-gray-900">{new Date(notification.deadline).toLocaleDateString()}</span>
-                      <Badge className="bg-orange-100 text-orange-700 border-orange-300">
-                        {Math.ceil((new Date(notification.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days remaining
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
-              {/* Instructions */}
-              {notification.instructions && (
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-start gap-3">
-                    <FileText className="w-5 h-5 text-blue-600 mt-0.5" />
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-900 mb-1">Instructions & Notes</h4>
-                      <p className="text-sm text-gray-700">{notification.instructions}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Action Buttons */}
               <div className="flex items-center gap-3 pt-2">

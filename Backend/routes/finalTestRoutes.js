@@ -154,6 +154,7 @@ router.post('/:id', isAuthenticated, async (req, res) => {
             }
         }
 
+        transformer.markModified('testHistory');
         await transformer.save();
 
         res.json({
@@ -211,6 +212,8 @@ router.post('/:id/generate-save', isAuthenticated, async (req, res) => {
         // Automatic stage transition removed. 
         // Must be approved via /api/transformers/:uniqueId/approve-stage now.
 
+        transformer.markModified('testHistory');
+        transformer.markModified('finalReportData');
         await transformer.save();
 
         res.json({

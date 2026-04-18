@@ -49,14 +49,16 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0 }: PTAssig
 
       if (activeTab === 'active') {
         // Show orders NOT yet fully completed
-        setOrders(allOrders.filter(o =>
-          !o.status.includes('PT Testing Completed')
-        ));
+        setOrders(allOrders.filter(o => {
+          const s = (o.status || '').toLowerCase();
+          return !s.includes('completed');
+        }));
       } else {
         // Show fully completed PT testing orders
-        setOrders(allOrders.filter(o =>
-          o.status.includes('PT Testing Completed') || o.status.includes('Completed')
-        ));
+        setOrders(allOrders.filter(o => {
+          const s = (o.status || '').toLowerCase();
+          return s.includes('completed');
+        }));
       }
     } catch (error) {
       console.error("Error fetching PT orders:", error);

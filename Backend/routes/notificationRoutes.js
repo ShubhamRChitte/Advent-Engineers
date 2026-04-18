@@ -32,6 +32,7 @@ router.get('/', isAuthenticated, async (req, res) => {
                 { recipientName: name }   // Match Specific Individual
             ]
         })
+        .populate('orderId')
         .sort({ createdAt: -1 })
         .limit(20)
         .lean();

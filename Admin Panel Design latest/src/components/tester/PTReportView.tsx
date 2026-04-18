@@ -182,31 +182,55 @@ export function PTReportView({ transformer, order, onBack, readOnly = false }: P
 
             {/* Section 4: Accuracy Test Metering */}
             <div className="border border-black mb-4">
-                <div className="text-center font-bold bg-gray-100 border-b border-black py-1">Accuracy Test Metering</div>
+                <div className="text-center font-bold bg-gray-100 border-b border-black py-1 uppercase">Accuracy Test (Metering & Protection)</div>
                 <table className="w-full border-collapse border-hidden table-fixed text-sm text-center">
                     <thead>
                         <tr>
-                            <td className="border border-black p-1 w-1/3 align-middle" rowSpan={2}>% of primary<br/>current</td>
-                            <td className="border border-black p-1 font-bold w-1/3" colSpan={2}>100% Burden</td>
-                            <td className="border border-black p-1 font-bold w-1/3" colSpan={2}>25% Burden</td>
+                            <td className="border border-black p-1 w-24 align-middle bg-gray-50 font-bold" rowSpan={2}>Core</td>
+                            <td className="border border-black p-1 w-24 align-middle bg-gray-50 font-bold" rowSpan={2}>% of primary<br/>current</td>
+                            <td className="border border-black p-1 font-bold w-auto bg-gray-50" colSpan={2}>100% Burden</td>
+                            <td className="border border-black p-1 font-bold w-auto bg-gray-50" colSpan={2}>25% Burden</td>
                         </tr>
                         <tr>
-                            <td className="border border-black p-1 leading-tight">Ratio Error<br/>(%)</td>
-                            <td className="border border-black p-1 leading-tight">Phase Error<br/>(min)</td>
-                            <td className="border border-black p-1 leading-tight">Ratio Error<br/>(%)</td>
-                            <td className="border border-black p-1 leading-tight">Phase error<br/>(min)</td>
+                            <td className="border border-black p-1 leading-tight bg-gray-50 font-medium font-bold">Ratio Error (%)</td>
+                            <td className="border border-black p-1 leading-tight bg-gray-50 font-medium font-bold">Phase Error (min)</td>
+                            <td className="border border-black p-1 leading-tight bg-gray-50 font-medium font-bold">Ratio Error (%)</td>
+                            <td className="border border-black p-1 leading-tight bg-gray-50 font-medium font-bold">Phase error (min)</td>
                         </tr>
                     </thead>
                     <tbody>
-                        {['120', '100', '80'].map((perc) => (
-                            <tr key={perc}>
-                                <td className="border border-black p-1 text-center">{perc}%</td>
-                                <td className="border border-black p-1 h-7 text-center text-blue-600 text-xs font-medium">{reportData.accuracyTest?.[perc]?.ratioError100 || '-'}</td>
-                                <td className="border border-black p-1 h-7 text-center text-blue-600 text-xs font-medium">{reportData.accuracyTest?.[perc]?.phaseError100 || '-'}</td>
-                                <td className="border border-black p-1 h-7 text-center text-blue-600 text-xs font-medium">{reportData.accuracyTest?.[perc]?.ratioError25 || '-'}</td>
-                                <td className="border border-black p-1 h-7 text-center text-blue-600 text-xs font-medium">{reportData.accuracyTest?.[perc]?.phaseerror25 || reportData.accuracyTest?.[perc]?.phaseError25 || '-'}</td>
-                            </tr>
-                        ))}
+                        {/* 1. Metering Core */}
+                        {['120', '100', '80'].map((perc, idx) => {
+                             // Data might be flat or under .metering
+                             const rowData = reportData.accuracyTest?.metering?.[perc] || reportData.accuracyTest?.[perc] || {};
+                             return (
+                                <tr key={`metering-${perc}`}>
+                                    {idx === 0 && (
+                                        <td className="border border-black p-1 font-bold align-middle bg-gray-100 uppercase" rowSpan={3}>Metering</td>
+                                    )}
+                                    <td className="border border-black p-1 text-center font-medium">{perc}%</td>
+                                    <td className="border border-black p-1 h-7 text-center text-blue-600 text-xs font-medium">{rowData.ratioError100 || '-'}</td>
+                                    <td className="border border-black p-1 h-7 text-center text-blue-600 text-xs font-medium">{rowData.phaseError100 || '-'}</td>
+                                    <td className="border border-black p-1 h-7 text-center text-blue-600 text-xs font-medium">{rowData.ratioError25 || '-'}</td>
+                                    <td className="border border-black p-1 h-7 text-center text-blue-600 text-xs font-medium">{rowData.phaseError25 || rowData.phaseerror25 || '-'}</td>
+                                </tr>
+                             );
+                        })}
+
+                        {/* 2. Protection Cores (Conditional) */}
+                        {isConfigB && (['protection1', 'protection2'] as const).map((pKey) => {
+                             const rowData = reportData.accuracyTest?.[pKey]?.['100'] || {};
+                             return (
+                                <tr key={pKey}>
+                                    <td className="border border-black p-1 font-bold align-middle bg-gray-100 uppercase">{pKey === 'protection1' ? 'Prot. 1' : 'Prot. 2'}</td>
+                                    <td className="border border-black p-1 text-center font-medium">100%</td>
+                                    <td className="border border-black p-1 h-7 text-center text-blue-600 text-xs font-medium">{rowData.ratioError100 || '-'}</td>
+                                    <td className="border border-black p-1 h-7 text-center text-blue-600 text-xs font-medium">{rowData.phaseError100 || '-'}</td>
+                                    <td className="border border-black p-1 h-7 text-center text-blue-600 text-xs font-medium">{rowData.ratioError25 || '-'}</td>
+                                    <td className="border border-black p-1 h-7 text-center text-blue-600 text-xs font-medium">{rowData.phaseError25 || rowData.phaseerror25 || '-'}</td>
+                                </tr>
+                             );
+                        })}
                     </tbody>
                 </table>
                 <div className="flex justify-between items-center p-2 text-sm mt-2">

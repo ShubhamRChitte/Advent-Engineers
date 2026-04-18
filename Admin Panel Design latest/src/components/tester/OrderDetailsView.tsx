@@ -135,14 +135,6 @@ export function OrderDetailsView({ orderId, onBack }: OrderDetailsViewProps) {
           </Button>
           <h2 className="text-2xl font-bold text-gray-900">Order Details</h2>
         </div>
-        <div className="flex gap-3">
-          <Badge className={getPriorityColor(order.priority)}>
-            {order.priority} Priority
-          </Badge>
-          <Badge className={getStatusColor(order.status)}>
-            {order.status}
-          </Badge>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -191,16 +183,7 @@ export function OrderDetailsView({ orderId, onBack }: OrderDetailsViewProps) {
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
-                <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Deadline</p>
-                  <p className="font-medium text-gray-900">{new Date(order.deadline).toLocaleDateString()}</p>
-                  <p className="text-sm text-orange-600 font-medium mt-1">
-                    {Math.max(0, Math.ceil((new Date(order.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))} days remaining
-                  </p>
-                </div>
-              </div>
+
 
               <div className="flex items-start gap-3">
                 <Clock className="w-5 h-5 text-gray-400 mt-0.5" />
@@ -314,16 +297,7 @@ export function OrderDetailsView({ orderId, onBack }: OrderDetailsViewProps) {
           </div>
         </Card>
 
-        {/* Instructions */}
-        <Card className="p-6 lg:col-span-3 bg-blue-50 border-blue-100">
-          <div className="flex items-center gap-2 text-blue-800 mb-3">
-            <FileText className="w-5 h-5" />
-            <h3 className="font-semibold text-lg">Instructions & Notes</h3>
-          </div>
-          <p className="text-gray-700 leading-relaxed italic whitespace-pre-wrap">
-            {order.instructions || "No specific instructions provided for this order."}
-          </p>
-        </Card>
+
       </div>
     </div>
   );

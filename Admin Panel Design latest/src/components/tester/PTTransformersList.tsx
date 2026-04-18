@@ -51,20 +51,83 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
   const [transformers, setTransformers] = useState<Transformer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [heatingRecords, setHeatingRecords] = useState<any[]>([]);
+
+  const checkIfPTReportIsComplete = (transformer: any, hasHeating: boolean) => {
+    const ptTest = transformer.testHistory?.pt_test;
+
+    // If no core test data at all, obviously not complete
+    if (!ptTest) return false;
+
+    // 1. Check Final Testing (CORRECTED KEYS to match PTTestingReport.tsx)
+    // Relaxed: Only checking the most critical fields for completion
+    const final = ptTest.finalTesting || {};
+    const mandatoryFinalFields = ['polarityTesting', 'hvPrimary', 'hvSecondary', 'inducedOverVoltage'];
+    const finalCompleted = mandatoryFinalFields.every(field => {
+        const val = final[field];
+        return val !== undefined && val !== null && val.toString().trim() !== '';
+    });
+    if (!finalCompleted) return false;
+
+    // 2. Check Accuracy Test
+    const accuracy = ptTest.accuracyTest || {};
+    const preTesting = ptTest.preTesting || {};
+    // Relaxed: Only 100% burden readings are mandatory
+    const mandatoryAccuracyFields = ['ratioError100', 'phaseError100'];
+    
+    const meteringCompleted = ['100'].every(perc => {
+        // Broad search for metering data in accuracyTest OR preTesting
+        const row = accuracy.metering?.[perc] || accuracy[perc] || preTesting.metering || {};
+        const isFilled = mandatoryAccuracyFields.every(f => {
+            const val = row[f];
+            return val !== undefined && val !== null && val.toString().trim() !== '';
+        });
+        return isFilled;
+    });
+    if (!meteringCompleted) return false;
+
+    // Protection check (if applicable)
+    const countProtection = transformer.cores?.filter((c: any) => c.coreType === 'protection')?.length || 0;
+    if (countProtection > 0) {
+        const protKeys = ['protection1', 'protection2'].slice(0, countProtection);
+        const protectionCompleted = protKeys.every(pKey => {
+            const row = accuracy[pKey]?.['100'] || accuracy[pKey] || preTesting[pKey] || {};
+            return mandatoryAccuracyFields.every(f => {
+                const val = row[f];
+                return val !== undefined && val !== null && val.toString().trim() !== '';
+            });
+        });
+        if (!protectionCompleted) return false;
+    }
+
+    // 3. Check Heating Status (MUST exist as per user request)
+    if (!hasHeating) return false;
+
+    return true;
+  };
 
   useEffect(() => {
-    const fetchTransformers = async () => {
+    const fetchTransformersAndHeating = async () => {
       setIsLoading(true);
       setError(null);
       try {
         const orderId = order._id;
-        const response = await axios.get(`http://localhost:5000/api/transformers/order/${orderId}`, {
-          withCredentials: true
-        });
+        
+        // Parallel fetch for transformers and heating records
+        const [transformersRes, heatingRes] = await Promise.all([
+          axios.get(`http://localhost:5000/api/transformers/order/${orderId}`, { withCredentials: true }),
+          axios.get(`http://localhost:5000/api/heating-record/${orderId}/33KV_PT`, { withCredentials: true }).catch(err => {
+             console.warn("No heating record found or error:", err);
+             return { data: { success: false, data: { blocks: [] } } };
+          })
+        ]);
 
-        const dbTransformers = response.data;
+        const dbTransformers = transformersRes.data;
+        const blocks = (heatingRes.data?.data?.blocks || heatingRes.data?.blocks || []);
+        setHeatingRecords(blocks);
 
         const mappedTransformers: Transformer[] = dbTransformers.map((t: any) => {
+          // ... (keep previous core matching logic)
           let currentCoreNum = 1;
           const coresList: CoreConfig[] = [];
 
@@ -85,27 +148,50 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
              coresList.push({ coreNumber: 1, coreType: 'metering', coreId: 'M-1' });
           }
 
-          const hasPtTest = t.testHistory && t.testHistory.pt_test && Object.keys(t.testHistory.pt_test).length > 0;
+          const hasPtTest = !!(t.testHistory && t.testHistory.pt_test && Object.keys(t.testHistory.pt_test).length > 0);
+          
+          const getTrailingNum = (str: string) => {
+            const match = str?.toString().match(/(\d+)$/);
+            return match ? parseInt(match[1], 10) : null;
+          };
+          const tNum = getTrailingNum(t.uniqueId);
+          const tSuffix = t.uniqueId?.slice(-3);
+
+          const hasHeating = blocks.some((b: any) => {
+              if (!b.serialNumber) return false;
+              const bSerial = b.serialNumber.toString();
+              if (bSerial === t.uniqueId) return true;
+              if (t.uniqueId && t.uniqueId.includes(bSerial)) return true;
+              if (bSerial.includes(t.uniqueId)) return true;
+              const bNum = getTrailingNum(bSerial);
+              if (tNum !== null && bNum !== null && tNum === bNum) return true;
+              if (tSuffix && bSerial.includes(tSuffix)) return true;
+              if (tSuffix && tSuffix.includes(bSerial)) return true;
+              return false;
+          });
+
           const isApproved = t.testHistory?.pt_test?.approved === true || t.testHistory?.pt_test?.approved === "true";
-          const currentStatus: 'pending' | 'in-progress' | 'completed' | 'approved' = isApproved ? 'approved' : hasPtTest ? 'completed' : 'pending';
+          
+          let currentStatus: 'pending' | 'in-progress' | 'completed' | 'approved' = 'pending';
+          if (isApproved) {
+            currentStatus = 'approved';
+          } else if (hasPtTest || hasHeating) {
+            const isComplete = checkIfPTReportIsComplete({ ...t, cores: coresList }, hasHeating);
+            currentStatus = isComplete ? 'completed' : 'in-progress';
+          }
 
           return {
             _id: t._id,
             uniqueId: t.uniqueId,
             name: order.transformerName || 'PT Transformer',
-            rating: Array.isArray(order.ratio) ? order.ratio.join('/') : (order.ratio || 'N/A'),
-            ratios: Array.isArray(order.ratio) ? order.ratio : [],
             cores: coresList,
             status: currentStatus,
-            testHistory: t.testHistory,
-            currentStage: t.currentStage,
+            hasPtTest,
+            testHistory: t.testHistory
           };
         });
 
-        // Filter 1: Only show active units that have not been approved yet (CT Equivalent logic)
         const activeUnitsOnly = mappedTransformers.filter(t => t.status !== 'approved');
-
-        // Filter 2: Filter by assignedUnitIds if needed
         const filtered = (!order.assignedUnitIds || order.assignedUnitIds.length === 0)
           ? activeUnitsOnly
           : activeUnitsOnly.filter(t => order.assignedUnitIds?.some(assignedId =>
@@ -115,13 +201,14 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
         setTransformers(filtered);
       } catch (err: any) {
         console.error("Error fetching transformers:", err);
-        setError("Failed to load transformers. Please try again.");
+        const detail = err.response?.data?.message || err.response?.data?.error || err.message || "";
+        setError(`Failed to load transformers: ${detail}`);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (order && order._id) fetchTransformers();
+    if (order && order._id) fetchTransformersAndHeating();
   }, [order]);
 
   const getStatusColor = (status: string) => {
@@ -158,7 +245,12 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
             Back to Orders
           </Button>
           <div className="flex-1">
-            <h2 className="text-xl font-bold">Transformers for {order.jobId}</h2>
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              Transformers for {order.jobId}
+              <span className="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                H: {heatingRecords.length}
+              </span>
+            </h2>
             <p className="text-gray-500 mt-1">Select a PT unit to begin testing</p>
           </div>
         </div>
@@ -244,7 +336,9 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
                     </td>
                     <td className="p-4">
                       <Badge className={getStatusColor(transformer.status)}>
-                        {transformer.status === 'pending' ? 'Pending' : transformer.status === 'completed' ? 'Completed' : 'Approved'}
+                        {transformer.status === 'pending' ? 'Pending' : 
+                         transformer.status === 'in-progress' ? 'In Progress' : 
+                         transformer.status === 'completed' ? 'Completed' : 'Approved'}
                       </Badge>
                     </td>
                     <td className="p-4 text-center">
@@ -254,9 +348,13 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
                           onClick={() => onStartTest(transformer)}
                           className={(transformer.status === 'completed' || transformer.status === 'approved') ? "bg-green-600 hover:bg-green-700 text-white" : "bg-[#003a70] hover:bg-[#002850] text-white"}
                         >
-                          {(transformer.status === 'completed' || transformer.status === 'approved') ? (
+                          {transformer.status === 'completed' || transformer.status === 'approved' ? (
                             <>
                               <CheckCircle className="w-4 h-4 mr-2" /> View Report
+                            </>
+                          ) : transformer.status === 'in-progress' ? (
+                            <>
+                              <PlayCircle className="w-4 h-4 mr-2" /> Continue Test
                             </>
                           ) : (
                             <>
@@ -265,13 +363,13 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
                           )}
                         </Button>
                         
-                        {transformer.status === 'completed' && (
+                        {(transformer.status === 'completed' || (transformer.status === 'in-progress' && transformer.hasPtTest)) && (
                           <Button
                             size="sm"
                             onClick={() => handleApproveTransformer(transformer)}
-                            className="bg-purple-600 hover:bg-purple-700 text-white whitespace-nowrap"
+                            className={`${transformer.status === 'completed' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-orange-500 hover:bg-orange-600'} text-white whitespace-nowrap`}
                           >
-                            Approve
+                            Approve {transformer.status !== 'completed' && '(Force)'}
                           </Button>
                         )}
                       </div>

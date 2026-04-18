@@ -314,13 +314,6 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
             };
         });
 
-        // Basic validation across all sheets
-        const missingSigs = payloads.filter(p => !p.reportData.signature);
-        if (missingSigs.length > 0) {
-            toast.error(`Please provide a signature for all (${missingSigs.length}) reports before saving.`);
-            return;
-        }
-
         // Wait for all to submit sequentially or in parallel
         const responses = await Promise.all(payloads.map(payload => 
             axios.post('http://localhost:5000/api/pt-tests/submit', payload, { withCredentials: true })
@@ -857,16 +850,6 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                             <div className="flex items-center">
                                 <span className="font-bold mr-2 ml-2">Tested By:</span>
                                 <Input value={reportData.testedBy || user?.name || user?.fullName || ''} className="w-48 h-7 text-blue-600 italic font-medium bg-transparent border-t-0 border-l-0 border-r-0 border-b border-gray-400 rounded-none px-1" readOnly disabled={isReadOnly} />
-                            </div>
-                            <div className="flex items-center mr-2">
-                                <span className="font-bold mr-2">Authorised Signatory:</span>
-                                <Input 
-                                    value={reportData.signature} 
-                                    onChange={(e) => handleInputChange(transformer._id, '', 'signature', e.target.value)} 
-                                    className="w-40 h-7 text-blue-600 italic font-medium bg-transparent border-t-0 border-l-0 border-r-0 border-b border-gray-400 rounded-none px-1" 
-                                    disabled={isReadOnly} 
-                                    placeholder="Type signature"
-                                />
                             </div>
                         </div>
 

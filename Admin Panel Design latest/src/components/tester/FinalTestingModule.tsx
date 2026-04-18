@@ -220,6 +220,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
         transformer={selectedTransformer}
         testerName={testerName}
         onBack={handleBackToCores}
+        onApprove={() => handleApproveTransformer(selectedTransformer)}
       />
     );
   }

@@ -25,7 +25,12 @@ export function SecondaryReportView({
     const hasMetering = history?.metering_results?.length > 0;
     const hasProtection = history?.protection_results?.length > 0;
     const hasPS = history?.ps_results?.length > 0;
-    const hasQA = stage === 'final' && history?.polarityResult;
+    const hasQA = stage === 'final' && (
+        history?.polarityResult || 
+        history?.meggarPrimaryToSecondary || 
+        history?.ovitTest || 
+        transformer.finalReportData
+    );
 
     // Get available types
     const availableTypes: ('Metering' | 'Protection' | 'PS' | 'QA')[] = [];

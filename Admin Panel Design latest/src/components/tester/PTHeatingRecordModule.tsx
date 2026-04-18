@@ -58,6 +58,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
   // Orders list state
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Selected order / transformer
@@ -221,8 +222,12 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
         { withCredentials: true }
       );
       alert('Transformer approved successfully!');
-      // Remove from local list immediately (CT Secondary pattern)
-      setTransformers(prev => prev.filter(tr => tr._id !== t._id));
+      
+      // 1. Remove from local transformers list immediately
+      setTransformers(prev => prev.filter(tr => tr._id.toString() !== t._id.toString()));
+      
+      // 2. Refresh parent orders list so the Order moves to "Completed" tab if all units are done
+      fetchOrders();
     } catch (e: any) {
       console.error('Error approving transformer:', e);
       alert(e.response?.data?.message || 'Failed to approve transformer.');
@@ -488,6 +493,14 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
   };
 
   const filteredOrders = orders.filter(order => {
+    const status = (order.status || '').toLowerCase();
+    const isCompleted = status.includes('pt testing completed') || status === 'completed' || status.includes('completed');
+    
+    // Filter 1: Tab-based filtering
+    if (activeTab === 'active' && isCompleted) return false;
+    if (activeTab === 'completed' && !isCompleted) return false;
+
+    // Filter 2: Search-based filtering
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
     return (
@@ -507,6 +520,28 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
           <p className="text-gray-600 mt-1">
             Select an assigned PT order to log heating records for its transformers.
           </p>
+        </div>
+        <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg no-print">
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'active' 
+                ? 'bg-white text-[#003a70] shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Active Orders
+          </button>
+          <button
+            onClick={() => setActiveTab('completed')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'completed' 
+                ? 'bg-white text-[#003a70] shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Completed Orders
+          </button>
         </div>
       </div>
 

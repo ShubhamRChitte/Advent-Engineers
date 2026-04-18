@@ -431,7 +431,9 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
               <tbody>
                 {transformersList.map((t: any) => {
                   const hStatus = t.testHistory?.heating_test?.status || 'Pending';
-                  const isApproved = hStatus === 'Approved' || hStatus === 'Completed';
+                  // STRICT: isApproved should only be true if status is "Approved"
+                  const isApproved = hStatus === 'Approved';
+                  const isCompleted = hStatus === 'Completed';
                   
                   // Check if all 4 mandatory process steps have date and time filled
                   const pSteps = t.testHistory?.heating_test?.processSteps || [];
@@ -446,28 +448,18 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
                       <td className="p-4">
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${
                             isApproved ? 'bg-green-100 text-green-800' : 
-                            hStatus === 'In Progress' || hStatus === 'Completed' || isFilled ? 'bg-blue-100 text-blue-800' :
+                            isCompleted || isFilled ? 'bg-blue-100 text-blue-800' :
                             'bg-yellow-100 text-yellow-800'
                         }`}>
-                          {isApproved ? (hStatus === 'Completed' ? 'Heating Test Completed' : 'Approved') : (isFilled ? 'Ready for Approval' : (hStatus === 'In Progress' ? 'Saved (In Progress)' : hStatus))}
+                          {isApproved ? 'Approved' : (isFilled || isCompleted ? 'Ready for Approval' : (hStatus === 'In Progress' ? 'Saved (In Progress)' : hStatus))}
                         </span>
                       </td>
                       <td className="p-4 text-center">
                         <div className="flex justify-center gap-2">
-                          {(isFilled || hStatus === 'Completed') && !isApproved && (
+                          {(isFilled || isCompleted) && !isApproved && (
                             <Button
                               size="sm"
-                              onClick={() => {
-                                // We need a way to approve from here. 
-                                // handleSave(true) requires the 'record' state to be set.
-                                // So we'll first select the transformer and then trigger approve, 
-                                // but a better way is to add a dedicated handleApproveToList function.
-                                handleSelectTransformer(t).then(() => {
-                                  // This is tricky because React state updates are async.
-                                  // Let's use a simpler approach: add a handleApproveByUniqueId.
-                                  handleApproveByUniqueId(t.uniqueId);
-                                });
-                              }}
+                              onClick={() => handleApproveByUniqueId(t.uniqueId)}
                               className="bg-green-600 hover:bg-green-700 font-medium"
                             >
                               <CheckCircle className="w-4 h-4 mr-2" /> Approve

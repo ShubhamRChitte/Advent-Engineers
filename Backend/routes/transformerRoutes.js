@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const { TransformerModel } = require('../models/TransformerModel');
 const { OrderModel } = require('../models/OrderModel');
+const { MeteringCoreTestModel } = require('../models/MeteringCoreTestModel');
+const { ProtectionCoreTestModel } = require('../models/ProtectionCoreTestModel');
 const { isAuthenticated } = require('../middlewares/authMiddleware');
 
 // GET /api/transformers/order/:orderId
@@ -50,7 +53,7 @@ router.get('/order/:orderId', isAuthenticated, async (req, res) => {
 
             // Check Metering
             const meteringMatch = meteringTests.find(test =>
-                test.readings.some(r => r.internalCoreNo === transformer.uniqueId || transformer.uniqueId.includes(r.internalCoreNo))
+                Array.isArray(test.readings) && test.readings.some(r => r.internalCoreNo === transformer.uniqueId || transformer.uniqueId.includes(r.internalCoreNo))
             );
 
             if (meteringMatch) {
@@ -69,7 +72,7 @@ router.get('/order/:orderId', isAuthenticated, async (req, res) => {
             // Check Protection (if not found in Metering)
             if (!coreTestReadings) {
                 const protectionMatch = protectionTests.find(test =>
-                    test.readings.some(r => r.internalCoreNo === transformer.uniqueId || transformer.uniqueId.includes(r.internalCoreNo))
+                    Array.isArray(test.readings) && test.readings.some(r => r.internalCoreNo === transformer.uniqueId || transformer.uniqueId.includes(r.internalCoreNo))
                 );
 
                 if (protectionMatch) {

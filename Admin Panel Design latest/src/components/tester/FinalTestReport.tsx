@@ -88,11 +88,18 @@ export function FinalTestReport({
     hvBetweenCore && ovitTest && meggarPrimaryToSecondary &&
     meggarPrimaryToEarth && meggarSecondaryToEarth && meggarCoreToCore;
 
+  const handleSaveAndApprove = async () => {
+    const success = await handleSave();
+    if (success && onApprove) {
+      onApprove();
+    }
+  };
+
   const handleSave = async () => {
     try {
       if (hasFailures) {
         toast.error("There are failed conditions. Please use 'Mark as Failed Core' instead.");
-        return;
+        return false;
       }
 
       const payload = {
@@ -105,21 +112,26 @@ export function FinalTestReport({
         hvPrimaryWinding,
         hvBetweenCore,
         ovitTest,
+        testerName: testerName,
+        reportDate: new Date()
       };
 
-      const res = await axios.post(`http://localhost:5000/api/final/${transformer.uniqueId}`, payload, {
+      const response = await axios.post("http://localhost:5000/api/transformer-final-comprehensive-test", {
+        uniqueId: transformer.uniqueId,
+        ...payload
+      }, {
         withCredentials: true
       });
 
-      if (res.data.success) {
-        toast.success(res.data.message);
-        if (onBack) onBack(); // Go back to list immediately
-      } else {
-        toast.error(res.data.message || 'Failed to save final test record.');
+      if (response.data.success) {
+        toast.success("Final readings saved successfully!");
+        return true;
       }
+      return false;
     } catch (err: any) {
-      console.error("Save final test error:", err);
-      toast.error(err.response?.data?.message || 'Error occurred while saving.');
+      console.error("Error saving final readings:", err);
+      toast.error(err.response?.data?.message || "Failed to save final readings");
+      return false;
     }
   };
 
@@ -620,20 +632,29 @@ export function FinalTestReport({
           )}
         </div>
         <div className="flex gap-3">
-          {hasFailures ? (
+          <Button 
+            onClick={handleSave} 
+            variant="outline" 
+            className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold"
+          >
+            <Save className="w-4 h-4" />
+            Save Draft
+          </Button>
+
+          {isComplete && !hasFailures && (
+            <Button 
+              onClick={handleSaveAndApprove} 
+              className="bg-green-600 text-white hover:bg-green-700 gap-2 font-bold px-6 shadow-md transition-all hover:scale-105"
+            >
+              <Save className="w-4 h-4" />
+              APPROVE & FINISH UNIT
+            </Button>
+          )}
+
+          {hasFailures && (
             <Button onClick={handleMarkAsFailed} variant="destructive" className="bg-red-600 hover:bg-red-700 font-bold gap-2 text-md h-10 shadow-lg border border-red-800 animate-pulse">
               <AlertTriangle className="w-5 h-5 mr-1" />
               MARK AS FAILED CORE
-            </Button>
-          ) : isComplete ? (
-            <Button onClick={handleGenerateAndSave} className="bg-blue-600 text-white hover:bg-blue-700 gap-2 font-bold h-10 shadow">
-              <Save className="w-4 h-4" />
-              SAVE FINAL READINGS
-            </Button>
-          ) : (
-            <Button onClick={handleSave} variant="outline" size="sm" className="gap-2 border-gray-400">
-              <Save className="w-4 h-4" />
-              Save Draft
             </Button>
           )}
         </div>

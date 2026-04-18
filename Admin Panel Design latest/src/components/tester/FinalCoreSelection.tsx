@@ -40,8 +40,14 @@ export function FinalCoreSelection({
   onApprove,
 }: FinalCoreSelectionProps) {
 
-  const checkCoreCompletion = (_core: CoreConfig) => {
-    return transformer.testHistory?.final_test?.status === 'Completed';
+  const checkCoreCompletion = (core: CoreConfig) => {
+    const finalHistory = transformer.testHistory?.final_test || {};
+    const results = [
+      ...(finalHistory.metering_results || []),
+      ...(finalHistory.ps_results || []),
+      ...(finalHistory.protection_results || [])
+    ];
+    return results.some(r => r.internalCoreNo === core.coreId || r.coreId === core.coreId);
   };
 
   const getCoreTypeColor = (type: string, isComplete: boolean) => {
