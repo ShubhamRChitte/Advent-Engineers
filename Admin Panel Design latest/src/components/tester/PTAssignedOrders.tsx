@@ -228,7 +228,6 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0 }: PTAssig
                         </Badge>
                       </td>
                       <td className="p-4">
-                      <td className="p-4">
                         <div className="flex justify-center flex-col sm:flex-row gap-2">
                            <Button 
                             size="sm" 

@@ -183,7 +183,6 @@ export function SecondaryOrdersList({ onStartTesting, refreshTrigger = 0 }: Seco
                         </Badge>
                       </td>
                       <td className="p-4">
-                      <td className="p-4">
                         <div className="flex justify-center gap-2">
                           <Button
                             size="sm"
