@@ -1,0 +1,18 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000",
+  "executionArgs": {
+    "projectName": "Admin Panel Design latest",
+    "projectPath": "d:\\advent\\19-04\\Advent-Engineers\\Admin Panel Design latest",
+    "testIds": [],
+    "additionalInstruction": "⚠️ VERY STRICT TESTSPRITE INSTRUCTIONS:\n\n- DO NOT guess or generate credentials\n- DO NOT use hardcoded credentials\n- DO NOT mark tests as BLOCKED\n- ALWAYS continue execution using alternate valid paths\n- Ensure ALL modules and workflows are tested thoroughly\n- Focus on DEPTH + COVERAGE, not just happy paths\n\n🎯 TESTSPRITE LOGIN STRATEGY (MANDATORY)\nTestSprite MUST:\n1. Fetch credentials from: GET /auth/demo-credentials\n2. OR extract from DOM: data-employee-id, data-password\n3. Use credentials EXACTLY as returned\n\n🎯 ADMIN OVERRIDE (CRITICAL)\nUse ADMIN login as PRIMARY role for: Order creation, Tester assignment, Data setup actions. DO NOT depend on Entry Operator role. Admin must simulate Entry Operator functionality.\n\n🎯 ROLE COVERAGE (DEEP TESTING)\nTest using: EMP_TEST_ADMIN (PRIMARY), EMP_TEST_CORE, EMP_TEST_SECONDARY, EMP_TEST_PRIMARY, EMP_TEST_FINAL, EMP_TEST_PT.\nFor each role: Validate dashboard, Validate assigned transformers, Validate actions available.\n\n🎯 MODULE COVERAGE (MANDATORY)\nTest ALL modules:\n1. CT Testing System\n2. PT Testing System\n3. PT Heating Record Module\n4. Reports (CT + PT)\n5. Admin Panel\n6. Notifications\n\n🎯 WORKFLOW TESTING (FULL DEPTH)\nTest COMPLETE workflows:\n- PT Workflow: Assigned → Start → Save → Edit → Approve → Completed → Reports (Validate movement at each step, Validate report visibility)\n- CT Workflow: Core → Secondary → Primary → Final (Validate stage transitions, Validate role-specific access)\n- Heating Workflow: Assigned → Edit → Save → Approve → Completed (Validate transformer-wise movement)\n\n🎯 FEATURE-LEVEL TESTING\nFor EACH module, test: Data rendering, Form inputs, Validation behavior (real-time), Button visibility logic, State transitions, API-driven updates.\n\n🎯 UI & UX VALIDATION\nValidate: Assigned vs Completed tabs, Status labels (Pending / Completed / Approved), Button states (enabled/disabled), Navigation (including Back buttons), No UI breakage or layout issues.\n\n🎯 PRINT & REPORT TESTING\nTest: Print preview opens correctly, A4 layout, No validation messages in print, Proper formatting, Signature optional behavior, All fields rendered correctly.\n\n🎯 EDGE CASE TESTING\nTest: Partial order completion, Approving without completing test (should not allow), Editing after save, Multiple approvals attempt, Missing optional fields (like signature), Empty states handling.\n\n🎯 DATA VALIDATION\nUse ONLY: isTestData === true records.\nEnsure: No dependency on real data, All workflows use valid test data.\n\n🎯 EMPTY STATE HANDLING\nIf TestSprite encounters \"No data found\" or \"No orders assigned\": → Switch role → Try different transformer → Continue testing. DO NOT stop execution.\n\n🎯 ERROR HANDLING\nIf any failure occurs: Log issue clearly, Continue testing other flows, Do NOT terminate test run.\n\n🎯 OUTPUT RULES (CRITICAL)\nTestSprite MUST NEVER use \"BLOCKED\". Instead:\n- \"PASSED\" → correct behavior\n- \"FAILED\" → incorrect behavior\n- \"SKIPPED\" → scenario not applicable",
+    "serverMode": "development",
+    "envs": {
+      "API_KEY": "sk-user-JftwgAAkG-SbjPt_iyQO5cR2OoxwHFy_3NJFZY6Pm-ddxhy-SZ9Kg5a8sMAU39ED8Ywy1dkN4Mvm3K9l2lT8MnomMpZyLAyAbD5NzAhRW8NtDQVMnEtXTQRbxBs8VLScSd0"
+    }
+  },
+  "serverPort": 64827,
+  "proxy": "http://cd6b9c21-5582-456d-a0f0-45351500e484:n3Heq6oJQ4yS2RW660FFc1vP0KOVdSit@tun.testsprite.com:8080"
+}

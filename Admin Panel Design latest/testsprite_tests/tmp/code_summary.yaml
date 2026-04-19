@@ -1,0 +1,60 @@
+version: "2"
+type: frontend
+tech_stack:
+  - React
+  - Vite
+  - TailwindCSS
+  - Radix UI
+  - React Hook Form
+routes:
+  - path: /
+    file: src/App.tsx
+    auth_required: false
+    description: Root route, renders login or appropriate dashboard based on user role
+  - path: /report/*
+    file: src/pages/ReportPage.tsx
+    auth_required: false
+    description: Public interface for viewing reports
+  - path: /admin/report/*
+    file: src/pages/AdminReportViewPage.tsx
+    auth_required: true
+    description: Internal interface for viewing reports
+features:
+  - name: User Login
+    description: Role-based login system for admin, operator, and testers
+    files:
+      - src/components/LoginPage.tsx
+      - src/App.tsx
+    entry_route: /
+    user_interactions:
+      - Select role demo credentials / fetch from API
+      - Fill employee ID
+      - Fill password
+      - Submit login form
+    api_calls:
+      - method: GET
+        endpoint: /auth/demo-credentials
+    auth_required: false
+  - name: Admin Order Management
+    description: Create, assign, and manage transformer workflows
+    files:
+      - src/components/admin/AdminLayout.tsx
+    entry_route: /
+    user_interactions:
+      - Create Order
+      - Assign Testers
+      - Manage Orders
+    auth_required: true
+  - name: Tester Execution Workflows
+    description: Sequential testing flows for PT and CT transformers
+    files:
+      - src/components/tester/TesterLayout.tsx
+    entry_route: /
+    user_interactions:
+      - Start Testing
+      - Edit
+      - Save
+      - Approve
+      - Print
+    auth_required: true
+known_limitations: []

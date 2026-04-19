@@ -18,6 +18,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
 interface Order {
   _id: string;
@@ -42,6 +43,7 @@ interface OrdersListViewEnhancedProps {
 export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<string>('all');
   const [selectedOrder, _setSelectedOrder] = useState<Order | null>(() => {
     const saved = localStorage.getItem('selectedOrder');
     return saved ? JSON.parse(saved) : null;
@@ -254,128 +256,156 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
       {/* Orders List with Status Trackers */}
       <div className="space-y-4 overflow-x-auto pb-4">
         <div className="min-w-[1200px]"> {/* Ensure minimum width to trigger scroll if needed */}
-          {loading ? <div className="text-center py-10">Loading orders...</div> : filteredOrders.map((order) => {
-            const isExpanded = expandedOrders.has(order._id);
-            const isPending = order.status === 'Pending Approval';
+          {loading ? <div className="text-center py-10">Loading orders...</div> : (
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <div className="mb-4">
+                <TabsList className="bg-gray-100 p-1 rounded-lg">
+                  <TabsTrigger value="all" className={`rounded-md px-4 py-2 transition-all ${activeTab === 'all' ? 'bg-white text-blue-700 shadow flex-1' : 'text-gray-500 hover:text-gray-800'}`}>All Types</TabsTrigger>
+                  <TabsTrigger value="pt" className={`rounded-md px-4 py-2 transition-all ${activeTab === 'pt' ? 'bg-white text-blue-700 shadow flex-1' : 'text-gray-500 hover:text-gray-800'}`}>PT Orders</TabsTrigger>
+                  <TabsTrigger value="ct" className={`rounded-md px-4 py-2 transition-all ${activeTab === 'ct' ? 'bg-white text-blue-700 shadow flex-1' : 'text-gray-500 hover:text-gray-800'}`}>CT Orders</TabsTrigger>
+                </TabsList>
+              </div>
 
-            return (
-              <Card key={order._id} className={`overflow-hidden mb-4 ${isPending ? 'border-l-4 border-l-yellow-400' : ''}`}>
-                {/* Order Summary Row */}
-                <div className="p-4 bg-white hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-6 flex-1">
-                      {/* Order ID */}
-                      <div className="min-w-[150px]">
-                        <p className="text-xs text-gray-500 mb-1">Order ID</p>
-                        <p className="font-mono text-sm font-medium">{order.orderId}</p>
-                      </div>
+              {['all', 'pt', 'ct'].map(typeFilter => (
+                <TabsContent key={typeFilter} value={typeFilter} className="m-0 space-y-4">
+                  {filteredOrders
+                    .filter(order => {
+                      if (typeFilter === 'all') return true;
+                      
+                      const orderText = `${order.orderId} ${order.transformerType} ${order.transformerName}`.toLowerCase();
+                      const isPT = orderText.includes('pt');
+                      const isCT = orderText.includes('ct');
+                      
+                      if (typeFilter === 'pt') return isPT;
+                      if (typeFilter === 'ct') return isCT && !isPT;
+                      return true;
+                    })
+                    .map((order) => {
+                      const isExpanded = expandedOrders.has(order._id);
+                      const isPending = order.status === 'Pending Approval';
 
-                      {/* Client */}
-                      <div className="flex items-center gap-2 min-w-[200px]">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <User className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Client</p>
-                          <p className="font-medium text-sm truncate max-w-[180px]" title={order.clientName}>{order.clientName}</p>
-                        </div>
-                      </div>
+                      return (
+                        <Card key={order._id} className={`overflow-hidden ${isPending ? 'border-l-4 border-l-yellow-400' : ''}`}>
+                          {/* Order Summary Row */}
+                          <div className="p-4 bg-white hover:bg-gray-50 transition-colors">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-6 flex-1">
+                                {/* Order ID */}
+                                <div className="min-w-[150px]">
+                                  <p className="text-xs text-gray-500 mb-1">Order ID</p>
+                                  <p className="font-mono text-sm font-medium">{order.orderId}</p>
+                                </div>
 
-                      {/* Transformer */}
-                      <div className="flex-1 min-w-[180px]">
-                        <p className="text-xs text-gray-500 mb-1">Transformer</p>
-                        <p className="font-medium text-sm truncate max-w-[200px]" title={order.transformerName}>{order.transformerName}</p>
-                      </div>
+                                {/* Client */}
+                                <div className="flex items-center gap-2 min-w-[200px]">
+                                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <User className="w-4 h-4 text-blue-600" />
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500">Client</p>
+                                    <p className="font-medium text-sm truncate max-w-[180px]" title={order.clientName}>{order.clientName}</p>
+                                  </div>
+                                </div>
 
-                      {/* Quantity */}
-                      <div className="min-w-[80px]">
-                        <p className="text-xs text-gray-500 mb-1">Qty</p>
-                        <div className="flex items-center gap-1">
-                          <Package className="w-4 h-4 text-gray-400" />
-                          <span className="font-medium text-sm">{order.quantity}</span>
-                        </div>
-                      </div>
+                                {/* Transformer */}
+                                <div className="flex-1 min-w-[180px]">
+                                  <p className="text-xs text-gray-500 mb-1">Transformer</p>
+                                  <p className="font-medium text-sm truncate max-w-[200px]" title={order.transformerName}>{order.transformerName}</p>
+                                </div>
 
-                      {/* Date */}
-                      <div className="min-w-[120px]">
-                        <p className="text-xs text-gray-500 mb-1">Order Date</p>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm">{new Date(order.createdAt).toLocaleDateString()}</span>
-                        </div>
-                      </div>
+                                {/* Quantity */}
+                                <div className="min-w-[80px]">
+                                  <p className="text-xs text-gray-500 mb-1">Qty</p>
+                                  <div className="flex items-center gap-1">
+                                    <Package className="w-4 h-4 text-gray-400" />
+                                    <span className="font-medium text-sm">{order.quantity}</span>
+                                  </div>
+                                </div>
 
-                      {/* Status & Priority */}
-                      <div className="flex flex-col gap-2 min-w-[140px]">
-                        <Badge className={`w-fit ${getStatusColor(order.status)}`}>
-                          {order.status}
-                        </Badge>
-                        <Badge className={`w-fit ${getPriorityColor(order.priority || 'Medium')}`}>
-                          {order.priority || 'Medium'}
-                        </Badge>
-                      </div>
-                    </div>
+                                {/* Date */}
+                                <div className="min-w-[120px]">
+                                  <p className="text-xs text-gray-500 mb-1">Order Date</p>
+                                  <div className="flex items-center gap-1">
+                                    <Calendar className="w-4 h-4 text-gray-400" />
+                                    <span className="text-sm">{new Date(order.createdAt).toLocaleDateString()}</span>
+                                  </div>
+                                </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex gap-2 min-w-[140px] justify-end">
-                      {isPending && (!userRole || userRole === 'admin') && (
-                        <Button
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700 w-full"
-                          onClick={(e) => handleApprove(order._id, e)}
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Approve
-                        </Button>
-                      )}
+                                {/* Status & Priority */}
+                                <div className="flex flex-col gap-2 min-w-[140px]">
+                                  <Badge className={`w-fit ${getStatusColor(order.status)}`}>
+                                    {order.status}
+                                  </Badge>
+                                  <Badge className={`w-fit ${getPriorityColor(order.priority || 'Medium')}`}>
+                                    {order.priority || 'Medium'}
+                                  </Badge>
+                                </div>
+                              </div>
 
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedOrder(order)}
-                        className="gap-1"
-                      >
-                        <Eye className="w-4 h-4" />
-                        View
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => toggleOrderExpansion(order._id)}
-                        className="gap-1"
-                      >
-                        {isExpanded ? (
-                          <>
-                            <ChevronUp className="w-4 h-4" />
-                            Hide
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="w-4 h-4" />
-                            Show
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                              {/* Action Buttons */}
+                              <div className="flex gap-2 min-w-[140px] justify-end">
+                                {isPending && (!userRole || userRole === 'admin') && (
+                                  <Button
+                                    size="sm"
+                                    className="bg-green-600 hover:bg-green-700 w-full"
+                                    onClick={(e) => handleApprove(order._id, e)}
+                                  >
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    Approve
+                                  </Button>
+                                )}
 
-                {/* Expanded Order Status Tracker */}
-                {isExpanded && (
-                  <div className="border-t border-gray-200 p-6 bg-gray-50">
-                    <OrderStatusTracker
-                      currentStage={order.currentStage as any}
-                      orderDate={order.createdAt}
-                      expectedCompletion={order.deadline || ''}
-                      orderId={order.orderId}
-                      transformerType={order.transformerType}
-                      status={order.status}
-                    />
-                  </div>
-                )}
-              </Card>
-            );
-          })}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setSelectedOrder(order)}
+                                  className="gap-1"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  View
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => toggleOrderExpansion(order._id)}
+                                  className="gap-1"
+                                >
+                                  {isExpanded ? (
+                                    <>
+                                      <ChevronUp className="w-4 h-4" />
+                                      Hide
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ChevronDown className="w-4 h-4" />
+                                      Show
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Expanded Order Status Tracker */}
+                          {isExpanded && (
+                            <div className="border-t border-gray-200 p-6 bg-gray-50">
+                              <OrderStatusTracker
+                                currentStage={order.currentStage as any}
+                                orderDate={order.createdAt}
+                                expectedCompletion={order.deadline || ''}
+                                orderId={order.orderId}
+                                transformerType={order.transformerType}
+                                status={order.status}
+                              />
+                            </div>
+                          )}
+                        </Card>
+                      );
+                    })}
+                </TabsContent>
+              ))}
+            </Tabs>
+          )}
         </div>
       </div>
 

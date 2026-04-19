@@ -251,7 +251,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
             <div className="space-y-4 border-b-2 border-gray-200 pb-6">
               <h3 className="font-semibold mb-4  text-blue-700">Transformer Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
+                <div>
                   <Label>Type *</Label>
                   <select
                     value={transformerType}
@@ -275,6 +275,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                     <option value="CT">Current Transformer (CT)</option>
                     <option value="PT">Potential Transformer (PT)</option>
                   </select>
+                </div>
                 {transformerType && (
                   <div>
                     <Label>IS Standard *</Label>
