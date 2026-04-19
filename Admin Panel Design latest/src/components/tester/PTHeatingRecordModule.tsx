@@ -393,11 +393,9 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Deadline</p>
+              <p className="text-sm text-gray-500">Order Date</p>
               <p className="font-medium mt-1">
-                {selectedOrder.deadline && !isNaN(new Date(selectedOrder.deadline).getTime())
-                  ? new Date(selectedOrder.deadline).toLocaleDateString('en-GB')
-                  : 'N/A'}
+                {new Date((selectedOrder as any).createdAt || selectedOrder.assignedDate).toLocaleDateString()}
               </p>
             </div>
           </div>
@@ -597,9 +595,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
                   <th className="text-left p-4 text-sm">Job ID</th>
                   <th className="text-left p-4 text-sm">Client</th>
                   <th className="text-center p-4 text-sm">Units</th>
-                  <th className="text-left p-4 text-sm">Deadline</th>
-                  <th className="text-left p-4 text-sm">Status</th>
-                  <th className="text-left p-4 text-sm">Priority</th>
+                  <th className="text-left p-4 text-sm">Order Date</th>
                   <th className="text-center p-4 text-sm">Action</th>
                 </tr>
               </thead>
@@ -617,20 +613,8 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
                           {assignedQty} / {totalQty}
                         </Badge>
                       </td>
-                      <td className="p-4">
-                        {order.deadline && !isNaN(new Date(order.deadline).getTime())
-                          ? new Date(order.deadline).toLocaleDateString('en-GB')
-                          : 'N/A'}
-                      </td>
-                      <td className="p-4">
-                        <Badge className={getOrderStatusColor(order.status)}>
-                          {order.status}
-                        </Badge>
-                      </td>
-                      <td className="p-4">
-                        <Badge className={getPriorityColor(order.priority || 'Medium')}>
-                          {order.priority || 'Medium'}
-                        </Badge>
+                      <td className="p-4 text-sm">
+                        {new Date((order as any).createdAt || order.assignedDate).toLocaleDateString()}
                       </td>
                       <td className="p-4 text-center">
                         <Button

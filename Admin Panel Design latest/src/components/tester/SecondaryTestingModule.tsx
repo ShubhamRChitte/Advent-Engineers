@@ -21,7 +21,7 @@ interface Order {
   priority: string;
 }
 
-type ViewType = 'orders' | 'transformers' | 'core-selection' | 'report' | 'my-reports' | 'order-reports';
+type ViewType = 'orders' | 'transformers' | 'core-selection' | 'report' | 'order-reports';
 type ReportType = 'metering' | 'ps' | 'protection';
 
 interface SecondaryTestingModuleProps {
@@ -94,23 +94,10 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
           <h1 className="text-2xl font-bold text-gray-800">Secondary Testing</h1>
           <p className="text-sm text-gray-500">Welcome, {userName}</p>
         </div>
-
-        <Tabs value={currentView === 'my-reports' ? 'my-reports' : 'orders'} onValueChange={(val: string) => {
-          if (val === 'my-reports') setCurrentView('my-reports');
-          else setCurrentView('orders');
-        }}>
-          <TabsList>
-            <TabsTrigger value="orders">Active Orders</TabsTrigger>
-            <TabsTrigger value="my-reports">My Reports</TabsTrigger>
-          </TabsList>
-        </Tabs>
       </div>
 
       {/* Main Content Area */}
       <div className="min-h-[600px]">
-        {currentView === 'my-reports' && (
-          <SecondaryReportsDashboard />
-        )}
 
         {currentView === 'orders' && (
           <SecondaryOrdersList

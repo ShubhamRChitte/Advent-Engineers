@@ -151,9 +151,7 @@ export function CoreTestingOrders({ onStartTesting, user: _user, type = 'active'
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge className={`${getStatusColor(order.status)} text-xs px-2 py-0`}>
-                        {order.status}
-                      </Badge>
+                      <p className="text-sm font-medium text-[#003a70]">Active</p>
                     </div>
                     <p className="text-sm text-gray-600">{order.clientName}</p>
                     <p className="text-sm text-gray-600">{order.jobId}</p>
@@ -195,7 +193,7 @@ export function CoreTestingOrders({ onStartTesting, user: _user, type = 'active'
 
 
 
-                      {order.coreDetails?.map((core, idx) => (
+                      {order.coreDetails?.filter(core => core.coreType && core.coreType.toLowerCase() !== 'none' && core.coreType.toLowerCase() !== 'n/a').map((core, idx) => (
                         <Badge
                           key={idx}
                           className={`${getCoreTypeColor(core.coreType)} text-xs px-1.5 py-0 gap-1`}
@@ -211,16 +209,10 @@ export function CoreTestingOrders({ onStartTesting, user: _user, type = 'active'
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Deadline</p>
+                    <p className="text-xs text-gray-500">Order Date</p>
                     <div className="flex items-center gap-1 mt-0.5">
                       <Clock className="w-3 h-3 text-gray-400" />
-                      {/* <span className="text-gray-900 text-xs">{order.deadline}</span> */}
-
-
-                      <span>{new Date(order.deadline).toLocaleDateString()}</span>
-
-
-
+                      <span>{new Date(order.createdAt || order.assignedDate || order.deadline).toLocaleDateString()}</span>
                     </div>
                   </div>
                 </div>

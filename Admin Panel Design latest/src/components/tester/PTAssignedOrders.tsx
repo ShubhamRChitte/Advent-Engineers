@@ -128,10 +128,6 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0 }: PTAssig
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2>Assigned PT Orders</h2>
-          <p className="text-gray-500 mt-1">View your assigned PT orders</p>
-        </div>
         <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg">
           <button
             onClick={() => setActiveTab('active')}
@@ -199,8 +195,7 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0 }: PTAssig
                 <th className="text-left p-4 text-sm">Job ID</th>
                 <th className="text-left p-4 text-sm">Client</th>
                 <th className="text-center p-4 text-sm">Assigned / Total</th>
-                <th className="text-left p-4 text-sm">Deadline</th>
-                <th className="text-left p-4 text-sm">Status</th>
+                <th className="text-left p-4 text-sm">Order Date</th>
                 <th className="text-center p-4 text-sm">Action</th>
               </tr>
             </thead>
@@ -221,11 +216,8 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0 }: PTAssig
                           {assignedQty} / {totalQty}
                         </Badge>
                       </td>
-                      <td className="p-4">{order.deadline && !isNaN(new Date(order.deadline).getTime()) ? new Date(order.deadline).toLocaleDateString() : 'N/A'}</td>
-                      <td className="p-4">
-                        <Badge className={getStatusColor(order.status?.toLowerCase() || '')}>
-                          {order.status}
-                        </Badge>
+                      <td className="p-4 text-sm">
+                        {new Date((order as any).createdAt || order.assignedDate || order.deadline).toLocaleDateString()}
                       </td>
                       <td className="p-4">
                         <div className="flex justify-center flex-col sm:flex-row gap-2">

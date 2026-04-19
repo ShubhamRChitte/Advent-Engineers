@@ -88,7 +88,21 @@ export function FinalTestReport({
     hvBetweenCore && ovitTest && meggarPrimaryToSecondary &&
     meggarPrimaryToEarth && meggarSecondaryToEarth && meggarCoreToCore;
 
+  const comprehensiveComplete = isComplete && !hasFailures;
+
+  const finalHistory = transformer.testHistory?.final_test || {};
+  const meteringCores = new Set((finalHistory.metering_results || []).map((r: any) => r.internalCoreNo || r.coreId));
+  const psCores = new Set((finalHistory.ps_results || []).map((r: any) => r.internalCoreNo || r.coreId));
+  const protectionCores = new Set((finalHistory.protection_results || []).map((r: any) => r.internalCoreNo || r.coreId));
+  const actualCoresCount = new Set([...meteringCores, ...psCores, ...protectionCores]).size;
+  const expectedCoresCount = transformer.cores?.length || 0;
+  const coresComplete = actualCoresCount >= expectedCoresCount;
+
   const handleSaveAndApprove = async () => {
+    if (!coresComplete) {
+      toast.error("Please complete all Core Tests before approving.");
+      return;
+    }
     const success = await handleSave();
     if (success && onApprove) {
       onApprove();
@@ -116,10 +130,7 @@ export function FinalTestReport({
         reportDate: new Date()
       };
 
-      const response = await axios.post("http://localhost:5000/api/transformer-final-comprehensive-test", {
-        uniqueId: transformer.uniqueId,
-        ...payload
-      }, {
+      const response = await axios.post(`http://localhost:5000/api/final/${encodeURIComponent(transformer.uniqueId)}`, payload, {
         withCredentials: true
       });
 
@@ -641,7 +652,7 @@ export function FinalTestReport({
             Save Draft
           </Button>
 
-          {isComplete && !hasFailures && (
+          {comprehensiveComplete && coresComplete && (
             <Button 
               onClick={handleSaveAndApprove} 
               className="bg-green-600 text-white hover:bg-green-700 gap-2 font-bold px-6 shadow-md transition-all hover:scale-105"
@@ -649,6 +660,13 @@ export function FinalTestReport({
               <Save className="w-4 h-4" />
               APPROVE & FINISH UNIT
             </Button>
+          )}
+
+          {comprehensiveComplete && !coresComplete && (
+            <div className="flex items-center text-amber-600 font-semibold gap-2 border border-amber-200 bg-amber-50 px-4 py-2 rounded-lg">
+              <AlertTriangle className="w-4 h-4" />
+              Core Tests Pending
+            </div>
           )}
 
           {hasFailures && (

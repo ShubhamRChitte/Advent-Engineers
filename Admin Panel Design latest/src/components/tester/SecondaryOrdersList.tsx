@@ -107,12 +107,7 @@ export function SecondaryOrdersList({ onStartTesting, refreshTrigger = 0 }: Seco
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2>Assigned Orders</h2>
-          <p className="text-gray-500 mt-1">View and start secondary testing on assigned orders</p>
-        </div>
-      </div>
+
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -156,8 +151,7 @@ export function SecondaryOrdersList({ onStartTesting, refreshTrigger = 0 }: Seco
                 <th className="text-left p-4 text-sm">Job ID</th>
                 <th className="text-left p-4 text-sm">Client</th>
                 <th className="text-center p-4 text-sm">Assigned / Total</th>
-                <th className="text-left p-4 text-sm">Deadline</th>
-                <th className="text-left p-4 text-sm">Status</th>
+                <th className="text-left p-4 text-sm">Order Date</th>
                 <th className="text-center p-4 text-sm">Action</th>
               </tr>
             </thead>
@@ -176,11 +170,8 @@ export function SecondaryOrdersList({ onStartTesting, refreshTrigger = 0 }: Seco
                           {assignedQty} / {totalQty}
                         </Badge>
                       </td>
-                      <td className="p-4">{new Date(order.deadline).toLocaleDateString()}</td>
-                      <td className="p-4">
-                        <Badge className={getStatusColor(order.status)}>
-                          {order.status}
-                        </Badge>
+                      <td className="p-4 text-sm">
+                        {new Date((order as any).createdAt || order.assignedDate).toLocaleDateString()}
                       </td>
                       <td className="p-4">
                         <div className="flex justify-center gap-2">
@@ -199,7 +190,7 @@ export function SecondaryOrdersList({ onStartTesting, refreshTrigger = 0 }: Seco
                 })
               ) : (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-gray-500">
+                  <td colSpan={6} className="p-8 text-center text-gray-500">
                     No assigned secondary orders found.
                   </td>
                 </tr>

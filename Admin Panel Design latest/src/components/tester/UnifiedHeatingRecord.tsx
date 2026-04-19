@@ -383,25 +383,13 @@ export function UnifiedHeatingRecord({
                 Save Readings
               </Button>
 
-              <Button 
-                onClick={() => onSave(true)} 
-                disabled={saving || !allFieldsFilled} 
-                className={`${allFieldsFilled ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'} text-white transition-all`}
-              >
-                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}
-                Approve Heating
-              </Button>
+
             </>
           )}
         </div>
       </div>
 
-      {!allFieldsFilled && !readOnly && (
-        <Card className="max-w-6xl mx-auto mb-4 bg-yellow-50 border-yellow-200 p-3 flex items-center text-yellow-800 text-sm gap-2">
-            <span className="font-bold">Note:</span> 
-            Please fill all Start Time, Completion Time, and Remarks for all steps to enable the 'Approve' button.
-        </Card>
-      )}
+
 
       <div id="printable-report" className="max-w-6xl mx-auto pb-24 space-y-4 print:block">
         <Card className="bg-white shadow-md rounded-none border border-gray-400 overflow-hidden">

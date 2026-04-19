@@ -373,11 +373,15 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Assigned Date</p>
+            <p className="text-sm text-gray-500 font-semibold italic">Order Date</p>
             <p className="font-medium mt-1">
-              {order.deadline && !isNaN(new Date(order.deadline).getTime())
-                ? new Date(order.deadline).toLocaleDateString('en-GB')
-                : "N/A"}
+              {order.createdAt && !isNaN(new Date(order.createdAt).getTime()) 
+                ? new Date(order.createdAt).toLocaleDateString('en-GB') 
+                : (order.assignedDate && !isNaN(new Date(order.assignedDate).getTime()) 
+                    ? new Date(order.assignedDate).toLocaleDateString('en-GB') 
+                    : (order.deadline && !isNaN(new Date(order.deadline).getTime())
+                        ? new Date(order.deadline).toLocaleDateString('en-GB')
+                        : 'N/A'))}
             </p>
           </div>
         </div>

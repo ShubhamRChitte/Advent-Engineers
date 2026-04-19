@@ -336,12 +336,6 @@ export function TesterNotifications({ userRole, onViewOrder }: TesterNotificatio
                       <span className="text-sm font-medium text-gray-900">{notification.quantity} units</span>
                     </div>
                   </div>
-                  {notification.transformerName !== notification.transformerType && (
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Type</p>
-                      <p className="text-sm font-medium text-gray-900">{notification.transformerType}</p>
-                    </div>
-                  )}
                 </div>
               </div>
 

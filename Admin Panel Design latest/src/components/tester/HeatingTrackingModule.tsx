@@ -338,7 +338,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
 
   // ==== 1. ORDER LIST VIEW ====
   if (!selectedOrder) {
-    const displayedOrders = currentTab === 'assigned' ? assignedOrders : completedOrders;
+    const displayedOrders = assignedOrders;
 
     return (
       <div className="space-y-6">
@@ -348,12 +348,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
             <p className="text-gray-500 mt-1">Select an order to manage heating records for individual transformers.</p>
           </div>
           
-          <Tabs value={currentTab} onValueChange={(val: string) => setCurrentTab(val as any)}>
-            <TabsList>
-              <TabsTrigger value="assigned">Assigned Orders</TabsTrigger>
-              <TabsTrigger value="completed">Completed Records</TabsTrigger>
-            </TabsList>
-          </Tabs>
+
         </div>
 
         <Card className="overflow-hidden">
@@ -374,7 +369,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
                     <td className="p-4 text-sm">{order.clientName}</td>
                     <td className="p-4">
                       <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">
-                        {order.nominalSystemVoltage}KV {order.transformerType}
+                        {order.voltageRating || `${order.nominalSystemVoltage}KV`} {order.transformerType}
                       </span>
                     </td>
                     <td className="p-4 text-center">
@@ -423,7 +418,6 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
               <thead className="bg-[#003a70] text-white">
                 <tr>
                   <th className="p-4 text-left font-medium text-sm">Unique ID</th>
-                  <th className="p-4 text-left font-medium text-sm">Internal S.No</th>
                   <th className="p-4 text-left font-medium text-sm">Status</th>
                   <th className="p-4 text-center font-medium text-sm">Action</th>
                 </tr>
@@ -444,7 +438,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
                   return (
                     <tr key={t._id} className="border-b hover:bg-gray-50">
                       <td className="p-4 font-bold text-sm">{t.uniqueId}</td>
-                      <td className="p-4 text-sm">{t.internalCoreNo || 'N/A'}</td>
+
                       <td className="p-4">
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${
                             isApproved ? 'bg-green-100 text-green-800' : 

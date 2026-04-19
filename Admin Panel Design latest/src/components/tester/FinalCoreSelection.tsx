@@ -84,30 +84,7 @@ export function FinalCoreSelection({
         <p className="text-gray-500 mt-1">Choose a core for individual testing or open the comprehensive report</p>
       </div>
 
-      {/* Approval Card - Visible only if fully complete */}
-      {transformer.status === 'completed' && (
-        <Card className="p-6 bg-green-50 border-green-200 border-2 shadow-sm animate-in fade-in slide-in-from-top-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-              <div>
-                <h3 className="text-green-800 font-semibold text-lg">Testing Completed</h3>
-                <p className="text-green-700">All cores have been tested. This transformer is ready for approval.</p>
-              </div>
-            </div>
-            <Button
-              size="lg"
-              className="bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
-              onClick={onApprove}
-            >
-              <CheckCircle className="w-5 h-5 mr-2" />
-              Approve Final Test
-            </Button>
-          </div>
-        </Card>
-      )}
+
 
       {/* Transformer Info */}
       <Card className="p-4 bg-gray-50 border-gray-200">

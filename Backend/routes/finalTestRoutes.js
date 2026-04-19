@@ -147,12 +147,9 @@ router.post('/:id', isAuthenticated, async (req, res) => {
                 }
             );
 
-        } else {
-            // Success
-            if (transformer.currentStage === "final") {
-                transformer.currentStage = "shipped"; // Or whatever next stage is
-            }
         }
+        // STAGE TRANSITION REMOVED: Must be explicitly approved via /api/transformers/:id/approve-stage
+
 
         transformer.markModified('testHistory');
         await transformer.save();

@@ -122,7 +122,7 @@ export function HeatingTrackingOrdersList({ onStartTesting, user }: HeatingTrack
                 <th className="text-left p-4 text-sm font-medium">Client</th>
                 <th className="text-left p-4 text-sm font-medium">Type & Voltage</th>
                 <th className="text-left p-4 text-sm font-medium">Total Qty</th>
-                <th className="text-left p-4 text-sm font-medium">Status</th>
+                <th className="text-left p-4 text-sm font-medium">Order Date</th>
                 <th className="text-center p-4 text-sm font-medium">Action</th>
               </tr>
             </thead>
@@ -134,14 +134,12 @@ export function HeatingTrackingOrdersList({ onStartTesting, user }: HeatingTrack
                     <td className="p-4 text-sm">{order.clientName}</td>
                     <td className="p-4">
                       <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-semibold">
-                        {order.nominalSystemVoltage}KV {order.transformerType}
+                        {(order as any).voltageRating || `${order.nominalSystemVoltage}KV`} {order.transformerType}
                       </span>
                     </td>
                     <td className="p-4 text-sm text-center font-medium">{order.quantity}</td>
-                    <td className="p-4">
-                      <Badge className={getStatusColor(order.status)}>
-                        {order.status || 'Pending'}
-                      </Badge>
+                    <td className="p-4 text-sm">
+                      {new Date(order.createdAt || order.deadline).toLocaleDateString()}
                     </td>
                     <td className="p-4 text-center">
                       <Button

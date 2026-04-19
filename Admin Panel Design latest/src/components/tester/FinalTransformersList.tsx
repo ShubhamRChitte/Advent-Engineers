@@ -156,32 +156,30 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
           // Helper for non-empty string check
           const isValidValue = (val: any) => val !== undefined && val !== null && String(val).trim() !== "" && String(val) !== "N/A";
 
-          // NEW: Practical completion check
-          // 1. Minimum Comprehensive: Polarity + Pri-Sec Megger (proxy for 'started results')
-          const comprehensiveFilled = 
+          // NEW: Completion check for "Ready for Approval"
+          // Must have ALL comprehensive fields AND ALL core tests.
+          const comprehensiveComplete = 
             isValidValue(finalHistory.polarityResult) && 
-            isValidValue(finalHistory.meggarPrimaryToSecondary);
+            isValidValue(finalHistory.hvSecondaryWinding) &&
+            isValidValue(finalHistory.hvPrimaryWinding) &&
+            isValidValue(finalHistory.hvBetweenCore) &&
+            isValidValue(finalHistory.ovitTest) &&
+            isValidValue(finalHistory.meggarPrimaryToSecondary) &&
+            isValidValue(finalHistory.meggarPrimaryToEarth) &&
+            isValidValue(finalHistory.meggarSecondaryToEarth) &&
+            isValidValue(finalHistory.meggarCoreToCore);
 
-          // 2. Minimum Cores: At least one core result exists (if cores expected)
           const expectedCoresCount = coresList.length;
           const meteringCores = new Set((finalHistory.metering_results || []).map((r: any) => r.internalCoreNo || r.coreId));
           const psCores = new Set((finalHistory.ps_results || []).map((r: any) => r.internalCoreNo || r.coreId));
           const protectionCores = new Set((finalHistory.protection_results || []).map((r: any) => r.internalCoreNo || r.coreId));
           const actualCoresCount = new Set([...meteringCores, ...psCores, ...protectionCores]).size;
           
-          const coresFilled = expectedCoresCount === 0 || actualCoresCount > 0;
-
-          // NEW: Extreme relaxed completion check for "Ready for Approval"
-          // If ANY main reading is present, mark as filled.
-          const isFilled = 
-            isValidValue(finalHistory.polarityResult) || 
-            isValidValue(finalHistory.hvSecondaryWinding) ||
-            isValidValue(finalHistory.hvPrimaryWinding) ||
-            isValidValue(finalHistory.ovitTest) ||
-            isValidValue(finalHistory.meggarPrimaryToSecondary) ||
-            actualCoresCount > 0;
+          const coresComplete = actualCoresCount >= expectedCoresCount;
           
-          // Strict completion: Must have 'Completed' status
+          const isFilled = comprehensiveComplete && coresComplete;
+          
+          // Strict completion: Must have 'Completed' status or all fields + core tests
           const isFullyComplete = finalHistory.status === 'Completed';
 
           if (t.currentStage === 'final') {
@@ -299,13 +297,15 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-500 font-semibold italic">Assigned Date</p>
+            <p className="text-sm text-gray-500 font-semibold italic">Order Date</p>
             <p className="font-medium mt-1">
-              {order.assignedDate && !isNaN(new Date(order.assignedDate).getTime()) 
-                ? new Date(order.assignedDate).toLocaleDateString('en-GB') 
-                : (order.deadline && !isNaN(new Date(order.deadline).getTime()) 
-                    ? new Date(order.deadline).toLocaleDateString('en-GB') 
-                    : 'N/A')}
+              {order.createdAt && !isNaN(new Date(order.createdAt).getTime()) 
+                ? new Date(order.createdAt).toLocaleDateString('en-GB') 
+                : (order.assignedDate && !isNaN(new Date(order.assignedDate).getTime()) 
+                    ? new Date(order.assignedDate).toLocaleDateString('en-GB') 
+                    : (order.deadline && !isNaN(new Date(order.deadline).getTime())
+                        ? new Date(order.deadline).toLocaleDateString('en-GB')
+                        : 'N/A'))}
             </p>
           </div>
         </div>

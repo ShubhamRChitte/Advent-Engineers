@@ -226,13 +226,16 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
 
   // Determine unique types for rendering
   const details = order.coreDetails || order.coreConfiguration || [];
-  const uniqueTypes = Array.from(new Set(details.map((c: any) => {
-    const type = c.coreType || c.type;
-    if (type === 'Protection' && (c.iexLimit || c.leLimit || c.class === 'PS' || (c.description && c.description.includes('PS')))) {
-      return 'PS';
-    }
-    return type;
-  })));
+  const uniqueTypes = Array.from(new Set(details
+    .map((c: any) => {
+      const type = c.coreType || c.type;
+      if (type === 'Protection' && (c.iexLimit || c.leLimit || c.class === 'PS' || (c.description && c.description.includes('PS')))) {
+        return 'PS';
+      }
+      return type;
+    })
+    .filter((type: string) => type && type.toLowerCase() !== 'none' && type.toLowerCase() !== 'n/a')
+  ));
 
   const allTypesComplete = uniqueTypes.length > 0 && uniqueTypes.every(type => completionStatus[type as string]);
 
@@ -362,7 +365,9 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
       </Card>
 
       {/* Instructions */}
-      {order.instructions && (
+      {order.instructions && 
+       order.instructions.toLowerCase() !== 'none' && 
+       order.instructions.toLowerCase() !== 'n/a' && (
         <Card className="p-3 bg-blue-50 border-blue-200">
           <p className="text-xs text-gray-700">{order.instructions}</p>
         </Card>
