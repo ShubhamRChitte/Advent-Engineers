@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { FailedCore } from './CoreTestingForm';
-import { Building2, XCircle, CheckCircle } from 'lucide-react';
+import adventLogo from '../../assets/advent_logo.jpg';
 
 interface FailedCoreSummaryReportProps {
     data: FailedCore[];
@@ -10,18 +10,12 @@ interface FailedCoreSummaryReportProps {
     reportId?: string;
 }
 
-/**
- * Utility to parse raw failure reason strings into structured parameters
- * Example: "Phase Error (10m) exceeds ±10m" -> { parameter: "Phase Error", measured: "10m", limit: "±10m" }
- */
 function parseFailureReason(reason: string) {
     if (!reason) return [{ parameter: 'Generic Failure', measured: '-', limit: '-' }];
 
-    // If it's a multi-line or multi-bullet failure, split them
     const lines = reason.split(/[\n;]|\. /).filter(l => l.trim().length > 0);
     
     return lines.map(line => {
-        // Pattern 1: [Param] ([Value]) exceeds [Limit]
         const exceedsMatch = line.match(/(.*?)\((.*?)\)\s+exceeds\s+(.*)/i);
         if (exceedsMatch) {
             return {
@@ -31,7 +25,6 @@ function parseFailureReason(reason: string) {
             };
         }
 
-        // Pattern 2: [Param] failed [Detail]
         const failedMatch = line.match(/(.*?)\s+failed\s+(.*)/i);
         if (failedMatch) {
             return {
@@ -41,7 +34,6 @@ function parseFailureReason(reason: string) {
             };
         }
 
-        // Default fallback
         return {
             parameter: line.trim(),
             measured: '-',
@@ -58,271 +50,410 @@ export function FailedCoreSummaryReport({
     reportId: customReportId 
 }: FailedCoreSummaryReportProps) {
     
-    const reportDate = new Date().toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    });
-
+    const reportDate = new Date().toLocaleDateString('en-GB');
     const reportId = customReportId || `FCR-2026-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
 
-    // Summary Calculations
-    const totalFailed = data.length;
-    const meteringCount = data.filter(c => c.coreType?.toUpperCase() === 'METERING').length;
-    const protectionCount = data.filter(c => c.coreType?.toUpperCase() === 'PROTECTION').length;
+    const totalFailed = data?.length || 0;
+    const meteringCount = data?.filter(c => c.coreType?.toUpperCase() === 'METERING').length || 0;
+    const protectionCount = data?.filter(c => c.coreType?.toUpperCase() === 'PROTECTION').length || 0;
 
-    // Default stats if not provided (mocking logic shown in user preview)
     const displayTotalTested = totalTested || (totalFailed + totalPassed) || 63;
     const displayTotalPassed = totalPassed || (displayTotalTested - totalFailed) || 47;
 
     return (
-        <div className="industrial-report-print-root bg-white text-slate-900 font-sans p-0">
-            {/* 1. INDUSTRIAL PRECISION HEADER */}
-            <div className="flex items-center justify-between mb-8 pb-6 border-b-2 border-slate-200">
-                {/* Left Section: Brand block */}
-                <div className="flex items-center gap-5">
-                    <div className="p-3 bg-slate-900 rounded-lg shadow-lg">
-                        <Building2 className="w-10 h-10 text-white" />
+        <div id="print-section">
+            <style>{`
+                /* Screen View */
+                @media screen {
+                    #print-section {
+                        background: #f8fafc;
+                        padding: 20px;
+                        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                    }
+                    .a4-page {
+                        width: 100%;
+                        max-width: 1100px;
+                        margin: 0 auto 20px auto;
+                        padding: 20px;
+                        background: white;
+                        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                        border-radius: 8px;
+                    }
+                    .table-wrapper {
+                        overflow-x: auto;
+                    }
+                    .report-table {
+                        min-width: 900px;
+                    }
+                }
+
+                /* Print View */
+                @media print {
+                    @page {
+                        size: A4 portrait;
+                        margin: 10mm;
+                    }
+                    body * {
+                        visibility: hidden;
+                    }
+                    #print-section, #print-section * {
+                        visibility: visible;
+                    }
+                    #print-section {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        padding: 0;
+                        background: white;
+                    }
+                    .a4-page {
+                        width: 190mm;
+                        min-height: 277mm; 
+                        margin: 0;
+                        padding: 0;
+                        page-break-after: always;
+                    }
+                    .a4-page:last-child {
+                        page-break-after: auto;
+                    }
+                }
+
+                /* General Styles */
+                .a4-page {
+                    box-sizing: border-box;
+                    color: black;
+                    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                }
+                
+                .page-header {
+                    display: grid;
+                    grid-template-columns: 100px 1fr 100px;
+                    align-items: center;
+                    padding-bottom: 15px;
+                    border-bottom: 1px solid #ccc;
+                    margin-bottom: 20px;
+                }
+                .logo-container {
+                    display: flex;
+                    align-items: center;
+                }
+                .logo-icon {
+                    width: 85px;
+                    height: auto;
+                    max-height: 85px;
+                    object-fit: contain;
+                }
+                .company-info {
+                    text-align: center;
+                }
+                .company-name {
+                    font-size: 26px;
+                    font-weight: 700;
+                    letter-spacing: 1px;
+                    margin: 0;
+                    margin-bottom: 2px;
+                }
+                .company-sub {
+                    font-size: 14px;
+                    color: #4b5563;
+                    margin: 0;
+                    margin-top: 4px;
+                }
+                .header-meta {
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 11px;
+                    margin-bottom: 20px;
+                }
+                .meta-col {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 3px;
+                }
+                .meta-row {
+                    display: flex;
+                }
+                .meta-label {
+                    font-weight: bold;
+                    width: 65px;
+                }
+                .meta-value {
+                    font-weight: 500;
+                }
+                .meta-label-right {
+                    font-weight: bold;
+                    width: 65px;
+                    text-align: left;
+                }
+
+                .main-title-box {
+                    border: 1.5px solid #e2e8f0;
+                    text-align: center;
+                    padding: 10px;
+                    margin-bottom: 20px;
+                }
+                .main-title-text {
+                    font-size: 18px;
+                    font-weight: bold;
+                }
+                .main-title-sub {
+                    font-size: 11px; 
+                    color: #64748b;
+                }
+
+                /* Summary Strip Styles */
+                .summary-strip {
+                    display: flex;
+                    justify-content: center;
+                    gap: 20px;
+                    margin-bottom: 20px;
+                }
+                .summary-box {
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    padding: 10px 20px;
+                    border-radius: 6px;
+                    display: flex;
+                    align-items: center;
+                    gap: 20px;
+                }
+                .summary-stat {
+                    text-align: center;
+                }
+                .summary-stat-label {
+                    font-size: 9px;
+                    color: #64748b;
+                    text-transform: uppercase;
+                    font-weight: bold;
+                }
+                .summary-stat-value {
+                    font-size: 18px;
+                    font-weight: bold;
+                }
+                .summary-stat-value.red { color: #dc2626 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                .summary-stat-value.green { color: #059669 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                .divider {
+                    width: 1px;
+                    height: 30px;
+                    background: #e2e8f0;
+                }
+
+                /* Table Styling */
+                table {
+                    page-break-inside: auto;
+                    table-layout: fixed;
+                    width: 100%;
+                }
+                
+                tr {
+                    page-break-inside: avoid;
+                }
+
+                td {
+                    word-wrap: break-word;
+                }
+
+                .report-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    table-layout: fixed;
+                    margin-top: 10px;
+                }
+                
+                .report-table td, .report-table th {
+                    padding: 6px;
+                    border: 1px solid #d1d5db;
+                    text-align: center;
+                    font-size: 11px;
+                    vertical-align: middle;
+                }
+
+                .report-table th {
+                    background: #f3f4f6;
+                    font-weight: bold;
+                }
+
+                .footer-sig {
+                    margin-top: 30px;
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 0 40px;
+                    page-break-inside: avoid;
+                }
+                .sig-box {
+                    text-align: center;
+                    width: 200px;
+                }
+                .sig-title {
+                    font-weight: bold;
+                    font-size: 13px;
+                    margin-bottom: 40px;
+                }
+                .sig-name {
+                    font-size: 12px;
+                    color: #444;
+                }
+                .sig-company {
+                    font-weight: bold;
+                    font-size: 12px;
+                    font-style: italic;
+                    margin-top: 2px;
+                }
+            `}</style>
+
+            <div className="a4-page">
+                <div className="page-header">
+                    <div className="logo-container">
+                        <img src={adventLogo} alt="Advent Engineers Logo" className="logo-icon" />
                     </div>
-                    <div>
-                        <h1 className="text-3xl font-black tracking-tight text-slate-900 leading-none">ADVENT ENGINEERS</h1>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase mt-2 tracking-widest pl-1">
-                            Excellence in Transformer Core Testing
-                        </p>
+                    <div className="company-info">
+                        <div className="company-name">ADVENT ENGINEERS</div>
+                        <div className="company-sub">Excellence in Transformer Core Testing</div>
+                    </div>
+                    <div></div>
+                </div>
+
+                <div className="header-meta">
+                    <div className="meta-col">
+                        <div className="meta-row">
+                            <div className="meta-label">Date:</div>
+                            <div className="meta-value">{reportDate}</div>
+                        </div>
+                        <div className="meta-row">
+                            <div className="meta-label">Document:</div>
+                            <div className="meta-value">Failed Core Summary</div>
+                        </div>
+                        {clientName !== "—" && (
+                            <div className="meta-row">
+                                <div className="meta-label">Client:</div>
+                                <div className="meta-value">{clientName}</div>
+                            </div>
+                        )}
+                    </div>
+                    <div className="meta-col">
+                        <div className="meta-row">
+                            <div className="meta-label-right">Record ID:</div>
+                            <div className="meta-value">{reportId}</div>
+                        </div>
                     </div>
                 </div>
 
-                {/* Right Section: Traceability Table (Prevents Wrapping) */}
-                <div className="flex-shrink-0">
-                    <table className="text-right border-separate border-spacing-x-4 border-spacing-y-2">
+                <div className="main-title-box">
+                    <div className="main-title-text">
+                        Failed Core Summary Report
+                    </div>
+                    <div className="main-title-sub">(Non-Conforming Unit Details)</div>
+                </div>
+
+                <div className="summary-strip">
+                    <div className="summary-box">
+                        <div className="summary-stat">
+                            <div className="summary-stat-label">Total Tested</div>
+                            <div className="summary-stat-value">{displayTotalTested}</div>
+                        </div>
+                        <div className="divider" />
+                        <div className="summary-stat">
+                            <div className="summary-stat-label">Total Failed</div>
+                            <div className="summary-stat-value red">{totalFailed}</div>
+                        </div>
+                        <div className="divider" />
+                        <div className="summary-stat">
+                            <div className="summary-stat-label">Passed</div>
+                            <div className="summary-stat-value green">{displayTotalPassed}</div>
+                        </div>
+                    </div>
+                    <div className="summary-box">
+                        <div className="summary-stat">
+                            <div className="summary-stat-label">Metering</div>
+                            <div className="summary-stat-value" style={{ fontSize: '14px' }}>{meteringCount}</div>
+                        </div>
+                        <div className="divider" style={{ height: '20px' }} />
+                        <div className="summary-stat">
+                            <div className="summary-stat-label">Protection</div>
+                            <div className="summary-stat-value" style={{ fontSize: '14px' }}>{protectionCount}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="table-wrapper">
+                    <table className="report-table">
+                        <thead>
+                            <tr>
+                                <th style={{ width: '5%' }}>Sr.</th>
+                                <th style={{ width: '12%' }}>Date</th>
+                                <th style={{ width: '15%' }}>Core ID</th>
+                                <th style={{ width: '15%' }}>Vendor</th>
+                                <th style={{ width: '12%' }}>Type</th>
+                                <th style={{ width: '17%' }}>Parameter</th>
+                                <th style={{ width: '10%' }}>Measured</th>
+                                <th style={{ width: '8%' }}>Limit</th>
+                                <th style={{ width: '6%' }}>Result</th>
+                            </tr>
+                        </thead>
                         <tbody>
-                            <tr>
-                                <td className="text-[11px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Date:</td>
-                                <td className="text-[12px] font-black text-slate-900 border-b border-slate-200 min-w-[180px] whitespace-nowrap">{reportDate}</td>
-                            </tr>
-                            <tr>
-                                <td className="text-[11px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Document:</td>
-                                <td className="text-[12px] font-black text-slate-900 border-b border-slate-200 min-w-[180px] whitespace-nowrap">Failed Core Summary</td>
-                            </tr>
-                            {clientName !== "—" && (
+                            {data && data.length > 0 ? data.map((core, i) => {
+                                const failures = parseFailureReason(core.failureReason);
+                                
+                                return failures.map((f, fIdx) => (
+                                    <tr key={`${i}-${fIdx}`}>
+                                        {fIdx === 0 && (
+                                            <>
+                                                <td rowSpan={failures.length}>{i + 1}</td>
+                                                <td rowSpan={failures.length}>
+                                                    {core.failedAt ? new Date(core.failedAt).toLocaleDateString('en-GB') : '-'}
+                                                </td>
+                                                <td rowSpan={failures.length} style={{ fontWeight: 'bold' }}>
+                                                    {core.internalCoreNo}
+                                                </td>
+                                                <td rowSpan={failures.length}>
+                                                    {core.coreVendorNo || core.vendorCoreNo || '-'}
+                                                </td>
+                                                <td rowSpan={failures.length}>
+                                                    {core.coreType}
+                                                </td>
+                                            </>
+                                        )}
+                                        <td style={{ fontStyle: 'italic' }}>
+                                            {f.parameter}
+                                        </td>
+                                        <td style={{ color: '#dc2626', fontWeight: 'bold' }}>
+                                            {f.measured}
+                                        </td>
+                                        <td>
+                                            {f.limit}
+                                        </td>
+                                        <td style={{ color: '#dc2626', fontWeight: 'bold' }}>
+                                            FAIL
+                                        </td>
+                                    </tr>
+                                ));
+                            }) : (
                                 <tr>
-                                    <td className="text-[11px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Client:</td>
-                                    <td className="text-[12px] font-black text-slate-900 border-b border-slate-200 min-w-[180px] whitespace-nowrap">{clientName}</td>
+                                    <td colSpan={9} style={{ fontStyle: 'italic', color: '#64748b', height: '40px' }}>No failed core records available.</td>
                                 </tr>
                             )}
-                            <tr>
-                                <td className="text-[11px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Record ID:</td>
-                                <td className="text-[11px] font-mono font-bold text-slate-500 border-b border-slate-200 min-w-[180px] whitespace-nowrap">{reportId}</td>
-                            </tr>
                         </tbody>
                     </table>
                 </div>
-            </div>
 
-            {/* 2. CENTERED TITLE */}
-            <div className="text-center mb-10">
-                <h2 className="text-2xl font-black uppercase text-slate-900 tracking-tight">Failed Core Summary Report</h2>
-                <p className="text-[11px] font-bold text-slate-400 uppercase mt-1 tracking-[0.2em] underline underline-offset-4 decoration-slate-200">
-                    (Non-Conforming Unit Details)
-                </p>
-            </div>
-
-            {/* 3. SUMMARY STRIP */}
-            <div className="flex justify-center gap-8 mb-10">
-                <div className="bg-slate-50 px-6 py-3 rounded-md border border-slate-100 flex items-center gap-10">
-                    <div className="text-center">
-                        <p className="text-[9px] text-slate-400 uppercase font-black">Total Tested</p>
-                        <p className="text-xl font-black text-slate-900">{displayTotalTested}</p>
+                <div className="footer-sig">
+                    <div className="sig-box">
+                        <div className="sig-title">Tested By</div>
+                        <div className="sig-name">Rahul Sharma</div>
+                        <div className="sig-company">Testing Engineer</div>
                     </div>
-                    <div className="w-px h-8 bg-slate-200" />
-                    <div className="text-center">
-                        <p className="text-[9px] text-slate-400 uppercase font-black">Total Failed</p>
-                        <p className="text-xl font-black text-red-600">{totalFailed}</p>
-                    </div>
-                    <div className="w-px h-8 bg-slate-200" />
-                    <div className="text-center">
-                        <p className="text-[9px] text-slate-400 uppercase font-black">Passed</p>
-                        <p className="text-xl font-black text-emerald-600">{displayTotalPassed}</p>
+                    <div className="sig-box">
+                        <div className="sig-title">Authorized Signatory</div>
+                        <div className="sig-name">(Signature & Stamp)</div>
+                        <div className="sig-company">For Advent Engineers</div>
                     </div>
                 </div>
-
-                <div className="bg-slate-900/5 px-6 py-3 rounded-md border border-slate-100 flex items-center gap-8">
-                    <div className="text-center">
-                        <p className="text-[9px] text-slate-400 uppercase font-black italic">Metering</p>
-                        <p className="text-sm font-black text-slate-700">{meteringCount}</p>
-                    </div>
-                    <div className="text-center">
-                        <p className="text-[9px] text-slate-400 uppercase font-black italic">Protection</p>
-                        <p className="text-sm font-black text-slate-700">{protectionCount}</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* 4. MAIN DATA TABLE (Dynamic Height) */}
-            <div className="mb-8 print:mb-[80px] print:min-h-[200px] flex-grow">
-                <table className="w-full text-[11px] border-collapse print:table-auto">
-                    <thead>
-                        <tr className="bg-slate-100 border-x border-t border-slate-300">
-                            <th className="p-3 border-r border-slate-300 text-left uppercase text-[9px] font-black w-8">Sr.</th>
-                            <th className="p-3 border-r border-slate-300 text-left uppercase text-[9px] font-black w-24">Date</th>
-                            <th className="p-3 border-r border-slate-300 text-left uppercase text-[9px] font-black w-32">Core ID</th>
-                            <th className="p-3 border-r border-slate-300 text-left uppercase text-[9px] font-black">Vendor</th>
-                            <th className="p-3 border-r border-slate-300 text-left uppercase text-[9px] font-black">Type</th>
-                            <th className="p-3 border-r border-slate-300 text-left uppercase text-[9px] font-black bg-slate-200/50">Parameter</th>
-                            <th className="p-3 border-r border-slate-300 text-center uppercase text-[9px] font-black bg-slate-200/50">Measured</th>
-                            <th className="p-3 border-r border-slate-300 text-center uppercase text-[9px] font-black bg-slate-200/50">Limit</th>
-                            <th className="p-3 border-slate-300 text-center uppercase text-[9px] font-black">Result</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {data.map((core, i) => {
-                            const failures = parseFailureReason(core.failureReason);
-                            
-                            return failures.map((f, fIdx) => (
-                                <tr key={`${i}-${fIdx}`} className="border border-slate-200 group hover:bg-slate-50 transition-colors print:page-break-inside-avoid">
-                                    {fIdx === 0 && (
-                                        <>
-                                            <td className="p-3 border-r border-slate-200 text-center font-bold text-slate-400" rowSpan={failures.length}>{i + 1}</td>
-                                            <td className="p-3 border-r border-slate-200 text-slate-600" rowSpan={failures.length}>
-                                                {core.failedAt ? new Date(core.failedAt).toLocaleDateString('en-GB') : '-'}
-                                            </td>
-                                            <td className="p-3 border-r border-slate-200 font-bold" rowSpan={failures.length}>
-                                                {core.internalCoreNo}
-                                            </td>
-                                            <td className="p-3 border-r border-slate-200" rowSpan={failures.length}>
-                                                {core.coreVendorNo || core.vendorCoreNo || '-'}
-                                            </td>
-                                            <td className="p-3 border-r border-slate-200 text-[10px] font-bold text-slate-500 uppercase" rowSpan={failures.length}>
-                                                {core.coreType}
-                                            </td>
-                                        </>
-                                    )}
-                                    <td className="p-3 border-r border-slate-200 text-slate-700 italic">
-                                        {f.parameter}
-                                    </td>
-                                    <td className="p-3 border-r border-slate-200 text-center text-red-600 font-bold">
-                                        {f.measured}
-                                    </td>
-                                    <td className="p-3 border-r border-slate-200 text-center text-slate-400">
-                                        {f.limit}
-                                    </td>
-                                    <td className="p-3 text-center">
-                                        <span className="flex items-center justify-center gap-1 text-[10px] font-black text-red-600 uppercase print:text-black">
-                                            <XCircle className="w-3 h-3 print:hidden" />
-                                            Fail
-                                        </span>
-                                    </td>
-                                </tr>
-                            ));
-                        })}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* 5. FOOTER SECTION (Anchored Safely) */}
-            <div className="print:page-break-inside-avoid pt-8 print:pt-0 shrink-0">
-                <div className="grid grid-cols-2 gap-20">
-                    <div>
-                        <p className="text-[11px] font-black uppercase text-slate-400 mb-8 print:text-black">Tested By:</p>
-                        <div className="space-y-1">
-                            <p className="text-sm font-black text-slate-900 underline decoration-slate-200 underline-offset-4">Rahul Sharma</p>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Testing Engineer</p>
-                        </div>
-                    </div>
-                    
-                    <div className="text-right flex flex-col items-end">
-                        <p className="text-[11px] font-black uppercase text-slate-400 mb-8 self-end print:text-black">Authorized Signatory:</p>
-                        <div className="inline-block text-center mr-0">
-                            <div className="w-48 h-12 border-b border-slate-300 mb-2" />
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">(Signature & Stamp)</p>
-                            <p className="text-xs font-black text-slate-900 uppercase mt-4">For Advent Engineers</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="mt-16 pb-4 text-center text-[9px] text-slate-300 uppercase tracking-widest italic print:mt-10">
+                
+                <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '9px', color: '#94a3b8', textTransform: 'uppercase' }}>
                     This is an official engineering record generated by Advent QA Systems.
                 </div>
             </div>
-
-            {/* Print Optimization Overlay */}
-            <style dangerouslySetInnerHTML={{ __html: `
-                @media print {
-                    @page { 
-                        margin: 15mm; 
-                        size: A4; 
-                    }
-                    
-                    /* Global Dashboard Hide */
-                    body > * { display: none !important; }
-                    
-                    /* 100vh Flexbox layout ensures natural flow of content but anchors footer at bottom of physical paper */
-                    .industrial-report-print-root {
-                        display: flex !important;
-                        flex-direction: column !important;
-                        min-height: 100vh !important;
-                        position: absolute !important;
-                        left: 0 !important;
-                        top: 0 !important;
-                        width: 100% !important;
-                        visibility: visible !important; 
-                        background: white !important;
-                    }
-
-                    #root, .industrial-report-print-root * { 
-                        display: block !important; 
-                        visibility: visible !important; 
-                    }
-
-                    /* Table Break Avoidance & Footprint Reservation */
-                    table { 
-                        display: table !important; 
-                        width: 100% !important; 
-                        border-collapse: collapse !important; 
-                        page-break-inside: auto !important; 
-                    }
-                    
-                    thead { 
-                        display: table-header-group !important; 
-                    }
-                    
-                    tr { 
-                        display: table-row !important; 
-                        page-break-inside: avoid !important; 
-                    }
-                    
-                    th, td { 
-                        display: table-cell !important; 
-                        border: 1px solid #d1d5db !important;
-                    }
-
-                    /* Hide specific tailwind classes that might interfere */
-                    .shadow-lg { box-shadow: none !important; }
-                    .rounded-lg { border-radius: 0 !important; }
-                    .bg-slate-900 { background-color: transparent !important; color: black !important; -webkit-print-color-adjust: exact !important; }
-                    .bg-slate-100 { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact !important; }
-                    .bg-slate-200\\/50 { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact !important; }
-                    .text-red-600 { color: #dc2626 !important; -webkit-print-color-adjust: exact !important; }
-                    .text-emerald-600 { color: #059669 !important; -webkit-print-color-adjust: exact !important; }
-                    .text-white { color: black !important; }
-
-                    /* Flex & Grid Restore */
-                    .flex { display: flex !important; }
-                    .grid { display: grid !important; }
-                    .flex-grow { flex-grow: 1 !important; }
-                    .flex-shrink-0, .shrink-0 { flex-shrink: 0 !important; }
-                    .gap-5 { gap: 1.25rem !important; }
-                    .gap-8 { gap: 2rem !important; }
-                    .gap-10 { gap: 2.5rem !important; }
-                    .gap-20 { gap: 5rem !important; }
-                    .items-center { align-items: center !important; }
-                    .items-end { align-items: flex-end !important; }
-                    .justify-between { justify-content: space-between !important; }
-                    .justify-center { justify-content: center !important; }
-                    .flex-col { flex-direction: column !important; }
-                }
-            ` }} />
         </div>
     );
 }
-
