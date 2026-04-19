@@ -96,7 +96,7 @@ export function OrderStatusTracker({
     }
   ];
 
-  const stages = transformerType === 'PT' ? ptStages : ctStages;
+  const stages = (transformerType || '').toUpperCase() === 'PT' ? ptStages : ctStages;
 
   // Improved mapping function to handle backend vs frontend stage names
   const getStageIndex = () => {

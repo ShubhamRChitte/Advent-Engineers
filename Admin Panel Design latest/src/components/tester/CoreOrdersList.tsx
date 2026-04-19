@@ -25,7 +25,6 @@ interface Order {
   assignedDate?: string;
   createdAt: string;
   status: string;
-  priority: string;
   deadline: string;
   currentStage: string;
   assignments: any; // Allow both Object (legacy) and Array (new)

@@ -19,19 +19,31 @@ export function AdminReportViewPage() {
     const [unifiedReport, setUnifiedReport] = useState<any>(null);
     const [selectedCore, setSelectedCore] = useState<any>(null);
     const [globalCoreType, setGlobalCoreType] = useState<'Metering' | 'Protection' | 'PS'>('Metering');
+    const [initialCoreSet, setInitialCoreSet] = useState(false);
 
     useEffect(() => {
-        if (unifiedReport?.reportData) {
-            const core = unifiedReport.reportData.find((c: any) => c.coreType === globalCoreType);
-            if (core) {
-                setSelectedCore(core);
-            } else if (!selectedCore && unifiedReport.reportData.length > 0) {
-                // If no match but we have data, set to first one and sync global state
-                setSelectedCore(unifiedReport.reportData[0]);
-                setGlobalCoreType(unifiedReport.reportData[0].coreType);
+        if (unifiedReport?.reportData && unifiedReport.reportData.length > 0) {
+            // Find if current type exists
+            const coreExists = unifiedReport.reportData.some((c: any) => c.coreType === globalCoreType);
+            
+            if (!coreExists || !initialCoreSet) {
+                // If current type doesn't exist or we haven't set an initial one yet,
+                // set to the first one available in the report.
+                const firstAvailableType = unifiedReport.reportData[0].coreType;
+                if (firstAvailableType) {
+                    setGlobalCoreType(firstAvailableType);
+                    setSelectedCore(unifiedReport.reportData[0]);
+                    setInitialCoreSet(true);
+                }
+            } else {
+                // Keep current globalCoreType but ensure selectedCore is synced
+                const core = unifiedReport.reportData.find((c: any) => c.coreType === globalCoreType);
+                if (core) {
+                    setSelectedCore(core);
+                }
             }
         }
-    }, [globalCoreType, unifiedReport]);
+    }, [globalCoreType, unifiedReport, initialCoreSet]);
 
     useEffect(() => {
         const pathParts = window.location.pathname.split('/');
@@ -101,7 +113,12 @@ export function AdminReportViewPage() {
                             if (coreRes.data) {
                                 setUnifiedReport(coreRes.data);
                                 if (coreRes.data.reportData && coreRes.data.reportData.length > 0) {
-                                    setSelectedCore(coreRes.data.reportData[0]);
+                                    const firstCore = coreRes.data.reportData[0];
+                                    setSelectedCore(firstCore);
+                                    if (firstCore.coreType) {
+                                        setGlobalCoreType(firstCore.coreType);
+                                        setInitialCoreSet(true);
+                                    }
                                 }
                             }
                         } catch (err) {

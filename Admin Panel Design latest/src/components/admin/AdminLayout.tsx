@@ -5,8 +5,6 @@ import { AdminHeader } from './AdminHeader';
 import { AdminDashboard } from './AdminDashboard';
 import { AdminAnalyticsDashboard } from './AdminAnalyticsDashboard';
 import { EmployeeManagement } from './EmployeeManagement';
-import { EmployeePerformance } from './EmployeePerformance';
-import { EnhancedStockManagement } from './EnhancedStockManagement';
 import { OrderManagementModule } from '../entry/OrderManagementModule';
 import { OrdersListViewEnhanced } from '../entry/OrdersListViewEnhanced';
 import { ReportsModule } from '../entry/ReportsModule';
@@ -36,14 +34,10 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
         return <AdminAnalyticsDashboard />;
       case 'employees':
         return <EmployeeManagement />;
-      case 'performance':
-        return <EmployeePerformance />;
       case 'add-order':
         return <OrderManagementModule isAdmin={true} />;
       case 'view-orders':
         return <OrdersListViewEnhanced />;
-      case 'stock':
-        return <EnhancedStockManagement />;
       case 'reports':
         return <ReportsModule />;
       case 'notifications':

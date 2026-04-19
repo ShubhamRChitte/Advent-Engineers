@@ -260,7 +260,7 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
 
       {/* Order Summary */}
       <Card className="p-4">
-        <div className="grid grid-cols-4 gap-4 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
           <div>
             <p className="text-xs text-gray-500">Transformer</p>
             <p className="text-gray-900 mt-0.5">{order.transformerName}</p>
@@ -276,10 +276,6 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
             <p className="text-gray-900 mt-0.5">
               {order.assignedUnitIds?.length || order.quantity} units
             </p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500">Deadline</p>
-            <p className="text-gray-900 mt-0.5">{new Date(order.deadline).toLocaleDateString()}</p>
           </div>
         </div>
       </Card>

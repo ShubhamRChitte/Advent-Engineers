@@ -137,6 +137,7 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
         ratedSecondaryCurrent: parseFloat(orderData.parameters?.ratedSecondaryCurrent) || 0,
         mountingDetails: orderData.parameters?.mountingDetails || 'N/A',
         overallDimension: orderData.parameters?.overallDimensions || 'N/A', // Schema: overallDimension (singular)
+        stc: orderData.parameters?.stc || '',
 
         images: orderData.images || [],
 

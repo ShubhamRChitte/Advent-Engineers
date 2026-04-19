@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, PlusCircle, List, Warehouse, Award, FileText, Bell, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Users, PlusCircle, List, FileText, Bell, AlertTriangle } from 'lucide-react';
 import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { useState, useEffect } from 'react';
@@ -34,10 +34,8 @@ export function AdminSidebar({ activeView, setActiveView }: AdminSidebarProps) {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'failed-cores', label: 'Failed Cores', icon: AlertTriangle, badge: failedCount > 0 ? failedCount : undefined },
     { id: 'employees', label: 'Employees', icon: Users },
-    { id: 'performance', label: 'Performance', icon: Award },
     { id: 'add-order', label: 'Add Orders', icon: PlusCircle },
     { id: 'view-orders', label: 'View Orders', icon: List },
-    { id: 'stock', label: 'Stock', icon: Warehouse },
     { id: 'reports', label: 'Reports', icon: FileText },
     { id: 'notifications', label: 'Notifications', icon: Bell },
   ];

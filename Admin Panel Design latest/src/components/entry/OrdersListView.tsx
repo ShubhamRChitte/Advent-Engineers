@@ -69,14 +69,6 @@ export function OrdersListView(_props: OrdersListViewProps) {
     return 'bg-gray-100 text-gray-700 border-gray-300';
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'High': return 'bg-red-100 text-red-700';
-      case 'Medium': return 'bg-orange-100 text-orange-700';
-      case 'Low': return 'bg-green-100 text-green-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
 
   const filteredOrders = orders.filter((order) => {
     const q = searchQuery.toLowerCase().trim();
@@ -216,7 +208,6 @@ export function OrdersListView(_props: OrdersListViewProps) {
                 <th className="text-left p-4 text-sm font-medium text-gray-700">Quantity</th>
                 <th className="text-left p-4 text-sm font-medium text-gray-700">Order Date</th>
                 <th className="text-left p-4 text-sm font-medium text-gray-700">Status</th>
-                <th className="text-left p-4 text-sm font-medium text-gray-700">Priority</th>
                 <th className="text-left p-4 text-sm font-medium text-gray-700">Actions</th>
               </tr>
             </thead>
@@ -243,8 +234,12 @@ export function OrdersListView(_props: OrdersListViewProps) {
                     </div>
                   </td>
                   <td className="p-4">
-                    <p className="font-medium">{order.transformerName}</p>
-                    <p className="text-sm text-gray-500">{order.transformerType}</p>
+                    <p className="font-medium">
+                      {order.transformerName === 'Custom Transformer' ? order.transformerType : order.transformerName}
+                    </p>
+                    {order.transformerName !== order.transformerType && order.transformerName !== 'Custom Transformer' && (
+                      <p className="text-sm text-gray-500">{order.transformerType}</p>
+                    )}
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-2">
@@ -261,11 +256,6 @@ export function OrdersListView(_props: OrdersListViewProps) {
                   <td className="p-4">
                     <Badge className={getStatusColor(order.status)}>
                       {order.status}
-                    </Badge>
-                  </td>
-                  <td className="p-4">
-                    <Badge className={getPriorityColor(order.priority)}>
-                      {order.priority}
                     </Badge>
                   </td>
                   <td className="p-4">

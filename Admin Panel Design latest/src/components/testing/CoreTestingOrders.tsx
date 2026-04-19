@@ -151,10 +151,6 @@ export function CoreTestingOrders({ onStartTesting, user: _user, type = 'active'
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      {/* <h3 className="text-base font-medium text-gray-900 truncate">{order.jobId}</h3> */}
-                      <Badge className={`${getPriorityColor(order.priority)} text-xs px-2 py-0`}>
-                        {order.priority}
-                      </Badge>
                       <Badge className={`${getStatusColor(order.status)} text-xs px-2 py-0`}>
                         {order.status}
                       </Badge>
@@ -230,7 +226,9 @@ export function CoreTestingOrders({ onStartTesting, user: _user, type = 'active'
                 </div>
 
                 {/* Instructions */}
-                {order.instructions && (
+                {order.instructions && 
+                 order.instructions.toLowerCase() !== 'none' && 
+                 order.instructions.toLowerCase() !== 'n/a' && (
                   <div className="bg-blue-50 rounded p-2 border-l-2 border-blue-400">
                     <p className="text-xs text-gray-700">{order.instructions}</p>
                   </div>

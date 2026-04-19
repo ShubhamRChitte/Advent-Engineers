@@ -232,7 +232,7 @@ export function TesterNotifications({ userRole, onViewOrder }: TesterNotificatio
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
           <div className="flex items-start justify-between">
             <div>
@@ -253,20 +253,6 @@ export function TesterNotifications({ userRole, onViewOrder }: TesterNotificatio
             </div>
             <div className="p-3 bg-orange-500 rounded-lg">
               <Bell className="w-6 h-6 text-white" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 bg-gradient-to-br from-red-50 to-red-100 border-red-200">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-red-700">High Priority</p>
-              <h3 className="mt-1 text-red-900">
-                {notifications.filter(n => n.priority === 'High').length}
-              </h3>
-            </div>
-            <div className="p-3 bg-red-500 rounded-lg">
-              <AlertCircle className="w-6 h-6 text-white" />
             </div>
           </div>
         </Card>
@@ -350,10 +336,12 @@ export function TesterNotifications({ userRole, onViewOrder }: TesterNotificatio
                       <span className="text-sm font-medium text-gray-900">{notification.quantity} units</span>
                     </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Type</p>
-                    <p className="text-sm font-medium text-gray-900">{notification.transformerType}</p>
-                  </div>
+                  {notification.transformerName !== notification.transformerType && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Type</p>
+                      <p className="text-sm font-medium text-gray-900">{notification.transformerType}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 

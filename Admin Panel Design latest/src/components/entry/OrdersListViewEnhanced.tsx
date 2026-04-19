@@ -126,18 +126,6 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'High':
-        return 'bg-red-100 text-red-700';
-      case 'Medium':
-        return 'bg-orange-100 text-orange-700';
-      case 'Low':
-        return 'bg-green-100 text-green-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
-  };
 
   const filteredOrders = orders.filter((order) => {
     const orderId = String(order.orderId || '');
@@ -272,12 +260,12 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
                     .filter(order => {
                       if (typeFilter === 'all') return true;
                       
-                      const orderText = `${order.orderId} ${order.transformerType} ${order.transformerName}`.toLowerCase();
-                      const isPT = orderText.includes('pt');
-                      const isCT = orderText.includes('ct');
+                      const type = (order.transformerType || '').toUpperCase();
+                      const isPT = type === 'PT';
+                      const isCT = type === 'CT';
                       
                       if (typeFilter === 'pt') return isPT;
-                      if (typeFilter === 'ct') return isCT && !isPT;
+                      if (typeFilter === 'ct') return isCT;
                       return true;
                     })
                     .map((order) => {
@@ -310,7 +298,12 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
                                 {/* Transformer */}
                                 <div className="flex-1 min-w-[180px]">
                                   <p className="text-xs text-gray-500 mb-1">Transformer</p>
-                                  <p className="font-medium text-sm truncate max-w-[200px]" title={order.transformerName}>{order.transformerName}</p>
+                                  <p className="font-medium">
+                                    {order.transformerName === 'Custom Transformer' ? order.transformerType : order.transformerName}
+                                  </p>
+                                  {order.transformerName !== order.transformerType && order.transformerName !== 'Custom Transformer' && (
+                                    <p className="text-sm text-gray-500">{order.transformerType}</p>
+                                  )}
                                 </div>
 
                                 {/* Quantity */}
@@ -331,13 +324,10 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
                                   </div>
                                 </div>
 
-                                {/* Status & Priority */}
+                                {/* Status */}
                                 <div className="flex flex-col gap-2 min-w-[140px]">
                                   <Badge className={`w-fit ${getStatusColor(order.status)}`}>
                                     {order.status}
-                                  </Badge>
-                                  <Badge className={`w-fit ${getPriorityColor(order.priority || 'Medium')}`}>
-                                    {order.priority || 'Medium'}
                                   </Badge>
                                 </div>
                               </div>

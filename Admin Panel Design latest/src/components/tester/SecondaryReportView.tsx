@@ -45,7 +45,13 @@ export function SecondaryReportView({
         return 'Metering';
     });
 
-    const activeTab = externalActiveTab || internalActiveTab;
+    const activeTab = (() => {
+        const potentialTab = externalActiveTab || internalActiveTab;
+        if (availableTypes.includes(potentialTab as any)) return potentialTab;
+        if (availableTypes.length > 0) return availableTypes[0];
+        return potentialTab;
+    })();
+
     const setActiveTab = (tab: 'Metering' | 'Protection' | 'PS' | 'QA') => {
         if (onTabChange) {
             onTabChange(tab);

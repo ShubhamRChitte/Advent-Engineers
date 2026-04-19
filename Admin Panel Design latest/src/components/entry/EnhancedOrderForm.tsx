@@ -37,7 +37,6 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
   const [isStandard, setIsStandard] = useState('');
 
   // Initialize from transformer prop if available, else empty
-  const transformerName = transformer?.name || 'Custom Transformer';
   const [transformerType, setTransformerType] = useState(transformer?.type || '');
   const [numberOfCores, setNumberOfCores] = useState(transformer?.cores.toString() || '1');
   const [voltageRating, setVoltageRating] = useState(transformer?.voltageRating || '');
@@ -158,8 +157,8 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
       orderDate: new Date().toLocaleDateString(),
       clientName,
       clientContact,
-      transformerName, // Use state
-      transformerType, // Use state
+      transformerName: transformer?.name || transformerType,
+      transformerType: transformerType,
       quantity: parseInt(quantity),
       voltageRating,  // Added
       ratio: ratios,  // Changed to Array
@@ -259,6 +258,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                       const newType = e.target.value;
                       setTransformerType(newType);
                       setIsStandard(''); // Reset standard on type change
+                      
                       
                       if(newType === 'PT') {
                          setCoreConfigs(prev => prev.map(config => 
@@ -723,15 +723,17 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                   )}
                 </div>
               </div>
-              <div>
-                <Label>STC (Short Time Current)</Label>
-                <Input
-                  placeholder="e.g., 25kA/1sec"
-                  value={stc}
-                  onChange={(e) => setStc(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
+              {transformerType === 'CT' && (
+                <div>
+                  <Label>STC (Short Time Current)</Label>
+                  <Input
+                    value={stc}
+                    onChange={(e) => setStc(e.target.value)}
+                    placeholder="e.g. 31.5 kA for 3s"
+                    className="mt-1"
+                  />
+                </div>
+              )}
             </div>
           </div>
 

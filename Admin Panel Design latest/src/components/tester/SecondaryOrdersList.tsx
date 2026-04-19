@@ -158,7 +158,6 @@ export function SecondaryOrdersList({ onStartTesting, refreshTrigger = 0 }: Seco
                 <th className="text-center p-4 text-sm">Assigned / Total</th>
                 <th className="text-left p-4 text-sm">Deadline</th>
                 <th className="text-left p-4 text-sm">Status</th>
-                <th className="text-left p-4 text-sm">Priority</th>
                 <th className="text-center p-4 text-sm">Action</th>
               </tr>
             </thead>
@@ -184,10 +183,6 @@ export function SecondaryOrdersList({ onStartTesting, refreshTrigger = 0 }: Seco
                         </Badge>
                       </td>
                       <td className="p-4">
-                        <Badge className={getPriorityColor(order.priority)}>
-                          {order.priority}
-                        </Badge>
-                      </td>
                       <td className="p-4">
                         <div className="flex justify-center gap-2">
                           <Button
