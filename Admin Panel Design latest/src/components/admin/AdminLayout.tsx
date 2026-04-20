@@ -21,9 +21,21 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
     return localStorage.getItem(`${user.role}_activeView`) || 'dashboard';
   });
 
+  // State to handle navigation from notifications to a specific order
+  const [selectedOrderIdForNav, setSelectedOrderIdForNav] = useState<string | null>(null);
+
   const setActiveView = (view: string) => {
     localStorage.setItem(`${user.role}_activeView`, view);
     _setActiveView(view);
+  };
+
+  /**
+   * Handles navigation to a specific order from a notification
+   * fulfill requirement: "Remove LocalStorage navigation"
+   */
+  const handleOrderNavigation = (orderId: string) => {
+    setSelectedOrderIdForNav(orderId);
+    setActiveView('view-orders');
   };
 
   const renderView = () => {
@@ -37,11 +49,22 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
       case 'add-order':
         return <OrderManagementModule isAdmin={true} />;
       case 'view-orders':
-        return <OrdersListViewEnhanced />;
+        return (
+          <OrdersListViewEnhanced 
+            userRole="admin" 
+            initialOrderId={selectedOrderIdForNav} 
+            onClearNav={() => setSelectedOrderIdForNav(null)}
+          />
+        );
       case 'reports':
         return <ReportsModule />;
       case 'notifications':
-        return <NotificationsModule />;
+        return (
+          <NotificationsModule 
+            onNavigateToOrder={handleOrderNavigation}
+            isActive={activeView === 'notifications'}
+          />
+        );
       case 'failed-cores':
         return <FailedCoresPage />;
       default:

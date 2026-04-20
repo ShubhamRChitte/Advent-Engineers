@@ -13,12 +13,15 @@ const NotificationSchema = new Schema({
     jobId: { type: String },
     type: { 
         type: String, 
-        enum: ["ASSIGNMENT", "STAGE_TRANSITION", "REASSIGNMENT", "ALERT"],
+        enum: ["ASSIGNMENT", "STAGE_TRANSITION", "REASSIGNMENT", "ALERT", "ORDER_COMPLETED"],
         default: "ASSIGNMENT"
     },
     isRead: { type: Boolean, default: false },
-    createdAt: { type: Date, default: Date.now }
+    createdAt: { type: Date, default: Date.now, expires: 2592000 } // TTL 30 days
 }, { timestamps: true });
+
+// Prevent duplicate notifications for same order and type
+NotificationSchema.index({ type: 1, orderId: 1 }, { unique: true });
 
 const NotificationModel = mongoose.model('Notification', NotificationSchema);
 
