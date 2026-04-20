@@ -618,6 +618,30 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                 </Button>
             </div>
         </div>
+        
+        {/* Heating Dependency Alert */}
+        {(() => {
+            const activeT = transformersData.find(t => t._id === activeTabId);
+            const heatingStatus = activeT?.testHistory?.heating_test?.status;
+            const isHeatingApproved = heatingStatus === 'Approved' || heatingStatus === 'Completed';
+            
+            if (!isHeatingApproved) {
+                return (
+                    <Card className="p-4 bg-amber-50 border-amber-200 border mb-6 flex items-center gap-3">
+                        <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                        <div>
+                            <p className="text-amber-800 font-semibold text-sm">Heating Approval Pending</p>
+                            <p className="text-amber-700 text-xs">
+                                This transformer has not been approved in Heating Tracking yet. 
+                                It can be saved, but cannot be finalized until heating is approved.
+                                (Current Status: <span className="font-bold underline">{heatingStatus || 'Pending'}</span>)
+                            </p>
+                        </div>
+                    </Card>
+                );
+            }
+            return null;
+        })()}
 
         {transformersData.length > 1 && (
             <div className="flex flex-wrap gap-2 mb-6 no-print justify-center bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-sm">

@@ -111,8 +111,16 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
     setExpandedOrders(newExpanded);
   };
 
+  const getMappedStatus = (status: string) => {
+    if (status === 'Core Testing Completed' || status === 'PT Testing Completed') {
+      return 'In Progress';
+    }
+    return status;
+  };
+
   const getStatusColor = (status: string) => {
-    switch (status) {
+    const displayStatus = getMappedStatus(status);
+    switch (displayStatus) {
       case 'Pending Approval':
         return 'bg-yellow-100 text-yellow-700 border-yellow-300';
       case 'Assigned':
@@ -327,7 +335,7 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
                                 {/* Status */}
                                 <div className="flex flex-col gap-2 min-w-[140px]">
                                   <Badge className={`w-fit ${getStatusColor(order.status)}`}>
-                                    {order.status}
+                                    {getMappedStatus(order.status)}
                                   </Badge>
                                 </div>
                               </div>

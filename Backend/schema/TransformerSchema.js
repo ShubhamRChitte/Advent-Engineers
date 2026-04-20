@@ -222,6 +222,8 @@ const TransformerSchema = new Schema({
     default: "core"
   },
 
+  isHeatingApproved: { type: Boolean, default: false },
+
   // Track Admin Reassignment/Approval details
   adminReviewDetails: {
     failedStage: { type: String },

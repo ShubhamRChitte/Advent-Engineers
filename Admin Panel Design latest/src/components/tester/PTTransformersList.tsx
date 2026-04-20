@@ -53,55 +53,55 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
   const [error, setError] = useState<string | null>(null);
   const [heatingRecords, setHeatingRecords] = useState<any[]>([]);
 
-  const checkIfPTReportIsComplete = (transformer: any, hasHeating: boolean) => {
+  const checkIfPTReportIsComplete = (transformer: any, isHeatingApproved: boolean) => {
     const ptTest = transformer.testHistory?.pt_test;
 
     // If no core test data at all, obviously not complete
     if (!ptTest) return false;
 
-    // 1. Check Final Testing (CORRECTED KEYS to match PTTestingReport.tsx)
-    // Relaxed: Only checking the most critical fields for completion
+    // 1. Check Pre-Testing (Metering 100% burden ratio/phase)
+    const preTesting = ptTest.preTesting || {};
+    const meteringPre = preTesting.metering || {};
+    const preMandatory = ['ratioError100', 'phaseError100'];
+    const preCompleted = preMandatory.every(f => {
+        const val = meteringPre[f];
+        return val !== undefined && val !== null && val.toString().trim() !== '' && val.toString() !== 'N/A';
+    });
+    if (!preCompleted) return false;
+
+    // 2. Check Final Testing (All checkpoints must be filled)
     const final = ptTest.finalTesting || {};
-    const mandatoryFinalFields = ['polarityTesting', 'hvPrimary', 'hvSecondary', 'inducedOverVoltage'];
+    const mandatoryFinalFields = [
+      'leakage',
+      'terminalMarking',
+      'polarityTesting',
+      'insulationResistance',
+      'primaryToSecondary',
+      'primaryToEarth',
+      'secondaryToEarth',
+      'hvSecondary', 
+      'hvPrimary', 
+      'inducedOverVoltage'
+    ];
+    
+    // Check if fields exist and aren't just whitespace or 'N/A'
     const finalCompleted = mandatoryFinalFields.every(field => {
         const val = final[field];
-        return val !== undefined && val !== null && val.toString().trim() !== '';
+        return val !== undefined && val !== null && val.toString().trim() !== '' && val.toString() !== 'N/A';
     });
     if (!finalCompleted) return false;
 
-    // 2. Check Accuracy Test
+    // 3. Check Accuracy Test (Metering 100% Burden)
     const accuracy = ptTest.accuracyTest || {};
-    const preTesting = ptTest.preTesting || {};
-    // Relaxed: Only 100% burden readings are mandatory
-    const mandatoryAccuracyFields = ['ratioError100', 'phaseError100'];
-    
-    const meteringCompleted = ['100'].every(perc => {
-        // Broad search for metering data in accuracyTest OR preTesting
-        const row = accuracy.metering?.[perc] || accuracy[perc] || preTesting.metering || {};
-        const isFilled = mandatoryAccuracyFields.every(f => {
-            const val = row[f];
-            return val !== undefined && val !== null && val.toString().trim() !== '';
-        });
-        return isFilled;
+    const meteringData = accuracy.metering?.['100'] || {};
+    const accuracyCompleted = preMandatory.every(f => {
+        const val = meteringData[f];
+        return val !== undefined && val !== null && val.toString().trim() !== '' && val.toString() !== 'N/A';
     });
-    if (!meteringCompleted) return false;
+    if (!accuracyCompleted) return false;
 
-    // Protection check (if applicable)
-    const countProtection = transformer.cores?.filter((c: any) => c.coreType === 'protection')?.length || 0;
-    if (countProtection > 0) {
-        const protKeys = ['protection1', 'protection2'].slice(0, countProtection);
-        const protectionCompleted = protKeys.every(pKey => {
-            const row = accuracy[pKey]?.['100'] || accuracy[pKey] || preTesting[pKey] || {};
-            return mandatoryAccuracyFields.every(f => {
-                const val = row[f];
-                return val !== undefined && val !== null && val.toString().trim() !== '';
-            });
-        });
-        if (!protectionCompleted) return false;
-    }
-
-    // 3. Check Heating Status (MUST exist as per user request)
-    if (!hasHeating) return false;
+    // 4. Check Heating Status (STRICT REQUIREMENT - uses new database field)
+    if (!isHeatingApproved) return false;
 
     return true;
   };
@@ -171,12 +171,13 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
           });
 
           const isApproved = t.testHistory?.pt_test?.approved === true || t.testHistory?.pt_test?.approved === "true";
+          const isHeatingApproved = t.isHeatingApproved === true || t.isHeatingApproved === "true" || t.testHistory?.heating_test?.status === "Approved";
           
           let currentStatus: 'pending' | 'in-progress' | 'completed' | 'approved' = 'pending';
           if (isApproved) {
             currentStatus = 'approved';
-          } else if (hasPtTest || hasHeating) {
-            const isComplete = checkIfPTReportIsComplete({ ...t, cores: coresList }, hasHeating);
+          } else if (hasPtTest || isHeatingApproved) {
+            const isComplete = checkIfPTReportIsComplete({ ...t, cores: coresList }, isHeatingApproved);
             currentStatus = isComplete ? 'completed' : 'in-progress';
           }
 
@@ -367,13 +368,14 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
                           )}
                         </Button>
                         
-                        {(transformer.status === 'completed' || (transformer.status === 'in-progress' && transformer.hasPtTest)) && (
+                        {transformer.status === 'completed' && (
                           <Button
                             size="sm"
                             onClick={() => handleApproveTransformer(transformer)}
-                            className={`${transformer.status === 'completed' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-orange-500 hover:bg-orange-600'} text-white whitespace-nowrap`}
+                            className="bg-purple-600 hover:bg-purple-700 text-white whitespace-nowrap shadow-md transition-all hover:scale-105"
                           >
-                            Approve {transformer.status !== 'completed' && '(Force)'}
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Approve Unit
                           </Button>
                         )}
                       </div>

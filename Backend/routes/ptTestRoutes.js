@@ -122,8 +122,33 @@ router.put('/transformer/:transformerId/approve', isAuthenticated, async (req, r
       return res.status(404).json({ success: false, message: "Transformer not found." });
     }
 
+    // 2. CHECK: Must have PT testing data
     if (!transformer.testHistory || !transformer.testHistory.pt_test || Object.keys(transformer.testHistory.pt_test).length === 0) {
-      return res.status(400).json({ success: false, message: "Cannot approve. Transformer doesn't have PT testing data." });
+      return res.status(400).json({ success: false, message: "Cannot approve. Transformer doesn't have PT testing data saved." });
+    }
+
+    // 3. CHECK: Must be approved in Heating Tracking
+    const heatingStatus = transformer.testHistory?.heating_test?.status;
+    if (heatingStatus !== 'Approved' && heatingStatus !== 'Completed') {
+      return res.status(400).json({ success: false, message: `Cannot approve. Heating Tracking status is '${heatingStatus || 'Pending'}'. Must be 'Approved' first.` });
+    }
+
+    // 4. CHECK: Unified PT report completeness (Pre-test + Final test)
+    const ptTest = transformer.testHistory.pt_test;
+    const preTesting = ptTest.preTesting?.metering || {};
+    const finalTesting = ptTest.finalTesting || {};
+    
+    const mandatoryPre = ['ratioError100', 'phaseError100'];
+    const mandatoryFinal = ['leakage', 'terminalMarking', 'polarityTesting', 'insulationResistance', 'hvPrimary', 'hvSecondary', 'inducedOverVoltage'];
+
+    const isPreComplete = mandatoryPre.every(f => preTesting[f] && preTesting[f].toString().trim() !== '' && preTesting[f].toString() !== 'N/A');
+    const isFinalComplete = mandatoryFinal.every(f => finalTesting[f] && finalTesting[f].toString().trim() !== '' && finalTesting[f].toString() !== 'N/A');
+
+    if (!isPreComplete || !isFinalComplete) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Cannot approve. The report is missing required data in Pre-Testing or Final Testing sections." 
+      });
     }
 
     // Set approved flag on transformer's PT test
@@ -279,6 +304,45 @@ router.get('/reports', isAuthenticated, async (req, res) => {
         console.error("Error fetching PT reports:", error);
         res.status(500).json({ message: "Server Error", error: error.message });
     }
+});
+
+router.get('/assigned-orders', isAuthenticated, async (req, res) => {
+  try {
+      const user = req.user;
+      const testerName = user.name || user.fullName;
+
+      // 1. Find all transformers where this user is assigned for PT stage
+      // and PT test is NOT yet approved
+      const query = {
+          "assignments.pt_tester": testerName,
+          $or: [
+            { "testHistory.pt_test.approved": { $exists: false } },
+            { "testHistory.pt_test.approved": false },
+            { "testHistory.pt_test.approved": "false" }
+          ]
+      };
+
+      const transformers = await TransformerModel.find(query).populate('orderId').lean();
+
+      // 2. Map to Orders
+      const ordersMap = new Map();
+      transformers.forEach(t => {
+          if (t.orderId) {
+              const oid = t.orderId._id.toString();
+              if (!ordersMap.has(oid)) {
+                  // Attach a custom status for UI context if needed
+                  const order = { ...t.orderId };
+                  ordersMap.set(oid, order);
+              }
+          }
+      });
+
+      const orders = Array.from(ordersMap.values());
+      res.json({ success: true, orders });
+  } catch (error) {
+      console.error("Error fetching PT assigned orders:", error);
+      res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // GET /api/pt-tests/:transformerId

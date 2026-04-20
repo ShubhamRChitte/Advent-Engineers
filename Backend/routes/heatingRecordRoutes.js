@@ -260,6 +260,7 @@ router.put('/:orderId/approve', async (req, res) => {
             console.log(`[DEBUG] Updating ${transformers.length} transformers for Job ${order.jobId} to 'final' stage.`);
             for (const t of transformers) {
                 t.currentStage = 'final';
+                t.isHeatingApproved = true;
                 
                 // Update internal process history if it exists for consistency with old reporting system
                 if (t.processHistory && t.processHistory.heatingRecord && t.processHistory.heatingRecord.length > 0) {
@@ -365,9 +366,11 @@ router.post('/save/:uniqueId', isAuthenticated, async (req, res) => {
 
             if (isPT) {
                 heatingTest.status = "Approved";
+                transformer.isHeatingApproved = true;
                 console.log(`[STRICT WORKFLOW] Transformer ${uniqueId} Approved in Heating for PT. Stopping workflow.`);
             } else {
                 heatingTest.status = "Approved";
+                transformer.isHeatingApproved = true;
                 transformer.currentStage = "final";
                 console.log(`[STRICT WORKFLOW] Transformer ${uniqueId} Approved in Heating for CT. Moving to final.`);
                 
