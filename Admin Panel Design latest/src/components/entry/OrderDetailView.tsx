@@ -100,19 +100,37 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
 
         const mappedUnits: TransformerUnit[] = response.data.map((t: any) => {
           // Heating Logic
-          const hasHeating = t.processHistory?.heatingRecord?.length > 0;
-          const heatingStatus = getStatusForStage('heating', t.currentStage, hasHeating ? 'Completed' : undefined, t);
+          const hasHeating = (t.processHistory?.heatingRecord?.length > 0) || (t.processHistory?.ptHeatingRecord?.length > 0);
+          const isHeatingApproved = t.isHeatingApproved === true || t.isHeatingApproved === "true" || t.testHistory?.heating_test?.status === "Approved";
+          const isPtApproved = t.testHistory?.pt_test?.approved === true || t.testHistory?.pt_test?.approved === "true";
+          
+          const coreTestStatus = getStatusForStage('core', t.currentStage, t.testHistory?.core_test?.status, t);
+          const secondaryTestStatus = getStatusForStage('secondary', t.currentStage, t.testHistory?.secondary_test?.status, t);
+          const primaryTestStatus = getStatusForStage('primary', t.currentStage, t.testHistory?.primary_test?.status, t);
+          const heatingStatus = isHeatingApproved ? 'Complete' : (hasHeating ? 'In Progress' : 'Pending');
+          const finalTestStatus = getStatusForStage('final', t.currentStage, t.testHistory?.final_test?.status, t);
+          
+          // For PT, Status is 'Complete' only if Approved
+          const ptTestStatus = isPtApproved ? 'Complete' : (Object.keys(t.testHistory?.pt_test || {}).length > 0 ? 'In Progress' : 'Pending');
+
+          const allTestsDone = isPT 
+            ? (isPtApproved && isHeatingApproved)
+            : (coreTestStatus === 'Complete' && 
+               secondaryTestStatus === 'Complete' && 
+               primaryTestStatus === 'Complete' && 
+               heatingStatus === 'Complete' && 
+               finalTestStatus === 'Complete');
 
           return {
             id: t._id,
             transformerId: t.uniqueId || `TR-${t.jobId || 'UNKNOWN'}-${String(t.internalCoreNo || '').split('-').pop() || '???'}`,
-            coreTestStatus: getStatusForStage('core', t.currentStage, t.testHistory?.core_test?.status, t),
-            secondaryTestStatus: getStatusForStage('secondary', t.currentStage, t.testHistory?.secondary_test?.status, t),
-            primaryTestStatus: getStatusForStage('primary', t.currentStage, t.testHistory?.primary_test?.status, t),
+            coreTestStatus,
+            secondaryTestStatus,
+            primaryTestStatus,
             heatingStatus: heatingStatus as any,
-            finalTestStatus: getStatusForStage('final', t.currentStage, t.testHistory?.final_test?.status, t),
-            ptTestStatus: (t.currentStage === 'shipped' || t.currentStage === 'completed' || (t.testHistory?.pt_test && Object.keys(t.testHistory.pt_test).length > 0)) ? 'Complete' : t.currentStage === 'pt' ? 'In Progress' : 'Pending',
-            reportStatus: (t.currentStage === 'completed' || t.currentStage === 'shipped') ? 'Open' : 'Pending'
+            finalTestStatus,
+            ptTestStatus,
+            reportStatus: allTestsDone ? 'Complete' : 'Pending'
           };
         });
 
@@ -373,6 +391,17 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
                             {getStatusIcon(unit.ptTestStatus || 'Pending')}
                             {unit.ptTestStatus || 'Pending'}
                           </Badge>
+                          {unit.ptTestStatus === 'Complete' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-7 gap-1"
+                              onClick={() => handleViewReport(unit.transformerId, 'PT Test')}
+                            >
+                              <FileText className="w-3 h-3" />
+                              View Report
+                            </Button>
+                          )}
                         </div>
                       </td>
                     ) : (

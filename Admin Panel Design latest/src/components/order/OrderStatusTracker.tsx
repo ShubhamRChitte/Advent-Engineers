@@ -100,11 +100,16 @@ export function OrderStatusTracker({
 
   // Improved mapping function to handle backend vs frontend stage names
   const getStageIndex = () => {
-    // 1. Direct match
+    // 1. Priority: Check Status String for completion
+    if (status === 'Completed' || status === 'Shipped' || status === 'PT Testing Completed' || status === 'Final Testing Completed') {
+      return stages.length - 1;
+    }
+
+    // 2. Direct match with currentStage ID
     let idx = stages.findIndex((stage: any) => stage.id === currentStage);
     if (idx !== -1) return idx;
 
-    // 2. Handle specific backend names mapping to UI
+    // 3. Handle specific backend names mapping to UI
     const mapping: Record<string, string> = {
         'core': 'core',
         'secondary': 'secondary',
@@ -112,18 +117,15 @@ export function OrderStatusTracker({
         'heating': 'heating',
         'final': 'final',
         'shipped': 'completed',
-        'completed': 'completed'
+        'completed': 'completed',
+        'PT Testing Completed': 'completed',
+        'Final Testing Completed': 'completed'
     };
     
     const mappedId = mapping[currentStage as string];
     if (mappedId) {
         idx = stages.findIndex((stage: any) => stage.id === mappedId);
         if (idx !== -1) return idx;
-    }
-
-    // 3. Fallback based on Status String (Only if it strictly means Order is Finished)
-    if (status === 'Completed' || status === 'Shipped') {
-      return stages.length - 1;
     }
 
     return 0; // Default to first stage
@@ -218,14 +220,10 @@ export function OrderStatusTracker({
         <div className="flex gap-4">
           <div className="text-right">
             <p className="text-xs text-gray-500">Order Date</p>
-            <Badge className="bg-blue-600 text-white mt-1">{orderDate}</Badge>
+            <Badge className="bg-blue-600 text-white mt-1">
+              {isNaN(Date.parse(orderDate)) ? orderDate : new Date(orderDate).toLocaleDateString()}
+            </Badge>
           </div>
-          {expectedCompletion && (
-            <div className="text-right">
-              <p className="text-xs text-gray-500">Expected Completion</p>
-              <Badge className="bg-green-600 text-white mt-1">{expectedCompletion}</Badge>
-            </div>
-          )}
         </div>
       </div>
 

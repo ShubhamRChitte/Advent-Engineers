@@ -2222,6 +2222,29 @@ app.get("/api/reports/:id", async (req, res) => {
       reportData.heatingRecordFromCollection = heatingRecordFromCollection;
     }
 
+    // Normalize ptHeatingRecord if present
+    if (reportData.processHistory && reportData.processHistory.ptHeatingRecord) {
+      reportData.processHistory.ptHeatingRecord = reportData.processHistory.ptHeatingRecord.map(record => {
+        if (record.processSteps) {
+          record.processSteps = record.processSteps.map(step => {
+            const normalized = { ...step };
+            if (!normalized.startDateTime && normalized.startDate && normalized.startTime) {
+              try {
+                normalized.startDateTime = new Date(`${normalized.startDate}T${normalized.startTime}`);
+              } catch (e) {}
+            }
+            if (!normalized.completionDateTime && normalized.completionDate && normalized.completionTime) {
+              try {
+                normalized.completionDateTime = new Date(`${normalized.completionDate}T${normalized.completionTime}`);
+              } catch (e) {}
+            }
+            return normalized;
+          });
+        }
+        return record;
+      });
+    }
+
     const currentStage = stage || transformer.currentStage;
     const stageKey = `${currentStage}_test`;
     

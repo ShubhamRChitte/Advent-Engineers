@@ -14,7 +14,14 @@ exports.getAllLimits = async (req, res) => {
 exports.getLimitsByCoreType = async (req, res) => {
     try {
         const { coreType } = req.params;
-        const limits = await AccuracyLimit.find({ coreType });
+        const { transformerType } = req.query;
+
+        let query = { coreType };
+        if (transformerType) {
+            query.transformerType = transformerType;
+        }
+
+        const limits = await AccuracyLimit.find(query);
         res.json(limits);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -24,9 +31,9 @@ exports.getLimitsByCoreType = async (req, res) => {
 // POST create or update limit (UPSERT)
 exports.upsertLimit = async (req, res) => {
     try {
-        const { coreType, accuracyClass, protectionClass, limits, maxCurrentError, maxPhaseError, maxCompositeError, psRatioErrorLimit, psExcitationMultiplier } = req.body;
+        const { transformerType, coreType, accuracyClass, protectionClass, limits, maxCurrentError, maxPhaseError, maxCompositeError, psRatioErrorLimit, psExcitationMultiplier } = req.body;
 
-        let query = { coreType };
+        let query = { coreType, transformerType: transformerType || 'CT' };
         if (coreType === 'metering') {
             query.accuracyClass = accuracyClass;
         } else if (coreType === 'protection') {
@@ -34,7 +41,7 @@ exports.upsertLimit = async (req, res) => {
         }
         // ps only has one type so query is just { coreType: 'ps' }
 
-        let updateData = { coreType };
+        let updateData = { coreType, transformerType: transformerType || 'CT' };
 
         if (coreType === 'metering') {
             updateData.accuracyClass = accuracyClass;

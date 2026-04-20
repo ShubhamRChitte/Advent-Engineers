@@ -7,34 +7,23 @@ import { Input } from '../ui/input';
 import { Save, AlertCircle, ArrowLeft, AlertTriangle, Edit3, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 
-// IS-16227 Standard Limits for PT
-export const PT_METERING_CLASS_LIMITS = {
-  "0.1": { ratioLimit: 0.1, phaseLimit: 5 },
-  "0.2": { ratioLimit: 0.2, phaseLimit: 10 },
-  "0.5": { ratioLimit: 0.5, phaseLimit: 20 },
-  "1": { ratioLimit: 1.0, phaseLimit: 40 },
-  "3": { ratioLimit: 3.0, phaseLimit: null },
-};
-
-export const PT_PROTECTION_CLASS_LIMITS = {
-  "3P": { ratioLimit: 3.0, phaseLimit: 120 },
-  "6P": { ratioLimit: 6.0, phaseLimit: 240 },
-};
-
-export function validatePTMeteringUI(accClass: string, ratioErrorStr: string, phaseErrorStr: string) {
+export function validatePTMeteringUI(accClass: string, ratioErrorStr: string, phaseErrorStr: string, meteringLimits: any) {
+  if (!meteringLimits) return { isPass: undefined, reason: null };
   if ((!ratioErrorStr || String(ratioErrorStr).trim() === '') && (!phaseErrorStr || String(phaseErrorStr).trim() === '')) {
     return { isPass: undefined, reason: null };
   }
   
   const normalizedClass = accClass ? accClass : "0.5";
-  const limitConfig = PT_METERING_CLASS_LIMITS[normalizedClass as keyof typeof PT_METERING_CLASS_LIMITS] || PT_METERING_CLASS_LIMITS['0.5'];
+  const limitConfig = meteringLimits[normalizedClass] || meteringLimits['0.5'];
+
+  if (!limitConfig) return { isPass: true, reason: null };
 
   let isPass = true;
   let reasons: string[] = [];
 
   if (ratioErrorStr && String(ratioErrorStr).trim() !== '') {
     const rVal = parseFloat(String(ratioErrorStr));
-    if (!isNaN(rVal) && Math.abs(rVal) > limitConfig.ratioLimit) {
+    if (!isNaN(rVal) && Math.abs(rVal) >= limitConfig.ratioLimit) {
       isPass = false;
       reasons.push(`Ratio Error (${rVal}%) exceeds ±${limitConfig.ratioLimit}%`);
     }
@@ -42,7 +31,7 @@ export function validatePTMeteringUI(accClass: string, ratioErrorStr: string, ph
 
   if (limitConfig.phaseLimit !== null && phaseErrorStr && String(phaseErrorStr).trim() !== '') {
     const pVal = parseFloat(String(phaseErrorStr));
-    if (!isNaN(pVal) && Math.abs(pVal) > limitConfig.phaseLimit) {
+    if (!isNaN(pVal) && Math.abs(pVal) >= limitConfig.phaseLimit) {
       isPass = false;
       reasons.push(`Phase Error (${pVal}m) exceeds ±${limitConfig.phaseLimit}m`);
     }
@@ -51,20 +40,23 @@ export function validatePTMeteringUI(accClass: string, ratioErrorStr: string, ph
   return { isPass, reason: reasons.length > 0 ? reasons.join('; ') : null };
 }
 
-export function validatePTProtectionUI(accClass: string, ratioErrorStr: string, phaseErrorStr: string) {
+export function validatePTProtectionUI(accClass: string, ratioErrorStr: string, phaseErrorStr: string, protectionLimits: any) {
+  if (!protectionLimits) return { isPass: undefined, reason: null };
   if ((!ratioErrorStr || String(ratioErrorStr).trim() === '') && (!phaseErrorStr || String(phaseErrorStr).trim() === '')) {
     return { isPass: undefined, reason: null };
   }
   
   const normalizedClass = accClass && accClass.includes('6P') ? '6P' : '3P'; // Default to 3P if unknown protection
-  const limitConfig = PT_PROTECTION_CLASS_LIMITS[normalizedClass as keyof typeof PT_PROTECTION_CLASS_LIMITS] || PT_PROTECTION_CLASS_LIMITS['3P'];
+  const limitConfig = protectionLimits[normalizedClass] || protectionLimits['3P'];
+
+  if (!limitConfig) return { isPass: true, reason: null };
 
   let isPass = true;
   let reasons: string[] = [];
 
   if (ratioErrorStr && String(ratioErrorStr).trim() !== '') {
     const rVal = parseFloat(String(ratioErrorStr));
-    if (!isNaN(rVal) && Math.abs(rVal) > limitConfig.ratioLimit) {
+    if (!isNaN(rVal) && Math.abs(rVal) >= limitConfig.ratioLimit) {
       isPass = false;
       reasons.push(`Ratio Error (${rVal}%) exceeds ±${limitConfig.ratioLimit}%`);
     }
@@ -72,7 +64,7 @@ export function validatePTProtectionUI(accClass: string, ratioErrorStr: string, 
 
   if (phaseErrorStr && String(phaseErrorStr).trim() !== '') {
     const pVal = parseFloat(String(phaseErrorStr));
-    if (!isNaN(pVal) && Math.abs(pVal) > limitConfig.phaseLimit) {
+    if (!isNaN(pVal) && Math.abs(pVal) >= limitConfig.phaseLimit) {
       isPass = false;
       reasons.push(`Phase Error (${pVal}m) exceeds ±${limitConfig.phaseLimit}m`);
     }
@@ -103,6 +95,49 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
   const [transformersData, setTransformersData] = useState<any[]>([]);
   const [activeCores, setActiveCores] = useState<string[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [coreClassesMap, setCoreClassesMap] = useState<Record<string, string>>({});
+
+  const [dbMeteringLimits, setDbMeteringLimits] = useState<any>(null);
+  const [dbProtectionLimits, setDbProtectionLimits] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchLimits = async () => {
+      try {
+        const [metRes, protRes] = await Promise.all([
+          axios.get('http://localhost:5000/api/accuracy-limits/metering?transformerType=PT', { withCredentials: true }),
+          axios.get('http://localhost:5000/api/accuracy-limits/protection?transformerType=PT', { withCredentials: true })
+        ]);
+
+        if (Array.isArray(metRes.data)) {
+          const metMap: any = {};
+          metRes.data.forEach((item: any) => {
+             // For PT, we take the first limit in the array since the UI doesn't track multiple loads yet
+             if (item.limits && item.limits.length > 0) {
+               metMap[item.accuracyClass] = { 
+                 ratioLimit: item.limits[0].ratioLimit, 
+                 phaseLimit: item.limits[0].phaseLimit 
+               };
+             }
+          });
+          setDbMeteringLimits(metMap);
+        }
+
+        if (Array.isArray(protRes.data)) {
+          const protMap: any = {};
+          protRes.data.forEach((item: any) => {
+             protMap[item.protectionClass] = { 
+               ratioLimit: item.maxCurrentError, 
+               phaseLimit: item.maxPhaseError 
+             };
+          });
+          setDbProtectionLimits(protMap);
+        }
+      } catch (err) {
+        console.error("Error fetching PT accuracy limits:", err);
+      }
+    };
+    fetchLimits();
+  }, []);
 
   useEffect(() => {
     if (transformersData.length > 0 && !activeTabId) {
@@ -125,17 +160,24 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
     let countProtection = 0;
     
     const coresList: string[] = [];
+    const classes: Record<string, string> = {};
     cores.forEach((core: any) => {
         const type = typeof core === 'string' ? core : core.coreType;
+        const acc = typeof core === 'string' ? '' : core.accuracyClass;
         if (type?.toLowerCase() === 'metering') {
             countMetering++;
             coresList.push('metering');
+            classes['metering'] = acc || order.accuracyClass || '0.2';
         }
         if (type?.toLowerCase() === 'protection') {
             countProtection++;
-            coresList.push(`protection${countProtection}`);
+            const coreId = `protection${countProtection}`;
+            coresList.push(coreId);
+            classes[coreId] = acc || '3P';
         }
     });
+
+    setCoreClassesMap(classes);
 
     // Valid configurations are: 1 Metering & 0 Protection OR 1 Metering & 2 Protection
     const isValidConfig = (countMetering === 1 && countProtection === 0) || (countMetering === 1 && countProtection === 2);
@@ -365,34 +407,36 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
 
   // derived state isolated per transformer for UI rendering logic
   const getTransformerValidations = (transformerId: string, reportDataLocal: any) => {
-      const accuracyClassLocal = order.accuracyClass || '0.2';
+      const metClass = coreClassesMap['metering'] || order.accuracyClass || '0.2';
+      const pr1Class = coreClassesMap['protection1'] || '3P';
+      const pr2Class = coreClassesMap['protection2'] || '3P';
       
-      const metVal100 = validatePTMeteringUI(accuracyClassLocal, reportDataLocal.preTesting?.metering?.ratioError100, reportDataLocal.preTesting?.metering?.phaseError100);
-      const metVal25 = validatePTMeteringUI(accuracyClassLocal, reportDataLocal.preTesting?.metering?.ratioError25, reportDataLocal.preTesting?.metering?.phaseError25);
+      const metVal100 = validatePTMeteringUI(metClass, reportDataLocal.preTesting?.metering?.ratioError100, reportDataLocal.preTesting?.metering?.phaseError100, dbMeteringLimits);
+      const metVal25 = validatePTMeteringUI(metClass, reportDataLocal.preTesting?.metering?.ratioError25, reportDataLocal.preTesting?.metering?.phaseError25, dbMeteringLimits);
       
-      const pr1Val100 = validatePTProtectionUI("3P", reportDataLocal.preTesting?.protection1?.ratioError100, reportDataLocal.preTesting?.protection1?.phaseError100);
-      const pr1Val25 = validatePTProtectionUI("3P", reportDataLocal.preTesting?.protection1?.ratioError25, reportDataLocal.preTesting?.protection1?.phaseError25);
+      const pr1Val100 = validatePTProtectionUI(pr1Class, reportDataLocal.preTesting?.protection1?.ratioError100, reportDataLocal.preTesting?.protection1?.phaseError100, dbProtectionLimits);
+      const pr1Val25 = validatePTProtectionUI(pr1Class, reportDataLocal.preTesting?.protection1?.ratioError25, reportDataLocal.preTesting?.protection1?.phaseError25, dbProtectionLimits);
       
-      const pr2Val100 = validatePTProtectionUI("3P", reportDataLocal.preTesting?.protection2?.ratioError100, reportDataLocal.preTesting?.protection2?.phaseError100);
-      const pr2Val25 = validatePTProtectionUI("3P", reportDataLocal.preTesting?.protection2?.ratioError25, reportDataLocal.preTesting?.protection2?.phaseError25);
+      const pr2Val100 = validatePTProtectionUI(pr2Class, reportDataLocal.preTesting?.protection2?.ratioError100, reportDataLocal.preTesting?.protection2?.phaseError100, dbProtectionLimits);
+      const pr2Val25 = validatePTProtectionUI(pr2Class, reportDataLocal.preTesting?.protection2?.ratioError25, reportDataLocal.preTesting?.protection2?.phaseError25, dbProtectionLimits);
 
       const accValidations: any = {};
       let hasAccFails = false;
 
       activeCores.forEach(core => {
           const isProtection = core.startsWith('protection');
-          const protClass = isProtection ? "3P" : "";
+          const currentCoreClass = coreClassesMap[core] || (isProtection ? '3P' : metClass);
           
           accValidations[core] = {};
           const percentages = isProtection ? ['100'] : ['120', '100', '80'];
           percentages.forEach(perc => {
               const rowData = reportDataLocal.accuracyTest?.[core]?.[perc] || {};
               const v100 = isProtection 
-                   ? validatePTProtectionUI(protClass, rowData.ratioError100, rowData.phaseError100)
-                   : validatePTMeteringUI(accuracyClassLocal, rowData.ratioError100, rowData.phaseError100);
+                   ? validatePTProtectionUI(currentCoreClass, rowData.ratioError100, rowData.phaseError100, dbProtectionLimits)
+                   : validatePTMeteringUI(currentCoreClass, rowData.ratioError100, rowData.phaseError100, dbMeteringLimits);
               const v25 = isProtection 
-                   ? validatePTProtectionUI(protClass, rowData.ratioError25, rowData.phaseError25)
-                   : validatePTMeteringUI(accuracyClassLocal, rowData.ratioError25, rowData.phaseError25);
+                   ? validatePTProtectionUI(currentCoreClass, rowData.ratioError25, rowData.phaseError25, dbProtectionLimits)
+                   : validatePTMeteringUI(currentCoreClass, rowData.ratioError25, rowData.phaseError25, dbMeteringLimits);
               
               accValidations[core][perc] = { val100: v100, val25: v25 };
               if (v100.isPass === false || v25.isPass === false) hasAccFails = true;
@@ -410,14 +454,14 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
 
       activeCores.forEach(core => {
           const isProtection = core.startsWith('protection');
-          const protClass = isProtection ? "3P" : "";
+          const currentCoreClass = coreClassesMap[core] || (isProtection ? '3P' : metClass);
           const percentages = isProtection ? ['100'] : ['120', '100', '80'];
           const reasons: any[] = [];
           
           percentages.forEach(perc => {
               const rowData = reportDataLocal.accuracyTest?.[core]?.[perc] || {};
-              const v100 = isProtection ? validatePTProtectionUI(protClass, rowData.ratioError100, rowData.phaseError100) : validatePTMeteringUI(accuracyClassLocal, rowData.ratioError100, rowData.phaseError100);
-              const v25 = isProtection ? validatePTProtectionUI(protClass, rowData.ratioError25, rowData.phaseError25) : validatePTMeteringUI(accuracyClassLocal, rowData.ratioError25, rowData.phaseError25);
+              const v100 = isProtection ? validatePTProtectionUI(currentCoreClass, rowData.ratioError100, rowData.phaseError100, dbProtectionLimits) : validatePTMeteringUI(currentCoreClass, rowData.ratioError100, rowData.phaseError100, dbMeteringLimits);
+              const v25 = isProtection ? validatePTProtectionUI(currentCoreClass, rowData.ratioError25, rowData.phaseError25, dbProtectionLimits) : validatePTMeteringUI(currentCoreClass, rowData.ratioError25, rowData.phaseError25, dbMeteringLimits);
               if (v100.isPass === false) reasons.push(v100.reason);
               if (v25.isPass === false) reasons.push(v25.reason);
           });
@@ -437,7 +481,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
      });
      setHasAnyFailures(globFails);
      setFailingCoresInfo(cFails);
-  }, [reportsData, transformersData, activeCores, order]);
+  }, [reportsData, transformersData, activeCores, order, dbMeteringLimits, dbProtectionLimits]);
 
   if (invalidConfig) {
     return (

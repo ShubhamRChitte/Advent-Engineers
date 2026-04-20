@@ -111,9 +111,12 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
     setExpandedOrders(newExpanded);
   };
 
-  const getMappedStatus = (status: string) => {
-    if (status === 'Core Testing Completed' || status === 'PT Testing Completed') {
+  const getMappedStatus = (status: string, transformerType?: string) => {
+    if (status === 'Core Testing Completed') {
       return 'In Progress';
+    }
+    if (status === 'PT Testing Completed' || status === 'Final Testing Completed') {
+      return 'Completed';
     }
     return status;
   };
@@ -171,8 +174,8 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
     all: orders.length,
     Pending: orders.filter((o) => (o.status || '') === 'Pending Approval').length,
     Assigned: orders.filter((o) => (o.status || '') === 'Assigned' || (o.status || '') === 'In Progress').length,
-    'In Testing': orders.filter((o) => (o.status || '').includes('Testing')).length,
-    Completed: orders.filter((o) => (o.status || '') === 'Completed').length,
+    'In Testing': orders.filter((o) => (o.status || '').includes('Testing') && !(o.status || '').includes('Completed')).length,
+    Completed: orders.filter((o) => (o.status || '') === 'Completed' || (o.status || '') === 'PT Testing Completed' || (o.status || '') === 'Final Testing Completed').length,
   };
 
   // If an order is selected, show the detail view
@@ -335,7 +338,7 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
                                 {/* Status */}
                                 <div className="flex flex-col gap-2 min-w-[140px]">
                                   <Badge className={`w-fit ${getStatusColor(order.status)}`}>
-                                    {getMappedStatus(order.status)}
+                                    {getMappedStatus(order.status, order.transformerType)}
                                   </Badge>
                                 </div>
                               </div>

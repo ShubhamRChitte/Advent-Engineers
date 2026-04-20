@@ -4,7 +4,7 @@ const AccuracyLimit = require('../models/AccuracyLimit.cjs');
 
 const uri = process.env.MONGO_URL;
 
-const ACCURACY_CLASS_LIMITS = {
+const CT_ACCURACY_CLASS_LIMITS = {
     "0.1": [
         { load: "120%", ratioLimit: 0.1, phaseLimit: 5 },
         { load: "100%", ratioLimit: 0.1, phaseLimit: 5 },
@@ -53,10 +53,23 @@ const ACCURACY_CLASS_LIMITS = {
     ]
 };
 
-const PROTECTION_CLASS_LIMITS = {
+const PT_ACCURACY_CLASS_LIMITS = {
+    "0.1": [{ load: "100%", ratioLimit: 0.1, phaseLimit: 5 }],
+    "0.2": [{ load: "100%", ratioLimit: 0.2, phaseLimit: 10 }],
+    "0.5": [{ load: "100%", ratioLimit: 0.5, phaseLimit: 20 }],
+    "1": [{ load: "100%", ratioLimit: 1.0, phaseLimit: 40 }],
+    "3": [{ load: "100%", ratioLimit: 3.0, phaseLimit: null }]
+};
+
+const CT_PROTECTION_CLASS_LIMITS = {
     "5P": { maxCurrentError: 1.0, maxPhaseError: 60, maxCompositeError: 5.0 },
     "10P": { maxCurrentError: 3.0, maxPhaseError: null, maxCompositeError: 10.0 },
     "15P": { maxCurrentError: 5.0, maxPhaseError: null, maxCompositeError: 15.0 }
+};
+
+const PT_PROTECTION_CLASS_LIMITS = {
+    "3P": { maxCurrentError: 3.0, maxPhaseError: 120, maxCompositeError: null },
+    "6P": { maxCurrentError: 6.0, maxPhaseError: 240, maxCompositeError: null }
 };
 
 const PS_LIMITS = {
@@ -64,49 +77,60 @@ const PS_LIMITS = {
     psExcitationMultiplier: 1.5
 };
 
+async function seedLimitsForType(transformerType, meteringLimits, protectionLimits, psLimits) {
+    // Seed Metering
+    for (const [accuracyClass, limits] of Object.entries(meteringLimits)) {
+        await AccuracyLimit.findOneAndUpdate(
+            { transformerType, coreType: 'metering', accuracyClass },
+            { transformerType, coreType: 'metering', accuracyClass, limits },
+            { upsert: true, new: true }
+        );
+        console.log(`Seeded ${transformerType} Metering Class ${accuracyClass}`);
+    }
+
+    // Seed Protection
+    for (const [protectionClass, limits] of Object.entries(protectionLimits)) {
+        await AccuracyLimit.findOneAndUpdate(
+            { transformerType, coreType: 'protection', protectionClass },
+            {
+                transformerType,
+                coreType: 'protection',
+                protectionClass,
+                maxCurrentError: limits.maxCurrentError,
+                maxPhaseError: limits.maxPhaseError,
+                maxCompositeError: limits.maxCompositeError
+            },
+            { upsert: true, new: true }
+        );
+        console.log(`Seeded ${transformerType} Protection Class ${protectionClass}`);
+    }
+
+    // Seed PS (usually only for CT)
+    if (psLimits) {
+        await AccuracyLimit.findOneAndUpdate(
+            { transformerType, coreType: 'ps' },
+            {
+                transformerType,
+                coreType: 'ps',
+                psRatioErrorLimit: psLimits.psRatioErrorLimit,
+                psExcitationMultiplier: psLimits.psExcitationMultiplier
+            },
+            { upsert: true, new: true }
+        );
+        console.log(`Seeded ${transformerType} PS Limits`);
+    }
+}
+
 async function seedLimits() {
     try {
         await mongoose.connect(uri);
         console.log('Connected to MongoDB');
 
-        // Seed Metering
-        for (const [accuracyClass, limits] of Object.entries(ACCURACY_CLASS_LIMITS)) {
-            await AccuracyLimit.findOneAndUpdate(
-                { coreType: 'metering', accuracyClass },
-                { coreType: 'metering', accuracyClass, limits },
-                { upsert: true, new: true }
-            );
-            console.log(`Seeded Metering Class ${accuracyClass}`);
-        }
-
-        // Seed Protection
-        for (const [protectionClass, limits] of Object.entries(PROTECTION_CLASS_LIMITS)) {
-            await AccuracyLimit.findOneAndUpdate(
-                { coreType: 'protection', protectionClass },
-                {
-                    coreType: 'protection',
-                    protectionClass,
-                    maxCurrentError: limits.maxCurrentError,
-                    maxPhaseError: limits.maxPhaseError,
-                    maxCompositeError: limits.maxCompositeError
-                },
-                { upsert: true, new: true }
-            );
-            console.log(`Seeded Protection Class ${protectionClass}`);
-        }
-
-        // Seed PS
-        await AccuracyLimit.findOneAndUpdate(
-            { coreType: 'ps' },
-            {
-                coreType: 'ps',
-                psRatioErrorLimit: PS_LIMITS.psRatioErrorLimit,
-                psExcitationMultiplier: PS_LIMITS.psExcitationMultiplier
-            },
-            { upsert: true, new: true }
-        );
-        console.log(`Seeded PS Limits`);
-
+        // Seed CT Limits
+        await seedLimitsForType('CT', CT_ACCURACY_CLASS_LIMITS, CT_PROTECTION_CLASS_LIMITS, PS_LIMITS);
+        
+        // Seed PT Limits
+        await seedLimitsForType('PT', PT_ACCURACY_CLASS_LIMITS, PT_PROTECTION_CLASS_LIMITS, null);
 
         console.log('Seeding completed successfully');
         process.exit(0);

@@ -197,6 +197,7 @@ export function AdminReportViewPage() {
         const heatingRecord = 
             transformer?.testHistory?.heating_test || 
             transformer?.heatingRecordFromCollection || 
+            transformer?.processHistory?.ptHeatingRecord?.[0] ||
             transformer?.processHistory?.heatingRecord?.[0];
         
         if (!heatingRecord) {
@@ -403,9 +404,10 @@ export function AdminReportViewPage() {
                         {renderHeatingReport()}
                     </Card>
                 </div>;
-            case 'pt': return <div className="max-w-[1000px] mx-auto mt-6 print:mt-0 print:max-w-none">
-                <PTReportView transformer={transformer} order={order} onBack={handleBack} readOnly={true} />
-            </div>;
+            case 'pt': 
+                return <div className="max-w-[1000px] mx-auto mt-6 print:mt-0 print:max-w-none">
+                    {renderAllReports()}
+                </div>;
             case 'all': return <div className="max-w-6xl mx-auto">{renderAllReports()}</div>;
             default: return <div className="p-12 text-center text-red-500">Unknown Report Type</div>;
         }

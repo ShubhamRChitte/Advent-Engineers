@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
 
 const accuracyLimitSchema = new mongoose.Schema({
+    transformerType: {
+        type: String,
+        enum: ['CT', 'PT'],
+        default: 'CT',
+        required: true
+    },
     coreType: {
         type: String,
         enum: ['metering', 'protection', 'ps'],
@@ -34,9 +40,9 @@ const accuracyLimitSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-// Ensure uniqueness based on type and class
-accuracyLimitSchema.index({ coreType: 1, accuracyClass: 1 }, { unique: true, partialFilterExpression: { coreType: 'metering' } });
-accuracyLimitSchema.index({ coreType: 1, protectionClass: 1 }, { unique: true, partialFilterExpression: { coreType: 'protection' } });
-accuracyLimitSchema.index({ coreType: 1 }, { unique: true, partialFilterExpression: { coreType: 'ps' } });
+// Ensure uniqueness based on transformerType, type and class
+accuracyLimitSchema.index({ transformerType: 1, coreType: 1, accuracyClass: 1 }, { unique: true, partialFilterExpression: { coreType: 'metering' } });
+accuracyLimitSchema.index({ transformerType: 1, coreType: 1, protectionClass: 1 }, { unique: true, partialFilterExpression: { coreType: 'protection' } });
+accuracyLimitSchema.index({ transformerType: 1, coreType: 1 }, { unique: true, partialFilterExpression: { coreType: 'ps' } });
 
 module.exports = mongoose.model('AccuracyLimit', accuracyLimitSchema);
