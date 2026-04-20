@@ -524,20 +524,48 @@ function MeteringTable({ ratio, rows, onUpdate }: { ratio: string, rows: any[], 
             <tr key={idx}>
               <td className="bg-gray-50">{row.current}</td>
               <td className="p-1">
-                <Input className={`h-7 text-xs text-center border-none shadow-none focus-visible:ring-0 bg-transparent ${row.r100_pass === false ? 'text-red-700 font-bold' : ''}`}
-                  value={row.r100} onChange={(e) => onUpdate(idx, 'r100', e.target.value)} />
+                <Input 
+                  className={`h-7 text-xs text-center border-none shadow-none focus-visible:ring-0 bg-transparent ${row.r100_pass === false ? 'text-red-700 font-bold' : ''}`}
+                  value={row.r100} 
+                  onKeyDown={(e) => {
+                    if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                    if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                  }}
+                  onChange={(e) => onUpdate(idx, 'r100', e.target.value.replace(/[^0-9+\-.]/g, ''))} 
+                />
               </td>
               <td className="p-1">
-                <Input className={`h-7 text-xs text-center border-none shadow-none focus-visible:ring-0 bg-transparent ${row.r100_pass === false ? 'text-red-700 font-bold' : ''}`}
-                  value={row.p100} onChange={(e) => onUpdate(idx, 'p100', e.target.value)} />
+                <Input 
+                  className={`h-7 text-xs text-center border-none shadow-none focus-visible:ring-0 bg-transparent ${row.r100_pass === false ? 'text-red-700 font-bold' : ''}`}
+                  value={row.p100} 
+                  onKeyDown={(e) => {
+                    if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                    if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                  }}
+                  onChange={(e) => onUpdate(idx, 'p100', e.target.value.replace(/[^0-9+\-.]/g, ''))} 
+                />
               </td>
               <td className="p-1">
-                <Input className={`h-7 text-xs text-center border-none shadow-none focus-visible:ring-0 bg-transparent ${row.r25_pass === false ? 'text-red-700 font-bold' : ''}`}
-                  value={row.r25} onChange={(e) => onUpdate(idx, 'r25', e.target.value)} />
+                <Input 
+                  className={`h-7 text-xs text-center border-none shadow-none focus-visible:ring-0 bg-transparent ${row.r25_pass === false ? 'text-red-700 font-bold' : ''}`}
+                  value={row.r25} 
+                  onKeyDown={(e) => {
+                    if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                    if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                  }}
+                  onChange={(e) => onUpdate(idx, 'r25', e.target.value.replace(/[^0-9+\-.]/g, ''))} 
+                />
               </td>
               <td className="p-1">
-                <Input className={`h-7 text-xs text-center border-none shadow-none focus-visible:ring-0 bg-transparent ${row.r25_pass === false ? 'text-red-700 font-bold' : ''}`}
-                  value={row.p25} onChange={(e) => onUpdate(idx, 'p25', e.target.value)} />
+                <Input 
+                  className={`h-7 text-xs text-center border-none shadow-none focus-visible:ring-0 bg-transparent ${row.r25_pass === false ? 'text-red-700 font-bold' : ''}`}
+                  value={row.p25} 
+                  onKeyDown={(e) => {
+                    if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                    if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                  }}
+                  onChange={(e) => onUpdate(idx, 'p25', e.target.value.replace(/[^0-9+\-.]/g, ''))} 
+                />
               </td>
             </tr>
           ))}

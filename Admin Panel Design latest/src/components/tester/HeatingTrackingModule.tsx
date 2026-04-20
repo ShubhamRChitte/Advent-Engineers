@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Card } from '../ui/card';
+import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { FileText, Loader2, ArrowLeft, PlayCircle, CheckCircle } from 'lucide-react';
+import { FileText, Loader2, ArrowLeft, PlayCircle, CheckCircle, Search } from 'lucide-react';
 import { User } from '../../App';
 import {
   UnifiedHeatingRecord,
@@ -36,6 +37,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
   const [assignedOrders, setAssignedOrders] = useState<Order[]>([]);
   const [completedOrders, setCompletedOrders] = useState<Order[]>([]);
   const [currentTab, setCurrentTab] = useState<'assigned' | 'completed'>('assigned');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedTransformer, setSelectedTransformer] = useState<any | null>(null);
@@ -338,57 +340,147 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
 
   // ==== 1. ORDER LIST VIEW ====
   if (!selectedOrder) {
-    const displayedOrders = assignedOrders;
+    const displayedOrders = (currentTab === 'assigned' ? assignedOrders : completedOrders).filter(order => {
+      const q = searchQuery.toLowerCase().trim();
+      if (!q) return true;
+      return (
+        (order.jobId || '').toLowerCase().includes(q) ||
+        (order.clientName || '').toLowerCase().includes(q)
+      );
+    });
 
     return (
       <div className="space-y-6">
-        <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold">Heating Section Tracking</h2>
-            <p className="text-gray-500 mt-1">Select an order to manage heating records for individual transformers.</p>
+            <h2 className="text-2xl font-bold text-gray-900 tracking-tight uppercase">
+              Heating Section Tracking
+            </h2>
+            <p className="text-gray-600 mt-1">
+              Select an order to manage heating records for units approved in Primary Test.
+            </p>
           </div>
-          
-
+          <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg no-print">
+            <button
+              onClick={() => setCurrentTab('assigned')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                currentTab === 'assigned' 
+                  ? 'bg-white text-[#003a70] shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Active Testing
+            </button>
+            <button
+              onClick={() => setCurrentTab('completed')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                currentTab === 'completed' 
+                  ? 'bg-white text-[#003a70] shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Completed Testing
+            </button>
+          </div>
         </div>
 
-        <Card className="overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-[#003a70] text-white">
-              <tr>
-                <th className="p-4 text-left font-medium text-sm">Job ID</th>
-                <th className="p-4 text-left font-medium text-sm">Client</th>
-                <th className="p-4 text-left font-medium text-sm">Type &amp; Voltage</th>
-                <th className="p-4 text-center font-medium text-sm">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayedOrders.length > 0 ? (
-                displayedOrders.map(order => (
-                  <tr key={order._id} className="border-b hover:bg-gray-50">
-                    <td className="p-4 font-bold text-sm">{order.jobId}</td>
-                    <td className="p-4 text-sm">{order.clientName}</td>
-                    <td className="p-4">
-                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">
-                        {order.voltageRating || `${order.nominalSystemVoltage}KV`} {order.transformerType}
-                      </span>
-                    </td>
-                    <td className="p-4 text-center">
-                      <Button size="sm" onClick={() => handleSelectOrder(order)} className={currentTab === 'completed' ? "bg-green-600 hover:bg-green-700" : "bg-[#003a70] hover:bg-[#002f5c]"}>
-                        <FileText className="w-4 h-4 mr-2" />
-                        {currentTab === 'completed' ? "View Transformers" : "Manage Units"}
-                      </Button>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-300">
+            <p className="text-sm text-gray-600">Total Orders</p>
+            <p className="text-2xl font-bold text-blue-700 mt-1">{assignedOrders.length + completedOrders.length}</p>
+          </Card>
+          <Card className="p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-300">
+            <p className="text-sm text-gray-600">In Progress</p>
+            <p className="text-2xl font-bold text-yellow-700 mt-1">{assignedOrders.length}</p>
+          </Card>
+          <Card className="p-4 bg-gradient-to-br from-green-50 to-green-100 border-green-300">
+            <p className="text-sm text-gray-600">Completed</p>
+            <p className="text-2xl font-bold text-green-700 mt-1">{completedOrders.length}</p>
+          </Card>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative w-full md:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search Job ID or Client..."
+            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
+        {/* Orders Table Container */}
+        <Card className="overflow-hidden border-gray-200 shadow-md">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-[#003a70] text-white">
+                <tr>
+                  <th className="p-4 text-sm font-semibold uppercase tracking-wider">Job ID</th>
+                  <th className="p-4 text-sm font-semibold uppercase tracking-wider">Client</th>
+                  <th className="p-4 text-sm font-semibold uppercase tracking-wider">Type & Voltage</th>
+                  <th className="p-4 text-center text-sm font-semibold uppercase tracking-wider whitespace-nowrap">Quantity</th>
+                  <th className="p-4 text-center text-sm font-semibold uppercase tracking-wider">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayedOrders.length > 0 ? (
+                  displayedOrders.map(order => (
+                    <tr key={order._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                      <td className="p-4">
+                        <span className="font-mono font-bold text-blue-900">{order.jobId}</span>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
+                            <span className="text-blue-600 text-xs font-bold">{order.clientName.charAt(0)}</span>
+                          </div>
+                          <span className="text-gray-700 font-medium">{order.clientName}</span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-semibold px-3 py-1">
+                          {order.voltageRating || (order.nominalSystemVoltage ? `${order.nominalSystemVoltage}KV` : "N/A")} {order.transformerType}
+                        </Badge>
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          {order.quantity} Units
+                        </span>
+                      </td>
+                      <td className="p-4 text-center">
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleSelectOrder(order)} 
+                          className={currentTab === 'completed' 
+                            ? "bg-green-600 hover:bg-green-700 shadow-sm" 
+                            : "bg-[#003a70] hover:bg-[#002f5c] shadow-sm"
+                          }
+                        >
+                          <FileText className="w-4 h-4 mr-2" />
+                          {currentTab === 'completed' ? "View Transformers" : "Manage Units"}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="p-12 text-center">
+                      <div className="flex flex-col items-center">
+                        <Search className="w-10 h-10 text-gray-300 mb-2" />
+                        <p className="text-gray-500 font-medium">
+                          {searchQuery ? "No matching orders found." : (currentTab === 'assigned' ? "No active primary-approved units found." : "No completed heating records found.")}
+                        </p>
+                      </div>
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4} className="p-8 text-center text-gray-500 text-sm">
-                    {currentTab === 'assigned' ? "No orders with primary-approved units found." : "No completed heating records found."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
         </Card>
       </div>
     );
@@ -398,95 +490,112 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
   if (selectedOrder && !selectedTransformer) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={() => { setSelectedOrder(null); setTransformersList([]); }} className="gap-2">
+        {/* Sub-header with Back Button */}
+        <div className="flex flex-col md:flex-row md:items-center gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+          <Button variant="outline" size="sm" onClick={() => { setSelectedOrder(null); setTransformersList([]); }} className="gap-2 border-gray-300 hover:bg-gray-50 shrink-0">
             <ArrowLeft className="w-4 h-4" /> Back to Orders
           </Button>
           <div className="flex-1">
-            <h2 className="text-xl font-bold">Transformers for {selectedOrder.jobId}</h2>
-            <p className="text-gray-500 mt-1 text-sm">Showing only units approved in Primary Test. Each unit must be approved independently.</p>
+            <h2 className="text-xl font-bold text-gray-900 uppercase">Transformers for {selectedOrder.jobId}</h2>
+            <p className="text-gray-500 mt-1 text-sm flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+              Showing units approved in Primary Test. Each unit must be approved independently.
+            </p>
           </div>
         </div>
 
-        <Card className="overflow-hidden">
+        {/* Transformers Table Container */}
+        <Card className="overflow-hidden border-gray-200 shadow-md">
           {loadingTransformers ? (
-            <div className="p-8 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>
+            <div className="p-12 flex flex-col items-center justify-center text-gray-500">
+              <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-4" />
+              <p className="animate-pulse font-medium">Loading transformers...</p>
+            </div>
           ) : transformersList.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 text-sm">No primary-approved transformers found for this order.</div>
+            <div className="p-12 text-center text-gray-500">
+              <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p className="text-lg font-medium">No units found</p>
+              <p className="text-sm">No primary-approved transformers were found for this order.</p>
+            </div>
           ) : (
-            <table className="w-full">
-              <thead className="bg-[#003a70] text-white">
-                <tr>
-                  <th className="p-4 text-left font-medium text-sm">Unique ID</th>
-                  <th className="p-4 text-left font-medium text-sm">Status</th>
-                  <th className="p-4 text-center font-medium text-sm">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transformersList.map((t: any) => {
-                  const hStatus = t.testHistory?.heating_test?.status || 'Pending';
-                  // STRICT: isApproved should only be true if status is "Approved"
-                  const isApproved = hStatus === 'Approved';
-                  const isCompleted = hStatus === 'Completed';
-                  
-                  // Check if all 4 mandatory process steps have date and time filled
-                  const pSteps = t.testHistory?.heating_test?.processSteps || [];
-                  const isFilled = pSteps.length >= 4 && pSteps.every((s: any) => 
-                    s.startDate && s.startTime && (s.completionDate || s.endDate) && (s.completionTime || s.endTime)
-                  );
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-[#003a70] text-white">
+                  <tr>
+                    <th className="p-4 text-sm font-semibold uppercase tracking-wider">Unique ID</th>
+                    <th className="p-4 text-sm font-semibold uppercase tracking-wider">Testing Status</th>
+                    <th className="p-4 text-center text-sm font-semibold uppercase tracking-wider">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transformersList.map((t: any) => {
+                    const hStatus = t.testHistory?.heating_test?.status || 'Pending';
+                    const isApproved = hStatus === 'Approved';
+                    const isCompleted = hStatus === 'Completed';
+                    
+                    const pSteps = t.testHistory?.heating_test?.processSteps || [];
+                    const isFilled = pSteps.length >= 4 && pSteps.every((s: any) => 
+                      s.startDate && s.startTime && (s.completionDate || s.endDate) && (s.completionTime || s.endTime)
+                    );
 
-                  return (
-                    <tr key={t._id} className="border-b hover:bg-gray-50">
-                      <td className="p-4 font-bold text-sm">{t.uniqueId}</td>
+                    return (
+                      <tr key={t._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                        <td className="p-4">
+                          <span className="font-mono font-bold text-blue-900 text-base">{t.uniqueId}</span>
+                        </td>
 
-                      <td className="p-4">
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                            isApproved ? 'bg-green-100 text-green-800' : 
-                            isCompleted || isFilled ? 'bg-blue-100 text-blue-800' :
-                            'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {isApproved ? 'Approved' : (isFilled || isCompleted ? 'Ready for Approval' : (hStatus === 'In Progress' ? 'Saved (In Progress)' : hStatus))}
-                        </span>
-                      </td>
-                      <td className="p-4 text-center">
-                        <div className="flex justify-center gap-2">
-                          {(isFilled || isCompleted) && !isApproved && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleApproveByUniqueId(t.uniqueId)}
-                              className="bg-green-600 hover:bg-green-700 font-medium"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-2" /> Approve
-                            </Button>
-                          )}
-                          
-                          <Button 
-                              size="sm" 
-                              onClick={() => handleSelectTransformer(t)} 
-                              className={`${isApproved ? 'bg-green-600 hover:bg-green-700' : 'bg-[#003a70] hover:bg-[#002f5c]'} gap-2 font-medium`}
+                        <td className="p-4">
+                          <Badge 
+                            variant={isApproved ? "default" : "outline"}
+                            className={`font-semibold px-3 py-1 ${
+                                isApproved ? 'bg-green-600 hover:bg-green-600 text-white border-transparent' : 
+                                isCompleted || isFilled ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                'bg-yellow-50 text-yellow-700 border-yellow-200'
+                            }`}
                           >
-                            <PlayCircle className="w-4 h-4" />
-                            {isApproved ? "View Data" : (isFilled ? "Edit Data" : (hStatus === 'Pending' ? "Start Reading" : "Continue"))}
-                          </Button>
-
-                          {isApproved && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => window.open(`/admin/report/${t._id}?type=heating`, '_blank')}
-                              className="border-green-600 text-green-600 hover:bg-green-50 gap-2"
+                            {isApproved ? 'Approved & Finalized' : (isFilled || isCompleted ? 'Ready for Approval' : (hStatus === 'In Progress' ? 'Saved (In Progress)' : hStatus))}
+                          </Badge>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex justify-center gap-3">
+                            {(isFilled || isCompleted) && !isApproved && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleApproveByUniqueId(t.uniqueId)}
+                                className="bg-green-600 hover:bg-green-700 font-bold shadow-sm"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" /> Approve
+                              </Button>
+                            )}
+                            
+                            <Button 
+                                size="sm" 
+                                onClick={() => handleSelectTransformer(t)} 
+                                className={`${isApproved ? 'bg-green-600 hover:bg-green-700' : 'bg-[#003a70] hover:bg-[#002f5c]'} gap-2 font-bold shadow-sm transition-all`}
                             >
-                              <FileText className="w-4 h-4" />
-                              Report
+                              <PlayCircle className="w-4 h-4" />
+                              {isApproved ? "View Data" : (isFilled ? "Edit Data" : (hStatus === 'Pending' ? "Start Reading" : "Continue"))}
                             </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+
+                            {isApproved && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.open(`/admin/report/${t._id}?type=heating`, '_blank')}
+                                className="border-green-600 text-green-600 hover:bg-green-50 gap-2 font-bold"
+                              >
+                                <FileText className="w-4 h-4" />
+                                Report
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
       </div>

@@ -31,6 +31,8 @@ const STAGES = ['core', 'secondary', 'primary', 'final'] as const;
 
 export function CreateOrderView() {
   // --- State ---
+  const [step, setStep] = useState<1 | 2>(1);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     clientName: '',
     clientContactNo: '',
@@ -79,9 +81,60 @@ export function CreateOrderView() {
     fetchTesters();
   }, []);
 
+  // --- Real-Time Validation Engine ---
+  const validateField = (field: string, value: string, currentData: any): string | null => {
+    if (!value && typeof value === 'string') value = '';
+    
+    switch (field) {
+      case 'clientName':
+         return !value.trim() ? 'Client Name is required' : null;
+      case 'clientContactNo':
+         if (!value.trim()) return 'Contact No is required';
+         if (!/^\\d{10}$/.test(value.trim())) return 'Contact No must be exactly 10 digits';
+         return null;
+      case 'transformerType':
+         return !value ? 'Type is required' : null;
+      case 'isStandard':
+         return !value ? 'IS Standard is required' : null;
+      case 'ratedPrimaryCurrent':
+         return (currentData.transformerType === 'CT' && !value) ? 'Pri. Current is required for CT' : null;
+      case 'quantity':
+         return (!value || parseInt(value) < 1) ? 'Valid quantity required (>0)' : null;
+      case 'deadline':
+         return !value ? 'Deadline is required' : null;
+      case 'ratedSecondaryCurrent':
+         return !value ? 'Secondary Current is required' : null;
+      case 'voltageRating':
+         return !value ? 'Voltage Rating is required' : null;
+      case 'ratio':
+         return !value.trim() ? 'Ratio is required' : null;
+      case 'indoorOutdoor':
+         return !value ? 'Location is required' : null;
+      case 'insulationType':
+         return !value ? 'Insulation is required' : null;
+      case 'tankType':
+         return (currentData.insulationType === 'Oil Cooled' && !value) ? 'Tank Type is required' : null;
+      default:
+         return null;
+    }
+  };
+
   // --- Handlers ---
   const handleInputChange = (field: string, value: string) => {
-    setFormData({ ...formData, [field]: value });
+    const updatedData = { ...formData, [field]: value };
+    setFormData(updatedData);
+
+    // Instant Validation Trigger
+    const errorMsg = validateField(field, value, updatedData);
+    if (errorMsg) {
+      setFormErrors(prev => ({ ...prev, [field]: errorMsg }));
+    } else {
+      setFormErrors(prev => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
 
     // Special handling for No. of Cores to resize the config array
     if (field === 'noOfCores') {
@@ -114,6 +167,14 @@ export function CreateOrderView() {
       updated[index] = { coreType: newType, accuracyClass: '' };
       return updated;
     });
+
+    // Evaluate dynamically
+    if (!newType) setFormErrors(p => ({...p, [`coreType_${index}`]: 'Core type required'}));
+    else if (formData.transformerType === 'PT' && newType === 'PS') {
+      setFormErrors(p => ({...p, [`coreType_${index}`]: 'PS not allowed for PT'}));
+    } else {
+      setFormErrors(p => { const next = {...p}; delete next[`coreType_${index}`]; return next; });
+    }
   };
 
   const handleCoreAccuracyChange = (index: number, newAccuracy: string) => {
@@ -122,6 +183,9 @@ export function CreateOrderView() {
       updated[index] = { coreType: updated[index]?.coreType || '', accuracyClass: newAccuracy };
       return updated;
     });
+
+    if (!newAccuracy) setFormErrors(p => ({ ...p, [`accuracyClass_${index}`]: 'Class required' }));
+    else setFormErrors(p => { const next = {...p}; delete next[`accuracyClass_${index}`]; return next; });
   };
 
   // --- Assignment Logic ---
@@ -191,27 +255,66 @@ export function CreateOrderView() {
     return true;
   };
 
+  // --- Validation Logic ---
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    if (!formData.clientName.trim()) errors.clientName = 'Client Name is required';
+    
+    // Contact No check (10 digits)
+    if (!formData.clientContactNo.trim()) {
+      errors.clientContactNo = 'Contact No is required';
+    } else if (!/^\\d{10}$/.test(formData.clientContactNo.trim())) {
+      errors.clientContactNo = 'Contact No must be exactly 10 digits';
+    }
+
+    if (!formData.transformerType) errors.transformerType = 'Type is required';
+    if (formData.transformerType && !formData.isStandard) errors.isStandard = 'IS Standard is required';
+    
+    if (formData.transformerType === 'CT' && !formData.ratedPrimaryCurrent) {
+      errors.ratedPrimaryCurrent = 'Pri. Current is required for CT';
+    }
+    
+    if (!formData.quantity || parseInt(formData.quantity) < 1) errors.quantity = 'Valid quantity required (>0)';
+    if (!formData.deadline) errors.deadline = 'Deadline is required';
+    if (!formData.ratedSecondaryCurrent) errors.ratedSecondaryCurrent = 'Secondary Current is required';
+    if (!formData.voltageRating) errors.voltageRating = 'Voltage Rating is required';
+    if (!formData.ratio.trim()) errors.ratio = 'Ratio is required';
+    
+    if (formData.transformerType) {
+      if (!formData.indoorOutdoor) errors.indoorOutdoor = 'Location is required';
+      if (!formData.insulationType) errors.insulationType = 'Insulation is required';
+      if (formData.insulationType === 'Oil Cooled' && !formData.tankType) errors.tankType = 'Tank Type is required';
+      
+      // Core validation
+      coreConfigs.forEach((config, idx) => {
+        if (!config.coreType) errors[`coreType_${idx}`] = 'Core type required';
+        if (config.coreType && !config.accuracyClass) errors[`accuracyClass_${idx}`] = 'Class required';
+        if (formData.transformerType === 'PT' && config.coreType === 'PS') {
+           errors[`coreType_${idx}`] = 'PS not allowed for PT';
+        }
+      });
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   // --- Submit ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
-    const qty = parseInt(formData.quantity);
-    if (!qty || qty < 1) {
-      toast.error("Invalid Quantity");
-      setLoading(false);
+    if (step === 1) {
+      if (!validateForm()) {
+        toast.error("Please fix the validation errors before proceeding.");
+        return;
+      }
+      setStep(2);
+      toast.success("Parameters validated! Please assign testing responsibilities.");
       return;
     }
 
-    if (formData.transformerType === 'PT') {
-      const hasPSCore = coreConfigs.some(c => c.coreType === 'PS');
-      if (hasPSCore) {
-        toast.error("PS Class cores are not allowed for PT Transformers.");
-        setLoading(false);
-        return;
-      }
-    }
+    setLoading(true);
 
+    const qty = parseInt(formData.quantity);
     if (!validateAssignments(qty)) {
       setLoading(false);
       return;
@@ -304,30 +407,35 @@ export function CreateOrderView() {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Client Name *</Label>
+                <Label className={formErrors.clientName ? "text-red-600" : ""}>Client Name *</Label>
                 <Input
                   value={formData.clientName}
                   onChange={e => handleInputChange('clientName', e.target.value)}
                   placeholder="e.g. Adani Power"
+                  className={formErrors.clientName ? "border-red-500 bg-red-50 focus-visible:ring-red-500" : ""}
                 />
+                {formErrors.clientName && <span className="text-xs text-red-600 font-semibold">{formErrors.clientName}</span>}
               </div>
               <div>
-                <Label>Contact No.</Label>
+                <Label className={formErrors.clientContactNo ? "text-red-600" : ""}>Contact No. (10 Digits) *</Label>
                 <Input
                   value={formData.clientContactNo}
                   onChange={e => handleInputChange('clientContactNo', e.target.value)}
-                  placeholder="+91..."
+                  placeholder="e.g. 9876543210"
+                  className={formErrors.clientContactNo ? "border-red-500 bg-red-50 focus-visible:ring-red-500" : ""}
+                  maxLength={10}
                 />
+                {formErrors.clientContactNo && <span className="text-xs text-red-600 font-semibold">{formErrors.clientContactNo}</span>}
               </div>
               <div>
-                <Label>Transformer Name</Label>
+                <Label>Transformer Name (Optional)</Label>
                 <Input
                   value={formData.transformerName}
                   onChange={e => handleInputChange('transformerName', e.target.value)}
                 />
               </div>
               <div>
-                <Label>Type</Label>
+                <Label className={formErrors.transformerType ? "text-red-600" : ""}>Type *</Label>
                 <Select
                   value={formData.transformerType}
                   onValueChange={(v: string) => {
@@ -335,28 +443,30 @@ export function CreateOrderView() {
                     handleInputChange('isStandard', '');
                   }}
                 >
-                  <SelectTrigger><SelectValue placeholder="Select Type" /></SelectTrigger>
+                  <SelectTrigger className={formErrors.transformerType ? "border-red-500 bg-red-50" : ""}><SelectValue placeholder="Select Type" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="CT">Current Transformer (CT)</SelectItem>
                     <SelectItem value="PT">Potential Transformer (PT)</SelectItem>
                   </SelectContent>
                 </Select>
+                {formErrors.transformerType && <span className="text-xs text-red-600 font-semibold">{formErrors.transformerType}</span>}
               </div>
 
               {formData.transformerType && (
                 <div>
-                  <Label>IS Standard *</Label>
+                  <Label className={formErrors.isStandard ? "text-red-600" : ""}>IS Standard *</Label>
                   <Select
                     value={formData.isStandard}
                     onValueChange={(v: string) => handleInputChange('isStandard', v)}
                   >
-                    <SelectTrigger><SelectValue placeholder="Select IS Standard" /></SelectTrigger>
+                    <SelectTrigger className={formErrors.isStandard ? "border-red-500 bg-red-50" : ""}><SelectValue placeholder="Select IS Standard" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="16227">16227</SelectItem>
                       {formData.transformerType === 'CT' && <SelectItem value="2705">2705</SelectItem>}
                       {formData.transformerType === 'PT' && <SelectItem value="3156">3156</SelectItem>}
                     </SelectContent>
                   </Select>
+                  {formErrors.isStandard && <span className="text-xs text-red-600 font-semibold">{formErrors.isStandard}</span>}
                 </div>
               )}
             </div>
@@ -369,13 +479,14 @@ export function CreateOrderView() {
             <h3 className="text-lg font-semibold mb-4">Technical Specifications</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label>Quantity *</Label>
+                <Label className={formErrors.quantity ? "text-red-600" : ""}>Quantity *</Label>
                 <Input
                   type="number"
                   value={formData.quantity}
                   onChange={e => handleInputChange('quantity', e.target.value)}
-                  className="font-bold text-red-600"
+                  className={`font-bold ${formErrors.quantity ? "text-red-600 border-red-500 bg-red-50 focus-visible:ring-red-500" : "text-red-600"}`}
                 />
+                {formErrors.quantity && <span className="text-xs text-red-600 font-semibold">{formErrors.quantity}</span>}
               </div>
               <div>
                 <Label>No. of Cores</Label>
@@ -391,14 +502,17 @@ export function CreateOrderView() {
               </div>
 
               {coreConfigs.map((config, idx) => (
-                <div key={idx} className="border p-2 rounded bg-gray-50 flex flex-col gap-2">
+                <div key={idx} className={`border p-2 rounded flex flex-col gap-2 ${formErrors[`coreType_${idx}`] || formErrors[`accuracyClass_${idx}`] ? 'border-red-400 bg-red-50' : 'bg-gray-50'}`}>
                   <div>
                     <Label className="text-xs text-gray-500 font-semibold uppercase mb-1 block">Core {idx + 1} Type</Label>
                     <Select
                       value={config.coreType}
-                      onValueChange={(v: string) => handleCoreConfigChange(idx, v)}
+                      onValueChange={(v: string) => {
+                        handleCoreConfigChange(idx, v);
+                        if (formErrors[`coreType_${idx}`]) setFormErrors(prev => ({ ...prev, [`coreType_${idx}`]: '' }));
+                      }}
                     >
-                      <SelectTrigger className="h-8"><SelectValue placeholder="Select type" /></SelectTrigger>
+                      <SelectTrigger className={`h-8 ${formErrors[`coreType_${idx}`] ? "border-red-500" : ""}`}><SelectValue placeholder="Select type" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Metering">Metering</SelectItem>
                         <SelectItem value="Protection">Protection</SelectItem>
@@ -407,15 +521,19 @@ export function CreateOrderView() {
                         )}
                       </SelectContent>
                     </Select>
+                    {formErrors[`coreType_${idx}`] && <span className="text-xs text-red-600 font-semibold">{formErrors[`coreType_${idx}`]}</span>}
                   </div>
                   {config.coreType && (
                     <div>
                       <Label className="text-xs text-gray-500 font-semibold uppercase mb-1 block">Accuracy Class</Label>
                       <Select
                         value={config.accuracyClass}
-                        onValueChange={(v: string) => handleCoreAccuracyChange(idx, v)}
+                        onValueChange={(v: string) => {
+                          handleCoreAccuracyChange(idx, v);
+                          if (formErrors[`accuracyClass_${idx}`]) setFormErrors(prev => ({ ...prev, [`accuracyClass_${idx}`]: '' }));
+                        }}
                       >
-                        <SelectTrigger className="h-8"><SelectValue placeholder="Select Class" /></SelectTrigger>
+                        <SelectTrigger className={`h-8 ${formErrors[`accuracyClass_${idx}`] ? "border-red-500" : ""}`}><SelectValue placeholder="Select Class" /></SelectTrigger>
                         <SelectContent>
                           {config.coreType === 'Metering' && (
                             formData.transformerType === 'PT' ? (
@@ -464,20 +582,30 @@ export function CreateOrderView() {
               ))}
 
               <div>
-                <Label>Deadline</Label>
+                <Label className={formErrors.deadline ? "text-red-600" : ""}>Deadline *</Label>
                 <Input
                   type="date"
                   value={formData.deadline}
                   onChange={e => handleInputChange('deadline', e.target.value)}
+                  className={formErrors.deadline ? "border-red-500 bg-red-50" : ""}
                 />
+                {formErrors.deadline && <span className="text-xs text-red-600 font-semibold">{formErrors.deadline}</span>}
               </div>
               {/* Simplified Specs */}
               {formData.transformerType === 'CT' && (
-                <div><Label>Pri. Current</Label><Input value={formData.ratedPrimaryCurrent} onChange={e => handleInputChange('ratedPrimaryCurrent', e.target.value)} /></div>
+                <div>
+                  <Label className={formErrors.ratedPrimaryCurrent ? "text-red-600" : ""}>Pri. Current *</Label>
+                  <Input 
+                    value={formData.ratedPrimaryCurrent} 
+                    onChange={e => handleInputChange('ratedPrimaryCurrent', e.target.value)} 
+                    className={formErrors.ratedPrimaryCurrent ? "border-red-500 bg-red-50" : ""}
+                  />
+                  {formErrors.ratedPrimaryCurrent && <span className="text-xs text-red-600 font-semibold">{formErrors.ratedPrimaryCurrent}</span>}
+                </div>
               )}
 
               <div>
-                <Label>Sec. Current</Label>
+                <Label className={formErrors.ratedSecondaryCurrent ? "text-red-600" : ""}>Sec. Current *</Label>
                 <div className="flex gap-2">
                   <Select
                     value={!isCustomSecCurrent ? formData.ratedSecondaryCurrent : 'Custom'}
@@ -491,7 +619,7 @@ export function CreateOrderView() {
                       }
                     }}
                   >
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className={`w-full ${formErrors.ratedSecondaryCurrent ? "border-red-500 bg-red-50" : ""}`}><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="1">1</SelectItem>
                       <SelectItem value="5">5</SelectItem>
@@ -509,7 +637,7 @@ export function CreateOrderView() {
               </div>
 
               <div>
-                <Label>Voltage Rating</Label>
+                <Label className={formErrors.voltageRating ? "text-red-600" : ""}>Voltage Rating *</Label>
                 <div className="flex gap-2">
                   <Select
                     value={!isCustomVoltage ? formData.voltageRating : 'Custom'}
@@ -523,7 +651,7 @@ export function CreateOrderView() {
                       }
                     }}
                   >
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className={`w-full ${formErrors.voltageRating ? "border-red-500 bg-red-50" : ""}`}><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="11">11</SelectItem>
                       <SelectItem value="22">22</SelectItem>
@@ -541,18 +669,19 @@ export function CreateOrderView() {
                 </div>
               </div>
               <div>
-                <Label>Ratio</Label>
+                <Label className={formErrors.ratio ? "text-red-600" : ""}>Ratio *</Label>
                 <div className="flex gap-2">
                   <Input
                     value={formData.ratio}
                     onChange={e => handleInputChange('ratio', e.target.value)}
                     placeholder="e.g. 100/1, 200/1"
+                    className={formErrors.ratio ? "border-red-500 bg-red-50 focus-visible:ring-red-500" : ""}
                   />
                   <Select onValueChange={(v: string) => {
                     const current = formData.ratio ? formData.ratio + ', ' : '';
                     handleInputChange('ratio', current + v);
                   }}>
-                    <SelectTrigger className="w-[120px]"><SelectValue placeholder="+ Preset" /></SelectTrigger>
+                    <SelectTrigger className={`w-[120px] ${formErrors.ratio ? "border-red-500 bg-red-50" : ""}`}><SelectValue placeholder="+ Preset" /></SelectTrigger>
                     <SelectContent>
                       {['100/1', '200/1', '400/1', '800/1'].map(r => (
                         <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -564,30 +693,32 @@ export function CreateOrderView() {
               {formData.transformerType && (
                 <>
                   <div>
-                    <Label>Indoor/Outdoor</Label>
+                    <Label className={formErrors.indoorOutdoor ? "text-red-600" : ""}>Indoor/Outdoor *</Label>
                     <Select value={formData.indoorOutdoor} onValueChange={(v: string) => handleInputChange('indoorOutdoor', v)}>
-                      <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+                      <SelectTrigger className={formErrors.indoorOutdoor ? "border-red-500 bg-red-50" : ""}><SelectValue placeholder="Select location" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Indoor">Indoor</SelectItem>
                         <SelectItem value="Outdoor">Outdoor</SelectItem>
                       </SelectContent>
                     </Select>
+                    {formErrors.indoorOutdoor && <span className="text-xs text-red-600 font-semibold">{formErrors.indoorOutdoor}</span>}
                   </div>
                   <div>
-                    <Label>Insulation Type</Label>
+                    <Label className={formErrors.insulationType ? "text-red-600" : ""}>Insulation Type *</Label>
                     <Select value={formData.insulationType} onValueChange={(v: string) => handleInputChange('insulationType', v)}>
-                      <SelectTrigger><SelectValue placeholder="Select insulation" /></SelectTrigger>
+                      <SelectTrigger className={formErrors.insulationType ? "border-red-500 bg-red-50" : ""}><SelectValue placeholder="Select insulation" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Oil Cooled">Oil Cooled</SelectItem>
                         <SelectItem value="Epoxy">Epoxy</SelectItem>
                       </SelectContent>
                     </Select>
+                    {formErrors.insulationType && <span className="text-xs text-red-600 font-semibold">{formErrors.insulationType}</span>}
                   </div>
                   {formData.insulationType === 'Oil Cooled' && (
                     <div>
-                      <Label>Tank Type</Label>
+                      <Label className={formErrors.tankType ? "text-red-600" : ""}>Tank Type *</Label>
                       <Select value={formData.tankType} onValueChange={(v: string) => handleInputChange('tankType', v)}>
-                        <SelectTrigger><SelectValue placeholder="Select tank type" /></SelectTrigger>
+                        <SelectTrigger className={formErrors.tankType ? "border-red-500 bg-red-50" : ""}><SelectValue placeholder="Select tank type" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="Live Tank">Live Tank</SelectItem>
                           <SelectItem value="Dead Tank">Dead Tank</SelectItem>
@@ -604,8 +735,9 @@ export function CreateOrderView() {
           <hr className="border-gray-100" />
 
           {/* 3. ASSIGNMENT SPLITTER */}
-          <section className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-            <div className="flex justify-between items-center mb-4">
+          {step === 2 && (
+            <section className="bg-gray-50 p-4 rounded-xl border border-gray-200 animate-in fade-in duration-300">
+              <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <User className="w-5 h-5 text-blue-600" />
@@ -686,14 +818,27 @@ export function CreateOrderView() {
               })}
             </div>
           </section>
+          )}
 
-          <Button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="w-full bg-red-600 hover:bg-red-700 text-lg py-6"
-          >
-            {loading ? "Processing..." : "Create Order & Generate Units"}
-          </Button>
+          <div className="flex gap-4">
+            {step === 2 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStep(1)}
+                className="w-1/3 py-6 text-lg border-gray-300"
+              >
+                Back to Edit Parameters
+              </Button>
+            )}
+            <Button
+              onClick={handleSubmit}
+              disabled={loading}
+              className={`flex-1 hover:bg-red-700 text-lg py-6 transition-colors ${step === 1 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-600'}`}
+            >
+              {loading ? "Processing..." : step === 1 ? "Verify & Continue to Assignments" : "Create Order & Generate Units"}
+            </Button>
+          </div>
 
         </Card>
 

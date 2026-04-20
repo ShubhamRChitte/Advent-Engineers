@@ -36,9 +36,57 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
   const [quantity, setQuantity] = useState('1');
   const [isStandard, setIsStandard] = useState('');
 
+  // Form Errors state
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
   // Initialize from transformer prop if available, else empty
   const [transformerType, setTransformerType] = useState(transformer?.type || '');
   const [numberOfCores, setNumberOfCores] = useState(transformer?.cores.toString() || '1');
+
+  // Real-time Validation Engine
+  const validateEnhancedField = (field: string, value: string): string | null => {
+    switch (field) {
+      case 'clientName':
+         return !value.trim() ? 'Client Name is required' : null;
+      case 'clientContact':
+         if (value.trim().length > 10) return 'your contact no must be 10 digits';
+         if (value.trim().length > 0 && !/^[0-9]+$/.test(value.trim())) return 'character cannot add only the digits are requires';
+         return null;
+      case 'quantity':
+         return (!value || parseInt(value) < 1) ? 'Valid quantity required (>0)' : null;
+      case 'numberOfCores':
+         return (!value || parseInt(value) < 1 || parseInt(value) > 5) ? 'Number of cores must be 1-5' : null;
+      case 'transformerType':
+         return !value ? 'Type is required' : null;
+      case 'isStandard':
+         return !value ? 'IS Standard is required' : null;
+      case 'voltageRating':
+         return !value ? 'Voltage Rating is required' : null;
+      case 'nominalVoltage':
+         return !value.trim() ? 'Nominal System Voltage is required' : null;
+      case 'burden':
+         return !value.trim() ? 'Burden is required' : null;
+      case 'ratedSecondaryCurrent':
+         return !value ? 'Rated Secondary Current is required' : null;
+      default:
+         return null;
+    }
+  };
+
+  const handleInputChange = (field: string, value: string, setter: React.Dispatch<React.SetStateAction<any>>) => {
+    setter(value);
+    const errorMsg = validateEnhancedField(field, value);
+    if (errorMsg) {
+      setFormErrors(prev => ({ ...prev, [field]: errorMsg }));
+    } else {
+      setFormErrors(prev => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
+
   const [voltageRating, setVoltageRating] = useState(transformer?.voltageRating || '');
   const [isCustomVoltage, setIsCustomVoltage] = useState(false);
   const [isCustomSecCurrent, setIsCustomSecCurrent] = useState(false);
@@ -145,6 +193,28 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
   };
 
   const handleSubmit = () => {
+    // Explicit Validation Check before submission
+    const errors: Record<string, string> = {};
+    if (!clientName.trim()) errors.clientName = 'Client Name is required';
+    if (!clientContact.trim()) errors.clientContact = 'Contact No is required';
+    else if (!/^[0-9]+$/.test(clientContact.trim())) errors.clientContact = 'character cannot add only the digits are requires';
+    else if (clientContact.trim().length !== 10) errors.clientContact = 'your contact no must be 10 digits';
+    
+    if (!quantity || parseInt(quantity) < 1) errors.quantity = 'Valid quantity required (>0)';
+    if (!numberOfCores || parseInt(numberOfCores) < 1 || parseInt(numberOfCores) > 5) errors.numberOfCores = 'Number of cores must be 1-5';
+    if (!transformerType) errors.transformerType = 'Type is required';
+    
+    if (!nominalVoltage.trim()) errors.nominalVoltage = 'Nominal System Voltage is required';
+    if (!burden.trim()) errors.burden = 'Burden is required';
+    if (!ratedSecondaryCurrent) errors.ratedSecondaryCurrent = 'Rated Secondary Current is required';
+    if (!voltageRating) errors.voltageRating = 'Voltage Rating is required';
+    
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(prev => ({ ...prev, ...errors }));
+      toast.error("Please fix the validation errors marked in red.");
+      return;
+    }
+
     if (transformerType === 'PT') {
       const hasPSCore = coreConfigs.some(c => c.coreType === 'ps');
       if (hasPSCore) {
@@ -251,14 +321,13 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
               <h3 className="font-semibold mb-4  text-blue-700">Transformer Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label>Type *</Label>
+                  <Label className={formErrors.transformerType ? "text-red-600" : ""}>Type *</Label>
                   <select
                     value={transformerType}
                     onChange={(e) => {
                       const newType = e.target.value;
-                      setTransformerType(newType);
-                      setIsStandard(''); // Reset standard on type change
-                      
+                      handleInputChange('transformerType', newType, setTransformerType);
+                      handleInputChange('isStandard', '', setIsStandard);
                       
                       if(newType === 'PT') {
                          setCoreConfigs(prev => prev.map(config => 
@@ -269,26 +338,28 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                          setSelectedPSVendors([]);
                       }
                     }}
-                    className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                    className={`w-full mt-1 h-10 px-3 rounded-md border bg-white ${formErrors.transformerType ? "border-red-500 bg-red-50" : "border-gray-300"}`}
                   >
                     <option value="">Select Type</option>
                     <option value="CT">Current Transformer (CT)</option>
                     <option value="PT">Potential Transformer (PT)</option>
                   </select>
+                  {formErrors.transformerType && <span className="text-xs text-red-600 font-semibold">{formErrors.transformerType}</span>}
                 </div>
                 {transformerType && (
                   <div>
-                    <Label>IS Standard *</Label>
+                    <Label className={formErrors.isStandard ? "text-red-600" : ""}>IS Standard *</Label>
                     <select
                       value={isStandard}
-                      onChange={(e) => setIsStandard(e.target.value)}
-                      className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                      onChange={(e) => handleInputChange('isStandard', e.target.value, setIsStandard)}
+                      className={`w-full mt-1 h-10 px-3 rounded-md border bg-white ${formErrors.isStandard ? "border-red-500 bg-red-50" : "border-gray-300"}`}
                     >
                       <option value="">Select IS Standard</option>
                       <option value="16227">16227</option>
                       {transformerType === 'CT' && <option value="2705">2705</option>}
                       {transformerType === 'PT' && <option value="3156">3156</option>}
                     </select>
+                    {formErrors.isStandard && <span className="text-xs text-red-600 font-semibold">{formErrors.isStandard}</span>}
                   </div>
                 )}
                 {transformerType && (
@@ -333,21 +404,21 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                     )}
                   </>
                 )}
-                <div>
-                  <Label>Voltage Rating</Label>
+                <div className="flex flex-col">
+                  <Label className={formErrors.voltageRating ? "text-red-600" : ""}>Voltage Rating *</Label>
                   <div className="flex gap-2">
                     <select
                       value={!isCustomVoltage ? voltageRating : 'Custom'}
                       onChange={(e) => {
                         if (e.target.value === 'Custom') {
                           setIsCustomVoltage(true);
-                          setVoltageRating('');
+                          handleInputChange('voltageRating', '', setVoltageRating);
                         } else {
                           setIsCustomVoltage(false);
-                          setVoltageRating(e.target.value);
+                          handleInputChange('voltageRating', e.target.value, setVoltageRating);
                         }
                       }}
-                      className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                      className={`w-full mt-1 h-10 px-3 rounded-md border bg-white ${formErrors.voltageRating ? "border-red-500 bg-red-50" : "border-gray-300"}`}
                     >
                       <option value="">Select Voltage</option>
                       <option value="11">11</option>
@@ -374,22 +445,39 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
             <h3 className="pb-2 border-b-2 border-gray-200">Client Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Client Name *</Label>
+                <Label className={formErrors.clientName ? "text-red-600" : ""}>Client Name *</Label>
                 <Input
                   placeholder="Enter client name"
                   value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  className="mt-1"
+                  onChange={(e) => handleInputChange('clientName', e.target.value, setClientName)}
+                  className={`mt-1 ${formErrors.clientName ? "border-red-500 bg-red-50" : ""}`}
                 />
+                {formErrors.clientName && <span className="text-xs text-red-600 font-semibold">{formErrors.clientName}</span>}
               </div>
               <div>
-                <Label>Client Contact Number *</Label>
+                <Label className={formErrors.clientContact ? "text-red-600" : ""}>Client Contact Number *</Label>
                 <Input
                   placeholder="Enter contact number"
                   value={clientContact}
-                  onChange={(e) => setClientContact(e.target.value)}
-                  className="mt-1"
+                  onKeyDown={(e) => {
+                    // Bypass control keys
+                    if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter"].includes(e.key)) {
+                      return;
+                    }
+                    // Prevent any non-digit character from even entering the browser DOM
+                    if (!/^[0-9]$/.test(e.key)) {
+                      e.preventDefault();
+                      setFormErrors(prev => ({ ...prev, clientContact: 'character cannot add only the digits are requires' }));
+                    }
+                  }}
+                  onChange={(e) => {
+                    const onlyNumbers = e.target.value.replace(/[^0-9]/g, '');
+                    handleInputChange('clientContact', onlyNumbers, setClientContact);
+                  }}
+                  className={`mt-1 ${formErrors.clientContact ? "border-red-500 bg-red-50" : ""}`}
+                  maxLength={10}
                 />
+                {formErrors.clientContact && <span className="text-xs text-red-600 font-semibold">{formErrors.clientContact}</span>}
               </div>
             </div>
           </div>
@@ -399,18 +487,19 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
             <h3 className="pb-2 border-b-2 border-gray-200">Order Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Quantity *</Label>
+                <Label className={formErrors.quantity ? "text-red-600" : ""}>Quantity *</Label>
                 <Input
                   type="number"
                   min="1"
                   placeholder="Enter quantity"
                   value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  className="mt-1"
+                  onChange={(e) => handleInputChange('quantity', e.target.value, setQuantity)}
+                  className={`mt-1 ${formErrors.quantity ? "border-red-500 bg-red-50" : ""}`}
                 />
+                {formErrors.quantity && <span className="text-xs text-red-600 font-semibold">{formErrors.quantity}</span>}
               </div>
               <div>
-                <Label>Number of Cores *</Label>
+                <Label className={formErrors.numberOfCores ? "text-red-600" : ""}>Number of Cores *</Label>
                 <Input
                   type="number"
                   min="1"
@@ -419,7 +508,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                   value={numberOfCores}
                   onChange={(e) => {
                     const value = e.target.value;
-                    setNumberOfCores(value);
+                    handleInputChange('numberOfCores', value, setNumberOfCores);
                     const numCores = parseInt(value) || 0;
                     setCoreConfigs(prev => {
                       const newTypes = Array.isArray(prev) ? [...prev] : [];
@@ -429,8 +518,9 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                       return newTypes.slice(0, numCores);
                     });
                   }}
-                  className="mt-1"
+                  className={`mt-1 ${formErrors.numberOfCores ? "border-red-500 bg-red-50" : ""}`}
                 />
+                {formErrors.numberOfCores && <span className="text-xs text-red-600 font-semibold">{formErrors.numberOfCores}</span>}
               </div>
             </div>
           </div>
@@ -664,22 +754,24 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                 </div>
               </div>
               <div>
-                <Label>Nominal System Voltage</Label>
+                <Label className={formErrors.nominalVoltage ? "text-red-600" : ""}>Nominal System Voltage *</Label>
                 <Input
                   placeholder="e.g., 33 kV"
                   value={nominalVoltage}
-                  onChange={(e) => setNominalVoltage(e.target.value)}
-                  className="mt-1"
+                  onChange={(e) => handleInputChange('nominalVoltage', e.target.value, setNominalVoltage)}
+                  className={`mt-1 ${formErrors.nominalVoltage ? "border-red-500 bg-red-50" : ""}`}
                 />
+                {formErrors.nominalVoltage && <span className="text-xs text-red-600 font-semibold">{formErrors.nominalVoltage}</span>}
               </div>
               <div>
-                <Label>Burden</Label>
+                <Label className={formErrors.burden ? "text-red-600" : ""}>Burden *</Label>
                 <Input
                   placeholder="e.g., 15 VA"
                   value={burden}
-                  onChange={(e) => setBurden(e.target.value)}
-                  className="mt-1"
+                  onChange={(e) => handleInputChange('burden', e.target.value, setBurden)}
+                  className={`mt-1 ${formErrors.burden ? "border-red-500 bg-red-50" : ""}`}
                 />
+                {formErrors.burden && <span className="text-xs text-red-600 font-semibold">{formErrors.burden}</span>}
               </div>
               {transformerType === 'CT' && (
                 <div>
@@ -693,20 +785,20 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                 </div>
               )}
               <div>
-                <Label>Rated Secondary Current</Label>
+                <Label className={formErrors.ratedSecondaryCurrent ? "text-red-600" : ""}>Rated Secondary Current *</Label>
                 <div className="flex gap-2">
                   <select
                     value={!isCustomSecCurrent ? ratedSecondaryCurrent : 'Custom'}
                     onChange={(e) => {
                       if (e.target.value === 'Custom') {
                         setIsCustomSecCurrent(true);
-                        setRatedSecondaryCurrent('');
+                        handleInputChange('ratedSecondaryCurrent', '', setRatedSecondaryCurrent);
                       } else {
                         setIsCustomSecCurrent(false);
-                        setRatedSecondaryCurrent(e.target.value);
+                        handleInputChange('ratedSecondaryCurrent', e.target.value, setRatedSecondaryCurrent);
                       }
                     }}
-                    className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                    className={`w-full mt-1 h-10 px-3 rounded-md border bg-white ${formErrors.ratedSecondaryCurrent ? "border-red-500 bg-red-50" : "border-gray-300"}`}
                   >
                     <option value="">Select Sec. Current</option>
                     <option value="1">1</option>
@@ -830,7 +922,6 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
             <Button
               onClick={handleSubmit}
               className={`flex-1 ${isEntryOperator ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-              disabled={!clientName || !clientContact || !quantity || !numberOfCores || !transformerType}
             >
               {isEntryOperator ? "Submit for Approval" : "Continue to Assign Testing"}
             </Button>

@@ -198,7 +198,17 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
     setRecords(records.map(block => {
       if (block.id !== blockId) return block;
       let updatedSteps = [...block.processSteps];
-      updatedSteps[processIndex] = { ...updatedSteps[processIndex], [field]: value };
+      
+      // Strict future date validation
+      let finalizedValue = value;
+      if (field === 'startDate' || field === 'completionDate') {
+        const today = new Date().toISOString().split('T')[0];
+        if (value && value > today) {
+          finalizedValue = today;
+        }
+      }
+
+      updatedSteps[processIndex] = { ...updatedSteps[processIndex], [field]: finalizedValue };
 
       // Ripple Forward Logic
       const isStartTimeChange = (field === 'startDate' || field === 'startTime');
@@ -245,7 +255,17 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
   const updateBlockField = (blockId: string, field: keyof HeatingRecordBlock, value: string) => {
     setRecords(records.map(block => {
       if (block.id !== blockId) return block;
-      return { ...block, [field]: value };
+
+      // Strict future date validation
+      let finalizedValue = value;
+      if (field === 'startDate' || field === 'date') {
+        const today = new Date().toISOString().split('T')[0];
+        if (value && value > today) {
+          finalizedValue = today;
+        }
+      }
+
+      return { ...block, [field]: finalizedValue };
     }));
   };
 

@@ -1125,7 +1125,11 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
                               : 'text-blue-800'
                               }`}
                             value={row.turnRatioError}
-                            onChange={e => handleUpdate(i, 'turnRatioError', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                            }}
+                            onChange={e => handleUpdate(i, 'turnRatioError', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                             disabled={readOnly}
                           />
                         )}
@@ -1139,7 +1143,11 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
                           <Input
                             className="border-none text-center h-16 shadow-none text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
                             value={row.resistance}
-                            onChange={e => handleUpdate(i, 'resistance', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                            }}
+                            onChange={e => handleUpdate(i, 'resistance', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                             disabled={readOnly}
                           />
                         )}
@@ -1153,7 +1161,11 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
                             <Input
                               className="border-none text-[#0070c0] font-bold h-6 shadow-none flex-1 min-w-[60px] disabled:opacity-100 disabled:cursor-not-allowed px-0"
                               value={row.vk || ''}
-                              onChange={e => handleUpdate(i, 'vk', e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                                if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                              }}
+                              onChange={e => handleUpdate(i, 'vk', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                               disabled={readOnly}
                             />
                           )}
@@ -1174,7 +1186,11 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
                               : 'text-blue-800'
                               }`}
                             value={row.iexVk}
-                            onChange={e => handleUpdate(i, 'iexVk', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                            }}
+                            onChange={e => handleUpdate(i, 'iexVk', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                             disabled={readOnly}
                           />
                         )}
@@ -1194,7 +1210,11 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
                               : 'text-blue-800'
                               }`}
                             value={row.iex11Vk}
-                            onChange={e => handleUpdate(i, 'iex11Vk', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                            }}
+                            onChange={e => handleUpdate(i, 'iex11Vk', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                             disabled={readOnly}
                           />
                         )}
@@ -1221,7 +1241,11 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
                             <Input
                               className="border-none text-[#0070c0] font-bold h-6 shadow-none flex-1 min-w-[60px] disabled:opacity-100 disabled:cursor-not-allowed px-0"
                               value={row.vkVal || ''}
-                              onChange={e => handleUpdate(i, 'vkVal', e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                                if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                              }}
+                              onChange={e => handleUpdate(i, 'vkVal', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                               disabled={readOnly}
                             />
                           )}

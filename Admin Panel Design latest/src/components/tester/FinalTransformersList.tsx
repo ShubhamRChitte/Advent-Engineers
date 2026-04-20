@@ -107,16 +107,17 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
               else if (typeStr.includes('ps')) mappedType = 'ps';
 
               let coreId = 'Pending';
-              let accuracyClass = '0.5';
+              let accuracyClass = coreGroup.accuracyClass || '0.5';
 
-              // Prioritize accuracyClass from coreGroup (the new granular storage)
-              if (coreGroup.accuracyClass) {
-                accuracyClass = coreGroup.accuracyClass;
-              } else if (mappedType === 'metering') {
+              // Try to find the real ID from secondary results based on type
+              if (mappedType === 'metering') {
                 if (mIndex < meteringResults.length) {
                   const res = meteringResults[mIndex];
                   coreId = res.internalCoreNo || (res.rows && res.rows[0]?.internalCoreNo) || 'M-Pending';
-                  accuracyClass = res.accuracyClass || res.classOption || '0.5';
+                  // Only update accuracyClass from history if not already set by order spec
+                  if (!coreGroup.accuracyClass) {
+                    accuracyClass = res.accuracyClass || res.classOption || '0.5';
+                  }
                   mIndex++;
                 }
               } else if (mappedType === 'ps') {
@@ -129,19 +130,19 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                 if (pIndex < protectionResults.length) {
                   const res = protectionResults[pIndex];
                   coreId = res.internalCoreNo || 'P-Pending';
-                  accuracyClass = res.protectionClass || '5P';
+                  // Only update accuracyClass from history if not already set by order spec
+                  if (!coreGroup.accuracyClass) {
+                    accuracyClass = res.protectionClass || '5P';
+                  }
                   pIndex++;
                 }
               }
-
-              // Fallback: Default to '0.5' if still not found
-              const fallbackClass = '0.5';
 
               coresList.push({
                 coreNumber: currentCoreNum++,
                 coreType: mappedType,
                 coreId: coreId,
-                accuracyClass: accuracyClass || fallbackClass
+                accuracyClass: accuracyClass || '0.5'
               });
             });
           }

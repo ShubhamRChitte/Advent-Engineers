@@ -154,6 +154,7 @@ function GroupBlock({ block, onUpdateProcessStep, onUpdateBlockField, readOnly }
               type="date"
               value={block.startDate || ""}
               onChange={(e) => onUpdateBlockField(block.id, 'startDate', e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
               className={`h-6 text-sm border-none bg-transparent shadow-none focus-visible:ring-0 font-bold w-[120px] text-right p-0 rounded-none ${readOnly ? 'bg-gray-100' : 'bg-white'}`}
               disabled={readOnly}
             />
@@ -220,6 +221,7 @@ function GroupBlock({ block, onUpdateProcessStep, onUpdateBlockField, readOnly }
                 type="date"
                 value={step.startDate || ""}
                 onChange={(e) => onUpdateProcessStep(block.id, sIndex, 'startDate', e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
                 className="h-6 text-[11px] text-center border-none outline-none shadow-none focus-visible:ring-0 bg-transparent w-full p-0 rounded-none"
               />
             </td>
@@ -230,6 +232,7 @@ function GroupBlock({ block, onUpdateProcessStep, onUpdateBlockField, readOnly }
                 type="date"
                 value={step.completionDate || ""}
                 onChange={(e) => onUpdateProcessStep(block.id, sIndex, 'completionDate', e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
                 className="h-6 text-[11px] text-center border-none outline-none shadow-none focus-visible:ring-0 bg-transparent w-full p-0 rounded-none"
               />
             </td>
@@ -347,6 +350,7 @@ function GroupBlock({ block, onUpdateProcessStep, onUpdateBlockField, readOnly }
                type="date"
                value={block.date || ""}
                onChange={(e) => onUpdateBlockField(block.id, 'date', e.target.value)}
+               max={new Date().toISOString().split('T')[0]}
                className="h-6 flex-1 text-[11px] border-none bg-transparent px-1 focus-visible:ring-0 shadow-none rounded-none"
             />
           </div>

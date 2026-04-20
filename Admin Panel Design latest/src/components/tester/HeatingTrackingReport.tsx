@@ -137,13 +137,29 @@ export function HeatingTrackingReport({ order, transformer, user, onBack }: Heat
   const updateProcessStep = (_blockId: string, processIndex: number, field: keyof ProcessStep, value: string) => {
     if (!record) return;
     const newSteps = [...record.processSteps];
-    newSteps[processIndex] = { ...newSteps[processIndex], [field]: value };
+    
+    // Strict future date validation
+    let finalizedValue = value;
+    if (field === 'startDate' || field === 'completionDate') {
+      const today = new Date().toISOString().split('T')[0];
+      if (value && value > today) finalizedValue = today;
+    }
+
+    newSteps[processIndex] = { ...newSteps[processIndex], [field]: finalizedValue };
     setRecord({ ...record, processSteps: newSteps });
   };
 
   const updateBlockField = (_blockId: string, field: keyof HeatingRecordBlock, value: any) => {
     if (!record) return;
-    setRecord({ ...record, [field]: value });
+
+    // Strict future date validation
+    let finalizedValue = value;
+    if (field === 'startDate' || field === 'date') {
+      const today = new Date().toISOString().split('T')[0];
+      if (typeof value === 'string' && value > today) finalizedValue = today;
+    }
+
+    setRecord({ ...record, [field]: finalizedValue });
   };
 
   const handleSave = async (isApprove: boolean = false) => {

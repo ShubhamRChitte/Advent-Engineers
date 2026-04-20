@@ -1411,7 +1411,14 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                       <td key={column.id} className="p-2 border border-gray-300 bg-white">
                         <Input
                           value={String(row.dynamicValues[column.id] || '')}
-                          onChange={(e) => handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                            if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                          }}
+                          onChange={(e) => {
+                            const filtered = e.target.value.replace(/[^0-9+\-.]/g, '');
+                            handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: filtered });
+                          }}
                           className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue) ? 'bg-red-50 text-red-700' : ''
                             }`}
                           placeholder="9.5"
@@ -2039,7 +2046,14 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                       <td key={column.id} className="p-2 border border-gray-300 bg-white">
                         <Input
                           value={String(row.dynamicValues[column.id] || '')}
-                          onChange={(e) => handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                            if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                          }}
+                          onChange={(e) => {
+                            const filtered = e.target.value.replace(/[^0-9+\-.]/g, '');
+                            handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: filtered });
+                          }}
                           className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue ?? '0') ? 'bg-red-50 text-red-700' : ''
                             }`}
                           placeholder="9.5"
@@ -2688,7 +2702,14 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                     <td key={column.id} className="p-2 border border-gray-300 bg-white">
                       <Input
                         value={String(row.dynamicValues[column.id] || '')}
-                        onChange={(e) => handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                          if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                        }}
+                        onChange={(e) => {
+                          const filtered = e.target.value.replace(/[^0-9+\-.]/g, '');
+                          handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: filtered });
+                        }}
                         className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue || '0') ? 'bg-red-50 text-red-700' : ''
                           }`}
                         placeholder="9.5"

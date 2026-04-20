@@ -174,11 +174,11 @@ export function SecondaryProtectionReport({
             const safeStr = (val: any) => (val !== undefined && val !== null) ? String(val) : '';
             return {
               ...row,
-              ratioError100: safeStr(saved.ratioError100 || saved.burden100_1),
-              phaseError: safeStr(saved.phaseError || saved.burden100_2),
+              ratioError100: safeStr(saved.ratioError100 ?? saved.burden100_1),
+              phaseError: safeStr(saved.phaseError ?? saved.burden100_2),
               resistance: safeStr(saved.resistance),
               alf: safeStr(saved.alf),
-              secondaryLimitingVoltage: safeStr(saved.secondaryLimitingVoltage || saved.secondaryLimitingVtg),
+              secondaryLimitingVoltage: safeStr(saved.secondaryLimitingVoltage ?? saved.secondaryLimitingVtg),
               excitationCurrent: safeStr(saved.excitationCurrent),
               compositeError: safeStr(saved.compositeError),
               isPass: saved.isPass,
@@ -236,13 +236,12 @@ export function SecondaryProtectionReport({
                 return {
                   ...row,
                   // Map legacy burden fields to new error fields if necessary, or use new fields
-                  ratioError100: safeStr(saved.ratioError100 || saved.burden100_1),
-                  phaseError: safeStr(saved.phaseError || saved.burden100_2),
-
+                  ratioError100: safeStr(saved.ratioError100 ?? saved.burden100_1),
+                  phaseError: safeStr(saved.phaseError ?? saved.burden100_2),
                   resistance: safeStr(saved.resistance),
                   alf: safeStr(saved.alf),
-                  secondaryLimitingVoltage: safeStr(saved.secondaryLimitingVoltage || saved.secondaryLimitingVtg),
-                  excitationCurrent: safeStr(saved.excitationCurrent),
+                  secondaryLimitingVoltage: safeStr(saved.secondaryLimitingVoltage ?? saved.secondaryLimitingVtg),
+                  excitationCurrent: safeStr(saved.excitationCurrent ?? saved.excitationCurr),
                   compositeError: safeStr(saved.compositeError),
                   isPass: saved.isPass,
                   reason: saved.reason,
@@ -787,7 +786,11 @@ export function SecondaryProtectionReport({
                           <Input
                             className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full shadow-none"
                             value={row.ratioError100}
-                            onChange={(e) => handleInputChange(index, 'ratioError100', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                            }}
+                            onChange={(e) => handleInputChange(index, 'ratioError100', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                             placeholder=""
                             disabled={readOnly}
                           />
@@ -804,7 +807,11 @@ export function SecondaryProtectionReport({
                           <Input
                             className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full shadow-none"
                             value={row.phaseError}
-                            onChange={(e) => handleInputChange(index, 'phaseError', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                            }}
+                            onChange={(e) => handleInputChange(index, 'phaseError', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                             placeholder=""
                             disabled={readOnly}
                           />
@@ -848,7 +855,11 @@ export function SecondaryProtectionReport({
                           <Input
                             className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full shadow-none"
                             value={row.resistance}
-                            onChange={(e) => handleInputChange(index, 'resistance', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                            }}
+                            onChange={(e) => handleInputChange(index, 'resistance', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                             disabled={readOnly}
                           />
                         )}
@@ -863,8 +874,11 @@ export function SecondaryProtectionReport({
                           <Input
                             className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full shadow-none"
                             value={row.alf}
-                            onChange={(e) => handleInputChange(index, 'alf', e.target.value)}
-                            placeholder=""
+                            onKeyDown={(e) => {
+                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                            }}
+                            onChange={(e) => handleInputChange(index, 'alf', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                             disabled={readOnly}
                           />
                         )}
@@ -878,7 +892,11 @@ export function SecondaryProtectionReport({
                           <Input
                             className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full shadow-none"
                             value={row.excitationCurrent}
-                            onChange={(e) => handleInputChange(index, 'excitationCurrent', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                            }}
+                            onChange={(e) => handleInputChange(index, 'excitationCurrent', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                             disabled={readOnly}
                           />
                         )}

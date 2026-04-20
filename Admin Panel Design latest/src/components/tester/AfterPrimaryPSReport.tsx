@@ -514,26 +514,51 @@ export function AfterPrimaryPSReport({
                       </td>
                       <td className="border border-gray-400 p-0" rowSpan={2}>
                         <Input className={`border-none text-center h-16 shadow-none font-bold bg-transparent ${calculateRowStatus(row) === false ? 'text-red-700' : 'text-blue-800'}`}
-                          value={row.turnRatioError} onChange={e => handleUpdate(i, 'turnRatioError', e.target.value)} />
+                          value={row.turnRatioError} 
+                          onKeyDown={(e) => {
+                            if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                            if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                          }}
+                          onChange={e => handleUpdate(i, 'turnRatioError', e.target.value.replace(/[^0-9+\-.]/g, ''))} />
                       </td>
                       <td className="border border-gray-400 p-0" rowSpan={2}>
                         <Input className="border-none text-center h-16 shadow-none text-blue-800 font-bold bg-transparent"
-                          value={row.resistance} onChange={e => handleUpdate(i, 'resistance', e.target.value)} />
+                          value={row.resistance} 
+                          onKeyDown={(e) => {
+                            if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                            if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                          }}
+                          onChange={e => handleUpdate(i, 'resistance', e.target.value.replace(/[^0-9+\-.]/g, ''))} />
                       </td>
                       <td className="bg-white border-b-0 h-8">
                         <div className="flex items-center px-1">
                           <span className="font-bold text-[#0070c0]">Vk :</span>
                           <Input className="border-none text-[#0070c0] font-bold h-6 shadow-none flex-1 text-center"
-                            value={row.vk} onChange={e => handleUpdate(i, 'vk', e.target.value)} />
+                            value={row.vk} 
+                            onKeyDown={(e) => {
+                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                            }}
+                            onChange={e => handleUpdate(i, 'vk', e.target.value.replace(/[^0-9+\-.]/g, ''))} />
                         </div>
                       </td>
                       <td className="border border-gray-400 p-0" rowSpan={2}>
                         <Input className={`border-none text-center h-16 shadow-none font-bold bg-transparent ${calculateRowStatus(row) === false ? 'text-red-700' : 'text-blue-800'}`}
-                          value={row.iexVk} onChange={e => handleUpdate(i, 'iexVk', e.target.value)} />
+                          value={row.iexVk} 
+                          onKeyDown={(e) => {
+                            if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                            if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                          }}
+                          onChange={e => handleUpdate(i, 'iexVk', e.target.value.replace(/[^0-9+\-.]/g, ''))} />
                       </td>
                       <td className="border border-gray-400 p-0" rowSpan={2}>
                         <Input className={`border-none text-center h-16 shadow-none font-bold bg-transparent ${calculateRowStatus(row) === false ? 'text-red-700' : 'text-blue-800'}`}
-                          value={row.iex11Vk} onChange={e => handleUpdate(i, 'iex11Vk', e.target.value)} />
+                          value={row.iex11Vk} 
+                          onKeyDown={(e) => {
+                            if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                            if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                          }}
+                          onChange={e => handleUpdate(i, 'iex11Vk', e.target.value.replace(/[^0-9+\-.]/g, ''))} />
                       </td>
                     </tr>
                     <tr className="border-b border-gray-400">
@@ -541,7 +566,12 @@ export function AfterPrimaryPSReport({
                         <div className="flex items-center px-1">
                           <span className="font-bold text-[#0070c0]">1.1Vk :</span>
                           <Input className="border-none text-[#0070c0] font-bold h-6 shadow-none flex-1 text-center"
-                            value={row.vkVal} onChange={e => handleUpdate(i, 'vkVal', e.target.value)} />
+                            value={row.vkVal} 
+                            onKeyDown={(e) => {
+                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                            }}
+                            onChange={e => handleUpdate(i, 'vkVal', e.target.value.replace(/[^0-9+\-.]/g, ''))} />
                         </div>
                       </td>
                     </tr>

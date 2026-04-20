@@ -595,7 +595,11 @@ function MeteringTable({ ratio, rows, onUpdate, readOnly }: { ratio: string, row
                   <Input
                     className={`h-7 text-xs text-center border-none shadow-none focus-visible:ring-1 disabled:opacity-100 disabled:cursor-not-allowed bg-transparent ${row.r100_pass === false ? 'text-red-700 font-bold' : ''}`}
                     value={row.r100}
-                    onChange={(e) => onUpdate(idx, 'r100', e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                      if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                    }}
+                    onChange={(e) => onUpdate(idx, 'r100', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                     disabled={readOnly}
                   />
                 )}
@@ -610,7 +614,11 @@ function MeteringTable({ ratio, rows, onUpdate, readOnly }: { ratio: string, row
                   <Input
                     className={`h-7 text-xs text-center border-none shadow-none disabled:opacity-100 disabled:cursor-not-allowed bg-transparent ${row.r100_pass === false ? 'text-red-700 font-bold' : ''}`}
                     value={row.p100}
-                    onChange={(e) => onUpdate(idx, 'p100', e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                      if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                    }}
+                    onChange={(e) => onUpdate(idx, 'p100', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                     disabled={readOnly}
                   />
                 )}
@@ -625,7 +633,11 @@ function MeteringTable({ ratio, rows, onUpdate, readOnly }: { ratio: string, row
                   <Input
                     className={`h-7 text-xs text-center border-none shadow-none disabled:opacity-100 disabled:cursor-not-allowed bg-transparent ${row.r25_pass === false ? 'text-red-700 font-bold' : ''}`}
                     value={row.r25}
-                    onChange={(e) => onUpdate(idx, 'r25', e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                      if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                    }}
+                    onChange={(e) => onUpdate(idx, 'r25', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                     disabled={readOnly}
                   />
                 )}
@@ -640,7 +652,11 @@ function MeteringTable({ ratio, rows, onUpdate, readOnly }: { ratio: string, row
                   <Input
                     className={`h-7 text-xs text-center border-none shadow-none disabled:opacity-100 disabled:cursor-not-allowed bg-transparent ${row.r25_pass === false ? 'text-red-700 font-bold' : ''}`}
                     value={row.p25}
-                    onChange={(e) => onUpdate(idx, 'p25', e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                      if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                    }}
+                    onChange={(e) => onUpdate(idx, 'p25', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                     disabled={readOnly}
                   />
                 )}
