@@ -2,15 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Card } from '../ui/card';
-import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import {
   Bell,
   CheckCircle,
   Clock,
   ExternalLink,
-  Loader2,
-  Trash2
+  Loader2
 } from 'lucide-react';
 
 interface Order {
