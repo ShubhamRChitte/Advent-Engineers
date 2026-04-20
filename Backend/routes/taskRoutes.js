@@ -556,24 +556,7 @@ router.get('/admin/orders', isAuthenticated, async (req, res) => {
   }
 });
 
-// ✅ ADMIN NOTIFICATIONS
-router.get('/admin/notifications', isAuthenticated, async (req, res) => {
-  try {
-    const { OrderModel } = require('../models/OrderModel');
-    // Fetch orders that are either "Pending Approval" OR have isRead: false
-    // Sort by newest first
-    const notifications = await OrderModel.find({
-      $or: [
-        { status: "Pending Approval" },
-        { isRead: false }
-      ]
-    }).sort({ createdAt: -1 });
-
-    res.json(notifications);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// (ADmin Notifications moved to notificationRoutes.js)
 
 
 // --- NEW ENDPOINT: Client Stats for Reports ---

@@ -1,598 +1,244 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import {
   Bell,
-  Package,
-  Users,
-  Calendar,
-  Edit,
   CheckCircle,
   Clock,
-  Zap,
-  Shield,
-  Award,
-  User,
-  ChevronRight,
-  X
+  ExternalLink,
+  Loader2,
+  Trash2
 } from 'lucide-react';
 
-interface Employee {
-  _id: string; // Changed to match API
-  fullName: string; // Changed to match API
-  designation: string; // Changed to match API
-  department: string;
-}
-
-interface TestAssignment {
-  testStage: 'Core Test' | 'Secondary Test' | 'After Primary Test' | 'Final Test';
-  assignedEmployees: Employee[]; // Changed to Array to support split assignments
-  status: 'Pending' | 'In Progress' | 'Completed';
-  icon: any;
-  color: string;
-}
-
-interface OrderNotification {
-  id: string;
-  orderId: string;
-  message: string;
+interface Order {
+  _id: string;
+  jobId: string;
   clientName: string;
   transformerName: string;
   transformerType: string;
-  quantity: number;
-  orderDate: string;
-  addedBy: string;
-  timestamp: string;
-  isRead: boolean;
-  isApproved: boolean;
-  testAssignments: TestAssignment[];
+  status: string;
 }
 
+interface Notification {
+  _id: string;
+  orderId: Order | string;
+  jobId: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  createdAt: string;
+}
 
+interface NotificationsModuleProps {
+  onNavigateToOrder?: (orderId: string) => void;
+  isActive?: boolean;
+}
 
-export function NotificationsModule() {
-  const [notifications, setNotifications] = useState<OrderNotification[]>([]);
+export function NotificationsModule({ onNavigateToOrder, isActive }: NotificationsModuleProps) {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  // Fetch Data
-  useEffect(() => {
-    fetchTesters();
-    fetchNotifications();
+  const fetchNotifications = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    try {
+      const response = await axios.get('http://localhost:5000/api/notifications/admin', {
+        withCredentials: true
+      });
+      if (response.data.success) {
+        const newNotifications = response.data.notifications;
+        
+        // Smart Polling: Only update if data changed (length or newest ID)
+        setNotifications(prev => {
+          if (prev.length === newNotifications.length && prev[0]?._id === newNotifications[0]?._id) {
+            return prev;
+          }
+          return newNotifications;
+        });
+        setError(null);
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch notifications", err);
+      setError("Failed to load notifications. Please try again.");
+    } finally {
+      if (!isSilent) setLoading(false);
+    }
   }, []);
 
-  const fetchTesters = async () => {
-    try {
-      const response = await axios.get('http://localhost:5000/auth/testers');
-      if (response.data.success) {
-        setEmployees(response.data.users);
+  useEffect(() => {
+    fetchNotifications();
+
+    // Smart Polling Logic: Only poll when tab is visible AND this view is active
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible' && isActive) {
+        fetchNotifications(true);
       }
-    } catch (error) {
-      console.error("Failed to fetch testers", error);
-    }
-  };
+    }, 10000);
 
-  const fetchNotifications = async () => {
-    try {
-      const response = await axios.get('http://localhost:5000/api/admin/notifications', {
-        withCredentials: true
-      });
-
-      const pendingOrders = response.data || [];
-      const isPTOrder = (order: any) => {
-        const rawType = String(order?.transformerType || order?.type || '').toLowerCase();
-        return rawType === 'pt' || rawType.includes('potential');
-      };
-      const transformed: OrderNotification[] = pendingOrders.map((order: any) => ({
-        id: order._id,
-        orderId: order.jobId,
-        message: 'A new order has been added',
-        clientName: order.clientName,
-        transformerName: `Transformer (x${order.noOfCores || order.numberOfCores || '?'})`,
-        transformerType: order.transformerType || order.type || 'N/A',
-        quantity: order.quantity || 1,
-        orderDate: new Date(order.createdAt).toLocaleDateString(),
-        addedBy: 'Entry Operator',
-        timestamp: new Date(order.createdAt).toLocaleString(),
-        isRead: order.isRead || false,
-        isApproved: order.status !== 'Pending Approval',
-        testAssignments: (() => {
-          const stages = isPTOrder(order)
-            ? (['PT Test'] as const)
-            : (['Core Test', 'Secondary Test', 'After Primary Test', 'Final Test'] as const);
-          const stageMap: Record<string, string> = {
-            'core': 'Core Test',
-            'secondary': 'Secondary Test',
-            'primary': 'After Primary Test',
-            'final': 'Final Test',
-            'pt': 'PT Test'
-          };
-
-          return stages.map(stageName => {
-            // Find ALL assignments for this stage (Split Assignments Support)
-            const stageKey = Object.keys(stageMap).find(key => stageMap[key] === stageName);
-            const foundAssignments = order.assignments?.filter((a: any) => stageMap[a.stage] === stageName) || [];
-
-            let assignedEmps: Employee[] = [];
-
-            if (foundAssignments.length > 0) {
-              assignedEmps = foundAssignments.map((a: any) => ({
-                _id: a.testerName, // Using name as ID if ID not present, mainly for display
-                fullName: a.testerName,
-                designation: stageName.replace('Test', 'Tester'),
-                department: 'Testing'
-              }));
-            } else {
-              assignedEmps = [{ _id: 'unassigned', fullName: 'Unassigned', designation: 'Tester', department: 'Testing' }];
-            }
-
-            let icon = Zap;
-            let color = 'purple';
-            if (stageName === 'Secondary Test') { icon = Shield; color = 'blue'; }
-            if (stageName === 'After Primary Test') { icon = Clock; color = 'orange'; }
-            if (stageName === 'Final Test') { icon = Award; color = 'green'; }
-
-            return {
-              testStage: stageName,
-              assignedEmployees: assignedEmps,
-              status: foundAssignments.length > 0 ? 'Assigned' : 'Pending',
-              icon,
-              color
-            };
-          });
-        })()
-      }));
-      setNotifications(transformed);
-    } catch (error) {
-      console.error("Failed to fetch notifications", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const [selectedNotification, setSelectedNotification] = useState<OrderNotification | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingAssignment, setEditingAssignment] = useState<TestAssignment | null>(null);
-  const [selectedEmployee, setSelectedEmployee] = useState<string>('');
-
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  const handleMarkAsRead = (notificationId: string) => {
-    setNotifications(notifications.map(n =>
-      n.id === notificationId ? { ...n, isRead: true } : n
-    ));
-  };
-
-  const handleEditAssignment = (notification: OrderNotification, assignment: TestAssignment) => {
-    setSelectedNotification(notification);
-    setEditingAssignment(assignment);
-    // If multiple, just select the first one or empty? Default to empty to force selection
-    setSelectedEmployee('');
-    setIsEditDialogOpen(true);
-  };
-
-  // Save Assignment Change
-  const handleSaveAssignment = async () => {
-    if (!selectedNotification || !editingAssignment || !selectedEmployee) return;
-
-    const newEmployee = employees.find(e => e._id === selectedEmployee);
-
-    if (!newEmployee) return;
-
-    const stageKeyMap: Record<string, string> = {
-      'Core Test': 'core_tester',
-      'Secondary Test': 'secondary_tester',
-      'After Primary Test': 'primary_tester',
-      'Final Test': 'final_tester'
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isActive) {
+        fetchNotifications(true);
+      }
     };
 
-    const assignKey = stageKeyMap[editingAssignment.testStage];
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // NOTE: This currently updates the "Legacy" single assignment field if the backend supports it,
-    // OR it might need to update the array. 
-    // Given the previous code used `assignments.${assignKey}`, it likely targets the object structure.
-    // If we want to support split assignments fully in EDIT, we'd need a more complex UI.
-    // For now, this acts as "Override all with this single tester" or "Add to legacy field".
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [fetchNotifications, isActive]);
 
-    if (assignKey) {
-      try {
-        await axios.put(`http://localhost:5000/api/orders/${selectedNotification.id}`, {
-          [`assignments.${assignKey}`]: newEmployee.fullName // Store Name
-        }, { withCredentials: true });
+  const handleMarkAllRead = async () => {
+    // Optimistic UI Update
+    const previousNotifications = [...notifications];
+    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
 
-        toast.success("Assignment updated!");
-      } catch (e) {
-        console.error("Failed to update assignment", e);
-        toast.error("Failed to update assignment");
-      }
-    }
-
-    // Optimistic Update
-    setNotifications(notifications.map(n => {
-      if (n.id === selectedNotification.id) {
-        return {
-          ...n,
-          testAssignments: n.testAssignments.map(a =>
-            a.testStage === editingAssignment.testStage
-              ? { ...a, assignedEmployees: [newEmployee] } // Replaces list with single new user
-              : a
-          ),
-        };
-      }
-      return n;
-    }));
-
-    setIsEditDialogOpen(false);
-    setEditingAssignment(null);
-    setSelectedEmployee('');
-  };
-
-  const handleApproveOrder = async (notificationId: string) => {
     try {
-      const response = await axios.put(`http://localhost:5000/api/orders/${notificationId}/approve`, {}, {
+      const response = await axios.put('http://localhost:5000/api/notifications/mark-read', {}, {
         withCredentials: true
       });
-
       if (response.data.success) {
-        toast.success("Order approved and transformers generated!");
-        setNotifications(notifications.map(n =>
-          n.id === notificationId ? { ...n, isApproved: true, isRead: true } : n
-        ));
-        fetchNotifications(); // Refresh entire list
+        toast.success("All notifications marked as read");
       }
-    } catch (error: any) {
-      console.error("Approval failed", error);
-      toast.error("Approval failed: " + (error.response?.data?.message || error.message));
+    } catch (err) {
+      setNotifications(previousNotifications);
+      toast.error("Failed to mark as read");
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Completed':
-        return 'bg-green-100 text-green-700 border-green-300';
-      case 'In Progress':
-        return 'bg-blue-100 text-blue-700 border-blue-300';
-      case 'Pending':
-        return 'bg-yellow-100 text-yellow-700 border-yellow-300';
-      default:
-        return 'bg-gray-100 text-gray-700 border-gray-300';
+  const handleMarkSingleRead = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Optimistic update
+    setNotifications(notifications.map(n => n._id === id ? { ...n, isRead: true } : n));
+    try {
+      await axios.put(`http://localhost:5000/api/notifications/${id}/read`, {}, { withCredentials: true });
+    } catch (err) {
+      console.error("Failed to mark read", err);
     }
   };
 
-  const getTestColor = (color: string) => {
-    switch (color) {
-      case 'purple':
-        return 'bg-purple-500';
-      case 'blue':
-        return 'bg-blue-500';
-      case 'orange':
-        return 'bg-orange-500';
-      case 'green':
-        return 'bg-green-500';
-      default:
-        return 'bg-gray-500';
+  const handleAlertClick = (notification: Notification) => {
+    const orderId = typeof notification.orderId === 'object' ? notification.orderId._id : notification.orderId;
+    if (onNavigateToOrder && orderId) {
+      onNavigateToOrder(orderId);
     }
   };
+
+  if (loading && notifications.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 space-y-4">
+        <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+        <p className="text-gray-500 animate-pulse">Loading updates...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h2>Notifications & Updates</h2>
-          <p className="text-gray-500 mt-1">New orders and employee assignments</p>
+          <h2 className="text-2xl font-bold text-slate-800">Alerts & Milestones</h2>
+          <p className="text-slate-500 mt-1">Real-time alerts for completed transformer orders</p>
         </div>
-        <Badge className="bg-blue-600 text-white px-4 py-2 text-sm">
-          <Bell className="w-4 h-4 mr-2" />
-          {unreadCount} New
-        </Badge>
+        
+        <div className="flex items-center gap-3">
+          {notifications.some(n => !n.isRead) && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleMarkAllRead}
+              className="text-slate-600 hover:text-blue-600 border-slate-200"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Mark all as read
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" onClick={() => fetchNotifications()} title="Refresh">
+            <Clock className={`w-5 h-5 text-slate-400 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-blue-700">Total Notifications</p>
-              <h3 className="mt-1 text-blue-900">{notifications.length}</h3>
-            </div>
-            <div className="p-3 bg-blue-500 rounded-lg">
-              <Bell className="w-6 h-6 text-white" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-orange-700">Unread</p>
-              <h3 className="mt-1 text-orange-900">{unreadCount}</h3>
-            </div>
-            <div className="p-3 bg-orange-500 rounded-lg">
-              <Bell className="w-6 h-6 text-white" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-green-700">New Orders</p>
-              <h3 className="mt-1 text-green-900">
-                {notifications.filter(n => !n.isRead).length}
-              </h3>
-            </div>
-            <div className="p-3 bg-green-500 rounded-lg">
-              <Package className="w-6 h-6 text-white" />
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Notifications List */}
-      <div className="space-y-4">
-        {notifications.map((notification) => (
-          <Card
-            key={notification.id}
-            className={`p-6 ${!notification.isRead ? 'border-l-4 border-l-blue-600 bg-blue-50/30' : ''}`}
-          >
-            <div className="space-y-4">
-              {/* Notification Header */}
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4 flex-1">
-                  <div className={`p-3 rounded-lg ${!notification.isRead ? 'bg-blue-500' : 'bg-gray-400'}`}>
-                    <Bell className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h3 className="text-gray-900 mb-1">{notification.message}</h3>
-                        <p className="text-sm text-gray-600">{notification.orderId}</p>
-                      </div>
-                      {!notification.isRead && (
-                        <Badge className="bg-blue-600 text-white">New</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-500">
-                      Added by {notification.addedBy} • {notification.timestamp}
-                    </p>
-                  </div>
-                </div>
-                {!notification.isRead && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleMarkAsRead(notification.id)}
-                    className="gap-2"
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    Mark as Read
-                  </Button>
-                )}
-              </div>
-
-              {/* Order Details */}
-              <div className="p-4 bg-white rounded-lg border border-gray-200">
-                <h4 className="text-sm text-gray-700 mb-3">Order Details</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Client Name</p>
-                    <p className="text-sm font-medium text-gray-900">{notification.clientName}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Transformer</p>
-                    <p className="text-sm font-medium text-gray-900">{notification.transformerName}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Quantity</p>
-                    <div className="flex items-center gap-1">
-                      <Package className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm font-medium text-gray-900">{notification.quantity} units</span>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Order Date</p>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm font-medium text-gray-900">{notification.orderDate}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Test Assignments */}
-              <div>
-                <h4 className="text-sm text-gray-700 mb-3">Employee Assignments</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {notification.testAssignments.map((assignment, index) => {
-                    const Icon = assignment.icon;
-                    return (
-                      <div
-                        key={index}
-                        className="p-4 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <div className={`p-2 ${getTestColor(assignment.color)} rounded-lg`}>
-                              <Icon className="w-4 h-4 text-white" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{assignment.testStage}</p>
-                              <Badge className={`mt-1 ${getStatusColor(assignment.status)}`}>
-                                {assignment.status}
-                              </Badge>
-                            </div>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditAssignment(notification, assignment)}
-                            className="gap-1"
-                          >
-                            <Edit className="w-3 h-3" />
-                            Change
-                          </Button>
-                        </div>
-
-                        {/* List all assigned employees */}
-                        <div className="space-y-1">
-                          {assignment.assignedEmployees.map((emp, i) => (
-                            <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                              <User className="w-4 h-4 text-gray-500" />
-                              <div>
-                                <p className="text-sm font-medium text-gray-900">{emp.fullName}</p>
-                                <p className="text-xs text-gray-500">{emp.designation}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Approval Section */}
-              {!notification.isApproved ? (
-                <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border-2 border-green-200">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-900 mb-1">Order Approval Required</h4>
-                      <p className="text-sm text-gray-600">
-                        This order will be confirmed and processed after your approval.
-                      </p>
-                    </div>
-                    <Button
-                      onClick={() => handleApproveOrder(notification.id)}
-                      className="bg-green-600 hover:bg-green-700 gap-2"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      Approve Order
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 bg-gradient-to-r from-green-100 to-emerald-100 rounded-lg border-2 border-green-300">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                    <div>
-                      <h4 className="text-sm font-medium text-green-900">Order Approved</h4>
-                      <p className="text-sm text-green-700">
-                        This order has been confirmed and is being processed.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      {notifications.length === 0 && (
-        <Card className="p-12">
-          <div className="text-center text-gray-500">
-            <Bell className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-            <p>No notifications</p>
-            <p className="text-sm mt-1">New order notifications will appear here</p>
-          </div>
+      {error && (
+        <Card className="p-4 border-red-200 bg-red-50 text-red-700 flex items-center justify-between">
+          <p className="text-sm">{error}</p>
+          <Button variant="ghost" size="sm" onClick={() => fetchNotifications()}>Retry</Button>
         </Card>
       )}
 
-      {/* Edit Assignment Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit className="w-5 h-5 text-blue-600" />
-              Change Employee Assignment
-            </DialogTitle>
-          </DialogHeader>
-          {editingAssignment && selectedNotification && (
-            <div className="space-y-4 mt-4">
-              {/* Test Stage Info */}
-              <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  {(() => {
-                    const Icon = editingAssignment.icon;
-                    return <Icon className="w-5 h-5 text-blue-600" />;
-                  })()}
-                  <h3 className="text-gray-900">{editingAssignment.testStage}</h3>
-                </div>
-                <p className="text-sm text-gray-600">Order: {selectedNotification.orderId}</p>
-                <p className="text-sm text-gray-600">Client: {selectedNotification.clientName}</p>
-              </div>
-
-              {/* Current Assignments */}
-              <div>
-                <label className="text-sm text-gray-700 mb-2 block">Current Employee(s)</label>
-                <div className="space-y-2">
-                  {editingAssignment.assignedEmployees.map((emp, i) => (
-                    <div key={i} className="p-3 bg-gray-50 rounded-lg flex items-center gap-2">
-                      <User className="w-5 h-5 text-gray-500" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {emp.fullName}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {emp.designation}
-                        </p>
-                      </div>
+      <div className="space-y-3">
+        {notifications.length > 0 ? (
+          notifications.map((notification) => {
+            const orderDoc = typeof notification.orderId === 'object' ? notification.orderId : null;
+            
+            return (
+              <Card 
+                key={notification._id}
+                className={`group cursor-pointer transition-all duration-200 hover:shadow-md hover:border-blue-300 relative overflow-hidden ${
+                  !notification.isRead ? 'border-l-4 border-l-blue-600 bg-blue-50/50' : 'bg-white'
+                }`}
+                onClick={() => handleAlertClick(notification)}
+              >
+                <div className="p-4 flex items-start gap-4">
+                  <div className={`p-3 rounded-xl ${!notification.isRead ? 'bg-blue-600' : 'bg-slate-100'}`}>
+                    <Bell className={`w-5 h-5 ${!notification.isRead ? 'text-white' : 'text-slate-400'}`} />
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <h4 className={`text-base font-semibold truncate ${!notification.isRead ? 'text-blue-900' : 'text-slate-700'}`}>
+                        {notification.message}
+                      </h4>
+                      <span className="text-xs text-slate-400 whitespace-nowrap ml-4">
+                        {new Date(notification.createdAt).toLocaleString()}
+                      </span>
                     </div>
-                  ))}
+                    
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
+                      {orderDoc && (
+                        <>
+                          <span className="font-medium text-slate-700">Client: {orderDoc.clientName}</span>
+                          <span className="px-2 py-0.5 bg-slate-100 rounded text-xs">Job ID: {orderDoc.jobId}</span>
+                        </>
+                      )}
+                      {!orderDoc && <span>Order: {notification.jobId}</span>}
+                    </div>
+                  </div>
+
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
+                    {!notification.isRead && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-slate-400 hover:text-blue-600"
+                        onClick={(e) => handleMarkSingleRead(notification._id, e)}
+                        title="Mark as read"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <div className="text-blue-600 p-2">
+                      <ExternalLink className="w-4 h-4" />
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              {/* New Assignment Selection */}
-              <div>
-                <label className="text-sm text-gray-700 mb-2 block">Select New Employee</label>
-                <select
-                  value={selectedEmployee}
-                  onChange={(e) => setSelectedEmployee(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Choose an employee...</option>
-                  {employees.map((employee) => (
-                    <option key={employee._id} value={employee._id}>
-                      {employee.fullName} - {employee.designation}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-400 mt-1">
-                  Note: This will override existing assignments for this stage (Legacy Mode).
-                </p>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-2 pt-4">
-                <Button
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2"
-                  onClick={handleSaveAssignment}
-                  disabled={!selectedEmployee}
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  Save Assignment
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => {
-                    setIsEditDialogOpen(false);
-                    setEditingAssignment(null);
-                    setSelectedEmployee('');
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+              </Card>
+            );
+          })
+        ) : !loading && (
+          <div className="text-center py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+            <Bell className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-slate-600">No completed orders yet</h3>
+            <p className="text-slate-400 max-w-xs mx-auto mt-2">
+              Completed order alerts will appear here in real-time once testers finish final stages.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

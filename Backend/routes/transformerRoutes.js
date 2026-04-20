@@ -217,14 +217,18 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
                     if (stage === 'final') order.completionStages.final = true;
                 }
 
-                const { clearNotifications, notifyNextStage } = require('../services/notificationService');
+                const { clearNotifications, notifyNextStage, handleOrderCompletion } = require('../services/notificationService');
                 
                 // Clear notifications for the current stage/order
                 await clearNotifications(order._id, stage);
 
                 if (stage === 'final') {
+                    const oldStatus = order.status;
                     order.currentStage = 'completed';
-                    order.status = 'Completed';
+                    order.status = 'COMPLETED'; // Normalize to Uppercase
+                    
+                    // Trigger completion notification with old status for transition check
+                    await handleOrderCompletion(order, oldStatus);
                 } else {
                     order.currentStage = nextStage;
                     await notifyNextStage(order, nextStage);

@@ -50,6 +50,8 @@ mongoose
     }
 
     await seedCoreVendors();
+    const { runInitialMigration } = require('./services/notificationService');
+    await runInitialMigration();
   })
   .catch((err) => console.error(err));
 

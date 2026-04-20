@@ -79,7 +79,7 @@ const OrderSchema = new Schema(
     isRead: { type: Boolean, default: false }, // For Admin Notification badge
     status: {
       type: String,
-      enum: ["Pending Approval", "In Progress", "Completed", "Core Testing In Progress", "Core Testing Completed", "PT Testing In Progress", "PT Testing Completed"],
+      enum: ["Pending Approval", "In Progress", "COMPLETED", "Core Testing In Progress", "Core Testing Completed", "PT Testing In Progress", "PT Testing Completed"],
       default: "Pending Approval"
     },
     priority: { type: String, enum: ["High", "Medium", "Low"], default: "Medium" },

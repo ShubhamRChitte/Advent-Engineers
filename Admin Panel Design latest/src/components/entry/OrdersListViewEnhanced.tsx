@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -19,6 +19,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import '../../styles/animations.css';
 
 interface Order {
   _id: string;
@@ -27,10 +28,10 @@ interface Order {
   transformerName: string;
   transformerType: string;
   quantity: number;
-  createdAt: string; // API returns createdAt
+  createdAt: string; 
   status: string;
   priority: string;
-  currentStage: string; // API returns currentStage
+  currentStage: string;
   deadline?: string;
 }
 
@@ -38,25 +39,23 @@ interface OrdersListViewEnhancedProps {
   onViewOrder?: (order: Order) => void;
   onEditOrder?: (order: Order) => void;
   userRole?: string;
+  initialOrderId?: string | null;
+  onClearNav?: () => void;
 }
 
-export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps) {
+export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav }: OrdersListViewEnhancedProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<string>('all');
-  const [selectedOrder, _setSelectedOrder] = useState<Order | null>(() => {
-    const saved = localStorage.getItem('selectedOrder');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [selectedOrder, _setSelectedOrder] = useState<Order | null>(null);
+  
+  const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(null);
+  const scrollAttempted = useRef(false);
 
   const setSelectedOrder = (order: Order | null) => {
-    if (order) {
-      localStorage.setItem('selectedOrder', JSON.stringify(order));
-    } else {
-      localStorage.removeItem('selectedOrder');
-    }
     _setSelectedOrder(order);
   };
+
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,11 +65,9 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
       const response = await axios.get('http://localhost:5000/api/admin/orders', {
         withCredentials: true
       });
-      // Map API response to match interface if needed, or ensure backend sends orderId
-      // Assuming backend sends jobId, we map it to orderId for frontend consistency
       const mappedOrders = response.data.map((order: any) => ({
         ...order,
-        orderId: order.jobId || order.orderId || 'N/A' // Prioritize jobId
+        orderId: order.jobId || order.orderId || 'N/A'
       }));
       setOrders(mappedOrders);
     } catch (error) {
@@ -85,15 +82,42 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
     fetchOrders();
   }, []);
 
+  // Handle auto-scroll and highlight when navigating from notifications
+  useEffect(() => {
+    if (initialOrderId && orders.length > 0 && !scrollAttempted.current) {
+      const targetOrder = orders.find(o => o._id === initialOrderId);
+      if (targetOrder) {
+        // Switch to the correct tab if needed (assuming all for now, or match type)
+        // If it's a specific order, it likely matches the current filters or is in 'all'
+        
+        // Wait a tick for rendering
+        setTimeout(() => {
+          const element = document.getElementById(`order-${initialOrderId}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setHighlightedOrderId(initialOrderId);
+            scrollAttempted.current = true;
+            
+            // Cleanup highlight after 3 seconds
+            setTimeout(() => {
+              setHighlightedOrderId(null);
+              if (onClearNav) onClearNav();
+            }, 3000);
+          }
+        }, 100);
+      }
+    }
+  }, [initialOrderId, orders, onClearNav]);
+
   const handleApprove = async (orderId: string, event: React.MouseEvent) => {
-    event.stopPropagation(); // Prevent row click or expansion
+    event.stopPropagation();
     try {
       const response = await axios.put(`http://localhost:5000/api/orders/${orderId}/approve`, {}, {
         withCredentials: true
       });
       if (response.data.success) {
         toast.success("Order Approved & Units Generated");
-        fetchOrders(); // Refresh list
+        fetchOrders();
       }
     } catch (error) {
       console.error("Error approving order:", error);
@@ -128,42 +152,35 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
       case 'Core Testing In Progress':
         return 'bg-blue-100 text-blue-700 border-blue-300';
       case 'Completed':
+      case 'COMPLETED':
         return 'bg-green-100 text-green-700 border-green-300';
       default:
         return 'bg-gray-100 text-gray-700 border-gray-300';
     }
   };
 
-
   const filteredOrders = orders.filter((order) => {
     const orderId = String(order.orderId || '');
     const clientName = String(order.clientName || '');
     const transformerName = String(order.transformerName || '');
-    const status = String(order.status || ''); // Handle potentially undefined status
+    const status = String(order.status || '');
 
     const q = searchQuery.toLowerCase().trim();
     const normalOrderId = orderId.toLowerCase().replace(/\s+/g, '');
     const normalQuery = q.replace(/\s+/g, '');
 
-    // Safely extract "JOB-2026-051" from "TR-JOB-2026-051-001" or similar
     const extractedJobMatch = q.match(/job-?\d{4}-?\d{1,4}/i)?.[0];
-
     const isTransformerSearch = q.startsWith('tr-') && q.includes(normalOrderId);
-
     const jobMatch = normalOrderId.includes(normalQuery) ||
       (normalQuery.length > 5 && normalOrderId.length > 0 && normalQuery.includes(normalOrderId)) ||
       (extractedJobMatch && normalOrderId.includes(extractedJobMatch.toLowerCase().replace(/\s+/g, '')));
 
-    const matchesSearch =
-      jobMatch ||
-      isTransformerSearch ||
-      clientName.toLowerCase().includes(q) ||
-      transformerName.toLowerCase().includes(q);
+    const matchesSearch = jobMatch || isTransformerSearch || clientName.toLowerCase().includes(q) || transformerName.toLowerCase().includes(q);
 
-    // Status Filter Mapping
     if (selectedStatus === 'all') return matchesSearch;
     if (selectedStatus === 'Pending') return matchesSearch && status === 'Pending Approval';
-    if (selectedStatus === 'In Testing') return matchesSearch && status !== 'Pending Approval' && status !== 'Completed';
+    if (selectedStatus === 'In Testing') return matchesSearch && status !== 'Pending Approval' && status !== 'COMPLETED';
+    if (selectedStatus === 'Completed') return matchesSearch && (status === 'COMPLETED' || status === 'Completed');
     return matchesSearch && status === selectedStatus;
   });
 
@@ -172,10 +189,9 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
     Pending: orders.filter((o) => (o.status || '') === 'Pending Approval').length,
     Assigned: orders.filter((o) => (o.status || '') === 'Assigned' || (o.status || '') === 'In Progress').length,
     'In Testing': orders.filter((o) => (o.status || '').includes('Testing')).length,
-    Completed: orders.filter((o) => (o.status || '') === 'Completed').length,
+    Completed: orders.filter((o) => (o.status || '').toUpperCase() === 'COMPLETED' || (o.status || '') === 'Completed').length,
   };
 
-  // If an order is selected, show the detail view
   if (selectedOrder) {
     return (
       <OrderDetailView
@@ -191,7 +207,6 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2>Orders List</h2>
@@ -199,7 +214,6 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-300">
           <p className="text-sm text-gray-600">All Orders</p>
@@ -223,7 +237,6 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
         </Card>
       </div>
 
-      {/* Search and Filters */}
       <div className="flex gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -249,10 +262,9 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
         </div>
       </div>
 
-      {/* Orders List with Status Trackers */}
       <div className="space-y-4 overflow-x-auto pb-4">
-        <div className="min-w-[1200px]"> {/* Ensure minimum width to trigger scroll if needed */}
-          {loading ? <div className="text-center py-10">Loading orders...</div> : (
+        <div className="min-w-[1200px]">
+          {loading ? <div className="text-center py-10 text-gray-400 flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /> Loading orders...</div> : (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <div className="mb-4">
                 <TabsList className="bg-gray-100 p-1 rounded-lg">
@@ -267,32 +279,30 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
                   {filteredOrders
                     .filter(order => {
                       if (typeFilter === 'all') return true;
-                      
                       const type = (order.transformerType || '').toUpperCase();
-                      const isPT = type === 'PT';
-                      const isCT = type === 'CT';
-                      
-                      if (typeFilter === 'pt') return isPT;
-                      if (typeFilter === 'ct') return isCT;
+                      if (typeFilter === 'pt') return type === 'PT';
+                      if (typeFilter === 'ct') return type === 'CT';
                       return true;
                     })
                     .map((order) => {
                       const isExpanded = expandedOrders.has(order._id);
                       const isPending = order.status === 'Pending Approval';
+                      const isHighlighted = highlightedOrderId === order._id;
 
                       return (
-                        <Card key={order._id} className={`overflow-hidden ${isPending ? 'border-l-4 border-l-yellow-400' : ''}`}>
-                          {/* Order Summary Row */}
+                        <Card 
+                          key={order._id} 
+                          id={`order-${order._id}`}
+                          className={`overflow-hidden transition-all duration-300 ${isPending ? 'border-l-4 border-l-yellow-400' : ''} ${isHighlighted ? 'animate-highlight-flash shadow-lg ring-2 ring-blue-500' : ''}`}
+                        >
                           <div className="p-4 bg-white hover:bg-gray-50 transition-colors">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-6 flex-1">
-                                {/* Order ID */}
                                 <div className="min-w-[150px]">
                                   <p className="text-xs text-gray-500 mb-1">Order ID</p>
                                   <p className="font-mono text-sm font-medium">{order.orderId}</p>
                                 </div>
 
-                                {/* Client */}
                                 <div className="flex items-center gap-2 min-w-[200px]">
                                   <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                                     <User className="w-4 h-4 text-blue-600" />
@@ -303,7 +313,6 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
                                   </div>
                                 </div>
 
-                                {/* Transformer */}
                                 <div className="flex-1 min-w-[180px]">
                                   <p className="text-xs text-gray-500 mb-1">Transformer</p>
                                   <p className="font-medium">
@@ -314,7 +323,6 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
                                   )}
                                 </div>
 
-                                {/* Quantity */}
                                 <div className="min-w-[80px]">
                                   <p className="text-xs text-gray-500 mb-1">Qty</p>
                                   <div className="flex items-center gap-1">
@@ -323,7 +331,6 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
                                   </div>
                                 </div>
 
-                                {/* Date */}
                                 <div className="min-w-[120px]">
                                   <p className="text-xs text-gray-500 mb-1">Order Date</p>
                                   <div className="flex items-center gap-1">
@@ -332,7 +339,6 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
                                   </div>
                                 </div>
 
-                                {/* Status */}
                                 <div className="flex flex-col gap-2 min-w-[140px]">
                                   <Badge className={`w-fit ${getStatusColor(order.status)}`}>
                                     {getMappedStatus(order.status)}
@@ -340,7 +346,6 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
                                 </div>
                               </div>
 
-                              {/* Action Buttons */}
                               <div className="flex gap-2 min-w-[140px] justify-end">
                                 {isPending && (!userRole || userRole === 'admin') && (
                                   <Button
@@ -369,22 +374,15 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
                                   className="gap-1"
                                 >
                                   {isExpanded ? (
-                                    <>
-                                      <ChevronUp className="w-4 h-4" />
-                                      Hide
-                                    </>
+                                    <><ChevronUp className="w-4 h-4" /> Hide</>
                                   ) : (
-                                    <>
-                                      <ChevronDown className="w-4 h-4" />
-                                      Show
-                                    </>
+                                    <><ChevronDown className="w-4 h-4" /> Show</>
                                   )}
                                 </Button>
                               </div>
                             </div>
                           </div>
 
-                          {/* Expanded Order Status Tracker */}
                           {isExpanded && (
                             <div className="border-t border-gray-200 p-6 bg-gray-50">
                               <OrderStatusTracker
@@ -408,14 +406,31 @@ export function OrdersListViewEnhanced({ userRole }: OrdersListViewEnhancedProps
       </div>
 
       {!loading && filteredOrders.length === 0 && (
-        <Card className="p-12">
-          <div className="text-center text-gray-500">
-            <Search className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-            <p>No orders found</p>
-            <p className="text-sm mt-1">Try adjusting your search or filter criteria</p>
-          </div>
+        <Card className="p-12 text-center text-gray-500">
+          <Search className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+          <p>No orders found</p>
+          <p className="text-sm mt-1">Try adjusting your search or filter criteria</p>
         </Card>
       )}
     </div>
+  );
+}
+
+function Loader2(props: any) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </svg>
   );
 }

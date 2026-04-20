@@ -16,20 +16,52 @@ const getUserRole = (user) => {
     return 'admin';
 };
 
+// Middleware to restrict to Admin only
+const isAdmin = (req, res, next) => {
+    const role = getUserRole(req.user);
+    if (role !== 'admin' && req.user.role !== 'admin' && req.user.designation !== 'Admin') {
+        return res.status(403).json({ success: false, message: "Access denied. Admin only." });
+    }
+    next();
+};
+
+// GET /api/notifications/admin
+// Specialized endpoint for Admin Completion Alerts
+router.get('/admin', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+        const notifications = await NotificationModel.find({
+            type: "ORDER_COMPLETED",
+            recipientRole: 'admin'
+        })
+        .populate('orderId')
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean();
+
+        res.json({ success: true, notifications });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /api/notifications
-// Fetch notifications for the current user's role or specifically for them
+// Fetch notifications for the current user's role (Workers)
 router.get('/', isAuthenticated, async (req, res) => {
     try {
         const user = req.user;
         const role = getUserRole(user);
         const name = user.name || user.fullName;
 
-        console.log(`[Notification] Fetching for user: ${name}, Role: ${role}`);
-
+        // Workers should NOT see ORDER_COMPLETED notifications
         const notifications = await NotificationModel.find({
-            $or: [
-                { recipientRole: role }, // Match Role
-                { recipientName: name }   // Match Specific Individual
+            $and: [
+                { type: { $ne: "ORDER_COMPLETED" } },
+                {
+                    $or: [
+                        { recipientRole: role }, 
+                        { recipientName: name }
+                    ]
+                }
             ]
         })
         .populate('orderId')
@@ -50,39 +82,39 @@ router.get('/unread-count', isAuthenticated, async (req, res) => {
         const role = getUserRole(user);
         const name = user.name || user.fullName;
 
-        const count = await NotificationModel.countDocuments({
-            $or: [
-                { recipientRole: role },
-                { recipientName: name }
-            ],
-            isRead: false
-        });
+        const query = { isRead: false };
+        if (role === 'admin' || user.role === 'admin') {
+            query.type = "ORDER_COMPLETED";
+            query.recipientRole = 'admin';
+        } else {
+            query.type = { $ne: "ORDER_COMPLETED" };
+            query.$or = [{ recipientRole: role }, { recipientName: name }];
+        }
 
+        const count = await NotificationModel.countDocuments(query);
         res.json({ success: true, count });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// PUT /api/notifications/mark-read
-// Mark all for this user as read
+// PUT /api/notifications/mark-read (Admin or Worker)
 router.put('/mark-read', isAuthenticated, async (req, res) => {
     try {
         const user = req.user;
         const role = getUserRole(user);
         const name = user.name || user.fullName;
 
-        await NotificationModel.updateMany(
-            {
-                $or: [
-                    { recipientRole: role },
-                    { recipientName: name }
-                ],
-                isRead: false
-            },
-            { $set: { isRead: true } }
-        );
+        const query = { isRead: false };
+        if (role === 'admin' || user.role === 'admin') {
+            query.type = "ORDER_COMPLETED";
+            query.recipientRole = 'admin';
+        } else {
+            query.type = { $ne: "ORDER_COMPLETED" };
+            query.$or = [{ recipientRole: role }, { recipientName: name }];
+        }
 
+        await NotificationModel.updateMany(query, { $set: { isRead: true } });
         res.json({ success: true, message: "All notifications marked as read." });
     } catch (err) {
         res.status(500).json({ error: err.message });
