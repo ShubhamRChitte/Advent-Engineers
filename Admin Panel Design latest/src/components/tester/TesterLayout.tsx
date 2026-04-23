@@ -17,11 +17,8 @@ import { FailedCoresPage } from '../../pages/FailedCoresPage';
 import { PTTesterDashboard } from './PTTesterDashboard';
 import { PTTestingModule } from './PTTestingModule';
 import { PTReportsList } from './PTReportsList';
-import { HeatingRecordModule } from './HeatingRecordModule';
-import { PTHeatingRecordModule } from './PTHeatingRecordModule';
 import { OrdersListViewEnhanced } from '../entry/OrdersListViewEnhanced';
 import { OrderDetailsView } from './OrderDetailsView';
-import { HeatingTrackingModule } from './HeatingTrackingModule';
 import { useTesterStats } from './useTesterStats';
 
 interface TesterLayoutProps {
@@ -99,16 +96,12 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
       );
     }
 
-    // Global Heating Tracking (Accessible to all who have it in menu)
-    if (activeView === 'heating-tracking') {
-      return <HeatingTrackingModule user={user} />;
-    }
 
     // PT Tester
     if (user.role === 'pt-tester') {
       if (activeView === 'home') return <PTTesterDashboard setActiveView={setActiveView} stats={stats} recentActivity={recentActivity} loading={loading} />;
       if (activeView === 'testing') return <PTTestingModule user={user} />;
-      if (activeView === 'pt-heating-record') return <PTHeatingRecordModule user={user} />;
+
       if (activeView === 'view-orders') return <OrdersListViewEnhanced userRole={user.role} />;
       if (activeView === 'reports') return <PTReportsList onBack={setViewHome} />;
       return <PTTesterDashboard setActiveView={setActiveView} stats={stats} recentActivity={recentActivity} loading={loading} />;
@@ -343,8 +336,6 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return <OrdersListViewEnhanced userRole={user.role} />;
       } else if (activeView === 'failed-cores') {
         return <FailedCoresPage />;
-      } else if (activeView === 'heating-record') {
-        return <HeatingTrackingModule user={user} />;
       }
     }
 

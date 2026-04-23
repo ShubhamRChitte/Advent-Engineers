@@ -37,7 +37,6 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'testing', label: 'PT Testing', icon: ClipboardCheck },
         { id: 'view-orders', label: 'View Orders', icon: FileText },
-        { id: 'heating-tracking', label: 'Heating Tracking', icon: Zap },
       ];
     }
 
@@ -47,7 +46,6 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'view-orders', label: 'View Orders', icon: FileText },
         { id: 'core-tracking', label: 'Core Tracking', icon: Zap },
-        { id: 'heating-tracking', label: 'Heating Tracking', icon: Zap },
         { id: 'failed-cores', label: 'Failed Cores', icon: AlertTriangle, badge: failedCount > 0 ? failedCount : undefined },
       ];
     }
@@ -58,9 +56,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
       { id: 'notifications', label: 'Notifications', icon: Bell },
       { id: 'testing', label: 'Testing', icon: ClipboardCheck },
       { id: 'view-orders', label: 'View Orders', icon: FileText },
-      { id: 'heating-tracking', label: 'Heating Tracking', icon: Zap },
       { id: 'failed-cores', label: 'Failed Cores', icon: AlertTriangle, badge: failedCount > 0 ? failedCount : undefined },
-
     ];
   };
 

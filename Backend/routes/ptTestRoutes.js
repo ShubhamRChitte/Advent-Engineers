@@ -127,13 +127,7 @@ router.put('/transformer/:transformerId/approve', isAuthenticated, async (req, r
       return res.status(400).json({ success: false, message: "Cannot approve. Transformer doesn't have PT testing data saved." });
     }
 
-    // 3. CHECK: Must be approved in Heating Tracking
-    const heatingStatus = transformer.testHistory?.heating_test?.status;
-    if (heatingStatus !== 'Approved' && heatingStatus !== 'Completed') {
-      return res.status(400).json({ success: false, message: `Cannot approve. Heating Tracking status is '${heatingStatus || 'Pending'}'. Must be 'Approved' first.` });
-    }
-
-    // 4. CHECK: Unified PT report completeness (Pre-test + Final test)
+    // 3. CHECK: Unified PT report completeness (Pre-test + Final test)
     const ptTest = transformer.testHistory.pt_test;
     const preTesting = ptTest.preTesting?.metering || {};
     const finalTesting = ptTest.finalTesting || {};
@@ -312,14 +306,9 @@ router.get('/assigned-orders', isAuthenticated, async (req, res) => {
       const testerName = user.name || user.fullName;
 
       // 1. Find all transformers where this user is assigned for PT stage
-      // and PT test is NOT yet approved
+      // Returning all (active and completed) so the frontend tabs can filter them
       const query = {
-          "assignments.pt_tester": testerName,
-          $or: [
-            { "testHistory.pt_test.approved": { $exists: false } },
-            { "testHistory.pt_test.approved": false },
-            { "testHistory.pt_test.approved": "false" }
-          ]
+          "assignments.pt_tester": testerName
       };
 
       const transformers = await TransformerModel.find(query).populate('orderId').lean();

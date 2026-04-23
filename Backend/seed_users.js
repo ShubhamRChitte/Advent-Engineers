@@ -110,6 +110,18 @@ const sampleUsers = [
         dateOfJoining: new Date("2015-01-01"),
         employmentType: "Permanent",
         activeStatus: true
+    },
+    // --- Heating Operator ---
+    {
+        employeeId: "EMP_TEST_HEATING",
+        password: "password123",
+        fullName: "Heating Operator",
+        mobileNumber: "9000000001",
+        designation: "Heating Operator",
+        department: "Heating",
+        dateOfJoining: new Date("2023-01-01"),
+        employmentType: "Permanent",
+        activeStatus: true
     }
 ];
 

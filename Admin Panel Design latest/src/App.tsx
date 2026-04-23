@@ -3,6 +3,7 @@ import { LoginPage } from './components/LoginPage';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { EntryOperatorLayout } from './components/entry/EntryOperatorLayout';
 import { TesterLayout } from './components/tester/TesterLayout';
+import { HeatingOperatorLayout } from './components/heating/HeatingOperatorLayout';
 import { Toaster } from 'sonner';
 import { ReportPage } from './pages/ReportPage';
 import { AdminReportViewPage } from './pages/AdminReportViewPage';
@@ -12,7 +13,7 @@ export interface User {
   name: string;
   employeeId: string;
   email?: string; // Made optional as we login with employeeId
-  role: 'admin' | 'entry-operator' | 'core-tester' | 'secondary-tester' | 'after-primary-tester' | 'final-tester' | 'pt-tester';
+  role: 'admin' | 'entry-operator' | 'core-tester' | 'secondary-tester' | 'after-primary-tester' | 'final-tester' | 'pt-tester' | 'heating_operator';
   department?: string;
 }
 
@@ -55,7 +56,8 @@ export default function App() {
     'secondary-tester', 
     'after-primary-tester', 
     'final-tester', 
-    'pt-tester'
+    'pt-tester',
+    'heating_operator'
   ].includes(user.role);
 
   if (isReportPath && isAuthorizedRole) {
@@ -90,6 +92,15 @@ export default function App() {
     return (
       <>
         <TesterLayout user={user} onLogout={handleLogout} />
+        <Toaster />
+      </>
+    );
+  }
+
+  if (user.role === 'heating_operator') {
+    return (
+      <>
+        <HeatingOperatorLayout user={user} onLogout={handleLogout} />
         <Toaster />
       </>
     );

@@ -362,26 +362,11 @@ router.post('/save/:uniqueId', isAuthenticated, async (req, res) => {
         heatingTest.reportDate = new Date();
 
         if (isApproveCall) {
-            const isPT = transformer.orderId && transformer.orderId.transformerType === 'PT';
-
-            if (isPT) {
-                heatingTest.status = "Approved";
-                transformer.isHeatingApproved = true;
-                console.log(`[STRICT WORKFLOW] Transformer ${uniqueId} Approved in Heating for PT. Stopping workflow.`);
-            } else {
-                heatingTest.status = "Approved";
-                transformer.isHeatingApproved = true;
-                transformer.currentStage = "final";
-                console.log(`[STRICT WORKFLOW] Transformer ${uniqueId} Approved in Heating for CT. Moving to final.`);
-                
-                // Notification Cleanup for CT
-                try {
-                    const { clearNotifications } = require('../services/notificationService');
-                    await clearNotifications(transformer.orderId._id, 'heating');
-                } catch (err) {
-                    console.warn("Notification clear failed in heating save:", err);
-                }
-            }
+            // Heating approval only records the status. Stage transitions are
+            // handled independently by the testing workflow (not by heating).
+            heatingTest.status = "Approved";
+            transformer.isHeatingApproved = true;
+            console.log(`[HEATING] Transformer ${uniqueId} Heating Approved (no stage change).`);
         } else {
             heatingTest.status = "In Progress";
         }

@@ -86,7 +86,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
       const response = await axios.get('http://localhost:5000/api/heating-record/assigned-orders?type=PT', {
         withCredentials: true
       });
-      setOrders(response.data || []);
+      setOrders(response.data.success ? response.data.orders : []);
     } catch (err) {
       console.error('Error fetching PT heating orders:', err);
     } finally {

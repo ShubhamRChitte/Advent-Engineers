@@ -192,10 +192,10 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
           };
         });
 
-        const activeUnitsOnly = mappedTransformers.filter(t => t.status !== 'approved');
+        // Do not filter out approved transformers from the view so users can still see their reports
         const filtered = (!order.assignedUnitIds || order.assignedUnitIds.length === 0)
-          ? activeUnitsOnly
-          : activeUnitsOnly.filter(t => order.assignedUnitIds?.some(assignedId =>
+          ? mappedTransformers
+          : mappedTransformers.filter(t => order.assignedUnitIds?.some(assignedId =>
             assignedId === t.uniqueId || assignedId.includes(t.uniqueId)
           ));
 

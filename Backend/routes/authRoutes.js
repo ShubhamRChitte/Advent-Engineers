@@ -10,7 +10,8 @@ const getMappedRole = (user) => {
                 user.department === 'Secondary Test' ? 'secondary-tester' :
                     user.department === 'Primary Test' ? 'after-primary-tester' :
                         user.department === 'Final Test' ? 'final-tester' : 
-                            user.department === 'PT Test' ? 'pt-tester' : 'viewer';
+                            user.department === 'PT Test' ? 'pt-tester' :
+                                user.department === 'Heating' ? 'heating_operator' : 'viewer';
     return role;
 };
 

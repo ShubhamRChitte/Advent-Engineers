@@ -285,15 +285,15 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
 
   const handleApproveTransformer = async (transformer: Transformer) => {
     try {
-      if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Heating?`)) return;
+      if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Final Testing?`)) return;
 
       const response = await axios.put(`http://localhost:5000/api/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'primary',
-        nextStage: 'heating'
+        nextStage: 'final'
       }, { withCredentials: true });
 
       if (response.data.success) {
-        toast.success("Transformer Approved to Heating Stage!");
+        toast.success("Transformer Approved to Final Testing Stage!");
         setTransformers(prev => prev.map(t =>
           t.uniqueId === transformer.uniqueId ? { ...t, status: 'completed', canApprove: false } : t
         ));
