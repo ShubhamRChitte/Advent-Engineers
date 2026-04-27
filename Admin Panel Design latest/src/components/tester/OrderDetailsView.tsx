@@ -50,6 +50,7 @@ interface OrderDetails {
   updatedAt: string;
   ratedPrimaryCurrent?: number;
   ratedSecondaryCurrent?: number;
+  primaryCurrents?: string[];
   voltageRating?: string;
   stc?: string;
 }
@@ -66,7 +67,7 @@ export function OrderDetailsView({ orderId, onBack }: OrderDetailsViewProps) {
   useEffect(() => {
     const fetchOrderDetails = async () => {
       try {
-        const response = await axios.get(`http://localhost:5000/api/orders/${orderId}`, {
+        const response = await axios.get(`http://localhost:5001/api/orders/${orderId}`, {
           withCredentials: true
         });
         if (response.data.success) {
@@ -216,11 +217,17 @@ export function OrderDetailsView({ orderId, onBack }: OrderDetailsViewProps) {
               <>
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Rated Primary Current</p>
-                  <p className="font-medium text-gray-900">{order.ratedPrimaryCurrent || 'N/A'} A</p>
+                  <p className="font-medium text-gray-900">
+                    {order.primaryCurrents?.join(', ') || order.ratedPrimaryCurrent || 'N/A'} A
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 uppercase font-semibold">Rated Secondary Current</p>
-                  <p className="font-medium text-gray-900">{order.ratedSecondaryCurrent || 'N/A'} A</p>
+                  <p className="font-medium text-gray-900">
+                    {order.coreDetails?.length > 0 
+                      ? Array.from(new Set(order.coreDetails.map((c: any) => c.secondaryCurrent || '1'))).join(', ') 
+                      : (order.ratedSecondaryCurrent || 'N/A')} A
+                  </p>
                 </div>
               </>
             )}

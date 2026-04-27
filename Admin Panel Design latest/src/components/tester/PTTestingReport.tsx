@@ -104,8 +104,8 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
     const fetchLimits = async () => {
       try {
         const [metRes, protRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/accuracy-limits/metering?transformerType=PT', { withCredentials: true }),
-          axios.get('http://localhost:5000/api/accuracy-limits/protection?transformerType=PT', { withCredentials: true })
+          axios.get('http://localhost:5001/api/accuracy-limits/metering?transformerType=PT', { withCredentials: true }),
+          axios.get('http://localhost:5001/api/accuracy-limits/protection?transformerType=PT', { withCredentials: true })
         ]);
 
         if (Array.isArray(metRes.data)) {
@@ -207,7 +207,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
             let anyReadOnly = false;
 
             for (const t of responseList) {
-                const testRes = await axios.get(`http://localhost:5000/api/pt-tests/${t._id}`, {
+                const testRes = await axios.get(`http://localhost:5001/api/pt-tests/${t._id}`, {
                     withCredentials: true
                 });
 
@@ -358,7 +358,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
 
         // Wait for all to submit sequentially or in parallel
         const responses = await Promise.all(payloads.map(payload => 
-            axios.post('http://localhost:5000/api/pt-tests/submit', payload, { withCredentials: true })
+            axios.post('http://localhost:5001/api/pt-tests/submit', payload, { withCredentials: true })
         ));
 
         if (responses.every(r => r.data.success)) {
@@ -390,7 +390,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
         }));
 
         await Promise.all(payloads.map(payload => 
-            axios.post('http://localhost:5000/api/pt-tests/failed', payload, {
+            axios.post('http://localhost:5001/api/pt-tests/failed', payload, {
                 withCredentials: true
             })
         ));

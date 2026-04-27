@@ -11,13 +11,15 @@ const OrderSchema = new Schema(
     transformerType: { type: String, enum: ["CT", "PT"], required: true },
     quantity: { type: Number, required: true, min: 1 },
     ratio: [String],
+    primaryCurrents: [String], // New field for multiple primary current values
 
     // Core Configuration
     noOfCores: { type: Number, required: true },
     coreDetails: [{
       coreType: { type: String, enum: ["Metering", "Protection", "PS"], required: true },
       accuracyClass: { type: String },
-      vendorNo: { type: String }
+      vendorNo: { type: String },
+      secondaryCurrent: { type: String } // New field per core
     }],
 
     // Structured Core Vendors
@@ -82,6 +84,7 @@ const OrderSchema = new Schema(
       enum: ["Pending Approval", "In Progress", "COMPLETED", "Core Testing In Progress", "Core Testing Completed", "PT Testing In Progress", "PT Testing Completed"],
       default: "Pending Approval"
     },
+    statusText: { type: String }, // For manual status overrides
     priority: { type: String, enum: ["High", "Medium", "Low"], default: "Medium" },
     ratedPrimaryCurrent: {
       type: Number,
@@ -90,7 +93,7 @@ const OrderSchema = new Schema(
 
     ratedSecondaryCurrent: {
       type: Number,
-      required: true
+      required: false // Changed to false as it's now per-core
     },
     voltageRating: {
       type: String,

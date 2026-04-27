@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 
 interface SecondaryProtectionReportProps {
   transformer: Transformer;
+  coreNumber?: number;
   coreId: string;
   testerName: string;
   onBack: () => void;
@@ -93,6 +94,7 @@ export function validateProtectionUI(accClass: string, r100Str: string, pStr: st
 
 export function SecondaryProtectionReport({
   transformer,
+  coreNumber,
   coreId,
   testerName,
   onBack,
@@ -100,11 +102,31 @@ export function SecondaryProtectionReport({
   stage = 'secondary',
   accuracyClass: explicitClass,
 }: SecondaryProtectionReportProps) {
+  const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
+    ((!isNaN(parseInt(coreId.replace('Core ', '')))) ? parseInt(coreId.replace('Core ', '')) - 1 : 0);
+
 
   // Use ratios from the transformer object, falling back to a default if empty
-  const ratiosToUse = (transformer.ratios && transformer.ratios.length > 0)
-    ? transformer.ratios
-    : (transformer.orderId?.ratio || ['N/A']);
+  // Use ratios from the transformer object, falling back to a default if empty
+  const ratiosToUse = React.useMemo(() => {
+    const order = transformer.fullOrder || transformer.orderId;
+    const orderCores = order?.coreDetails || [];
+    const coreFromOrder = orderCores[coreIndex];
+
+    const secCurr = coreFromOrder?.secondaryCurrent ||
+      order?.ratedSecondaryCurrent ||
+      '1';
+
+    const rawPrimaryCurrs = (order?.primaryCurrents && order.primaryCurrents.length > 0) ? order.primaryCurrents :
+      (Array.isArray(order?.ratio) ? order.ratio.map((r: string) => r.split('/')[0]) : ['200']);
+
+    let primaryCurrs = rawPrimaryCurrs.flatMap((pc: string) =>
+      pc.replace(/[\[\]"']/g, '').split(/[- ,]+/).filter(v => v.trim() !== '')
+    );
+    primaryCurrs = [...new Set(primaryCurrs)];
+
+    return primaryCurrs.map((p: string) => `${p}/${secCurr}`);
+  }, [transformer, coreIndex]);
 
 
   const [testResults, setTestResults] = useState<ProtectionTestRow[]>([]);
@@ -112,8 +134,8 @@ export function SecondaryProtectionReport({
     if (explicitClass) return explicitClass;
 
     // Fallback: Use the granular accuracyClass from coreDetails
-    const coreIndex = parseInt(coreId.replace('Core ', '')) - 1;
-    const orderCores = transformer.orderId?.coreDetails || [];
+    const order = transformer.fullOrder || transformer.orderId;
+    const orderCores = order?.coreDetails || [];
     const coreFromOrder = orderCores[coreIndex];
     const accClass = coreFromOrder?.accuracyClass || '';
 
@@ -126,7 +148,7 @@ export function SecondaryProtectionReport({
   useEffect(() => {
     const fetchLimits = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/accuracy-limits/protection', { withCredentials: true });
+        const response = await axios.get('http://localhost:5001/api/accuracy-limits/protection', { withCredentials: true });
         setDbLimits(response.data);
       } catch (error) {
         console.error('Failed to fetch dynamic protection limits', error);
@@ -138,9 +160,27 @@ export function SecondaryProtectionReport({
   // Initialize Data
   useEffect(() => {
     // 1. Determine Ratios
-    const dynamicRatios = (transformer.ratios && transformer.ratios.length > 0)
-      ? transformer.ratios
-      : (transformer.orderId?.ratio || ['N/A']);
+    // 1. Determine Ratios for this core
+    const dynamicRatios: string[] = (() => {
+
+      const order = transformer.fullOrder || transformer.orderId;
+      const orderCores = order?.coreDetails || [];
+      const coreFromOrder = orderCores[coreIndex];
+
+      const secCurr = coreFromOrder?.secondaryCurrent ||
+        order?.ratedSecondaryCurrent ||
+        '1';
+
+      const rawPrimaryCurrs = (order?.primaryCurrents && order.primaryCurrents.length > 0) ? order.primaryCurrents :
+        (Array.isArray(order?.ratio) ? order.ratio.map((r: string) => r.split('/')[0]) : ['200']);
+
+      let primaryCurrs = rawPrimaryCurrs.flatMap((pc: string) =>
+        pc.replace(/[\[\]"']/g, '').split(/[- ,]+/).filter(v => v.trim() !== '')
+      );
+      primaryCurrs = [...new Set(primaryCurrs)];
+
+      return primaryCurrs.map((p: string) => `${p}/${secCurr}`);
+    })();
 
     // 2. Create Initial State
     const initialData = dynamicRatios.map((ratio: string) => ({
@@ -202,7 +242,7 @@ export function SecondaryProtectionReport({
   useEffect(() => {
     const fetchLatestData = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/transformers/${transformer.uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`http://localhost:5001/api/transformers/${transformer.uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
 
         // Dynamic Path
@@ -257,7 +297,7 @@ export function SecondaryProtectionReport({
       }
     };
     fetchLatestData();
-  }, [transformer.uniqueId, coreId, stage, ratiosToUse]);
+  }, [transformer.uniqueId, coreId, stage]);
 
   // Robust Parsing Helpers
   const parseRatedCurrent = (ratio: any): number => {
@@ -402,7 +442,7 @@ export function SecondaryProtectionReport({
       };
 
       console.log("handleDatabaseSave: Payload ready", payload);
-      const endpoint = `http://localhost:5000/transformer-${stage}-protection-tests`;
+      const endpoint = `http://localhost:5001/transformer-${stage}-protection-tests`;
       console.log(`handleDatabaseSave: Sending Request to ${endpoint}...`);
 
       const response = await axios.post(
@@ -445,7 +485,7 @@ export function SecondaryProtectionReport({
         dynamicValues: testResults
       };
 
-      await axios.post(`http://localhost:5000/api/failed-cores`, payload, { withCredentials: true });
+      await axios.post(`http://localhost:5001/api/failed-cores`, payload, { withCredentials: true });
       toast.success("Added to Failed Cores!");
     } catch (err: any) {
       console.error("Mark as failed error:", err);

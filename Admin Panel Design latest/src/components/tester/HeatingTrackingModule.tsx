@@ -54,7 +54,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
   const fetchOrders = async () => {
     try {
       const typeParam = user.role === 'pt-tester' ? 'PT' : 'CT';
-      const response = await axios.get(`http://localhost:5000/api/heating-record/assigned-orders?type=${typeParam}`, {
+      const response = await axios.get(`http://localhost:5001/api/heating-record/assigned-orders?type=${typeParam}`, {
         withCredentials: true
       });
 
@@ -64,7 +64,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
       // For now keeping existing tab logic but focusing on inside the order
       const orderIds = eligibleOrders.map((o: any) => o._id);
       if (orderIds.length > 0) {
-        const completedRes = await axios.post("http://localhost:5000/api/heating-record/completed-status", {
+        const completedRes = await axios.post("http://localhost:5001/api/heating-record/completed-status", {
             orderIds,
             prefix: typeParam
         }, { withCredentials: true });
@@ -89,7 +89,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
     try {
       // Pass includeApproved=true if we are in the completed tab
       const includeApproved = currentTab === 'completed';
-      const res = await axios.get(`http://localhost:5000/api/heating-record/transformers/${order._id}?includeApproved=${includeApproved}`, { withCredentials: true });
+      const res = await axios.get(`http://localhost:5001/api/heating-record/transformers/${order._id}?includeApproved=${includeApproved}`, { withCredentials: true });
       setTransformersList(Array.isArray(res.data.transformers) ? res.data.transformers : []);
     } catch (e) {
       console.error('Failed to fetch transformers for order', e);
@@ -294,7 +294,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
         isApproveCall: isApprove
       };
 
-      const res = await axios.post(`http://localhost:5000/api/heating-record/save/${selectedTransformer.uniqueId}`, payload, { withCredentials: true });
+      const res = await axios.post(`http://localhost:5001/api/heating-record/save/${selectedTransformer.uniqueId}`, payload, { withCredentials: true });
       
       if (res.data.success) {
           alert(isApprove ? "Heating Approved Successfully!" : "Heating Record Saved Successfully!");
@@ -317,22 +317,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
     }
   };
 
-  const handleApproveByUniqueId = async (uniqueId: string) => {
-    if (!window.confirm("Are you sure you want to approve this heating record and move it to Final Test?")) return;
-    try {
-      setSaving(true);
-      await axios.post(`http://localhost:5000/api/heating-record/save/${uniqueId}`, {
-        isApproveCall: true
-      }, { withCredentials: true });
-      alert("Heating Approved Successfully! Transformer sent to Final Stage.");
-      if (selectedOrder) handleSelectOrder(selectedOrder);
-    } catch (e: any) {
-      console.error("Error approving heating record", e);
-      alert(e.response?.data?.message || "Failed to approve record.");
-    } finally {
-      setSaving(false);
-    }
-  };
+
 
   if (loading) {
     return <div className="flex items-center justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>;
@@ -558,15 +543,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
                         </td>
                         <td className="p-4">
                           <div className="flex justify-center gap-3">
-                            {(isFilled || isCompleted) && !isApproved && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleApproveByUniqueId(t.uniqueId)}
-                                className="bg-green-600 hover:bg-green-700 font-bold shadow-sm"
-                              >
-                                <CheckCircle className="w-4 h-4 mr-2" /> Approve
-                              </Button>
-                            )}
+
                             
                             <Button 
                                 size="sm" 

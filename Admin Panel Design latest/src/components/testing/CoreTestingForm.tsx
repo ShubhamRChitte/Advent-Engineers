@@ -220,7 +220,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
         const typeParam = !isMeteringCheck ? `?type=${coreType}` : '';
 
         // Fetch existing data
-        const response = await axios.get(`http://localhost:5000/api${endpoint}/${txnOrderId}${typeParam}`, {
+        const response = await axios.get(`http://localhost:5001/api${endpoint}/${txnOrderId}${typeParam}`, {
           withCredentials: true
         });
 
@@ -362,7 +362,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
     }
 
     const vendors = getVendors();
-    const defaultVendor = vendors.length === 1 && vendors[0] ? `${vendors[0].serialNo} - ${vendors[0].name}` : '';
+    const defaultVendor = vendors.length > 0 && vendors[0] ? `${vendors[0].serialNo} - ${vendors[0].name}` : '';
 
     return rowsToCreate.map(item => ({
       date: getSystemDate(),
@@ -640,7 +640,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
     if (isReadOnly) return;
     const nextSeq = getNextSequenceNumber(rows);
     const vendors = getVendors();
-    const defaultVendor = vendors.length === 1 && vendors[0] ? `${vendors[0].serialNo} - ${vendors[0].name}` : '';
+    const defaultVendor = vendors.length > 0 && vendors[0] ? `${vendors[0].serialNo} - ${vendors[0].name}` : '';
 
     setRows([...rows, {
       date: getSystemDate(),
@@ -781,7 +781,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
         };
       }
 
-      await axios.post(`http://localhost:5000/api${endpoint}`, finalPayload, {
+      await axios.post(`http://localhost:5001/api${endpoint}`, finalPayload, {
         withCredentials: true,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -846,7 +846,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
       const internalCoreNos = rows.map(r => r.internalCoreNo);
 
       // Send Batch Approval
-      const response = await axios.put(`http://localhost:5000/api/core-tests/approve-batch`, {
+      const response = await axios.put(`http://localhost:5001/api/core-tests/approve-batch`, {
         jobId: order.jobId,
         internalCoreNos
       }, { withCredentials: true });

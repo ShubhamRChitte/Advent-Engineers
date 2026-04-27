@@ -60,7 +60,7 @@ export function CoreTestingOrders({ onStartTesting, user: _user, type = 'active'
 
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/assigneed_orders", {
+      .get("http://localhost:5001/api/assigneed_orders", {
         params: { type },
         withCredentials: true
       })
@@ -103,12 +103,14 @@ export function CoreTestingOrders({ onStartTesting, user: _user, type = 'active'
   };
 
   const getCoreTypeIcon = (type: string) => {
-    switch (type) {
-      case 'Metering':
+    if (!type) return null;
+    const lowerType = type.toLowerCase();
+    switch (lowerType) {
+      case 'metering':
         return <Zap className="w-3 h-3" />;
-      case 'PS':
+      case 'ps':
         return <Shield className="w-3 h-3" />;
-      case 'Protection':
+      case 'protection':
         return <Shield className="w-3 h-3" />;
       default:
         return null;
@@ -116,12 +118,14 @@ export function CoreTestingOrders({ onStartTesting, user: _user, type = 'active'
   };
 
   const getCoreTypeColor = (type: string) => {
-    switch (type) {
-      case 'Metering':
+    if (!type) return 'bg-gray-50 text-gray-700';
+    const lowerType = type.toLowerCase();
+    switch (lowerType) {
+      case 'metering':
         return 'bg-purple-50 text-purple-700';
-      case 'PS':
+      case 'ps':
         return 'bg-blue-50 text-blue-700';
-      case 'Protection':
+      case 'protection':
         return 'bg-orange-50 text-orange-700';
       default:
         return 'bg-gray-50 text-gray-700';

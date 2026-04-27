@@ -47,7 +47,7 @@ export function AfterPrimaryCoreSelection({
     const fetchTransformerData = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get(`http://localhost:5000/api/transformers/${initialTransformer.uniqueId}`, {
+        const response = await axios.get(`http://localhost:5001/api/transformers/${initialTransformer.uniqueId}`, {
           withCredentials: true
         });
         if (response.data) {

@@ -585,11 +585,36 @@ interface SecondaryPSReportProps {
   accuracyClass?: string | undefined;
 }
 
-export function SecondaryPSReport({ transformer, coreId, testerName, onBack, readOnly = false, stage = 'secondary', accuracyClass: explicitClass }: SecondaryPSReportProps) {
+export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName, onBack, readOnly = false, stage = 'secondary', accuracyClass: explicitClass }: SecondaryPSReportProps) {
+  const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
+    (!isNaN(parseInt(coreId.replace('Core ', ''))) ? parseInt(coreId.replace('Core ', '')) - 1 : 0);
+
   // Use dynamic ratios from transformer, fallback if missing
-  const dynamicRatios = (transformer as any).ratios && (transformer as any).ratios.length > 0
-    ? (transformer as any).ratios
-    : ((transformer as any).orderId?.ratio || ['200/1']);
+  // Determine ratios from transformer (passed from props)
+  const dynamicRatios: string[] = (() => {
+    // 1. Find the secondary current for THIS core
+
+    const order = (transformer as any).fullOrder || (transformer as any).orderId;
+    const orderCores = order?.coreDetails || [];
+    const coreFromOrder = orderCores[coreIndex];
+
+    // Get secondary current: use core-specific one, then order-level, then fallback to 1
+    const secCurr = coreFromOrder?.secondaryCurrent ||
+      order?.ratedSecondaryCurrent ||
+      '1';
+
+    // 2. Get primary currents: use primaryCurrents array, then extract from ratios, then fallback
+    const rawPrimaryCurrs = (order?.primaryCurrents && order.primaryCurrents.length > 0) ? order.primaryCurrents :
+      (Array.isArray(order?.ratio) ? order.ratio.map((r: string) => r.split('/')[0]) : ['200']);
+
+    let primaryCurrs = rawPrimaryCurrs.flatMap((pc: string) =>
+      pc.replace(/[\[\]"']/g, '').split(/[- ,]+/).filter(v => v.trim() !== '')
+    );
+    primaryCurrs = [...new Set(primaryCurrs)];
+
+    // 3. Generate ratios for this core
+    return primaryCurrs.map((p: string) => `${p}/${secCurr}`);
+  })();
 
   const [accuracyClass, setAccuracyClass] = useState<string>(() => explicitClass || 'PS');
 
@@ -641,7 +666,7 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
   React.useEffect(() => {
     const fetchLimit = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/accuracy-limits/ps', { withCredentials: true });
+        const response = await axios.get('http://localhost:5001/api/accuracy-limits/ps', { withCredentials: true });
         if (response.data && response.data.length > 0) {
           setPsLimit(response.data[0]);
         }
@@ -656,7 +681,7 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
   React.useEffect(() => {
     const fetchLatestData = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/transformers/${(transformer as any).uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`http://localhost:5001/api/transformers/${(transformer as any).uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
 
         // Dynamic Path
@@ -759,7 +784,7 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
 
       console.log("handleDatabaseSave (PS): Payload ready", payload);
 
-      const endpoint = `http://localhost:5000/transformer-${stage}-ps-tests`;
+      const endpoint = `http://localhost:5001/transformer-${stage}-ps-tests`;
 
       // 2. Execute POST request
       const response = await axios.post(
@@ -845,7 +870,7 @@ export function SecondaryPSReport({ transformer, coreId, testerName, onBack, rea
 
       console.log("[DEBUG] Frontend Failed Core Payload:", payload);
 
-      await axios.post(`http://localhost:5000/api/failed-cores`, payload, { withCredentials: true });
+      await axios.post(`http://localhost:5001/api/failed-cores`, payload, { withCredentials: true });
       toast.success("Added to Failed Cores successfully!");
     } catch (error: any) {
       console.error("Mark as failed error:", error);

@@ -26,7 +26,7 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
       try {
         // Re-fetch to get updated testHistory (test status, core IDs)
         // Note: We used localhost:3002 in other files.
-        const response = await fetch(`http://localhost:5000/api/transformers/${initialTransformer.uniqueId}`);
+        const response = await fetch(`http://localhost:5001/api/transformers/${initialTransformer.uniqueId}`);
         if (response.ok) {
           const freshData = await response.json();
           console.log("SecondaryCoreSelection: Fetched fresh data", freshData);
@@ -140,7 +140,7 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
     try {
       if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Primary Testing?`)) return;
 
-      const response = await axios.put(`http://localhost:5000/api/transformers/${transformer.uniqueId}/approve-stage`, {
+      const response = await axios.put(`http://localhost:5001/api/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'secondary',
         nextStage: 'primary'
       }, { withCredentials: true });

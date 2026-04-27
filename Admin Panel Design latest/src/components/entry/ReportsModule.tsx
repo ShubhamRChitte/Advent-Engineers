@@ -43,7 +43,7 @@ export function ReportsModule({ fromAdmin = false }: ReportsModuleProps) {
   useEffect(() => {
     const fetchClientStats = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/orders/clients/stats');
+        const response = await fetch('http://localhost:5001/api/orders/clients/stats');
         const data = await response.json();
         if (data.success) {
           setClients(data.clients);

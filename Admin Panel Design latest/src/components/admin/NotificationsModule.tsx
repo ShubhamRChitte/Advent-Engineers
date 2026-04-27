@@ -43,7 +43,7 @@ export function NotificationsModule({ onNavigateToOrder, isActive }: Notificatio
   const fetchNotifications = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     try {
-      const response = await axios.get('http://localhost:5000/api/notifications/admin', {
+      const response = await axios.get('http://localhost:5001/api/notifications/admin', {
         withCredentials: true
       });
       if (response.data.success) {
@@ -96,7 +96,7 @@ export function NotificationsModule({ onNavigateToOrder, isActive }: Notificatio
     setNotifications(notifications.map(n => ({ ...n, isRead: true })));
 
     try {
-      const response = await axios.put('http://localhost:5000/api/notifications/mark-read', {}, {
+      const response = await axios.put('http://localhost:5001/api/notifications/mark-read', {}, {
         withCredentials: true
       });
       if (response.data.success) {
@@ -113,7 +113,7 @@ export function NotificationsModule({ onNavigateToOrder, isActive }: Notificatio
     // Optimistic update
     setNotifications(notifications.map(n => n._id === id ? { ...n, isRead: true } : n));
     try {
-      await axios.put(`http://localhost:5000/api/notifications/${id}/read`, {}, { withCredentials: true });
+      await axios.put(`http://localhost:5001/api/notifications/${id}/read`, {}, { withCredentials: true });
     } catch (err) {
       console.error("Failed to mark read", err);
     }

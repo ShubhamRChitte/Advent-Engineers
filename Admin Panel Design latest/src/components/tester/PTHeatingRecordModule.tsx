@@ -83,7 +83,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
   const fetchOrders = async () => {
     try {
       setOrdersLoading(true);
-      const response = await axios.get('http://localhost:5000/api/heating-record/assigned-orders?type=PT', {
+      const response = await axios.get('http://localhost:5001/api/heating-record/assigned-orders?type=PT', {
         withCredentials: true
       });
       setOrders(response.data.success ? response.data.orders : []);
@@ -99,7 +99,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
   const fetchTransformers = async (order: Order) => {
     try {
       setTransformersLoading(true);
-      const response = await axios.get(`http://localhost:5000/api/transformers/order/${order._id}`, {
+      const response = await axios.get(`http://localhost:5001/api/transformers/order/${order._id}`, {
         withCredentials: true
       });
 
@@ -153,7 +153,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
 
     try {
       const res = await axios.get(
-        `http://localhost:5000/api/heating-record/${order._id}/33KV_PT`,
+        `http://localhost:5001/api/heating-record/${order._id}/33KV_PT`,
         { withCredentials: true }
       );
 
@@ -217,7 +217,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
     try {
       if (!window.confirm(`Approve Heating Record for Transformer ${t.uniqueId}?`)) return;
       await axios.put(
-        `http://localhost:5000/api/pt-tests/transformer/${t._id}/approve`,
+        `http://localhost:5001/api/pt-tests/transformer/${t._id}/approve`,
         {},
         { withCredentials: true }
       );
@@ -320,7 +320,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
         blocks: blocksPayload
       };
 
-      await axios.post('http://localhost:5000/api/heating-record', payload, { withCredentials: true });
+      await axios.post('http://localhost:5001/api/heating-record', payload, { withCredentials: true });
       alert(isEditingRecord ? 'PT Heating records updated successfully!' : 'PT Heating records saved successfully!');
 
       // Go back to transformers list

@@ -33,7 +33,7 @@ export function AfterPrimaryReportsDashboard() {
     const fetchReports = async () => {
         try {
             setLoading(true);
-            const response = await axios.get('http://localhost:5000/api/after-primary/reports', {
+            const response = await axios.get('http://localhost:5001/api/after-primary/reports', {
                 withCredentials: true
             });
 

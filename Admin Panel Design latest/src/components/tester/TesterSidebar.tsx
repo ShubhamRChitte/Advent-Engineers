@@ -16,7 +16,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
   useEffect(() => {
     const fetchCount = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/failed-cores/count', { withCredentials: true });
+        const res = await axios.get('http://localhost:5001/api/failed-cores/count', { withCredentials: true });
         if (res.data.success) {
           setFailedCount(res.data.count);
         }

@@ -139,17 +139,20 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
               </div>
 
               {/* Core Configuration */}
-              {orderData.coreTypes && orderData.coreTypes.length > 0 && (
+              {(orderData.coreDetails || orderData.coreConfigs || orderData.coreTypes) && 
+               (orderData.coreDetails || orderData.coreConfigs || orderData.coreTypes).length > 0 && (
                 <div className="pt-4 border-t">
                   <p className="text-sm text-gray-500 mb-2">Core Configuration</p>
                   <div className="flex gap-2 flex-wrap">
-                    {(orderData.coreConfigs || orderData.coreTypes).map((config: any, index: number) => {
-                      const type = typeof config === 'string' ? config : config.coreType;
+                    {(orderData.coreDetails || orderData.coreConfigs || orderData.coreTypes).map((config: any, index: number) => {
+                      const type = typeof config === 'string' ? config : (config.coreType || 'N/A');
                       const accuracy = typeof config === 'string' ? 'N/A' : (config.accuracyClass || 'N/A');
+                      const secCurrent = typeof config === 'string' ? '1' : (config.secondaryCurrent || '1');
                       return (
                         <Badge key={index} variant="outline" className="flex flex-col items-start gap-1 p-2 h-auto">
                           <span className="font-bold">Core {index + 1}: {type.toUpperCase()}</span>
-                          <span className="text-xs text-gray-500">Class: {accuracy}</span>
+                          <span className="text-xs text-gray-500 font-medium">Class: {accuracy}</span>
+                          <span className="text-xs text-gray-500">Sec. Current: {secCurrent}A</span>
                         </Badge>
                       );
                     })}
@@ -203,48 +206,20 @@ export function OrderSummaryView({ orderData, testAssignments, onSaveOrder }: Or
           </Card>
 
           {/* Selected Vendors */}
-          {(orderData.coreVendors?.metering?.length > 0 ||
-            orderData.coreVendors?.protection?.length > 0 ||
-            orderData.coreVendors?.ps?.length > 0) && (
+          {orderData.coreVendors?.metering?.length > 0 && (
               <Card className="p-6">
                 <h3 className="mb-4 pb-3 border-b-2 border-gray-200">Core Vendors</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {orderData.coreVendors?.metering?.length > 0 && (
+                <div className="space-y-4">
                     <div className="space-y-2">
-                      <p className="text-sm text-gray-500">Metering Core Vendors</p>
+                      <p className="text-sm text-gray-500">Selected Vendors</p>
                       <div className="flex flex-wrap gap-2">
                         {orderData.coreVendors.metering.map((v: any, index: number) => (
-                          <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 h-auto">
+                          <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 h-auto p-2">
                             {v.serialNo} - {v.name}
                           </Badge>
                         ))}
                       </div>
                     </div>
-                  )}
-                  {orderData.coreVendors?.protection?.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-sm text-gray-500">Protection Core Vendors</p>
-                      <div className="flex flex-wrap gap-2">
-                        {orderData.coreVendors.protection.map((v: any, index: number) => (
-                          <Badge key={index} variant="outline" className="bg-green-50 text-green-700 border-green-200 h-auto">
-                            {v.serialNo} - {v.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {orderData.coreVendors?.ps?.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-sm text-gray-500">PS Core Vendors</p>
-                      <div className="flex flex-wrap gap-2">
-                        {orderData.coreVendors.ps.map((v: any, index: number) => (
-                          <Badge key={index} variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 h-auto">
-                            {v.serialNo} - {v.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </Card>
             )}

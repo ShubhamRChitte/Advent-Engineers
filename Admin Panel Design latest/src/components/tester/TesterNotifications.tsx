@@ -126,7 +126,7 @@ export function TesterNotifications({ userRole, onViewOrder }: TesterNotificatio
 
   // useEffect(() => {
   //   axios
-  //     .get("http://localhost:5000/allorders")
+  //     .get("http://localhost:5001/allorders")
   //     .then((res) => {
   //       setNotifications(res.data);
   //     })
@@ -140,7 +140,7 @@ export function TesterNotifications({ userRole, onViewOrder }: TesterNotificatio
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/notifications", { withCredentials: true });
+        const res = await axios.get("http://localhost:5001/api/notifications", { withCredentials: true });
         const mapped = res.data.notifications.map((n: any) => {
           const order = n.orderId || {}; // Use the populated order or an empty object
           return {
@@ -175,7 +175,7 @@ export function TesterNotifications({ userRole, onViewOrder }: TesterNotificatio
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
-      await axios.put(`http://localhost:5000/api/notifications/${notificationId}/read`, {}, { withCredentials: true });
+      await axios.put(`http://localhost:5001/api/notifications/${notificationId}/read`, {}, { withCredentials: true });
       setNotifications(notifications.map(n =>
         n.id === notificationId ? { ...n, isRead: true } : n
       ));
@@ -186,7 +186,7 @@ export function TesterNotifications({ userRole, onViewOrder }: TesterNotificatio
 
   const handleMarkAllAsRead = async () => {
     try {
-      await axios.put("http://localhost:5000/api/notifications/mark-read", {}, { withCredentials: true });
+      await axios.put("http://localhost:5001/api/notifications/mark-read", {}, { withCredentials: true });
       setNotifications(notifications.map(n => ({ ...n, isRead: true })));
     } catch (err) {
       console.error("Error marking all read:", err);

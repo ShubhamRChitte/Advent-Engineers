@@ -42,7 +42,7 @@ export function FinalReportsList() {
     const fetchReports = async () => {
         setLoading(true);
         try {
-            const response = await axios.get('http://localhost:5000/api/final/reports', {
+            const response = await axios.get('http://localhost:5001/api/final/reports', {
                 withCredentials: true
             });
 

@@ -40,7 +40,7 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0 }: PTAssig
     try {
       setLoading(true);
       // Use the specialized PT assigned orders endpoint
-      const response = await axios.get('http://localhost:5000/api/pt-tests/assigned-orders', {
+      const response = await axios.get('http://localhost:5001/api/pt-tests/assigned-orders', {
         withCredentials: true
       });
 

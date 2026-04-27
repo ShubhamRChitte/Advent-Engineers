@@ -3,7 +3,7 @@ export function extractAccuracyClass(fullClass: string | undefined): string {
 
     // Order matters: check more specific classes first (e.g., 0.2S before 0.2)
     const classes = ['0.2S', '0.5S', '0.1', '0.2', '0.5', '1', '3', '5'];
-    const upper = fullClass.toUpperCase();
+    const upper = fullClass.toUpperCase().replace(/\s+/g, '');
 
     for (const cls of classes) {
         if (upper.includes(cls)) return cls;

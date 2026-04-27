@@ -39,6 +39,8 @@ export interface Transformer {
   burden?: number | string;
   ratedPrimaryCurrent?: number | string;
   ratedSecondaryCurrent?: number | string;
+  primaryCurrents?: string[];
+  fullOrder?: any;
 }
 
 interface Order {
@@ -62,6 +64,7 @@ interface Order {
   voltageRating?: string;
   ratedPrimaryCurrent?: number;
   ratedSecondaryCurrent?: number;
+  primaryCurrents?: string[];
 }
 
 interface SecondaryTransformersListProps {
@@ -82,7 +85,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
       setError(null);
       try {
         const orderId = order._id;
-        const response = await axios.get(`http://localhost:5000/api/orders/${orderId}/transformers`, {
+        const response = await axios.get(`http://localhost:5001/api/orders/${orderId}/transformers`, {
           withCredentials: true
         });
 
@@ -300,6 +303,8 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
             burden: order.burden,
             ratedPrimaryCurrent: order.ratedPrimaryCurrent,
             ratedSecondaryCurrent: order.ratedSecondaryCurrent,
+            primaryCurrents: order.primaryCurrents,
+            fullOrder: order
           };
         });
 
@@ -333,7 +338,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
     try {
       if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Primary Testing?`)) return;
 
-      const response = await axios.put(`http://localhost:5000/api/transformers/${transformer.uniqueId}/approve-stage`, {
+      const response = await axios.put(`http://localhost:5001/api/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'secondary',
         nextStage: 'primary'
       }, { withCredentials: true });

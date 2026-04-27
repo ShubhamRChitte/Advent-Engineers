@@ -77,7 +77,7 @@ export function EmployeeManagement() {
   // Fetch Employees
   const fetchEmployees = async () => {
     try {
-      const response = await fetch('http://localhost:5000/auth/all-employees');
+      const response = await fetch('http://localhost:5001/auth/all-employees');
       const data = await response.json();
       if (data.success) {
         setEmployees(data.users);
@@ -131,7 +131,7 @@ export function EmployeeManagement() {
         voltageExperience: voltageArray
       };
 
-      const response = await fetch('http://localhost:5000/auth/add-employee', {
+      const response = await fetch('http://localhost:5001/auth/add-employee', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

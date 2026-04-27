@@ -52,7 +52,7 @@ export function HeatingTrackingReport({ order, transformer, user, onBack }: Heat
     setLoading(true);
     try {
       // Use the transformer-specific lookup from the unified backend logic
-      const res = await axios.get(`http://localhost:5000/api/heating-record/transformers/${order._id}`, {
+      const res = await axios.get(`http://localhost:5001/api/heating-record/transformers/${order._id}`, {
         withCredentials: true
       });
 
@@ -183,7 +183,7 @@ export function HeatingTrackingReport({ order, transformer, user, onBack }: Heat
         isApproveCall: isApprove
       };
 
-      await axios.post(`http://localhost:5000/api/heating-record/save/${transformer.uniqueId}`, payload, { withCredentials: true });
+      await axios.post(`http://localhost:5001/api/heating-record/save/${transformer.uniqueId}`, payload, { withCredentials: true });
       alert(isApprove ? "Approved successfully!" : "Saved successfully!");
       onBack();
     } catch (e: any) {

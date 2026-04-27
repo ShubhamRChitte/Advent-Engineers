@@ -97,18 +97,16 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
   const [tankType, setTankType] = useState('');
 
   // Core configurations
-  const [coreConfigs, setCoreConfigs] = useState<{ coreType: string; accuracyClass: string; vendorNo: string }[]>(
-    Array(parseInt(numberOfCores) || 1).fill({ coreType: 'metering', accuracyClass: '', vendorNo: '' })
+  const [coreConfigs, setCoreConfigs] = useState<{ coreType: string; accuracyClass: string; vendorNo: string; secondaryCurrent: string }[]>(() =>
+    Array.from({ length: parseInt(numberOfCores) || 1 }, () => ({ coreType: 'metering', accuracyClass: '', vendorNo: '', secondaryCurrent: '1' }))
   );
 
   // Transformer Parameters
-  const [ratios, setRatios] = useState<string[]>([]);
-  const [isCustomRatio, setIsCustomRatio] = useState(false);
-  const [customRatioInput, setCustomRatioInput] = useState('');
+  const [primaryCurrents, setPrimaryCurrents] = useState<string[]>([]);
+  const [isCustomPrimaryCurrent, setIsCustomPrimaryCurrent] = useState(false);
+  const [customPrimaryCurrentInput, setCustomPrimaryCurrentInput] = useState('');
   const [nominalVoltage, setNominalVoltage] = useState('');
   const [burden, setBurden] = useState('');
-  const [ratedPrimaryCurrent, setRatedPrimaryCurrent] = useState('');
-  const [ratedSecondaryCurrent, setRatedSecondaryCurrent] = useState('');
   const [stc, setStc] = useState('');
 
   // Additional parameters
@@ -117,9 +115,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
   // Images state
   const [images, setImages] = useState<File[]>([]);
 
-  const [selectedMeteringVendors, setSelectedMeteringVendors] = useState<string[]>([]);
-  const [selectedProtectionVendors, setSelectedProtectionVendors] = useState<string[]>([]);
-  const [selectedPSVendors, setSelectedPSVendors] = useState<string[]>([]);
+  const [selectedCoreVendors, setSelectedCoreVendors] = useState<string[]>([]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -136,7 +132,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
   const handleCoreTypeChange = (index: number, value: string) => {
     setCoreConfigs(prev => {
       const updated = [...prev];
-      updated[index] = { coreType: value, accuracyClass: '', vendorNo: '' }; // reset on type change
+      updated[index] = { coreType: value, accuracyClass: '', vendorNo: '', secondaryCurrent: '1' }; // reset on type change
       return updated;
     });
   };
@@ -147,6 +143,19 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
       const current = updated[index];
       if (current) {
         updated[index] = { ...current, accuracyClass: value };
+      }
+      return updated;
+    });
+  };
+
+
+
+  const handleCoreSecondaryCurrentChange = (index: number, value: string) => {
+    setCoreConfigs(prev => {
+      const updated = [...prev];
+      const current = updated[index];
+      if (current) {
+        updated[index] = { ...current, secondaryCurrent: value };
       }
       return updated;
     });
@@ -163,14 +172,14 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
     });
   };
 
-  const handleAddRatio = (value: string) => {
-    if (value && !ratios.includes(value)) {
-      setRatios([...ratios, value]);
+  const handleAddPrimaryCurrent = (value: string) => {
+    if (value) {
+      setPrimaryCurrents([...primaryCurrents, value]);
     }
   };
 
-  const handleRemoveRatio = (value: string) => {
-    setRatios(ratios.filter(r => r !== value));
+  const handleRemovePrimaryCurrent = (index: number) => {
+    setPrimaryCurrents(primaryCurrents.filter((_, i) => i !== index));
   };
 
   const handleAddParameter = () => {
@@ -206,7 +215,6 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
     
     if (!nominalVoltage.trim()) errors.nominalVoltage = 'Nominal System Voltage is required';
     if (!burden.trim()) errors.burden = 'Burden is required';
-    if (!ratedSecondaryCurrent) errors.ratedSecondaryCurrent = 'Rated Secondary Current is required';
     if (!voltageRating) errors.voltageRating = 'Voltage Rating is required';
     
     if (Object.keys(errors).length > 0) {
@@ -231,54 +239,58 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
       transformerType: transformerType,
       quantity: parseInt(quantity),
       voltageRating,  // Added
-      ratio: ratios,  // Changed to Array
+      primaryCurrents: primaryCurrents, // Array of primary currents
+      ratio: primaryCurrents.map(p => `${p}/${coreConfigs[0]?.secondaryCurrent || '1'}`), // Legacy fallback for some views
       isStandard,
       indoorOutdoor,
       insulationType,
       tankType,
       numberOfCores: parseInt(numberOfCores),
-      coreConfigs,
+      coreDetails: coreConfigs.map((c) => {
+        return {
+          coreType: c.coreType === 'ps' ? 'PS' : c.coreType.charAt(0).toUpperCase() + c.coreType.slice(1),
+          accuracyClass: c.accuracyClass,
+          vendorNo: c.vendorNo,
+          secondaryCurrent: c.secondaryCurrent
+        };
+      }),
       parameters: {
         nominalVoltage,
         burden,
-        ratedPrimaryCurrent,
-        ratedSecondaryCurrent,
         stc,
       },
       images,
       coreVendors: {
-        metering: selectedMeteringVendors.map((id, index) => {
-          const v = allVendors.find(v => v._id === id);
-          return { serialNo: index + 1, name: v ? v.vendor_name : 'Unknown' };
+        metering: coreConfigs.filter(c => c.coreType === 'metering').flatMap((c, index) => {
+          const ids = c.vendorNo ? c.vendorNo.split(',') : [];
+          return ids.map(id => {
+            const v = allVendors.find(v => String(v._id) === id);
+            return { serialNo: index + 1, name: v ? v.vendor_name : 'Unknown' };
+          });
         }),
-        protection: selectedProtectionVendors.map((id, index) => {
-          const v = allVendors.find(v => v._id === id);
-          return { serialNo: index + 1, name: v ? v.vendor_name : 'Unknown' };
+        protection: coreConfigs.filter(c => c.coreType === 'protection').flatMap((c, index) => {
+          const ids = c.vendorNo ? c.vendorNo.split(',') : [];
+          return ids.map(id => {
+            const v = allVendors.find(v => String(v._id) === id);
+            return { serialNo: index + 1, name: v ? v.vendor_name : 'Unknown' };
+          });
         }),
-        ps: selectedPSVendors.map((id, index) => {
-          const v = allVendors.find(v => v._id === id);
-          return { serialNo: index + 1, name: v ? v.vendor_name : 'Unknown' };
+        ps: coreConfigs.filter(c => c.coreType === 'ps').flatMap((c, index) => {
+          const ids = c.vendorNo ? c.vendorNo.split(',') : [];
+          return ids.map(id => {
+            const v = allVendors.find(v => String(v._id) === id);
+            return { serialNo: index + 1, name: v ? v.vendor_name : 'Unknown' };
+          });
         }),
       },
       bypassApproval: !isEntryOperator, // If Entry Operator, do NOT bypass approval
     };
 
     // Validation
-    const hasMetering = coreConfigs.some(c => c.coreType === 'metering');
-    const hasProtection = coreConfigs.some(c => c.coreType === 'protection');
-    const hasPS = coreConfigs.some(c => c.coreType === 'ps');
-
-    if (transformerType === 'CT') {
-      if (hasMetering && selectedMeteringVendors.length === 0) {
-        toast.error("At least one Metering vendor is required");
-        return;
-      }
-      if (hasProtection && selectedProtectionVendors.length === 0) {
-        toast.error("At least one Protection vendor is required");
-        return;
-      }
-      if (hasPS && selectedPSVendors.length === 0) {
-        toast.error("At least one PS vendor is required");
+    if (transformerType === 'CT' && parseInt(numberOfCores) > 0) {
+      const hasMissingVendor = coreConfigs.some(c => !c.vendorNo);
+      if (hasMissingVendor) {
+        toast.error("Please select a vendor for every core.");
         return;
       }
     }
@@ -513,7 +525,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                     setCoreConfigs(prev => {
                       const newTypes = Array.isArray(prev) ? [...prev] : [];
                       if (numCores > newTypes.length) {
-                        return [...newTypes, ...Array(numCores - newTypes.length).fill({ coreType: 'metering', accuracyClass: '', vendorNo: '' })];
+                        return [...newTypes, ...Array(numCores - newTypes.length).fill({ coreType: 'metering', accuracyClass: '', vendorNo: '', secondaryCurrent: '1' })];
                       }
                       return newTypes.slice(0, numCores);
                     });
@@ -595,32 +607,42 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                           </select>
                         </div>
 
-                        {transformerType === 'CT' && (
-                          <div>
-                            <Label>Core Vendor *</Label>
-                            <select
-                              value={coreConfigs[index]?.vendorNo || ''}
-                              onChange={(e) => handleCoreVendorChange(index, e.target.value)}
-                              className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
-                            >
-                              <option value="">Select Vendor</option>
-                              {(() => {
-                                const type = coreConfigs[index].coreType;
-                                const selectedIds = type === 'metering' ? selectedMeteringVendors :
-                                  type === 'protection' ? selectedProtectionVendors :
-                                    selectedPSVendors;
 
-                                // Map directly from all vendors, ensuring distinct objects based on unique IDs
-                                const uniqueVendors = Array.from(new Map(allVendors.map(v => [v._id, v])).values());
-                                return uniqueVendors
-                                  .filter(v => selectedIds.includes(v._id))
-                                  .map(v => (
-                                    <option key={v._id} value={v.vendor_no}>
-                                      {v.vendor_no} - {v.vendor_name}
-                                    </option>
-                                  ));
-                              })()}
-                            </select>
+
+
+
+                        <div className="mt-2">
+                          <Label>Secondary Current *</Label>
+                          <select
+                            value={coreConfigs[index]?.secondaryCurrent || '1'}
+                            onChange={(e) => handleCoreSecondaryCurrentChange(index, e.target.value)}
+                            className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                          >
+                            <option value="1">1</option>
+                            <option value="5">5</option>
+                            <option value="Custom">Custom...</option>
+                          </select>
+                          {coreConfigs[index]?.secondaryCurrent !== '1' && coreConfigs[index]?.secondaryCurrent !== '5' && (
+                            <Input
+                              className="mt-1"
+                              placeholder="Enter Custom Sec. Current"
+                              value={coreConfigs[index].secondaryCurrent === 'Custom' ? '' : coreConfigs[index].secondaryCurrent}
+                              onChange={(e) => handleCoreSecondaryCurrentChange(index, e.target.value)}
+                            />
+                          )}
+                        </div>
+
+                        {transformerType === 'CT' && (
+                          <div className="mt-2 relative">
+                            <Label>Core Vendor(s) *</Label>
+                            <div className="mt-1">
+                              <VendorMultiSelect
+                                vendors={allVendors}
+                                selectedIds={coreConfigs[index]?.vendorNo ? coreConfigs[index].vendorNo.split(',') : []}
+                                onChange={(ids) => handleCoreVendorChange(index, ids.join(','))}
+                                placeholder="Select Vendors"
+                              />
+                            </div>
                           </div>
                         )}
                       </div>
@@ -631,99 +653,54 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
             </div>
           )}
 
-          {/* Core Vendors Section (ONLY for CT) */}
-          {transformerType === 'CT' && parseInt(numberOfCores) > 0 && (
-            <div className="space-y-4">
-              <h3 className="pb-2 border-b-2 border-gray-200">Core Vendors</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {coreConfigs.some(c => c.coreType === 'metering') && (
-                <div className="space-y-2">
-                  <Label className="text-blue-700 font-bold">Metering Core Vendors *</Label>
-                  <VendorMultiSelect
-                    vendors={allVendors}
-                    selectedIds={selectedMeteringVendors}
-                    onChange={(ids) => setSelectedMeteringVendors(ids)}
-                    placeholder="Select Metering Vendors"
-                  />
-                </div>
-              )}
-              {coreConfigs.some(c => c.coreType === 'protection') && (
-                <div className="space-y-2">
-                  <Label className="text-green-700 font-bold">Protection Core Vendors *</Label>
-                  <VendorMultiSelect
-                    vendors={allVendors}
-                    selectedIds={selectedProtectionVendors}
-                    onChange={(ids) => setSelectedProtectionVendors(ids)}
-                    placeholder="Select Protection Vendors"
-                  />
-                </div>
-              )}
-              {coreConfigs.some(c => c.coreType === 'ps') && (
-                <div className="space-y-2">
-                  <Label className="text-purple-700 font-bold">PS Core Vendors *</Label>
-                  <VendorMultiSelect
-                    vendors={allVendors}
-                    selectedIds={selectedPSVendors}
-                    onChange={(ids) => setSelectedPSVendors(ids)}
-                    placeholder="Select PS Vendors"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
           {/* Transformer Parameters Section */}
           <div className="space-y-4">
             <h3 className="pb-2 border-b-2 border-gray-200">Transformer Parameters</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Ratio *</Label>
+                <Label>Primary Current *</Label>
                 <div className="space-y-2">
                   {/* Selected Tags */}
                   <div className="flex flex-wrap gap-2">
-                    {ratios.map(r => (
-                      <span key={r} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                        {r}
-                        <button onClick={() => handleRemoveRatio(r)} className="hover:text-blue-900"><X className="w-3 h-3" /></button>
+                    {primaryCurrents.map((p, idx) => (
+                      <span key={idx} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                        {p}
+                        <button onClick={() => handleRemovePrimaryCurrent(idx)} className="hover:text-blue-900"><X className="w-3 h-3" /></button>
                       </span>
                     ))}
                   </div>
 
                   {/* Selection Controls */}
                   <div className="flex gap-2">
-                    {!isCustomRatio ? (
+                    {!isCustomPrimaryCurrent ? (
                       <select
                         value=""
                         onChange={(e) => {
-                          if (e.target.value === 'custom') setIsCustomRatio(true);
-                          else if (e.target.value) handleAddRatio(e.target.value);
+                          if (e.target.value === 'custom') setIsCustomPrimaryCurrent(true);
+                          else if (e.target.value) handleAddPrimaryCurrent(e.target.value);
                         }}
                         className="w-full h-10 px-3 rounded-md border border-gray-300 bg-white"
                       >
-                        <option value="">Add Ratio...</option>
-                        <option value="200/1">200/1</option>
-                        <option value="400/1">400/1</option>
-                        <option value="800/1">800/1</option>
-                        <option value="200/5">200/5</option>
-                        <option value="400/5">400/5</option>
-                        <option value="800/5">800/5</option>
+                        <option value="">Add Primary Current...</option>
+                        {[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000].map(val => (
+                           <option key={val} value={val.toString()}>{val}</option>
+                        ))}
                         <option value="custom">Custom...</option>
                       </select>
                     ) : (
                       <div className="flex gap-2 w-full">
                         <Input
                           autoFocus
-                          placeholder="Enter ratio"
-                          value={customRatioInput}
-                          onChange={(e) => setCustomRatioInput(e.target.value)}
+                          placeholder="Enter primary current"
+                          value={customPrimaryCurrentInput}
+                          onChange={(e) => setCustomPrimaryCurrentInput(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              if (customRatioInput.trim()) {
-                                handleAddRatio(customRatioInput);
-                                setCustomRatioInput('');
-                                setIsCustomRatio(false);
+                              if (customPrimaryCurrentInput.trim()) {
+                                handleAddPrimaryCurrent(customPrimaryCurrentInput);
+                                setCustomPrimaryCurrentInput('');
+                                setIsCustomPrimaryCurrent(false);
                               }
                             }
                           }}
@@ -732,10 +709,10 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                         <Button
                           size="sm"
                           onClick={() => {
-                            if (customRatioInput.trim()) {
-                              handleAddRatio(customRatioInput);
-                              setCustomRatioInput('');
-                              setIsCustomRatio(false);
+                            if (customPrimaryCurrentInput.trim()) {
+                              handleAddPrimaryCurrent(customPrimaryCurrentInput);
+                              setCustomPrimaryCurrentInput('');
+                              setIsCustomPrimaryCurrent(false);
                             }
                           }}
                         >
@@ -744,7 +721,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => { setIsCustomRatio(false); setCustomRatioInput(''); }}
+                          onClick={() => { setIsCustomPrimaryCurrent(false); setCustomPrimaryCurrentInput(''); }}
                         >
                           <X className="w-4 h-4" />
                         </Button>
@@ -763,71 +740,29 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                 />
                 {formErrors.nominalVoltage && <span className="text-xs text-red-600 font-semibold">{formErrors.nominalVoltage}</span>}
               </div>
-              <div>
-                <Label className={formErrors.burden ? "text-red-600" : ""}>Burden *</Label>
-                <Input
-                  placeholder="e.g., 15 VA"
-                  value={burden}
-                  onChange={(e) => handleInputChange('burden', e.target.value, setBurden)}
-                  className={`mt-1 ${formErrors.burden ? "border-red-500 bg-red-50" : ""}`}
-                />
-                {formErrors.burden && <span className="text-xs text-red-600 font-semibold">{formErrors.burden}</span>}
-              </div>
-              {transformerType === 'CT' && (
-                <div>
-                  <Label>Rated Primary Current</Label>
-                  <Input
-                    placeholder="e.g., 200 A"
-                    value={ratedPrimaryCurrent}
-                    onChange={(e) => setRatedPrimaryCurrent(e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-              )}
-              <div>
-                <Label className={formErrors.ratedSecondaryCurrent ? "text-red-600" : ""}>Rated Secondary Current *</Label>
-                <div className="flex gap-2">
-                  <select
-                    value={!isCustomSecCurrent ? ratedSecondaryCurrent : 'Custom'}
-                    onChange={(e) => {
-                      if (e.target.value === 'Custom') {
-                        setIsCustomSecCurrent(true);
-                        handleInputChange('ratedSecondaryCurrent', '', setRatedSecondaryCurrent);
-                      } else {
-                        setIsCustomSecCurrent(false);
-                        handleInputChange('ratedSecondaryCurrent', e.target.value, setRatedSecondaryCurrent);
-                      }
-                    }}
-                    className={`w-full mt-1 h-10 px-3 rounded-md border bg-white ${formErrors.ratedSecondaryCurrent ? "border-red-500 bg-red-50" : "border-gray-300"}`}
-                  >
-                    <option value="">Select Sec. Current</option>
-                    <option value="1">1</option>
-                    <option value="5">5</option>
-                    <option value="Custom">Custom...</option>
-                  </select>
-                  {isCustomSecCurrent && (
-                    <Input
-                      className="mt-1"
-                      placeholder="Custom Value"
-                      value={ratedSecondaryCurrent}
-                      onChange={e => setRatedSecondaryCurrent(e.target.value)}
-                    />
-                  )}
-                </div>
-              </div>
-              {transformerType === 'CT' && (
-                <div>
-                  <Label>STC (Short Time Current)</Label>
-                  <Input
-                    value={stc}
-                    onChange={(e) => setStc(e.target.value)}
-                    placeholder="e.g. 31.5 kA for 3s"
-                    className="mt-1"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
+               <div>
+                 <Label className={formErrors.burden ? "text-red-600" : ""}>Burden *</Label>
+                 <Input
+                   placeholder="e.g., 15 VA"
+                   value={burden}
+                   onChange={(e) => handleInputChange('burden', e.target.value, setBurden)}
+                   className={`mt-1 ${formErrors.burden ? "border-red-500 bg-red-50" : ""}`}
+                 />
+                 {formErrors.burden && <span className="text-xs text-red-600 font-semibold">{formErrors.burden}</span>}
+               </div>
+               {transformerType === 'CT' && (
+                 <div>
+                   <Label>STC (Short Time Current)</Label>
+                   <Input
+                     value={stc}
+                     onChange={(e) => setStc(e.target.value)}
+                     placeholder="e.g. 31.5 kA for 3s"
+                     className="mt-1"
+                   />
+                 </div>
+               )}
+             </div>
+           </div>
 
           {/* Additional Parameters Section */}
           <div className="space-y-4">
@@ -1015,7 +950,9 @@ function VendorMultiSelect({ vendors, selectedIds, onChange, placeholder }: Vend
                 </div>
               ))
             ) : (
-              <div className="p-4 text-center text-sm text-gray-500">No vendors found</div>
+              <div className="p-4 text-center text-sm text-gray-500">
+                {vendors.length === 0 ? "No vendors loaded from server" : "No vendors match search"}
+              </div>
             )}
           </div>
           <div className="p-2 border-t bg-gray-50 flex justify-end">

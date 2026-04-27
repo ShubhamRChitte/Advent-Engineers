@@ -38,12 +38,16 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
   useEffect(() => {
     const fetchVendors = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/core-vendors', { withCredentials: true });
+        const response = await axios.get('http://localhost:5001/api/core-vendors', { withCredentials: true });
+        console.log("Fetch vendors response:", response.data);
         if (response.data.success) {
           setAllVendors(response.data.data);
+        } else {
+          console.warn("Server returned success:false for vendors:", response.data);
         }
       } catch (err) {
         console.error("Failed to fetch vendors:", err);
+        toast.error("Could not load core vendors. Check server connection.");
       }
     };
     fetchVendors();
@@ -99,19 +103,30 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
       // Form: ['metering', 'ps'] -> Backend: [{ coreType: 'Metering' }, { coreType: 'PS' }]
       const formatCoreType = (type: string) => {
         if (!type) return 'Metering';
-        if (type.toLowerCase() === 'ps') return 'PS';
-        if (type.toLowerCase() === 'ct') return 'CT'; // fallback
-        // Capitalize first letter
+        const lower = type.toLowerCase();
+        if (lower === 'ps') return 'PS';
+        if (lower === 'metering') return 'Metering';
+        if (lower === 'protection') return 'Protection';
+        // Capitalize first letter as fallback
         return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
       };
 
-      const configsToUse = orderData.coreConfigs || orderData.coreTypes || [];
+      let configsToUse = orderData.coreDetails || orderData.coreConfigs || orderData.coreTypes || [];
+      
+      // Fallback: If we have cores but no config array, create a default array
+      const expectedCores = parseInt(orderData.numberOfCores) || 0;
+      if (configsToUse.length === 0 && expectedCores > 0) {
+        console.warn("Order has cores but no coreDetails found. Generating defaults.");
+        configsToUse = Array(expectedCores).fill({ coreType: 'Metering' });
+      }
+
       const coreDetails = configsToUse.map((config: any) => {
-        const typeString = typeof config === 'string' ? config : config.coreType;
+        const typeString = typeof config === 'string' ? config : (config.coreType || 'Metering');
         return {
           coreType: formatCoreType(typeString),
           accuracyClass: config.accuracyClass || '0.5',
-          vendorNo: config.vendorNo || ''
+          vendorNo: config.vendorNo || '',
+          secondaryCurrent: config.secondaryCurrent || '1'
         };
       });
 
@@ -127,6 +142,7 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
 
         noOfCores: parseInt(orderData.numberOfCores),
         coreDetails: coreDetails,
+        primaryCurrents: orderData.primaryCurrents || [],
         ratio: orderData.ratio && orderData.ratio.length > 0 ? orderData.ratio : ["N/A"],
 
         // Spread parameters to root
@@ -170,7 +186,7 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
         }
       });
 
-      const response = await axios.post('http://localhost:5000/api/create-order', formData, {
+      const response = await axios.post('http://localhost:5001/api/create-order', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

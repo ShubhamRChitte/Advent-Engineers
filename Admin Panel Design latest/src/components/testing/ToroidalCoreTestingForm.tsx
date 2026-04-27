@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -63,6 +63,27 @@ export function ToroidalCoreTestingForm({
   });
 
   const [finalResult, setFinalResult] = useState<'PASS' | 'FAIL' | ''>('');
+
+  useEffect(() => {
+    const vendorsObj = (order?.coreVendors) || {};
+    const options = vendorsObj[coreType.toLowerCase()] || [];
+    if (options.length > 0) {
+      const defaultVendor = `${options[0].serialNo} - ${options[0].name}`;
+      setFormData(prev => {
+        // Only update if they are currently empty (to avoid overwriting user changes)
+        if (prev.testResults.every(r => r.coreVendorNo === '')) {
+          return {
+            ...prev,
+            testResults: prev.testResults.map(r => ({
+              ...r,
+              coreVendorNo: defaultVendor
+            }))
+          };
+        }
+        return prev;
+      });
+    }
+  }, [order, coreType]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({

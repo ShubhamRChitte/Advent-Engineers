@@ -16,7 +16,7 @@ export function AdminHeader({ user, onLogout, onNotificationClick }: AdminHeader
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/notifications/unread-count', {
+      const response = await axios.get('http://localhost:5001/api/notifications/unread-count', {
         withCredentials: true
       });
       if (response.data.success) {

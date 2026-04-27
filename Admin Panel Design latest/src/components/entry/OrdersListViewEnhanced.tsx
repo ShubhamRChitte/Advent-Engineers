@@ -62,7 +62,7 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav }:
 
   const fetchOrders = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/admin/orders', {
+      const response = await axios.get('http://localhost:5001/api/admin/orders', {
         withCredentials: true
       });
       const mappedOrders = response.data.map((order: any) => ({
@@ -112,7 +112,7 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav }:
   const handleApprove = async (orderId: string, event: React.MouseEvent) => {
     event.stopPropagation();
     try {
-      const response = await axios.put(`http://localhost:5000/api/orders/${orderId}/approve`, {}, {
+      const response = await axios.put(`http://localhost:5001/api/orders/${orderId}/approve`, {}, {
         withCredentials: true
       });
       if (response.data.success) {

@@ -98,7 +98,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
       // Updated to use the real endpoint
       console.log('Approving transformer:', target.uniqueId);
 
-      const response = await axios.put(`http://localhost:5000/api/transformers/${target.uniqueId}/approve-stage`, {
+      const response = await axios.put(`http://localhost:5001/api/transformers/${target.uniqueId}/approve-stage`, {
         stage: 'final',
         nextStage: 'shipped' // or 'completed' depending on workflow
       }, {

@@ -100,8 +100,9 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
     });
     if (!accuracyCompleted) return false;
 
-    // 4. Check Heating Status (STRICT REQUIREMENT - uses new database field)
-    if (!isHeatingApproved) return false;
+    // 4. Heating Status is no longer a blocker
+    // if (!isHeatingApproved) return false;
+
 
     return true;
   };
@@ -115,8 +116,8 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
         
         // Parallel fetch for transformers and heating records
         const [transformersRes, heatingRes] = await Promise.all([
-          axios.get(`http://localhost:5000/api/transformers/order/${orderId}`, { withCredentials: true }),
-          axios.get(`http://localhost:5000/api/heating-record/${orderId}/33KV_PT`, { withCredentials: true }).catch(err => {
+          axios.get(`http://localhost:5001/api/transformers/order/${orderId}`, { withCredentials: true }),
+          axios.get(`http://localhost:5001/api/heating-record/${orderId}/33KV_PT`, { withCredentials: true }).catch(err => {
              console.warn("No heating record found or error:", err);
              return { data: { success: false, data: { blocks: [] } } };
           })
@@ -225,7 +226,7 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
   const handleApproveTransformer = async (transformer: Transformer) => {
     try {
       if (!window.confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId}?`)) return;
-      await axios.put(`http://localhost:5000/api/pt-tests/transformer/${transformer._id}/approve`, {}, { withCredentials: true });
+      await axios.put(`http://localhost:5001/api/pt-tests/transformer/${transformer._id}/approve`, {}, { withCredentials: true });
       alert("Transformer approved successfully!");
       // Update local state to reflect approval (remove from active list)
       setTransformers(prev => prev.filter(t => t._id !== transformer._id));
