@@ -130,6 +130,10 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
 
   const getSystemDate = () => new Date().toLocaleDateString('en-GB');
 
+  const isRowLocked = (row: CoreTestRow) => {
+    return row.status === 'PASS' || row.status === 'FAIL' || row.status === 'RETURNED';
+  };
+
   // Vendor selection helpers
   const getVendors = () => {
     const vendorsObj = ((order as any).coreVendors || (order as any).order?.coreVendors) || {};
@@ -179,7 +183,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
           <select
             value={String(row.coreVendorNo || '')}
             onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
-            disabled={isReadOnly}
+            disabled={isReadOnly || isRowLocked(row)}
             className="w-full h-7 text-xs border border-gray-300 text-center focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white rounded cursor-pointer appearance-none hover:bg-gray-50 transition-colors"
             title="Click to select vendor"
           >
@@ -194,7 +198,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
           <Input
             value={String(row.coreVendorNo || '')}
             onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
-            disabled={isReadOnly}
+            disabled={isReadOnly || isRowLocked(row)}
             className="w-full h-7 text-xs border-gray-300 text-center mx-auto focus:ring-1 focus:ring-blue-500"
             placeholder="Enter Vendor"
           />
@@ -636,25 +640,8 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
 
 
 
-  const addRow = () => {
-    if (isReadOnly) return;
-    const nextSeq = getNextSequenceNumber(rows);
-    const vendors = getVendors();
-    const defaultVendor = vendors.length > 0 && vendors[0] ? `${vendors[0].serialNo} - ${vendors[0].name}` : '';
 
-    setRows([...rows, {
-      date: getSystemDate(),
-      coreVendorNo: defaultVendor,
-      internalCoreNo: generateCoreId(nextSeq), // Fixed naming here
-      value1000: '',
-      value3000: '',
-      value5000: '',
-      value7000: '',
-      singleValue: '',
-      dynamicValues: {},
-      remark: '',
-    }]);
-  };
+
 
 
 
@@ -1399,6 +1386,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                         <Input
                           value={String(row.internalCoreNo || '')}
                           onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
+                          disabled={isReadOnly || isRowLocked(row)}
                           className="flex-1 h-8 text-xs border-0 focus:ring-1 focus:ring-blue-500 font-mono font-bold text-gray-900"
                           placeholder={generateCoreId(index + 1)}
                         />
@@ -1419,6 +1407,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                             const filtered = e.target.value.replace(/[^0-9+\-.]/g, '');
                             handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: filtered });
                           }}
+                          disabled={isReadOnly || isRowLocked(row)}
                           className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue) ? 'bg-red-50 text-red-700' : ''
                             }`}
                           placeholder="9.5"
@@ -1432,7 +1421,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                           }`}>
                           {row.remark}
                         </div>
-                        {row.remark === 'F' && !row.isReplacement && (
+                        {row.remark === 'F' && !row.isReplacement && !rows.some(r => r.replacedCoreId === row.internalCoreNo) && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -1487,25 +1476,33 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
           </div>
         </Card>
 
-        {/* Add More Rows Button */}
-        <div className="flex justify-center">
-          <Button variant="outline" size="sm" onClick={addRow} className="gap-1">
-            <Plus className="w-3 h-3" />
-            Add More Rows
-          </Button>
-        </div>
+
 
         {/* Completion Summary */}
         <Card className="p-4 bg-blue-50 border-blue-200">
           <div className="flex items-center justify-between">
             <div>
               <h4 className="font-medium text-blue-900">Testing Summary</h4>
-              <p className="text-sm text-blue-700 mt-1">
-                {getFilledRowsCount()} cores tested out of {order.transformerQuantity} total
-                {failedCores.length > 0 && ` • ${failedCores.length} cores replaced`}
-              </p>
+              <div className="flex flex-wrap gap-4 mt-2">
+                <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
+                  <div className="text-[10px] text-gray-500 uppercase font-bold">Assigned</div>
+                  <div className="text-lg font-bold text-gray-900">{calculateTotalRowsNeeded()}</div>
+                </div>
+                <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
+                  <div className="text-[10px] text-gray-500 uppercase font-bold">Completed</div>
+                  <div className="text-lg font-bold text-green-600">{getFilledRowsCount()}</div>
+                </div>
+                <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
+                  <div className="text-[10px] text-gray-500 uppercase font-bold">Remaining</div>
+                  <div className="text-lg font-bold text-blue-600">{Math.max(0, calculateTotalRowsNeeded() - getFilledRowsCount())}</div>
+                </div>
+                <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
+                  <div className="text-[10px] text-gray-500 uppercase font-bold">Auto-added (Failures)</div>
+                  <div className="text-lg font-bold text-red-500">{failedCores.length}</div>
+                </div>
+              </div>
             </div>
-            {getFilledRowsCount() === order.transformerQuantity && (
+            {getFilledRowsCount() >= calculateTotalRowsNeeded() && (
               <div className="flex items-center gap-2 text-green-600">
                 <Check className="w-5 h-5" />
                 <span className="font-medium">Complete</span>
@@ -2033,6 +2030,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                         <Input
                           value={String(row.internalCoreNo || '')}
                           onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
+                          disabled={isReadOnly || isRowLocked(row)}
                           className="flex-1 h-8 text-xs border-0 focus:ring-1 focus:ring-blue-500 font-mono font-bold text-gray-900"
                           placeholder={generateCoreId(index + 1)}
                         />
@@ -2067,7 +2065,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                           }`}>
                           {row.remark}
                         </div>
-                        {row.remark === 'F' && !row.isReplacement && (
+                        {row.remark === 'F' && !row.isReplacement && !rows.some(r => r.replacedCoreId === row.internalCoreNo) && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -2121,25 +2119,33 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
           </div>
         </Card>
 
-        {/* Add More Rows Button */}
-        <div className="flex justify-center">
-          <Button variant="outline" size="sm" onClick={addRow} className="gap-1">
-            <Plus className="w-3 h-3" />
-            Add More Rows
-          </Button>
-        </div>
+
 
         {/* Completion Summary */}
         <Card className="p-4 bg-blue-50 border-blue-200">
           <div className="flex items-center justify-between">
             <div>
               <h4 className="font-medium text-blue-900">Testing Summary</h4>
-              <p className="text-sm text-blue-700 mt-1">
-                {getFilledRowsCount()} cores tested out of {order.transformerQuantity} total
-                {failedCores.length > 0 && ` • ${failedCores.length} cores replaced`}
-              </p>
+              <div className="flex flex-wrap gap-4 mt-2">
+                <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
+                  <div className="text-[10px] text-gray-500 uppercase font-bold">Assigned</div>
+                  <div className="text-lg font-bold text-gray-900">{calculateTotalRowsNeeded()}</div>
+                </div>
+                <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
+                  <div className="text-[10px] text-gray-500 uppercase font-bold">Completed</div>
+                  <div className="text-lg font-bold text-green-600">{getFilledRowsCount()}</div>
+                </div>
+                <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
+                  <div className="text-[10px] text-gray-500 uppercase font-bold">Remaining</div>
+                  <div className="text-lg font-bold text-blue-600">{Math.max(0, calculateTotalRowsNeeded() - getFilledRowsCount())}</div>
+                </div>
+                <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
+                  <div className="text-[10px] text-gray-500 uppercase font-bold">Auto-added (Failures)</div>
+                  <div className="text-lg font-bold text-red-500">{failedCores.length}</div>
+                </div>
+              </div>
             </div>
-            {getFilledRowsCount() === order.transformerQuantity && (
+            {getFilledRowsCount() >= calculateTotalRowsNeeded() && (
               <div className="flex items-center gap-2 text-green-600">
                 <Check className="w-5 h-5" />
                 <span className="font-medium">Complete</span>
@@ -2690,6 +2696,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
 
                         // 4. IMPROVEMENT: Show the expected ID as a hint
                         placeholder={generateCoreId(index + 1)}
+                        disabled={isReadOnly || isRowLocked(row)}
                       />
                       {row.isReplacement && (
                         <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded font-bold border border-blue-200">
@@ -2710,6 +2717,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                           const filtered = e.target.value.replace(/[^0-9+\-.]/g, '');
                           handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: filtered });
                         }}
+                        disabled={isReadOnly || isRowLocked(row)}
                         className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue || '0') ? 'bg-red-50 text-red-700' : ''
                           }`}
                         placeholder="9.5"
@@ -2723,7 +2731,7 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
                         }`}>
                         {row.remark}
                       </div>
-                      {row.remark === 'F' && !row.isReplacement && (
+                      {row.remark === 'F' && !row.isReplacement && !rows.some(r => r.replacedCoreId === row.internalCoreNo) && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -2744,25 +2752,31 @@ export function CoreTestingForm({ order, coreType, onBack, isReadOnly = false, u
         </div>
       </Card>
 
-      {/* Add More Rows Button */}
-      <div className="flex justify-center">
-        <Button variant="outline" size="sm" onClick={addRow} className="gap-1">
-          <Plus className="w-3 h-3" />
-          Add More Rows
-        </Button>
-      </div>
-
       {/* Completion Summary */}
       <Card className="p-4 bg-blue-50 border-blue-200">
         <div className="flex items-center justify-between">
           <div>
             <h4 className="font-medium text-blue-900">Testing Summary</h4>
-            <p className="text-sm text-blue-700 mt-1">
-              {getFilledRowsCount()} cores tested out of {order.transformerQuantity} total
-              {failedCores.length > 0 && ` • ${failedCores.length} cores replaced`}
-            </p>
+            <div className="flex flex-wrap gap-4 mt-2">
+              <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
+                <div className="text-[10px] text-gray-500 uppercase font-bold">Assigned</div>
+                <div className="text-lg font-bold text-gray-900">{calculateTotalRowsNeeded()}</div>
+              </div>
+              <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
+                <div className="text-[10px] text-gray-500 uppercase font-bold">Completed</div>
+                <div className="text-lg font-bold text-green-600">{getFilledRowsCount()}</div>
+              </div>
+              <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
+                <div className="text-[10px] text-gray-500 uppercase font-bold">Remaining</div>
+                <div className="text-lg font-bold text-blue-600">{Math.max(0, calculateTotalRowsNeeded() - getFilledRowsCount())}</div>
+              </div>
+              <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
+                <div className="text-[10px] text-gray-500 uppercase font-bold">Auto-added (Failures)</div>
+                <div className="text-lg font-bold text-red-500">{failedCores.length}</div>
+              </div>
+            </div>
           </div>
-          {getFilledRowsCount() === order.transformerQuantity && (
+          {getFilledRowsCount() >= calculateTotalRowsNeeded() && (
             <div className="flex items-center gap-2 text-green-600">
               <Check className="w-5 h-5" />
               <span className="font-medium">Complete</span>
