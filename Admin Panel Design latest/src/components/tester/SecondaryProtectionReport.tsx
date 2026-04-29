@@ -18,6 +18,7 @@ interface SecondaryProtectionReportProps {
   primaryCurrent?: string;
   secondaryCurrent?: string;
   order?: any;
+  onRefresh?: () => void;
 }
 
 interface ProtectionTestRow {
@@ -107,9 +108,10 @@ export function SecondaryProtectionReport({
   primaryCurrent: manualPrimary,
   secondaryCurrent: manualSecondary,
   order: propOrder,
+  onRefresh,
 }: SecondaryProtectionReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
-    ((!isNaN(parseInt(coreId.replace('Core ', '')))) ? parseInt(coreId.replace('Core ', '')) - 1 : 0);
+    (!isNaN(parseInt(coreId.replace(/[^0-9]/g, ''))) ? parseInt(coreId.replace(/[^0-9]/g, '')) - 1 : 0);
 
 
   // Use ratios from the transformer object, falling back to a default if empty
@@ -144,14 +146,15 @@ export function SecondaryProtectionReport({
     if (explicitClass) return explicitClass;
 
     // Fallback: Use the granular accuracyClass from coreDetails
-    const order = transformer.fullOrder || transformer.orderId;
+    const order = propOrder || transformer.fullOrder || transformer.orderId;
     const orderCores = order?.coreDetails || [];
     const coreFromOrder = orderCores[coreIndex];
     const accClass = coreFromOrder?.accuracyClass || '';
 
-    if (accClass.includes('15P')) return '15P';
-    if (accClass.includes('10P')) return '10P';
-    return '5P';
+    if (accClass.toUpperCase().includes('15P')) return '15P';
+    if (accClass.toUpperCase().includes('10P')) return '10P';
+    if (accClass.toUpperCase().includes('5P')) return '5P';
+    return accClass || '5P';
   });
   const [dbLimits, setDbLimits] = useState<any[]>([]);
 
@@ -467,6 +470,7 @@ export function SecondaryProtectionReport({
 
       console.log("handleDatabaseSave: Response received", response);
       toast.success("Protection data saved to database successfully!");
+      if (onRefresh) onRefresh();
 
     } catch (error) {
       console.error("handleDatabaseSave: ERROR CAUGHT", error);
@@ -759,7 +763,7 @@ export function SecondaryProtectionReport({
               </tr>
               <tr>
                 <td className="border-b border-black p-1.5" colSpan={2}>
-                  <p><span className="font-bold italic">CT Ratio :</span> {ratiosToUse.join('-')} / {transformer.ratedSecondaryCurrent || '1'} A</p>
+                  <p><span className="font-bold italic">CT Ratio :</span> {ratiosToUse.join('-')} A</p>
                 </td>
               </tr>
               <tr>

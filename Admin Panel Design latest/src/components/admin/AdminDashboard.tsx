@@ -4,7 +4,6 @@ import { Button } from '../ui/button';
 import { Users, Package, ClipboardCheck, TrendingUp, AlertCircle, CheckCircle2, PlusCircle, List, ArrowRight } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { AdminReviewPanel } from './AdminReviewPanel';
-import { StrictApprovalDashboard } from './StrictApprovalDashboard';
 
 interface AdminDashboardProps {
   setActiveView?: (view: string) => void;
@@ -61,8 +60,6 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
         <p className="text-gray-500 mt-1">Welcome back! Here's your testing system summary.</p>
       </div>
 
-      {/* Admin Review & Strict Approvals Section */}
-      <StrictApprovalDashboard />
       <AdminReviewPanel />
 
       {/* Stats Grid */}

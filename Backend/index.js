@@ -21,6 +21,7 @@ const { MeteringCoreTestModel } = require("./models/MeteringCoreTestModel");
 const { ProtectionCoreTestModel } = require("./models/ProtectionCoreTestModel");
 const { TransformerModel } = require("./models/TransformerModel");
 const { SecondaryMeteringTestModel } = require("./models/SecondaryMeteringTestModel");
+const AccuracyLimit = require('./models/AccuracyLimit.cjs');
 // const VerifyUser = require('./middlewares/VeriifyUser');
 // const UsersModel = require("./model/UsersModel");
 const { CounterModel } = require("./models/CounterModel");
@@ -46,6 +47,10 @@ mongoose
       const collection = mongoose.connection.collection('failedcores');
       await collection.dropIndex('orderId_1_internalCoreNo_1');
       console.log("Successfully dropped duplicate index on failedcores.");
+      
+      const notifCollection = mongoose.connection.collection('notifications');
+      await notifCollection.dropIndex('type_1_orderId_1');
+      console.log("Successfully dropped restrictive unique index on notifications.");
     } catch (e) {
       // Ignore if index doesn't exist
     }
@@ -2284,7 +2289,6 @@ app.post("/transformer-primary-metering-tests", async (req, res) => {
   try {
     const { uniqueId, tester, metering_results, coreId } = req.body;
     console.log(`[DEBUG] POST /transformer-primary-metering-tests. Payload:`, req.body);
-    const { validateMeteringReading } = require('./utils/accuracyLimits');
 
     // Fetch the Transformer to get Accuracy Class
     const transformerDoc = await TransformerModel.findOne({ uniqueId: uniqueId }).populate('orderId');
@@ -2294,24 +2298,58 @@ app.post("/transformer-primary-metering-tests", async (req, res) => {
 
     const accuracyClass = transformerDoc.orderId ? transformerDoc.orderId.accuracyClass : "0.5";
 
+    // Fetch dynamic limits from DB
+    const dbLimits = await AccuracyLimit.find({ coreType: 'metering', transformerType: 'CT' }).lean();
+
     // Validate Readings
-    const validatedResults = metering_results.map(r => ({ ...r, internalCoreNo: coreId || r.internalCoreNo }));
-    validatedResults.forEach(resultBlock => {
+    const validatedResults = metering_results.map(resultBlock => {
+      const coreAccuracyClass = resultBlock.accuracyClass || accuracyClass || "0.5";
+      const cleanClass = String(coreAccuracyClass).toUpperCase().replace(/\s+/g, '');
+      const limitConfig = dbLimits.find(l => {
+        const lClass = l.accuracyClass ? String(l.accuracyClass).toUpperCase().replace(/\s+/g, '') : '';
+        return lClass === cleanClass;
+      });
+
       if (resultBlock.rows) {
         resultBlock.rows.forEach(row => {
-          const v100 = validateMeteringReading(accuracyClass, row.current, row.r100, row.p100);
-          row.r100_pass = v100.isPass;
-          row.r100_r_pass = v100.rPass;
-          row.r100_p_pass = v100.pPass;
-          row.r100_reason = v100.reason;
+          let rPass = true, pPass = true;
+          const reasons = [];
+          const loadLimit = limitConfig?.limits?.find(l => String(l.load) === String(row.current));
 
-          const v25 = validateMeteringReading(accuracyClass, row.current, row.r25, row.p25);
-          row.r25_pass = v25.isPass;
-          row.r25_r_pass = v25.rPass;
-          row.r25_p_pass = v25.pPass;
-          row.r25_reason = v25.reason;
+          if (row.r100 !== undefined && row.r100 !== null && String(row.r100).trim() !== '') {
+            const rVal = parseFloat(row.r100);
+            if (!isNaN(rVal) && loadLimit?.ratioLimit !== undefined) {
+              if (Math.abs(rVal) >= loadLimit.ratioLimit) { rPass = false; reasons.push(`Ratio Error (${rVal}) exceeds ±${loadLimit.ratioLimit}`); }
+            }
+          }
+          if (row.p100 !== undefined && row.p100 !== null && String(row.p100).trim() !== '') {
+            const pVal = parseFloat(row.p100);
+            if (!isNaN(pVal) && loadLimit?.phaseLimit !== undefined && loadLimit.phaseLimit !== null) {
+              if (Math.abs(pVal) >= loadLimit.phaseLimit) { pPass = false; reasons.push(`Phase Error (${pVal}) exceeds ±${loadLimit.phaseLimit}`); }
+            }
+          }
+          row.r100_r_pass = rPass; row.r100_p_pass = pPass; row.r100_pass = rPass && pPass;
+          row.r100_reason = reasons.length > 0 ? reasons.join('; ') : null;
+
+          let rPass25 = true, pPass25 = true;
+          const reasons25 = [];
+          if (row.r25 !== undefined && row.r25 !== null && String(row.r25).trim() !== '') {
+            const rVal = parseFloat(row.r25);
+            if (!isNaN(rVal) && loadLimit?.ratioLimit !== undefined) {
+              if (Math.abs(rVal) >= loadLimit.ratioLimit) { rPass25 = false; reasons25.push(`Ratio Error (${rVal}) exceeds ±${loadLimit.ratioLimit}`); }
+            }
+          }
+          if (row.p25 !== undefined && row.p25 !== null && String(row.p25).trim() !== '') {
+            const pVal = parseFloat(row.p25);
+            if (!isNaN(pVal) && loadLimit?.phaseLimit !== undefined && loadLimit.phaseLimit !== null) {
+              if (Math.abs(pVal) >= loadLimit.phaseLimit) { pPass25 = false; reasons25.push(`Phase Error (${pVal}) exceeds ±${loadLimit.phaseLimit}`); }
+            }
+          }
+          row.r25_r_pass = rPass25; row.r25_p_pass = pPass25; row.r25_pass = rPass25 && pPass25;
+          row.r25_reason = reasons25.length > 0 ? reasons25.join('; ') : null;
         });
       }
+      return { ...resultBlock, internalCoreNo: coreId || resultBlock.internalCoreNo, accuracyClass: coreAccuracyClass };
     });
 
     // Explicitly update fields for merging
@@ -2347,7 +2385,8 @@ app.post("/transformer-primary-metering-tests", async (req, res) => {
 
     res.status(201).json({ success: true, message: "Primary Metering Test Saved" });
   } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
+    console.error("Error saving primary metering test:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -2468,7 +2507,6 @@ app.post("/transformer-final-metering-tests", async (req, res) => {
   try {
     const { uniqueId, tester, metering_results, coreId } = req.body;
     console.log(`[DEBUG] POST /transformer-final-metering-tests. Payload:`, req.body);
-    const { validateMeteringReading } = require('./utils/accuracyLimits');
 
     // Fetch the Transformer to get Accuracy Class
     const transformerDoc = await TransformerModel.findOne({ uniqueId: uniqueId }).populate('orderId');
@@ -2478,24 +2516,58 @@ app.post("/transformer-final-metering-tests", async (req, res) => {
 
     const accuracyClass = transformerDoc.orderId ? transformerDoc.orderId.accuracyClass : "0.5";
 
+    // Fetch dynamic limits from DB
+    const dbLimits = await AccuracyLimit.find({ coreType: 'metering', transformerType: 'CT' }).lean();
+
     // Validate Readings
-    const validatedResults = metering_results.map(r => ({ ...r, internalCoreNo: coreId || r.internalCoreNo }));
-    validatedResults.forEach(resultBlock => {
+    const validatedResults = metering_results.map(resultBlock => {
+      const coreAccuracyClass = resultBlock.accuracyClass || accuracyClass || "0.5";
+      const cleanClass = String(coreAccuracyClass).toUpperCase().replace(/\s+/g, '');
+      const limitConfig = dbLimits.find(l => {
+        const lClass = l.accuracyClass ? String(l.accuracyClass).toUpperCase().replace(/\s+/g, '') : '';
+        return lClass === cleanClass;
+      });
+
       if (resultBlock.rows) {
         resultBlock.rows.forEach(row => {
-          const v100 = validateMeteringReading(accuracyClass, row.current, row.r100, row.p100);
-          row.r100_pass = v100.isPass;
-          row.r100_r_pass = v100.rPass;
-          row.r100_p_pass = v100.pPass;
-          row.r100_reason = v100.reason;
+          let rPass = true, pPass = true;
+          const reasons = [];
+          const loadLimit = limitConfig?.limits?.find(l => String(l.load) === String(row.current));
 
-          const v25 = validateMeteringReading(accuracyClass, row.current, row.r25, row.p25);
-          row.r25_pass = v25.isPass;
-          row.r25_r_pass = v25.rPass;
-          row.r25_p_pass = v25.pPass;
-          row.r25_reason = v25.reason;
+          if (row.r100 !== undefined && row.r100 !== null && String(row.r100).trim() !== '') {
+            const rVal = parseFloat(row.r100);
+            if (!isNaN(rVal) && loadLimit?.ratioLimit !== undefined) {
+              if (Math.abs(rVal) >= loadLimit.ratioLimit) { rPass = false; reasons.push(`Ratio Error (${rVal}) exceeds ±${loadLimit.ratioLimit}`); }
+            }
+          }
+          if (row.p100 !== undefined && row.p100 !== null && String(row.p100).trim() !== '') {
+            const pVal = parseFloat(row.p100);
+            if (!isNaN(pVal) && loadLimit?.phaseLimit !== undefined && loadLimit.phaseLimit !== null) {
+              if (Math.abs(pVal) >= loadLimit.phaseLimit) { pPass = false; reasons.push(`Phase Error (${pVal}) exceeds ±${loadLimit.phaseLimit}`); }
+            }
+          }
+          row.r100_r_pass = rPass; row.r100_p_pass = pPass; row.r100_pass = rPass && pPass;
+          row.r100_reason = reasons.length > 0 ? reasons.join('; ') : null;
+
+          let rPass25 = true, pPass25 = true;
+          const reasons25 = [];
+          if (row.r25 !== undefined && row.r25 !== null && String(row.r25).trim() !== '') {
+            const rVal = parseFloat(row.r25);
+            if (!isNaN(rVal) && loadLimit?.ratioLimit !== undefined) {
+              if (Math.abs(rVal) >= loadLimit.ratioLimit) { rPass25 = false; reasons25.push(`Ratio Error (${rVal}) exceeds ±${loadLimit.ratioLimit}`); }
+            }
+          }
+          if (row.p25 !== undefined && row.p25 !== null && String(row.p25).trim() !== '') {
+            const pVal = parseFloat(row.p25);
+            if (!isNaN(pVal) && loadLimit?.phaseLimit !== undefined && loadLimit.phaseLimit !== null) {
+              if (Math.abs(pVal) >= loadLimit.phaseLimit) { pPass25 = false; reasons25.push(`Phase Error (${pVal}) exceeds ±${loadLimit.phaseLimit}`); }
+            }
+          }
+          row.r25_r_pass = rPass25; row.r25_p_pass = pPass25; row.r25_pass = rPass25 && pPass25;
+          row.r25_reason = reasons25.length > 0 ? reasons25.join('; ') : null;
         });
       }
+      return { ...resultBlock, internalCoreNo: coreId || resultBlock.internalCoreNo, accuracyClass: coreAccuracyClass };
     });
 
     // Explicitly update fields for merging
@@ -2531,7 +2603,8 @@ app.post("/transformer-final-metering-tests", async (req, res) => {
 
     res.status(201).json({ success: true, message: "Final Metering Test Saved" });
   } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
+    console.error("Error saving final metering test:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -2690,32 +2763,91 @@ app.post("/transformer-secondary-metering-tests", async (req, res) => {
     const order = transformerDoc.orderId;
     const accuracyClass = order ? order.accuracyClass : "0.5"; // Default if not found
 
+    // Fetch dynamic limits from DB
+    const dbLimits = await AccuracyLimit.find({ coreType: 'metering', transformerType: 'CT' }).lean();
+
     // 0.5. Validate Readings
     let isOverallPass = true;
-    const validatedResults = metering_results.map(r => ({ ...r, internalCoreNo: coreId }));
+    const validatedResults = metering_results.map(resultBlock => {
+      const coreAccuracyClass = resultBlock.accuracyClass || accuracyClass || "0.5";
+      const cleanClass = String(coreAccuracyClass).toUpperCase().replace(/\s+/g, '');
+      
+      // Find matching limit config from DB
+      const limitConfig = dbLimits.find(l => {
+        const lClass = l.accuracyClass ? String(l.accuracyClass).toUpperCase().replace(/\s+/g, '') : '';
+        return lClass === cleanClass;
+      });
 
-    validatedResults.forEach(resultBlock => {
       if (resultBlock.rows) {
         resultBlock.rows.forEach(row => {
-          // Validate 100% Burden Inputs
-          const v100 = validateMeteringReading(accuracyClass, row.current, row.r100, row.p100);
-          row.r100_pass = v100.isPass;
-          row.r100_r_pass = v100.rPass;
-          row.r100_p_pass = v100.pPass;
-          row.r100_reason = v100.reason;
+          // Manual Validation against DB limits
+          let rPass = true;
+          let pPass = true;
+          const reasons = [];
 
-          // Validate 25% Burden Inputs
-          const v25 = validateMeteringReading(accuracyClass, row.current, row.r25, row.p25);
-          row.r25_pass = v25.isPass;
-          row.r25_r_pass = v25.rPass;
-          row.r25_p_pass = v25.pPass;
-          row.r25_reason = v25.reason;
+          const loadLimit = limitConfig?.limits?.find(l => String(l.load) === String(row.current));
 
-          if (!v100.isPass || !v25.isPass) {
+          if (row.r100 !== undefined && row.r100 !== null && String(row.r100).trim() !== '') {
+            const rVal = parseFloat(row.r100);
+            if (!isNaN(rVal) && loadLimit?.ratioLimit !== undefined) {
+              if (Math.abs(rVal) >= loadLimit.ratioLimit) {
+                rPass = false;
+                reasons.push(`Ratio Error (${rVal}) exceeds ±${loadLimit.ratioLimit}`);
+              }
+            }
+          }
+
+          if (row.p100 !== undefined && row.p100 !== null && String(row.p100).trim() !== '') {
+            const pVal = parseFloat(row.p100);
+            if (!isNaN(pVal) && loadLimit?.phaseLimit !== undefined && loadLimit.phaseLimit !== null) {
+              if (Math.abs(pVal) >= loadLimit.phaseLimit) {
+                pPass = false;
+                reasons.push(`Phase Error (${pVal}) exceeds ±${loadLimit.phaseLimit}`);
+              }
+            }
+          }
+
+          row.r100_r_pass = rPass;
+          row.r100_p_pass = pPass;
+          row.r100_pass = rPass && pPass;
+          row.r100_reason = reasons.length > 0 ? reasons.join('; ') : null;
+
+          // 25% Burden
+          let rPass25 = true;
+          let pPass25 = true;
+          const reasons25 = [];
+
+          if (row.r25 !== undefined && row.r25 !== null && String(row.r25).trim() !== '') {
+            const rVal = parseFloat(row.r25);
+            if (!isNaN(rVal) && loadLimit?.ratioLimit !== undefined) {
+              if (Math.abs(rVal) >= loadLimit.ratioLimit) {
+                rPass25 = false;
+                reasons25.push(`Ratio Error (${rVal}) exceeds ±${loadLimit.ratioLimit}`);
+              }
+            }
+          }
+
+          if (row.p25 !== undefined && row.p25 !== null && String(row.p25).trim() !== '') {
+            const pVal = parseFloat(row.p25);
+            if (!isNaN(pVal) && loadLimit?.phaseLimit !== undefined && loadLimit.phaseLimit !== null) {
+              if (Math.abs(pVal) >= loadLimit.phaseLimit) {
+                pPass25 = false;
+                reasons25.push(`Phase Error (${pVal}) exceeds ±${loadLimit.phaseLimit}`);
+              }
+            }
+          }
+
+          row.r25_r_pass = rPass25;
+          row.r25_p_pass = pPass25;
+          row.r25_pass = rPass25 && pPass25;
+          row.r25_reason = reasons25.length > 0 ? reasons25.join('; ') : null;
+
+          if (!row.r100_pass || !row.r25_pass) {
             isOverallPass = false;
           }
         });
       }
+      return { ...resultBlock, internalCoreNo: coreId, accuracyClass: coreAccuracyClass };
     });
 
     const finalStatus = isOverallPass ? "Pass" : "Fail";
@@ -3007,6 +3139,15 @@ app.post('/api/strict-approvals/request', async (req, res) => {
     });
 
     await newRequest.save();
+    
+    await new NotificationModel({
+      recipientRole: 'admin',
+      message: `Strict Approval Required: Job ${jobId} (Unit: ${unitId}) - ${failureReason.split(' | ')[0]}`,
+      type: 'STRICT_APPROVAL_REQUESTED',
+      orderId: orderId,
+      jobId: jobId,
+      unitId: unitId
+    }).save();
 
     res.status(201).json({ success: true, message: 'Strict approval requested successfully' });
   } catch (error) {
@@ -3038,6 +3179,17 @@ app.post('/api/strict-approvals/:id/resolve', async (req, res) => {
     approval.resolvedBy = resolvedBy || 'Admin';
     approval.resolutionRemark = adminComments;
     await approval.save();
+    
+    // Mark the notification as read specifically for this unit
+    await NotificationModel.updateMany(
+      { 
+        jobId: approval.jobId, 
+        unitId: approval.unitId,
+        type: 'STRICT_APPROVAL_REQUESTED', 
+        recipientRole: 'admin' 
+      },
+      { $set: { isRead: true } }
+    );
 
     // ✅ If approved, move the transformer to the next stage
     if (approval.unitId) {

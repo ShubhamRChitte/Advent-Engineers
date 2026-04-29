@@ -18,6 +18,7 @@ interface SecondaryMeteringReportProps {
   primaryCurrent?: string;
   secondaryCurrent?: string;
   order?: any;
+  onRefresh?: () => void;
 }
 
 export function SecondaryMeteringReport({
@@ -32,9 +33,10 @@ export function SecondaryMeteringReport({
   primaryCurrent: manualPrimary,
   secondaryCurrent: manualSecondary,
   order: propOrder,
+  onRefresh,
 }: SecondaryMeteringReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
-    (!isNaN(parseInt(coreId.replace('Core ', ''))) ? parseInt(coreId.replace('Core ', '')) - 1 : 0);
+    (!isNaN(parseInt(coreId.replace(/[^0-9]/g, ''))) ? parseInt(coreId.replace(/[^0-9]/g, '')) - 1 : 0);
 
 
   const [dbLimits, setDbLimits] = useState<any[]>([]);
@@ -79,7 +81,7 @@ export function SecondaryMeteringReport({
 
   const [accuracyClass, setAccuracyClass] = useState<string>(() => {
     if (explicitClass) return extractAccuracyClass(explicitClass);
-    const order = transformer.fullOrder || transformer.orderId;
+    const order = propOrder || transformer.fullOrder || transformer.orderId;
     const orderCores = order?.coreDetails || [];
     const coreFromOrder = orderCores[coreIndex];
 
@@ -176,6 +178,7 @@ export function SecondaryMeteringReport({
       };
       await axios.post(`http://localhost:5001/transformer-${stage}-metering-tests`, payload, { withCredentials: true });
       toast.success("Data saved successfully!");
+      if (onRefresh) onRefresh();
     } catch (error) {
       toast.error("Failed to save data.");
     }
@@ -270,7 +273,7 @@ export function SecondaryMeteringReport({
           <table className="w-full text-[11px] border-collapse">
             <tbody>
               <tr><td className="border-b border-black p-1.5" colSpan={2}><p><span className="font-bold italic">Specification :</span> {transformer.voltageRating || '33'} KV</p></td></tr>
-              <tr><td className="border-b border-black p-1.5" colSpan={2}><p><span className="font-bold italic">CT Ratio :</span> {dynamicRatios.join('-')} / {transformer.ratedSecondaryCurrent || '1'} A</p></td></tr>
+              <tr><td className="border-b border-black p-1.5" colSpan={2}><p><span className="font-bold italic">CT Ratio :</span> {dynamicRatios.join('-')} A</p></td></tr>
               <tr><td className="border-r border-b border-black p-1.5 w-1/2"><p><span className="font-bold italic">Burden :</span> {transformer.burden || '30'} VA</p></td><td className="border-b border-black p-1.5 w-1/2"><p><span className="font-bold italic">Class :</span> {accuracyClass}</p></td></tr>
             </tbody>
           </table>
@@ -431,10 +434,14 @@ function validateMeteringUI(accClass: string, current: string, r: string, p: str
   let pPass: boolean | null = null;
   if (!r && !p) return { rPass: null, pPass: null, reason: null }; 
 
-  const config = limits.find(l => l.accuracyClass === accClass);
+  const normalizedAccClass = String(accClass || "").toUpperCase().replace(/\s+/g, '');
+  const config = limits.find(l => {
+    const lClass = l.accuracyClass ? String(l.accuracyClass).toUpperCase().replace(/\s+/g, '') : '';
+    return lClass === normalizedAccClass;
+  });
   if (!config) return { rPass: true, pPass: true, reason: null }; 
 
-  const loadLimit = config.limits.find((l: any) => l.load === current);
+  const loadLimit = config.limits.find((l: any) => String(l.load) === String(current));
   if (!loadLimit) return { rPass: true, pPass: true, reason: null }; 
 
   let reasons: string[] = [];

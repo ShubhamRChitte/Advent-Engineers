@@ -11,17 +11,18 @@ const NotificationSchema = new Schema({
     message: { type: String, required: true },
     orderId: { type: Schema.Types.ObjectId, ref: 'Order' },
     jobId: { type: String },
+    unitId: { type: String }, // Added to support unit-specific notifications (like Strict Approval)
     type: { 
         type: String, 
-        enum: ["ASSIGNMENT", "STAGE_TRANSITION", "REASSIGNMENT", "ALERT", "ORDER_COMPLETED"],
+        enum: ["ASSIGNMENT", "STAGE_TRANSITION", "REASSIGNMENT", "ALERT", "ORDER_COMPLETED", "STRICT_APPROVAL_REQUESTED", "STRICT_APPROVAL_RESOLVED"],
         default: "ASSIGNMENT"
     },
     isRead: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now, expires: 2592000 } // TTL 30 days
 }, { timestamps: true });
 
-// Prevent duplicate notifications for same order and type
-NotificationSchema.index({ type: 1, orderId: 1 }, { unique: true });
+// Remove the unique index on type and orderId to allow multiple units/requests per order
+// NotificationSchema.index({ type: 1, orderId: 1 }, { unique: true });
 
 const NotificationModel = mongoose.model('Notification', NotificationSchema);
 

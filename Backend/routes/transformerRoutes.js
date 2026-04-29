@@ -198,7 +198,7 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
             }
 
             // 3. Send Notification to Next Stage (As soon as the FIRST unit arrives)
-            if (nextStage !== 'admin_review' \u0026\u0026 nextStage !== 'shipped') {
+            if (nextStage !== 'admin_review' && nextStage !== 'shipped') {
                 const { NotificationModel } = require('../models/NotificationModel');
                 const existingNotification = await NotificationModel.findOne({
                     orderId: order._id,
@@ -211,7 +211,7 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
                     // We call notifyNextStage which will handle creating notifications for assigned testers
                     // But we'll override the message style in the service or just call it here manually
                     // To follow the user's request for "only order information"
-                    const nextStageAssignments = order.assignments.filter(a =\u003e a.stage === nextStage);
+                    const nextStageAssignments = order.assignments.filter(a => a.stage === nextStage);
                     for (const assignment of nextStageAssignments) {
                         await NotificationModel.create({
                             recipientName: assignment.testerName,

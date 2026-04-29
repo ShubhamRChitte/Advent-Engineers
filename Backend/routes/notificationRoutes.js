@@ -30,7 +30,7 @@ const isAdmin = (req, res, next) => {
 router.get('/admin', isAuthenticated, isAdmin, async (req, res) => {
     try {
         const notifications = await NotificationModel.find({
-            type: "ORDER_COMPLETED",
+            type: { $in: ["ORDER_COMPLETED", "STRICT_APPROVAL_REQUESTED"] },
             recipientRole: 'admin'
         })
         .populate('orderId')
@@ -84,7 +84,7 @@ router.get('/unread-count', isAuthenticated, async (req, res) => {
 
         const query = { isRead: false };
         if (role === 'admin' || user.role === 'admin') {
-            query.type = "ORDER_COMPLETED";
+            query.type = { $in: ["ORDER_COMPLETED", "STRICT_APPROVAL_REQUESTED"] };
             query.recipientRole = 'admin';
         } else {
             query.type = { $ne: "ORDER_COMPLETED" };
@@ -107,7 +107,7 @@ router.put('/mark-read', isAuthenticated, async (req, res) => {
 
         const query = { isRead: false };
         if (role === 'admin' || user.role === 'admin') {
-            query.type = "ORDER_COMPLETED";
+            query.type = { $in: ["ORDER_COMPLETED", "STRICT_APPROVAL_REQUESTED"] };
             query.recipientRole = 'admin';
         } else {
             query.type = { $ne: "ORDER_COMPLETED" };

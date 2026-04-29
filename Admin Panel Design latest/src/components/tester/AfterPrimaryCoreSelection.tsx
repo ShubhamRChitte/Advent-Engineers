@@ -4,7 +4,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Label } from '../ui/label';
-import { ArrowLeft, PlayCircle, Loader2, CheckCircle, Eye, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, PlayCircle, Loader2, CheckCircle, FileText, AlertTriangle } from 'lucide-react';
 import { Transformer as AfterPrimaryTransformer } from './AfterPrimaryTransformersList';
 import { toast } from 'sonner';
 
@@ -352,8 +352,8 @@ export function AfterPrimaryCoreSelection({
                 >
                   {isCompleted ? (
                     <>
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Report
+                      <FileText className="w-4 h-4 mr-2" />
+                      Edit Report
                     </>
                   ) : (
                     <>

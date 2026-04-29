@@ -184,8 +184,11 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
               if (!res.rows) return false;
               // Clean Accuracy Class (e.g. "0.5 S" -> "0.5S")
               const rawClass = res.accuracyClass || core.accuracyClass || '0.5';
-              const cleanClass = rawClass.toString().toUpperCase().replace(/\s+/g, '');
-              const limitConfig = meteringLimits.find(l => l.accuracyClass.toString().toUpperCase().replace(/\s+/g, '') === cleanClass);
+              const cleanClass = String(rawClass).toUpperCase().replace(/\s+/g, '');
+              const limitConfig = meteringLimits.find(l => {
+                const lClass = l.accuracyClass ? String(l.accuracyClass).toUpperCase().replace(/\s+/g, '') : '';
+                return lClass === cleanClass;
+              });
 
               return res.rows.some((row: any) => {
                 // 1. Check DB pass flags explicitly
@@ -200,7 +203,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
                 const p25 = parseFloat(row.p25);
 
                 if (limitConfig && row.current) {
-                  const loadLimit = limitConfig.limits.find((l: any) => l.load.toString() === row.current.toString());
+                  const loadLimit = limitConfig.limits.find((l: any) => String(l.load) === String(row.current));
                   if (loadLimit) {
                     if (!isNaN(r100) && Math.abs(r100) >= (loadLimit.ratioLimit || 999)) return true;
                     if (!isNaN(p100) && Math.abs(p100) >= (loadLimit.phaseLimit || 999)) return true;
@@ -308,7 +311,49 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
           id: t._id,
           uniqueId: t.uniqueId,
           name: order.transformerName || 'Transformer',
-          rating: Array.isArray(order.ratio) ? order.ratio.join('/') : (order.ratio || 'N/A'),
+          rating: (() => {
+            // 1. Determine Primary (Support multiple primaries like 200-400-800)
+            let primary = 'N/A';
+            let pArray = order.primaryCurrents;
+            
+            // Handle possible stringified array or nested array
+            if (pArray && Array.isArray(pArray) && pArray.length > 0) {
+              const first = pArray[0];
+              if (typeof first === 'string' && first.startsWith('[')) {
+                try {
+                  const parsed = JSON.parse(first);
+                  primary = Array.isArray(parsed) ? parsed.join('-') : parsed;
+                } catch (e) {
+                  primary = first.replace(/[\[\]"]/g, '');
+                }
+              } else {
+                primary = pArray.join('-');
+              }
+            } else if (order.ratedPrimaryCurrent) {
+              primary = order.ratedPrimaryCurrent.toString();
+            } else if (order.ratio && order.ratio[0]) {
+              primary = order.ratio[0].split('/')[0].replace(/[\[\]"]/g, '');
+            }
+            
+            // Final cleanup of primary string
+            primary = primary.replace(/[\[\]"]/g, '');
+
+            // 2. Determine Secondaries (Combine all core secondary currents)
+            let secondaries: string[] = [];
+            if (order.coreDetails && Array.isArray(order.coreDetails) && order.coreDetails.length > 0) {
+              secondaries = order.coreDetails.map((c: any) => {
+                const val = c.secondaryCurrent || (c.ratio && c.ratio.includes('/') ? c.ratio.split('/')[1] : null);
+                return val || '1';
+              });
+            } else if (order.ratio && Array.isArray(order.ratio) && order.ratio.length > 0) {
+              secondaries = order.ratio.map((r: string) => r.split('/')[1]).filter(s => s);
+            }
+
+            if (secondaries.length > 0) {
+              return `${primary}/${secondaries.join('-')}`;
+            }
+            return primary !== 'N/A' ? `${primary}/1` : 'N/A';
+          })(),
           voltageClass: order.nominalSystemVoltage ? `${order.nominalSystemVoltage}kV` : 'N/A',
           cores: coresList,
           status: status,
@@ -464,7 +509,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
                               if (!confirm("Are you sure you want to request Strict Admin Approval?")) return;
                               let reasons: string[] = [];
                               transformer.cores.forEach(core => {
-                                const type = core.coreType;
+                                const type = core.coreType ? core.coreType.toLowerCase() : '';
                                 const results = transformer.testHistory?.secondary_test?.[`${type}_results`] || [];
                                 
                                 results.forEach((res: any) => {
@@ -474,13 +519,26 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
                                   if (type === 'metering' && res.rows) {
                                     res.rows.forEach((row: any) => {
                                       const load = row.current || 'N/A';
-                                      if (row.r100_r_pass === false) reasons.push(`${coreName} [Class ${accClass}]: 100% Ratio Error at ${load}`);
-                                      if (row.r100_p_pass === false) reasons.push(`${coreName} [Class ${accClass}]: 100% Phase Error at ${load}`);
-                                      if (row.r25_r_pass === false) reasons.push(`${coreName} [Class ${accClass}]: 25% Ratio Error at ${load}`);
-                                      if (row.r25_p_pass === false) reasons.push(`${coreName} [Class ${accClass}]: 25% Phase Error at ${load}`);
+                                      if (row.r100_r_pass === false) {
+                                        const msg = row.r100_reason ? row.r100_reason.replace('Ratio Error', 'Current Error') : `Current Error at ${load}`;
+                                        reasons.push(`${coreName}: ${msg}`);
+                                      }
+                                      if (row.r100_p_pass === false) {
+                                        const msg = row.r100_reason ? row.r100_reason.replace('Phase Error', 'Phase Error') : `Phase Error at ${load}`;
+                                        reasons.push(`${coreName}: ${msg}`);
+                                      }
+                                      if (row.r25_r_pass === false) {
+                                        const msg = row.r25_reason ? row.r25_reason.replace('Ratio Error', 'Current Error') : `Current Error at ${load}`;
+                                        reasons.push(`${coreName}: ${msg}`);
+                                      }
+                                      if (row.r25_p_pass === false) {
+                                        const msg = row.r25_reason ? row.r25_reason.replace('Phase Error', 'Phase Error') : `Phase Error at ${load}`;
+                                        reasons.push(`${coreName}: ${msg}`);
+                                      }
                                     });
                                   } else if (res.isPass === false) {
-                                    reasons.push(`${coreName} [Class ${accClass}]: Limit Failure`);
+                                    const msg = res.reason || `Limit Failure [Class ${accClass}]`;
+                                    reasons.push(`${coreName}: ${msg}`);
                                   }
                                 });
                               });

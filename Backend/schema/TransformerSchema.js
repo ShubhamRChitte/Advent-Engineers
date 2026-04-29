@@ -135,8 +135,20 @@ const { Schema } = require("mongoose");
 
 const MeteringRowSchema = new Schema({
   current: String,
-  r100: String, p100: String, r25: String, p25: String
-});
+  r100: String, 
+  p100: String, 
+  r25: String, 
+  p25: String,
+  // Validation fields added to prevent stripping by Mongoose
+  r100_r_pass: { type: Boolean, default: null },
+  r100_p_pass: { type: Boolean, default: null },
+  r100_pass: { type: Boolean, default: null },
+  r100_reason: { type: String, default: null },
+  r25_r_pass: { type: Boolean, default: null },
+  r25_p_pass: { type: Boolean, default: null },
+  r25_pass: { type: Boolean, default: null },
+  r25_reason: { type: String, default: null }
+}, { strict: false });
 
 const MeteringBlockSchema = new Schema({
   ratioValue: String, // e.g., "200/1"

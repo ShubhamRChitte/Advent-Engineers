@@ -146,6 +146,7 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
                 onBack={handleBackFromReport}
                 stage="secondary"
                 accuracyClass={selectedAccuracyClass}
+                onRefresh={triggerRefresh}
               />
             )}
             {selectedCoreType === 'ps' && (
@@ -157,16 +158,19 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
                 onBack={handleBackFromReport}
                 stage="secondary"
                 accuracyClass={selectedAccuracyClass}
+                onRefresh={triggerRefresh}
               />
             )}
             {selectedCoreType === 'protection' && (
               <SecondaryProtectionReport
                 transformer={selectedTransformer}
+                coreNumber={selectedCoreNumber}
                 coreId={enteredCoreId}
                 testerName={userName || 'Unknown Tester'}
                 onBack={handleBackFromReport}
                 stage="secondary"
                 accuracyClass={selectedAccuracyClass}
+                onRefresh={triggerRefresh}
               />
             )}
           </div>

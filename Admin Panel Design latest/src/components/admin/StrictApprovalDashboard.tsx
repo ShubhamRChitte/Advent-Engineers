@@ -110,7 +110,16 @@ export function StrictApprovalDashboard() {
                                     <p className="text-sm"><span className="text-gray-500">By:</span> <span className="font-medium">{req.requestedBy}</span></p>
                                 </div>
                                 <div className="mt-2 p-2 bg-red-50 border border-red-100 rounded text-sm text-red-700 font-medium">
-                                    <span className="font-bold mr-1 underline">Main Failure:</span> {req.failureReason}
+                                    <span className="font-bold mr-1 underline block mb-1">Main Failure Details:</span> 
+                                    {req.failureReason && req.failureReason.includes(' | ') ? (
+                                        <ul className="list-disc list-inside space-y-0.5 ml-1">
+                                            {req.failureReason.split(' | ').map((err: string, i: number) => (
+                                                <li key={i}>{err}</li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <span>{req.failureReason || 'Limits Exceeded'}</span>
+                                    )}
                                 </div>
                             </div>
 

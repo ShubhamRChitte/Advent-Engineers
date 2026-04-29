@@ -60,6 +60,14 @@ export function SecondaryReportView({
         }
     };
 
+    // Find the correct core indices from the order details
+    const order = transformer.fullOrder || transformer.orderId;
+    const coreDetails = order?.coreDetails || [];
+    
+    const meteringCoreIndex = coreDetails.findIndex((c: any) => c.coreType === 'Metering');
+    const protectionCoreIndex = coreDetails.findIndex((c: any) => c.coreType === 'Protection');
+    const psCoreIndex = coreDetails.findIndex((c: any) => c.coreType === 'PS');
+
     if (availableTypes.length === 0) {
         return (
             <div className="p-12 text-center text-gray-500 bg-white rounded-lg shadow-sm border">
@@ -99,6 +107,7 @@ export function SecondaryReportView({
                 {activeTab === 'Metering' && (
                     <SecondaryMeteringReport
                         transformer={transformer}
+                        coreNumber={meteringCoreIndex !== -1 ? meteringCoreIndex + 1 : undefined}
                         coreId={history?.metering_results?.[0]?.internalCoreNo || history?.metering_results?.[0]?.coreId || "Metering Core"}
                         testerName={history?.tester || 'Verified Administrator'}
                         onBack={onBack}
@@ -110,6 +119,7 @@ export function SecondaryReportView({
                 {activeTab === 'Protection' && (
                     <SecondaryProtectionReport
                         transformer={transformer}
+                        coreNumber={protectionCoreIndex !== -1 ? protectionCoreIndex + 1 : undefined}
                         coreId={history?.protection_results?.[0]?.internalCoreNo || history?.protection_results?.[0]?.coreId || "Protection Core"}
                         testerName={history?.tester || 'Verified Administrator'}
                         onBack={onBack}
@@ -121,6 +131,7 @@ export function SecondaryReportView({
                 {activeTab === 'PS' && (
                     <SecondaryPSReport
                         transformer={transformer}
+                        coreNumber={psCoreIndex !== -1 ? psCoreIndex + 1 : undefined}
                         coreId={history?.ps_results?.[0]?.internalCoreNo || history?.ps_results?.[0]?.coreId || "PS Core"}
                         testerName={history?.tester || 'Verified Administrator'}
                         onBack={onBack}

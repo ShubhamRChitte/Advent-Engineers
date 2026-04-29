@@ -32,6 +32,7 @@ export function AfterPrimaryMeteringReport({
     <SecondaryMeteringReport
       transformer={transformer}
       coreId={core.coreId}
+      coreNumber={core.coreNumber}
       testerName={testerName}
       onBack={onBack}
       stage="primary"

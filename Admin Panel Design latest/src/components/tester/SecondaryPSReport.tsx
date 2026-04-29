@@ -586,6 +586,7 @@ interface SecondaryPSReportProps {
   primaryCurrent?: string;
   secondaryCurrent?: string;
   order?: any;
+  onRefresh?: () => void;
 }
 
 export function SecondaryPSReport({ 
@@ -599,10 +600,11 @@ export function SecondaryPSReport({
   accuracyClass: explicitClass,
   primaryCurrent: manualPrimary,
   secondaryCurrent: manualSecondary,
-  order: propOrder
+  order: propOrder,
+  onRefresh
 }: SecondaryPSReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
-    (!isNaN(parseInt(coreId.replace('Core ', ''))) ? parseInt(coreId.replace('Core ', '')) - 1 : 0);
+    (!isNaN(parseInt(coreId.replace(/[^0-9]/g, ''))) ? parseInt(coreId.replace(/[^0-9]/g, '')) - 1 : 0);
 
   // Use dynamic ratios from transformer, fallback if missing
   // Determine ratios from transformer (passed from props)
@@ -633,7 +635,12 @@ export function SecondaryPSReport({
     return primaryCurrs.map((p: string) => `${p}/${secCurr}`);
   })();
 
-  const [accuracyClass, setAccuracyClass] = useState<string>(() => explicitClass || 'PS');
+  const [accuracyClass, setAccuracyClass] = useState<string>(() => {
+    if (explicitClass) return explicitClass;
+    const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
+    const orderCores = order?.coreDetails || [];
+    return orderCores[coreIndex]?.accuracyClass || 'PS';
+  });
 
   const [psData, setPsData] = useState<PSRow[]>(() => {
     const initial = dynamicRatios.map((ratio: string) => ({
@@ -817,6 +824,7 @@ export function SecondaryPSReport({
 
       console.log("handleDatabaseSave (PS): Response received", response);
       toast.success("Secondary PS Test results saved successfully!");
+      if (onRefresh) onRefresh();
 
     } catch (error: any) {
       console.error("handleDatabaseSave (PS): ERROR", error);
@@ -1125,7 +1133,7 @@ export function SecondaryPSReport({
               </tr>
               <tr>
                 <td className="border-b border-black p-1.5" colSpan={2}>
-                  <p><span className="font-bold italic">CT Ratio :</span> {dynamicRatios.join('-')} / {(transformer as any).ratedSecondaryCurrent || '1'} A</p>
+                  <p><span className="font-bold italic">CT Ratio :</span> {dynamicRatios.join('-')} A</p>
                 </td>
               </tr>
               <tr>

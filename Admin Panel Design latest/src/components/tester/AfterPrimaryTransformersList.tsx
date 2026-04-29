@@ -352,7 +352,49 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
             orderId: order._id,
             uniqueId: t.uniqueId,
             name: order.transformerName || 'Transformer',
-            rating: Array.isArray(order.ratio) ? order.ratio.join('/') : (order.ratio || 'N/A'),
+            rating: (() => {
+              // 1. Determine Primary (Support multiple primaries like 200-400-800)
+              let primary = 'N/A';
+              let pArray = order.primaryCurrents;
+              
+              // Handle possible stringified array or nested array
+              if (pArray && Array.isArray(pArray) && pArray.length > 0) {
+                const first = pArray[0];
+                if (typeof first === 'string' && first.startsWith('[')) {
+                  try {
+                    const parsed = JSON.parse(first);
+                    primary = Array.isArray(parsed) ? parsed.join('-') : parsed;
+                  } catch (e) {
+                    primary = first.replace(/[\[\]"]/g, '');
+                  }
+                } else {
+                  primary = pArray.join('-');
+                }
+              } else if (order.ratedPrimaryCurrent) {
+                primary = order.ratedPrimaryCurrent.toString();
+              } else if (order.ratio && order.ratio[0]) {
+                primary = order.ratio[0].split('/')[0].replace(/[\[\]"]/g, '');
+              }
+              
+              // Final cleanup of primary string
+              primary = primary.replace(/[\[\]"]/g, '');
+
+              // 2. Determine Secondaries (Combine all core secondary currents)
+              let secondaries: string[] = [];
+              if (order.coreDetails && Array.isArray(order.coreDetails) && order.coreDetails.length > 0) {
+                secondaries = order.coreDetails.map((c: any) => {
+                  const val = c.secondaryCurrent || (c.ratio && c.ratio.includes('/') ? c.ratio.split('/')[1] : null);
+                  return val || '1';
+                });
+              } else if (order.ratio && Array.isArray(order.ratio) && order.ratio.length > 0) {
+                secondaries = order.ratio.map((r: string) => r.split('/')[1]).filter(s => s);
+              }
+
+              if (secondaries.length > 0) {
+                return `${primary}/${secondaries.join('-')}`;
+              }
+              return primary !== 'N/A' ? `${primary}/1` : 'N/A';
+            })(),
             ratios: Array.isArray(order.ratio) ? order.ratio : [],
             voltageClass: order.nominalSystemVoltage ? `${order.nominalSystemVoltage}kV` : 'N/A',
             cores: coresList,
@@ -551,19 +593,13 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                       <div className="flex justify-center">
                         <Button
                           size="sm"
-                          onClick={() => {
-                            if (transformer.status === 'completed') {
-                              window.location.href = `/admin/report/${transformer.id}?type=primary`;
-                            } else {
-                              onStartTest(transformer);
-                            }
-                          }}
+                          onClick={() => onStartTest(transformer)}
                           className={transformer.status === 'completed' ? "bg-green-600 hover:bg-green-700 font-medium" : "bg-blue-600 hover:bg-blue-700"}
                           disabled={false}
                         >
                           {transformer.status === 'completed' ? (
                             <>
-                              <FileText className="w-4 h-4 mr-2" /> View Report
+                              <FileText className="w-4 h-4 mr-2" /> Edit Report
                             </>
                           ) : (
                             <>

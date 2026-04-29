@@ -26,6 +26,7 @@ export function FinalMeteringReport({
     <SecondaryMeteringReport
       transformer={transformer}
       coreId={core.coreId}
+      coreNumber={core.coreNumber}
       testerName={testerName}
       onBack={onBack}
       stage="final"

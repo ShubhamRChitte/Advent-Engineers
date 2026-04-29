@@ -25,6 +25,7 @@ export function FinalProtectionReport({
     <SecondaryProtectionReport
       transformer={transformer}
       coreId={core.coreId}
+      coreNumber={core.coreNumber}
       testerName={testerName}
       onBack={onBack}
       stage="final"
