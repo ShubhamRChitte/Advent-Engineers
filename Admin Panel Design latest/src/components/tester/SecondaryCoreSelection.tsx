@@ -198,6 +198,92 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
     return true;
   });
 
+  const hasFailures = transformer.cores.some(core => {
+    const results = transformer.testHistory?.secondary_test?.[`${core.coreType}_results`] || [];
+    if (core.coreType === 'metering') {
+       return results.some((res: any) => res.rows && res.rows.some((row: any) => 
+         row.r100_r_pass === false || row.r100_p_pass === false || 
+         row.r25_r_pass === false || row.r25_p_pass === false ||
+         row.r100_pass === false || row.r25_pass === false || row.p100_pass === false || row.p25_pass === false
+       ));
+    }
+    if (core.coreType === 'protection') {
+       return results.some((res: any) => res.isPass === false);
+    }
+    if (core.coreType === 'ps') {
+       return results.some((res: any) => res.isPass === false);
+    }
+    return false;
+  });
+
+  const handleStrictApproval = async () => {
+    try {
+      // Automatically fetch failure reasons from results
+      let failureReasons: string[] = [];
+      
+      transformer.cores.forEach(core => {
+        const results = transformer.testHistory?.secondary_test?.[`${core.coreType}_results`] || [];
+        
+        if (core.coreType === 'metering') {
+          results.forEach((res: any) => {
+            if (res.rows) {
+              res.rows.forEach((row: any) => {
+                if (row.r100_r_pass === false || row.r100_p_pass === false) {
+                  failureReasons.push(`Core ${core.coreNumber} (Metering 100%): ${row.r100_reason || 'Limits Exceeded'}`);
+                }
+                if (row.r25_r_pass === false || row.r25_p_pass === false) {
+                  failureReasons.push(`Core ${core.coreNumber} (Metering 25%): ${row.r25_reason || 'Limits Exceeded'}`);
+                }
+              });
+            }
+          });
+        } else if (core.coreType === 'protection') {
+          results.forEach((res: any) => {
+            if (res.isPass === false && res.reason) {
+              failureReasons.push(`Core ${core.coreNumber} (Protection): ${res.reason}`);
+            }
+          });
+        } else if (core.coreType === 'ps') {
+          results.forEach((res: any) => {
+            if (res.isPass === false && res.reason) {
+              failureReasons.push(`Core ${core.coreNumber} (PS): ${res.reason}`);
+            }
+          });
+        }
+      });
+
+      const finalReason = failureReasons.length > 0 
+        ? [...new Set(failureReasons)].join(' | ') 
+        : "Accuracy Limits Exceeded";
+
+      const payload = {
+        orderId: transformer.orderId?._id || transformer.orderId,
+        jobId: transformer.jobId,
+        clientName: transformer.clientName || 'N/A',
+        coreType: 'Multiple',
+        testType: 'Secondary Testing',
+        failureReason: finalReason,
+        testData: transformer.testHistory?.secondary_test,
+        requestedBy: 'Tester'
+      };
+
+      await axios.post('http://localhost:5001/api/strict-approvals/request', payload, { withCredentials: true });
+      
+      // Update transformer status so it waits for admin
+      await axios.put(`http://localhost:5001/api/transformers/${transformer.uniqueId}/approve-stage`, {
+        stage: 'secondary',
+        nextStage: 'admin_review' // Sending to a pending admin review stage
+      }, { withCredentials: true });
+
+      toast.success("Strict Approval Requested! Reasons: " + finalReason);
+      if (onRefreshOrders) onRefreshOrders();
+      onBack();
+    } catch (error) {
+      console.error("Strict approval request failed", error);
+      toast.error("Failed to request strict approval.");
+    }
+  };
+
   const selectedCoreConfig = transformer.cores.find(c => c.coreNumber === selectedCore);
 
   return (
@@ -448,12 +534,12 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
       )}
 
       {/* Approval Section */}
-      {isAllCoresCompleted && (
+      {isAllCoresCompleted && !hasFailures && (
         <Card className="p-6 bg-green-50 border-green-200">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div>
               <h4 className="font-semibold text-green-900">Transformer Ready for Approval</h4>
-              <p className="text-sm text-green-700">All {transformer.cores.length} core(s) have been successfully tested and verified.</p>
+              <p className="text-sm text-green-700">All {transformer.cores.length} core(s) have been successfully tested and verified within limits.</p>
             </div>
             <Button
               className="bg-green-600 hover:bg-green-700 text-white gap-2 px-8"
@@ -461,6 +547,24 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
             >
               <CheckCircle className="w-4 h-4" />
               Approve Transformer
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {isAllCoresCompleted && hasFailures && (
+        <Card className="p-6 bg-red-50 border-red-200">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+              <h4 className="font-semibold text-red-900">Strict Approval Required</h4>
+              <p className="text-sm text-red-700">One or more cores have failed the accuracy class limit. Admin approval is required.</p>
+            </div>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white gap-2 px-8"
+              onClick={handleStrictApproval}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Request Strict Approval
             </Button>
           </div>
         </Card>

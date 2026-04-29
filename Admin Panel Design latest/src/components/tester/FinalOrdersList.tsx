@@ -7,7 +7,7 @@ import { PlayCircle, Loader2, Search } from 'lucide-react';
 import axios from 'axios';
 
 interface Order {
-  _id: string; // Updated to match backend
+  _id: string; 
   jobId: string;
   clientName: string;
   quantity: number;
@@ -17,8 +17,11 @@ interface Order {
   status: string;
   priority: string;
   assignedUnitIds?: string[];
-  transformerCount?: number; // legacy support if needed
-  client?: string; // legacy support if needed
+  primaryCurrents?: string[];
+  ratio?: string[];
+  ratedSecondaryCurrent?: number;
+  transformerCount?: number; 
+  client?: string; 
 }
 
 interface FinalOrdersListProps {

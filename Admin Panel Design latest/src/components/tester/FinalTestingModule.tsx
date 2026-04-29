@@ -10,20 +10,21 @@ import { FinalProtectionReport } from './FinalProtectionReport';
 import { FinalTestReport } from './FinalTestReport';
 import { OrderReportsView } from '../entry/OrderReportsView';
 interface Order {
-  _id: string; // Updated to match API
+  _id: string; 
   jobId: string;
-  clientName: string; // Updated to match API
-  client?: string; // Legacy fallback
-  transformerCount?: number; // Legacy
-  quantity?: number; // API
-  transformerQuantity?: number; // API
+  clientName: string; 
+  client?: string; 
+  transformerCount?: number; 
+  quantity?: number; 
+  transformerQuantity?: number; 
   assignedDate: string;
   status: string;
   priority: string;
-  // Sync with FinalTransformersList
   assignedUnitIds?: string[];
   transformerName?: string;
   ratio?: string[];
+  primaryCurrents?: string[];
+  ratedSecondaryCurrent?: number;
   nominalSystemVoltage?: number | string;
   coreDetails?: any[];
 }
@@ -46,6 +47,9 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedTransformer, setSelectedTransformer] = useState<FinalTransformer | null>(null);
   const [selectedCore, setSelectedCore] = useState<CoreConfig | null>(null);
+  const [selectedPrimary, setSelectedPrimary] = useState<string>('');
+  const [selectedSecondary, setSelectedSecondary] = useState<string>('');
+
 
   const handleStartTesting = (order: any) => {
     // Cast to any to handle Order type mismatches during transition
@@ -63,8 +67,10 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
     setCurrentView('cores');
   };
 
-  const handleSelectCore = (core: CoreConfig) => {
+  const handleSelectCore = (core: CoreConfig, primary: string, secondary: string) => {
     setSelectedCore(core);
+    setSelectedPrimary(primary);
+    setSelectedSecondary(secondary);
     setCurrentView('core-report');
   };
 
@@ -183,9 +189,12 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
       return (
         <FinalMeteringReport
           transformer={selectedTransformer}
-          core={selectedCore as any} // Cast if minor type mismatch occurs from optional ID
+          core={selectedCore as any} 
           testerName={testerName}
           onBack={handleBackToCores}
+          order={selectedOrder}
+          primaryCurrent={selectedPrimary}
+          secondaryCurrent={selectedSecondary}
         />
       );
     }
@@ -197,6 +206,9 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
           core={selectedCore as any}
           testerName={testerName}
           onBack={handleBackToCores}
+          order={selectedOrder}
+          primaryCurrent={selectedPrimary}
+          secondaryCurrent={selectedSecondary}
         />
       );
     }
@@ -208,6 +220,9 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
           core={selectedCore as any}
           testerName={testerName}
           onBack={handleBackToCores}
+          order={selectedOrder}
+          primaryCurrent={selectedPrimary}
+          secondaryCurrent={selectedSecondary}
         />
       );
     }

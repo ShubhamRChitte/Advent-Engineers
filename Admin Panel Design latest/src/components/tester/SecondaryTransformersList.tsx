@@ -23,6 +23,7 @@ export interface Transformer {
   status: 'pending' | 'in-progress' | 'completed';
   ratios: string[]; // Added dynamic ratios
   canApprove?: boolean; // New flag
+  canRequestStrictApproval?: boolean; // Added for strict approval workflow
   testHistory?: any;
   availableCoreIdsPool?: {
     metering: string[];
@@ -65,6 +66,7 @@ interface Order {
   ratedPrimaryCurrent?: number;
   ratedSecondaryCurrent?: number;
   primaryCurrents?: string[];
+  createdAt?: string;
 }
 
 interface SecondaryTransformersListProps {
@@ -78,288 +80,280 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
   const [transformers, setTransformers] = useState<Transformer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [meteringLimits, setMeteringLimits] = useState<any[]>([]);
+  const [psLimits, setPsLimits] = useState<any[]>([]);
+  const [protectionLimits, setProtectionLimits] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchTransformers = async () => {
-      setIsLoading(true);
-      setError(null);
+    const fetchLimits = async () => {
       try {
-        const orderId = order._id;
-        const response = await axios.get(`http://localhost:5001/api/orders/${orderId}/transformers`, {
-          withCredentials: true
-        });
+        const [mRes, psRes, pRes] = await Promise.all([
+          axios.get('http://localhost:5001/api/accuracy-limits/metering', { withCredentials: true }),
+          axios.get('http://localhost:5001/api/accuracy-limits/ps', { withCredentials: true }),
+          axios.get('http://localhost:5001/api/accuracy-limits/protection', { withCredentials: true })
+        ]);
+        setMeteringLimits(mRes.data);
+        setPsLimits(psRes.data);
+        setProtectionLimits(pRes.data);
+      } catch (err) {
+        console.error("Failed to fetch limits in list view", err);
+      }
+    };
+    fetchLimits();
+  }, []);
 
-        const dbTransformers = response.data;
+  const fetchTransformers = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const orderId = order._id;
+      const response = await axios.get(`http://localhost:5001/api/orders/${orderId}/transformers`, {
+        withCredentials: true
+      });
 
-        console.log("Fetched Transformers:", dbTransformers);
+      const dbTransformers = response.data;
 
-        // Map DB data + Order Specs to UI Model
-        const mappedTransformers: Transformer[] = dbTransformers.map((t: any) => {
-          // Determine Status
-          // Logic: If currentStage is 'secondary', it's pending/in-progress. 
-          // If 'primary' or 'final', it's completed for secondary.
-          let status: 'pending' | 'in-progress' | 'completed' = 'pending';
+      const mappedTransformers: Transformer[] = dbTransformers.map((t: any) => {
+        let status: 'pending' | 'in-progress' | 'completed' = 'pending';
+        
+        let currentCoreNum = 1;
+        const coresList: CoreConfig[] = [];
+        if (order.coreDetails && Array.isArray(order.coreDetails)) {
+          order.coreDetails.forEach((coreGroup: any) => {
+            const typeStr = (coreGroup.coreType || 'Metering').toLowerCase();
+            let mappedType: 'metering' | 'ps' | 'protection' = 'metering';
+            if (typeStr.includes('protection')) mappedType = 'protection';
+            else if (typeStr.includes('ps')) mappedType = 'ps';
 
-          // Initial default status, will be refined below based on counts
-          if (['primary', 'final', 'shipped'].includes(t.currentStage)) {
-            status = 'completed';
+            coresList.push({
+              coreNumber: currentCoreNum++,
+              coreType: mappedType,
+              accuracyClass: coreGroup.accuracyClass || '0.5'
+            });
+          });
+        }
+
+        if (coresList.length === 0) {
+          coresList.push({ coreNumber: 1, coreType: 'metering' });
+        }
+
+        const secTest = t.testHistory?.secondary_test || {};
+        const requiredMeteringCount = coresList.filter(c => c.coreType === 'metering').length;
+        const requiredProtectionCount = coresList.filter(c => c.coreType === 'protection').length;
+        const requiredPsCount = coresList.filter(c => c.coreType === 'ps').length;
+
+        const completedMeteringCount = secTest.metering_results?.length || 0;
+        const completedProtectionCount = secTest.protection_results?.length || 0;
+        const completedPsCount = secTest.ps_results?.length || 0;
+
+        const checkStrictCompletion = (type: 'metering' | 'ps' | 'protection', results: any[]) => {
+          if (!results || results.length === 0) return false;
+          const requiredCount = coresList.filter(c => c.coreType === type).length;
+          if (results.length < requiredCount) return false;
+
+          const isFilled = (val: any) => val !== undefined && val !== null && String(val).trim() !== '';
+
+          if (type === 'metering') {
+            return results.every((res: any) =>
+              res.rows && res.rows.length > 0 && res.rows.every((row: any) =>
+                isFilled(row.r100) && isFilled(row.p100) && isFilled(row.r25) && isFilled(row.p25)
+              )
+            );
+          } else if (type === 'protection') {
+            return results.every((res: any) =>
+              isFilled(res.ratioError100) && isFilled(res.alf)
+            );
+          } else if (type === 'ps') {
+            return results.every((res: any) =>
+              isFilled(res.turnRatioError) && isFilled(res.resistance) && isFilled(res.vk) &&
+              isFilled(res.vkVal) && isFilled(res.iexVk) && isFilled(res.iex11Vk)
+            );
           }
+          return true;
+        };
 
-          // Build Core Config from Order Details
-          // The Order has `coreDetails` array. 
-          // We flatten it to a list of cores: Core 1, Core 2...
-          let currentCoreNum = 1;
-          const coresList: CoreConfig[] = [];
-          if (order.coreDetails && Array.isArray(order.coreDetails)) {
-            order.coreDetails.forEach((coreGroup: any) => {
-              // Assuming coreGroup has property like count/quantity or just implies 1?
-              // Looking at schema `coreDetails: [{ coreType: ... }]`. 
-              // This implies each item in array is a core? 
-              // OR does it imply a group? The schema line 17 says `coreDetails: [ { coreType: ... } ]`.
-              // Let's assume each entry is one core for now or check quantity logic if it exists.
-              // Schema check: just `coreType`. so map 1:1.
-              const typeStr = (coreGroup.coreType || 'Metering').toLowerCase();
-              let mappedType: 'metering' | 'ps' | 'protection' = 'metering';
-              if (typeStr.includes('protection')) mappedType = 'protection';
-              else if (typeStr.includes('ps')) mappedType = 'ps';
+        const meteringDone = requiredMeteringCount === 0 || checkStrictCompletion('metering', secTest.metering_results);
+        const protectionDone = requiredProtectionCount === 0 || checkStrictCompletion('protection', secTest.protection_results);
+        const psDone = requiredPsCount === 0 || checkStrictCompletion('ps', secTest.ps_results);
 
-              coresList.push({
-                coreNumber: currentCoreNum++,
-                coreType: mappedType,
-                accuracyClass: coreGroup.accuracyClass || '0.5'
+        const hasFailures = coresList.some(core => {
+          const results = secTest?.[`${core.coreType}_results`] || [];
+          
+          if (core.coreType === 'metering') {
+            return results.some((res: any) => {
+              if (!res.rows) return false;
+              // Clean Accuracy Class (e.g. "0.5 S" -> "0.5S")
+              const rawClass = res.accuracyClass || core.accuracyClass || '0.5';
+              const cleanClass = rawClass.toString().toUpperCase().replace(/\s+/g, '');
+              const limitConfig = meteringLimits.find(l => l.accuracyClass.toString().toUpperCase().replace(/\s+/g, '') === cleanClass);
+
+              return res.rows.some((row: any) => {
+                // 1. Check DB pass flags explicitly
+                if (row.r100_r_pass === false || row.r100_p_pass === false || 
+                    row.r25_r_pass === false || row.r25_p_pass === false ||
+                    row.r100_pass === false || row.r25_pass === false) return true;
+
+                // 2. Manual Check against Limits
+                const r100 = parseFloat(row.r100);
+                const p100 = parseFloat(row.p100);
+                const r25 = parseFloat(row.r25);
+                const p25 = parseFloat(row.p25);
+
+                if (limitConfig && row.current) {
+                  const loadLimit = limitConfig.limits.find((l: any) => l.load.toString() === row.current.toString());
+                  if (loadLimit) {
+                    if (!isNaN(r100) && Math.abs(r100) >= (loadLimit.ratioLimit || 999)) return true;
+                    if (!isNaN(p100) && Math.abs(p100) >= (loadLimit.phaseLimit || 999)) return true;
+                    if (!isNaN(r25) && Math.abs(r25) >= (loadLimit.ratioLimit || 999)) return true;
+                    if (!isNaN(p25) && Math.abs(p25) >= (loadLimit.phaseLimit || 999)) return true;
+                  }
+                } else {
+                  // Fallback: If no limit config found but values are very high, assume fail
+                  if (!isNaN(r100) && Math.abs(r100) > 5) return true;
+                  if (!isNaN(r25) && Math.abs(r25) > 5) return true;
+                }
+                return false;
               });
             });
           }
 
-          // Fallback if no core details
-          if (coresList.length === 0) {
-            coresList.push({ coreNumber: 1, coreType: 'metering' });
-          }
-          // Check Granular Completion (STRICT COUNT)
-          const secTest = t.testHistory?.secondary_test || {};
+          if (core.coreType === 'ps') {
+            return results.some((res: any) => {
+              if (res.isPass === false) return true;
+              const ratioError = parseFloat(res.turnRatioError);
+              const iexVk = parseFloat(res.iexVk);
+              const iex11Vk = parseFloat(res.iex11Vk);
+              
+              const psLimit = psLimits[0];
+              const limitRatio = psLimit?.psRatioErrorLimit ?? 0.25;
+              const limitMulti = psLimit?.psExcitationMultiplier ?? 1.5;
 
-          // Count required cores by type from the config
-          const requiredMeteringCount = coresList.filter(c => c.coreType === 'metering').length;
-          const requiredProtectionCount = coresList.filter(c => c.coreType === 'protection').length;
-          const requiredPsCount = coresList.filter(c => c.coreType === 'ps').length;
-
-          // Count completed results (ensure arrays exist)
-          const completedMeteringCount = secTest.metering_results?.length || 0;
-          const completedProtectionCount = secTest.protection_results?.length || 0;
-          const completedPsCount = secTest.ps_results?.length || 0;
-
-          // Validate: Completed must correspond to Required AND be fully filled
-          const checkStrictCompletion = (type: 'metering' | 'ps' | 'protection', results: any[]) => {
-            if (!results || results.length === 0) return false;
-
-            // Must have enough results to cover all cores of this type
-            const requiredCount = coresList.filter(c => c.coreType === type).length;
-            if (results.length < requiredCount) return false;
-
-            // Helper to check if a value is effectively "filled" (allowing 0)
-            const isFilled = (val: any) => val !== undefined && val !== null && String(val).trim() !== '';
-
-            // And every result must be fully filled
-            if (type === 'metering') {
-              return results.every((res: any) =>
-                res.rows && res.rows.length > 0 && res.rows.every((row: any) =>
-                  isFilled(row.r100) && isFilled(row.p100) && isFilled(row.r25) && isFilled(row.p25)
-                )
-              );
-            } else if (type === 'protection') {
-              return results.every((res: any) =>
-                // Check new field names with legacy fallbacks
-                isFilled(res.ratioError100 || res.burden100_1) && 
-                isFilled(res.phaseError || res.burden100_2) && 
-                isFilled(res.resistance) &&
-                isFilled(res.secondaryLimitingVoltage || res.secondaryLimitingVtg) &&
-                isFilled(res.excitationCurrent) && 
-                isFilled(res.compositeError) && 
-                isFilled(res.alf)
-              );
-            } else if (type === 'ps') {
-              return results.every((res: any) =>
-                isFilled(res.turnRatioError) && 
-                isFilled(res.resistance) && 
-                isFilled(res.vk) &&
-                isFilled(res.vkVal) && 
-                isFilled(res.iexVk) && 
-                isFilled(res.iex11Vk)
-              );
-            }
-            return true;
-          };
-
-          const meteringDone = requiredMeteringCount === 0 || checkStrictCompletion('metering', secTest.metering_results);
-          const protectionDone = requiredProtectionCount === 0 || checkStrictCompletion('protection', secTest.protection_results);
-          const psDone = requiredPsCount === 0 || checkStrictCompletion('ps', secTest.ps_results);
-
-          const canApprove = meteringDone && protectionDone && psDone && t.currentStage === 'secondary';
-
-          if (!canApprove && secTest && t.currentStage === 'secondary' && (completedMeteringCount > 0 || completedProtectionCount > 0 || completedPsCount > 0)) {
-            console.log(`[DEBUG] Transformer ${t.uniqueId} cannot approve. Status:`, {
-                meteringDone,
-                protectionDone, 
-                psDone,
-                requiredM: requiredMeteringCount, completedM: completedMeteringCount,
-                requiredP: requiredProtectionCount, completedP: completedProtectionCount,
-                requiredPS: requiredPsCount, completedPS: completedPsCount
+              if (!isNaN(ratioError) && Math.abs(ratioError) >= limitRatio) return true;
+              if (!isNaN(iexVk) && !isNaN(iex11Vk) && (iexVk * limitMulti) < iex11Vk) return true;
+              return false;
             });
           }
 
-          // Refined Status Logic based on granular counts
-          // Note: Ignoring `t.testHistory.secondary_test.status` because backend might set it prematurely.
-          if (['primary', 'final', 'shipped'].includes(t.currentStage)) {
-            status = 'completed';
-          } else if (canApprove) {
-            status = 'completed';
-          } else if (completedMeteringCount > 0 || completedProtectionCount > 0 || completedPsCount > 0) {
-            status = 'in-progress';
-          } else {
-            status = 'pending';
-          }
+          if (core.coreType === 'protection') {
+            return results.some((res: any) => {
+              if (res.isPass === false) return true;
+              const ratioError = parseFloat(res.ratioError100);
+              const phaseError = parseFloat(res.phaseError);
+              const compositeError = parseFloat(res.compositeError);
+              
+              const rawClass = res.protectionClass || core.accuracyClass || '5P';
+              const cleanClass = rawClass.toString().toUpperCase().replace(/\s+/g, '');
+              const limitConfig = protectionLimits.find(l => l.protectionClass.toString().toUpperCase().replace(/\s+/g, '') === cleanClass);
 
-          // --- DYNAMIC CORE ID POOL GENERATION ---
-          // 1. Helper to generate ID
-          const generateCoreId = (type: 'metering' | 'ps' | 'protection', seqNum: number) => {
-            let prefix = 'P';
-            if (type === 'metering') prefix = 'M';
-            else if (type === 'ps') prefix = 'PS';
-
-            // Extract Job Suffix
-            const jobSuffix = order.jobId?.split('-').pop() ?? '000';
-            return `${prefix}-${jobSuffix}-${String(seqNum).padStart(3, '0')}`;
-          };
-
-          // 2. Generate ALL possible IDs for this Order
-          const totalQty = order.quantity || order.transformerQuantity || 0;
-          const allMeteringIds = Array.from({ length: totalQty }, (_, i) => generateCoreId('metering', i + 1));
-          const allPsIds = Array.from({ length: totalQty }, (_, i) => generateCoreId('ps', i + 1));
-          const allProtectionIds = Array.from({ length: totalQty }, (_, i) => generateCoreId('protection', i + 1));
-
-          // 3. Find IDs used by OTHER transformers (in this order)
-          // Fix: Ensure we are checking the LATEST data.
-          // The 'dbTransformers' variable holds the fresh data from the API response.
-          // The 'transformers' state variable might be stale during the initial render or if not updated.
-          // We should use 'dbTransformers' for the "used" check because that is the source of truth for THIS render cycle.
-
-          const getUsedIds = (targetType: 'metering' | 'ps' | 'protection') => {
-            const used = new Set<string>();
-
-            // Iterate over ALL transformers from the DB response, not just the mapped ones
-            dbTransformers.forEach((otherT: any) => {
-              if (otherT.uniqueId === t.uniqueId) return; // Don't count self
-
-              // Check history for this type
-              const secTest = otherT.testHistory?.secondary_test || {};
-              let ids: string[] = [];
-
-              if (targetType === 'metering' && secTest.metering_results) {
-                // Handle both direct ID strings and object structures (just in case)
-                ids = secTest.metering_results.map((r: any) => {
-                  if (typeof r === 'string') return r;
-                  return r.internalCoreNo || (r.rows && r.rows[0]?.internalCoreNo);
-                });
-              } else if (targetType === 'ps' && secTest.ps_results) {
-                ids = secTest.ps_results.map((r: any) => r.internalCoreNo);
-              } else if (targetType === 'protection' && secTest.protection_results) {
-                ids = secTest.protection_results.map((r: any) => r.internalCoreNo);
+              if (limitConfig) {
+                if (!isNaN(ratioError) && Math.abs(ratioError) >= (limitConfig.maxCurrentError || 999)) return true;
+                if (!isNaN(phaseError) && Math.abs(phaseError) >= (limitConfig.maxPhaseError || 999)) return true;
+                if (!isNaN(compositeError) && Math.abs(compositeError) >= (limitConfig.maxCompositeError || 999)) return true;
+              } else {
+                // Fallback for Protection
+                if (!isNaN(ratioError) && Math.abs(ratioError) > 5) return true;
+                if (!isNaN(compositeError) && Math.abs(compositeError) > 10) return true;
               }
-
-              ids.filter(Boolean).forEach(id => used.add(id));
+              return false;
             });
-            return used;
-          };
-
-          const usedMetering = getUsedIds('metering');
-          const usedPs = getUsedIds('ps');
-          const usedProtection = getUsedIds('protection');
-
-          const availablePool = {
-            metering: allMeteringIds.filter(id => !usedMetering.has(id)),
-            ps: allPsIds.filter(id => !usedPs.has(id)),
-            protection: allProtectionIds.filter(id => !usedProtection.has(id))
-          };
-
-
-          return {
-            id: t._id,
-            uniqueId: t.uniqueId,
-            name: order.transformerName || 'Transformer',
-            rating: Array.isArray(order.ratio) ? order.ratio.join('/') : (order.ratio || 'N/A'),
-            voltageClass: order.nominalSystemVoltage ? `${order.nominalSystemVoltage}kV` : 'N/A',
-            cores: coresList,
-            status: status,
-            ratios: t.ratios || (Array.isArray(order.ratio) ? order.ratio : (order.ratio ? [order.ratio] : ['N/A'])),
-            canApprove,
-            testHistory: t.testHistory,
-            availableCoreIdsPool: availablePool,
-            orderId: order._id, // explicitly passing orderId for failed core requests
-            jobId: order.jobId,
-            clientName: order.clientName,
-            currentStage: t.currentStage,
-            stc: order.stc,
-            voltageRating: order.voltageRating,
-            burden: order.burden,
-            ratedPrimaryCurrent: order.ratedPrimaryCurrent,
-            ratedSecondaryCurrent: order.ratedSecondaryCurrent,
-            primaryCurrents: order.primaryCurrents,
-            fullOrder: order
-          };
+          }
+          return false;
         });
 
-        // Filter 1: Only show transformers currently in the 'secondary' stage for this view
-        const activeUnitsOnly = mappedTransformers.filter((t: any) => t.currentStage === 'secondary');
+        const canApprove = meteringDone && protectionDone && psDone && !hasFailures && t.currentStage === 'secondary';
+        const canRequestStrictApproval = meteringDone && protectionDone && psDone && hasFailures && t.currentStage === 'secondary';
 
-        // Apply Granular Visibility Logic (Filter 2)
-        // If assignedUnitIds is present, filter.
-        const filtered = (!order.assignedUnitIds || order.assignedUnitIds.length === 0)
-          ? activeUnitsOnly
-          : activeUnitsOnly.filter(t => order.assignedUnitIds?.some(assignedId =>
-            assignedId === t.uniqueId || assignedId.includes(t.uniqueId)
-          ));
+        if (['primary', 'final', 'shipped', 'shipped_from_factory'].includes(t.currentStage)) {
+          status = 'completed';
+        } else if (canApprove) {
+          status = 'completed';
+        } else if (completedMeteringCount > 0 || completedProtectionCount > 0 || completedPsCount > 0) {
+          status = 'in-progress';
+        } else {
+          status = 'pending';
+        }
 
-        setTransformers(filtered);
-      } catch (err: any) {
-        console.error("Error fetching transformers:", err);
-        setError("Failed to load transformers. Please try again.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+        const generateCoreId = (type: string, seqNum: number) => {
+          let prefix = type === 'metering' ? 'M' : (type === 'ps' ? 'PS' : 'P');
+          const jobSuffix = order.jobId?.split('-').pop() ?? '000';
+          return `${prefix}-${jobSuffix}-${String(seqNum).padStart(3, '0')}`;
+        };
 
-    if (order && order._id) {
-      fetchTransformers();
+        const getUsedIds = (targetType: 'metering' | 'ps' | 'protection') => {
+          const used = new Set<string>();
+          dbTransformers.forEach((otherT: any) => {
+            if (otherT.uniqueId === t.uniqueId) return; // Don't exclude IDs used by self
+            const secTest = otherT.testHistory?.secondary_test || {};
+            let results: any[] = [];
+            if (targetType === 'metering') results = secTest.metering_results || [];
+            else if (targetType === 'ps') results = secTest.ps_results || [];
+            else if (targetType === 'protection') results = secTest.protection_results || [];
+            
+            results.forEach((r: any) => {
+              const id = r.internalCoreNo || r.coreId;
+              if (id) used.add(id);
+            });
+          });
+          return used;
+        };
+
+        const totalQty = order.quantity || order.transformerQuantity || 0;
+        const availablePool = {
+          metering: Array.from({ length: totalQty }, (_, i) => generateCoreId('metering', i + 1)).filter(id => !getUsedIds('metering').has(id)),
+          ps: Array.from({ length: totalQty }, (_, i) => generateCoreId('ps', i + 1)).filter(id => !getUsedIds('ps').has(id)),
+          protection: Array.from({ length: totalQty }, (_, i) => generateCoreId('protection', i + 1)).filter(id => !getUsedIds('protection').has(id))
+        };
+
+        return {
+          id: t._id,
+          uniqueId: t.uniqueId,
+          name: order.transformerName || 'Transformer',
+          rating: Array.isArray(order.ratio) ? order.ratio.join('/') : (order.ratio || 'N/A'),
+          voltageClass: order.nominalSystemVoltage ? `${order.nominalSystemVoltage}kV` : 'N/A',
+          cores: coresList,
+          status: status,
+          ratios: t.ratios || (Array.isArray(order.ratio) ? order.ratio : (order.ratio ? [order.ratio] : ['N/A'])),
+          canApprove,
+          canRequestStrictApproval,
+          testHistory: t.testHistory,
+          availableCoreIdsPool: availablePool,
+          orderId: order._id,
+          jobId: order.jobId,
+          clientName: order.clientName,
+          currentStage: t.currentStage,
+          fullOrder: order
+        };
+      });
+
+      setTransformers(mappedTransformers.filter((t: any) => t.currentStage === 'secondary' || t.currentStage === 'admin_review'));
+    } catch (err) {
+      console.error("Failed to fetch transformers", err);
+      setError("Failed to load transformers.");
+    } finally {
+      setIsLoading(false);
     }
-  }, [order]);
+  };
 
+  useEffect(() => {
+    fetchTransformers();
+  }, [order._id]);
 
   const handleApproveTransformer = async (transformer: Transformer) => {
     try {
       if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Primary Testing?`)) return;
-
       const response = await axios.put(`http://localhost:5001/api/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'secondary',
         nextStage: 'primary'
       }, { withCredentials: true });
-
       if (response.data.success) {
         toast.success("Transformer Approved successfully!");
-        // Refresh the parent's orders list
         if (onRefreshOrders) onRefreshOrders();
-
-        // Refresh or update local state
-        setTransformers(prev => prev.map(t =>
-          t.uniqueId === transformer.uniqueId ? { ...t, status: 'completed' } : t
-        ));
+        fetchTransformers();
       }
     } catch (err) {
-      console.error("Approval failed", err);
       toast.error("Failed to approve transformer");
     }
   };
-
-
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -370,51 +364,24 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
     }
   };
 
-  const getCoreTypeLabel = (type: string) => {
-    switch (type) {
-      case 'metering': return 'Metering';
-      case 'ps': return 'PS';
-      case 'protection': return 'Protection';
-      default: return type;
-    }
-  };
-
-  const getCoreTypeColor = (type: string) => {
-    switch (type) {
-      case 'metering': return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'ps': return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'protection': return 'bg-green-50 text-green-700 border-green-200';
-      default: return 'bg-gray-50 text-gray-700 border-gray-200';
-    }
-  };
-
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onBack}
-          className="gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Orders
+        <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
+          <ArrowLeft className="w-4 h-4" /> Back to Orders
         </Button>
       </div>
 
       <div>
-        <h2>Transformers for {order.jobId}</h2>
+        <h2 className="text-xl font-bold">Transformers for {order.jobId}</h2>
         <p className="text-gray-500 mt-1">Select a transformer to begin secondary testing</p>
       </div>
 
-      {/* Order Info Card */}
       <Card className="p-4 bg-gray-50 border-gray-200">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <p className="text-sm text-gray-500">Job ID</p>
             <p className="font-medium mt-1">{order.jobId}</p>
-
           </div>
           <div>
             <p className="text-sm text-gray-500">Client</p>
@@ -422,33 +389,17 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
           </div>
           <div>
             <p className="text-sm text-gray-500">Total Transformers</p>
-            <p className="font-medium mt-1">
-              {order.assignedUnitIds ? (
-                <span className="text-blue-600">Assigned: {order.assignedUnitIds.length}</span>
-              ) : (
-                <span>{order.quantity || order.transformerQuantity}</span>
-              )}
-              <span className="text-gray-400 text-xs ml-1">
-                / Total: {order.quantity || order.transformerQuantity}
-              </span>
-            </p>
+            <p className="font-medium mt-1">{order.quantity || order.transformerQuantity}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500 font-semibold italic">Order Date</p>
+            <p className="text-sm text-gray-500">Order Date</p>
             <p className="font-medium mt-1">
-              {order.createdAt && !isNaN(new Date(order.createdAt).getTime()) 
-                ? new Date(order.createdAt).toLocaleDateString('en-GB') 
-                : (order.assignedDate && !isNaN(new Date(order.assignedDate).getTime()) 
-                    ? new Date(order.assignedDate).toLocaleDateString('en-GB') 
-                    : (order.deadline && !isNaN(new Date(order.deadline).getTime())
-                        ? new Date(order.deadline).toLocaleDateString('en-GB')
-                        : 'N/A'))}
+              {order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-GB') : 'N/A'}
             </p>
           </div>
         </div>
       </Card>
 
-      {/* Transformers Table */}
       <Card className="overflow-hidden">
         {isLoading ? (
           <div className="p-8 flex justify-center items-center">
@@ -456,14 +407,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
             <span className="ml-2 text-gray-600">Loading transformers...</span>
           </div>
         ) : error ? (
-          <div className="p-8 text-center text-red-600">
-            {error}
-            <Button variant="link" onClick={() => window.location.reload()}>Retry</Button>
-          </div>
-        ) : transformers.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            No transformers found for this order.
-          </div>
+          <div className="p-8 text-center text-red-600">{error}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -485,106 +429,89 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
                     <td className="p-4">{transformer.uniqueId}</td>
                     <td className="p-4">
                       <div className="flex flex-wrap gap-1">
-
-                        {transformer.cores.map((core) => {
-                          const results = transformer.testHistory?.secondary_test?.[`${core.coreType}_results`] || [];
-
-                          // Improved Completion Logic (Matching SecondaryCoreSelection.tsx)
-                          // 1. Identify the applicable Core ID
-                          const typeCores = transformer.cores.filter(c => c.coreType === core.coreType);
-                          const typeIndex = typeCores.findIndex(c => c.coreNumber === core.coreNumber);
-                          const expectedId = transformer.availableCoreIdsPool?.[core.coreType]?.[typeIndex];
-                          const suffix = `-${String(core.coreNumber).padStart(3, '0')}`;
-                          const typeSeq = typeIndex + 1;
-                          const typeSuffix = `-${String(typeSeq).padStart(3, '0')}`;
-
-                          // Find ALL results that belong to this Core (by ID matching)
-                          const coreResults = results.filter((r: any) => {
-                            const id = r.internalCoreNo || r.coreId || '';
-                            return (expectedId && id === expectedId) ||
-                              id.endsWith(suffix) || id.includes(suffix) ||
-                              id.endsWith(typeSuffix) || id.includes(typeSuffix);
-                          });
-
-                          // 2. Strict Check: Are there results AND are they fully filled? (Allowing 0)
-                          const isFilled = (val: any) => val !== undefined && val !== null && String(val).trim() !== '';
-                          let isCompleted = false;
-                          if (coreResults.length > 0) {
-                            if (core.coreType === 'metering') {
-                              isCompleted = coreResults.every((res: any) =>
-                                res.rows && res.rows.length > 0 && res.rows.every((row: any) =>
-                                  isFilled(row.r100) && isFilled(row.p100) && isFilled(row.r25) && isFilled(row.p25)
-                                )
-                              );
-                            } else if (core.coreType === 'protection') {
-                              isCompleted = coreResults.every((res: any) =>
-                                isFilled(res.ratioError100 || res.burden100_1) && 
-                                isFilled(res.phaseError || res.burden100_2) && 
-                                isFilled(res.resistance) &&
-                                isFilled(res.secondaryLimitingVoltage || res.secondaryLimitingVtg) &&
-                                isFilled(res.excitationCurrent) && 
-                                isFilled(res.compositeError) && isFilled(res.alf)
-                              );
-                            } else if (core.coreType === 'ps') {
-                              isCompleted = coreResults.every((res: any) =>
-                                isFilled(res.turnRatioError) && isFilled(res.resistance) && isFilled(res.vk) &&
-                                isFilled(res.vkVal) && isFilled(res.iexVk) && isFilled(res.iex11Vk)
-                              );
-                            }
-                          }
-
-                          return (
-                            <Badge
-                              key={core.coreNumber}
-                              className={`${isCompleted
-                                ? 'bg-green-100 text-green-700 border-green-200'
-                                : getCoreTypeColor(core.coreType)} text-xs transition-colors duration-300`}
-                            >
-                              {isCompleted && <CheckCircle className="w-3 h-3 mr-1 inline-block" />}
-                              Core {core.coreNumber}: {getCoreTypeLabel(core.coreType)}
-                            </Badge>
-                          );
-                        })}
+                        {transformer.cores.map((core) => (
+                          <Badge key={core.coreNumber} className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                            Core {core.coreNumber}: {core.coreType}
+                          </Badge>
+                        ))}
                       </div>
                     </td>
                     <td className="p-4">
                       <Badge className={getStatusColor(transformer.status)}>
-                        {transformer.status.replace('-', ' ')}
+                        {transformer.currentStage === 'admin_review' ? 'Admin Review' : transformer.status.replace('-', ' ')}
                       </Badge>
                     </td>
                     <td className="p-4">
                       <div className="flex justify-center">
                         <Button
                           size="sm"
-                          onClick={() => {
-                            if (transformer.status === 'completed') {
-                              window.location.href = `/admin/report/${transformer.id}?type=secondary`;
-                            } else {
-                              onStartTest(transformer);
-                            }
-                          }}
-                          className={transformer.status === 'completed' ? "bg-green-600 hover:bg-green-700 font-medium" : "bg-blue-600 hover:bg-blue-700"}
-                          disabled={false} // Always allow viewing
+                          onClick={() => onStartTest(transformer)}
+                          className="bg-blue-600 hover:bg-blue-700"
+                          disabled={transformer.currentStage === 'admin_review'}
                         >
-                          {transformer.status === 'completed' ? (
-                            <>
-                              <FileText className="w-4 h-4 mr-2" /> View Report
-                            </>
-                          ) : (
-                            <>
-                              <PlayCircle className="w-4 h-4 mr-2" />
-                              {transformer.status === 'pending' ? 'Start Test' : 'Continue Test'}
-                            </>
-                          )}
+                          <PlayCircle className="w-4 h-4 mr-2" /> Start Test
                         </Button>
 
                         {transformer.canApprove && (
+                          <Button size="sm" className="ml-2 bg-green-600 hover:bg-green-700 text-white" onClick={() => handleApproveTransformer(transformer)}>Approve</Button>
+                        )}
+                        
+                        {transformer.canRequestStrictApproval && (
                           <Button
                             size="sm"
-                            className="ml-2 bg-green-600 hover:bg-green-700 text-white"
-                            onClick={() => handleApproveTransformer(transformer)}
+                            className="ml-2 bg-red-600 hover:bg-red-700 text-white"
+                            onClick={async () => {
+                              if (!confirm("Are you sure you want to request Strict Admin Approval?")) return;
+                              let reasons: string[] = [];
+                              transformer.cores.forEach(core => {
+                                const type = core.coreType;
+                                const results = transformer.testHistory?.secondary_test?.[`${type}_results`] || [];
+                                
+                                results.forEach((res: any) => {
+                                  const accClass = res.accuracyClass || res.protectionClass || core.accuracyClass || 'N/A';
+                                  const coreName = `Core ${core.coreNumber} (${type.toUpperCase()})`;
+                                  
+                                  if (type === 'metering' && res.rows) {
+                                    res.rows.forEach((row: any) => {
+                                      const load = row.current || 'N/A';
+                                      if (row.r100_r_pass === false) reasons.push(`${coreName} [Class ${accClass}]: 100% Ratio Error at ${load}`);
+                                      if (row.r100_p_pass === false) reasons.push(`${coreName} [Class ${accClass}]: 100% Phase Error at ${load}`);
+                                      if (row.r25_r_pass === false) reasons.push(`${coreName} [Class ${accClass}]: 25% Ratio Error at ${load}`);
+                                      if (row.r25_p_pass === false) reasons.push(`${coreName} [Class ${accClass}]: 25% Phase Error at ${load}`);
+                                    });
+                                  } else if (res.isPass === false) {
+                                    reasons.push(`${coreName} [Class ${accClass}]: Limit Failure`);
+                                  }
+                                });
+                              });
+                              const finalReason = reasons.length > 0 ? [...new Set(reasons)].join(' | ') : "Limits Exceeded";
+                              
+                              try {
+                                await axios.post('http://localhost:5001/api/strict-approvals/request', {
+                                  orderId: order._id,
+                                  jobId: order.jobId,
+                                  unitId: transformer.uniqueId,
+                                  clientName: order.clientName,
+                                  coreType: 'Multiple',
+                                  testType: 'Secondary Testing',
+                                  failureReason: finalReason,
+                                  testData: transformer.testHistory?.secondary_test,
+                                  requestedBy: transformer.testHistory?.secondary_test?.tester || JSON.parse(localStorage.getItem('user') || '{}').name || 'Tester'
+                                }, { withCredentials: true });
+
+                                await axios.put(`http://localhost:5001/api/transformers/${transformer.uniqueId}/approve-stage`, { 
+                                  stage: 'secondary', 
+                                  nextStage: 'admin_review' 
+                                }, { withCredentials: true });
+
+                                toast.success("Strict Approval Requested!");
+                                fetchTransformers();
+                              } catch (err) {
+                                toast.error("Failed to request strict approval.");
+                              }
+                            }}
                           >
-                            Approve
+                            Strict Approve
                           </Button>
                         )}
                       </div>
@@ -596,24 +523,6 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
           </div>
         )}
       </Card>
-
-      {/* Info Box */}
-      <Card className="p-6 bg-blue-50 border-blue-200">
-        <div className="flex items-start gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-white">i</span>
-          </div>
-          <div>
-            <h4 className="mb-1">Testing Instructions</h4>
-            <p className="text-sm text-gray-700">
-              Each transformer has a specific core configuration defined during order entry.
-              The system will automatically route you to the appropriate report (Metering, PS, or Protection)
-              based on the core type you select.
-            </p>
-          </div>
-        </div>
-      </Card>
     </div>
   );
 }
-

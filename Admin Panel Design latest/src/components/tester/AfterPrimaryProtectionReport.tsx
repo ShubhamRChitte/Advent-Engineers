@@ -6,6 +6,9 @@ interface PrimaryProtectionReportProps {
   core: { coreNumber: number; coreId: string; accuracyClass?: string | undefined };
   testerName: string;
   onBack: () => void;
+  primaryCurrent?: string;
+  secondaryCurrent?: string;
+  order?: any;
 }
 
 export function AfterPrimaryProtectionReport({
@@ -13,6 +16,9 @@ export function AfterPrimaryProtectionReport({
   core,
   testerName,
   onBack,
+  primaryCurrent,
+  secondaryCurrent,
+  order,
 }: PrimaryProtectionReportProps) {
 
   return (
@@ -23,6 +29,9 @@ export function AfterPrimaryProtectionReport({
       onBack={onBack}
       stage="primary"
       accuracyClass={core.accuracyClass}
+      primaryCurrent={primaryCurrent}
+      secondaryCurrent={secondaryCurrent}
+      order={order}
     />
   );
 }

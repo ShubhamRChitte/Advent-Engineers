@@ -8,20 +8,21 @@ import { AfterPrimaryProtectionReport } from './AfterPrimaryProtectionReport';
 
 // Updated to match the API response structure
 interface Order {
-  _id: string; // Added _id
+  _id: string; 
   jobId: string;
-  clientName: string; // Changed from client
-  transformerCount?: number; // Optional
+  clientName: string; 
+  transformerCount?: number; 
   assignedDate: string;
   status: string;
   priority: string;
-  assignedUnitIds?: string[]; // Added
-  // Add other fields as necessary from the API response
+  assignedUnitIds?: string[]; 
   quantity?: number;
   transformerQuantity?: number;
   deadline?: string;
   transformerName?: string;
   ratio?: string[];
+  primaryCurrents?: string[];
+  ratedSecondaryCurrent?: number;
   nominalSystemVoltage?: number | string;
   coreDetails?: any[];
 }
@@ -46,6 +47,9 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedTransformer, setSelectedTransformer] = useState<AfterPrimaryTransformer | null>(null);
   const [selectedCore, setSelectedCore] = useState<CoreConfig | null>(null);
+  const [selectedPrimary, setSelectedPrimary] = useState<string>('');
+  const [selectedSecondary, setSelectedSecondary] = useState<string>('');
+
 
   const handleStartTesting = (order: any) => {
     setSelectedOrder(order);
@@ -62,8 +66,10 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
     setCurrentView('cores');
   };
 
-  const handleSelectCore = (core: CoreConfig) => {
+  const handleSelectCore = (core: CoreConfig, primary: string, secondary: string) => {
     setSelectedCore(core);
+    setSelectedPrimary(primary);
+    setSelectedSecondary(secondary);
     setCurrentView('report');
   };
 
@@ -138,6 +144,9 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
           core={selectedCore}
           testerName={testerName}
           onBack={handleBackToCores}
+          order={selectedOrder}
+          primaryCurrent={selectedPrimary}
+          secondaryCurrent={selectedSecondary}
         />
       );
     }
@@ -149,6 +158,9 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
           core={selectedCore}
           testerName={testerName}
           onBack={handleBackToCores}
+          order={selectedOrder}
+          primaryCurrent={selectedPrimary}
+          secondaryCurrent={selectedSecondary}
         />
       );
     }
@@ -160,6 +172,9 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
           core={selectedCore}
           testerName={testerName}
           onBack={handleBackToCores}
+          order={selectedOrder}
+          primaryCurrent={selectedPrimary}
+          secondaryCurrent={selectedSecondary}
         />
       );
     }

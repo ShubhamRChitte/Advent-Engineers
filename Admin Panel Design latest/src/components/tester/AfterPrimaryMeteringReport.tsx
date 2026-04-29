@@ -13,6 +13,9 @@ interface AfterPrimaryMeteringReportProps {
   core: CoreConfig;
   testerName: string;
   onBack: () => void;
+  primaryCurrent?: string;
+  secondaryCurrent?: string;
+  order?: any;
 }
 
 export function AfterPrimaryMeteringReport({
@@ -20,6 +23,9 @@ export function AfterPrimaryMeteringReport({
   core,
   testerName,
   onBack,
+  primaryCurrent,
+  secondaryCurrent,
+  order,
 }: AfterPrimaryMeteringReportProps) {
 
   return (
@@ -30,6 +36,9 @@ export function AfterPrimaryMeteringReport({
       onBack={onBack}
       stage="primary"
       accuracyClass={core.accuracyClass}
+      primaryCurrent={primaryCurrent}
+      secondaryCurrent={secondaryCurrent}
+      order={order}
     />
   );
 }

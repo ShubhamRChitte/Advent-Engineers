@@ -15,6 +15,9 @@ interface SecondaryProtectionReportProps {
   readOnly?: boolean;
   stage?: 'secondary' | 'primary' | 'final';
   accuracyClass?: string | undefined; // Optinally passed from list
+  primaryCurrent?: string;
+  secondaryCurrent?: string;
+  order?: any;
 }
 
 interface ProtectionTestRow {
@@ -101,6 +104,9 @@ export function SecondaryProtectionReport({
   readOnly = false,
   stage = 'secondary',
   accuracyClass: explicitClass,
+  primaryCurrent: manualPrimary,
+  secondaryCurrent: manualSecondary,
+  order: propOrder,
 }: SecondaryProtectionReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
     ((!isNaN(parseInt(coreId.replace('Core ', '')))) ? parseInt(coreId.replace('Core ', '')) - 1 : 0);
@@ -109,24 +115,28 @@ export function SecondaryProtectionReport({
   // Use ratios from the transformer object, falling back to a default if empty
   // Use ratios from the transformer object, falling back to a default if empty
   const ratiosToUse = React.useMemo(() => {
-    const order = transformer.fullOrder || transformer.orderId;
+    const order = propOrder || transformer.fullOrder || transformer.orderId;
     const orderCores = order?.coreDetails || [];
     const coreFromOrder = orderCores[coreIndex];
 
-    const secCurr = coreFromOrder?.secondaryCurrent ||
+    // Priority: Manual Prop -> Core Specific -> Order Level -> Fallback
+    const secCurr = manualSecondary || 
+      coreFromOrder?.secondaryCurrent ||
       order?.ratedSecondaryCurrent ||
       '1';
 
-    const rawPrimaryCurrs = (order?.primaryCurrents && order.primaryCurrents.length > 0) ? order.primaryCurrents :
-      (Array.isArray(order?.ratio) ? order.ratio.map((r: string) => r.split('/')[0]) : ['200']);
+    // Priority: Manual Prop -> Order PrimaryCurrents -> Order Ratio -> Fallback
+    const rawPrimaryCurrs = manualPrimary ? [manualPrimary] :
+      ((order?.primaryCurrents && order.primaryCurrents.length > 0) ? order.primaryCurrents :
+      (Array.isArray(order?.ratio) ? order.ratio.map((r: string) => String(r).split('/')[0]) : ['200']));
 
     let primaryCurrs = rawPrimaryCurrs.flatMap((pc: string) =>
-      pc.replace(/[\[\]"']/g, '').split(/[- ,]+/).filter(v => v.trim() !== '')
+      String(pc).replace(/[\[\]"']/g, '').split(/[- ,]+/).filter(v => v.trim() !== '')
     );
     primaryCurrs = [...new Set(primaryCurrs)];
 
     return primaryCurrs.map((p: string) => `${p}/${secCurr}`);
-  }, [transformer, coreIndex]);
+  }, [transformer, coreIndex, manualPrimary, manualSecondary]);
 
 
   const [testResults, setTestResults] = useState<ProtectionTestRow[]>([]);
@@ -163,7 +173,7 @@ export function SecondaryProtectionReport({
     // 1. Determine Ratios for this core
     const dynamicRatios: string[] = (() => {
 
-      const order = transformer.fullOrder || transformer.orderId;
+      const order = propOrder || transformer.fullOrder || transformer.orderId;
       const orderCores = order?.coreDetails || [];
       const coreFromOrder = orderCores[coreIndex];
 
@@ -427,6 +437,10 @@ export function SecondaryProtectionReport({
         secondaryLimitingVoltage: parseFloat(row.secondaryLimitingVoltage) || 0,
         compositeError: parseFloat(row.compositeError) || 0,
 
+        // Pass/Fail status for strict approval tracking
+        isPass: row.isPass,
+        reason: row.reason,
+
         // Legacy Field Mapping
         secondaryLimitingVtg: parseFloat(row.secondaryLimitingVoltage) || 0
       }));
@@ -672,7 +686,6 @@ export function SecondaryProtectionReport({
               size="sm"
               onClick={handleDatabaseSave}
               className="gap-2"
-              disabled={hasFailures}
             >
               <Save className="w-4 h-4" /> Save
             </Button>

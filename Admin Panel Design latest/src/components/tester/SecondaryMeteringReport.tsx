@@ -15,6 +15,9 @@ interface SecondaryMeteringReportProps {
   readOnly?: boolean;
   stage?: 'secondary' | 'primary' | 'final';
   accuracyClass?: string | undefined;
+  primaryCurrent?: string;
+  secondaryCurrent?: string;
+  order?: any;
 }
 
 export function SecondaryMeteringReport({
@@ -26,6 +29,9 @@ export function SecondaryMeteringReport({
   readOnly = false,
   stage = 'secondary',
   accuracyClass: explicitClass,
+  primaryCurrent: manualPrimary,
+  secondaryCurrent: manualSecondary,
+  order: propOrder,
 }: SecondaryMeteringReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
     (!isNaN(parseInt(coreId.replace('Core ', ''))) ? parseInt(coreId.replace('Core ', '')) - 1 : 0);
@@ -47,21 +53,24 @@ export function SecondaryMeteringReport({
 
   const dynamicRatios: string[] = (() => {
     // 1. Determine core index from prop or ID
-
-    const order = transformer.fullOrder || transformer.orderId;
+    const order = propOrder || transformer.fullOrder || transformer.orderId;
     const orderCores = order?.coreDetails || [];
     const coreFromOrder = orderCores[coreIndex];
 
-    const secCurr = coreFromOrder?.secondaryCurrent ||
+    // Priority: Manual Prop -> Core Specific -> Order Level -> Fallback
+    const secCurr = manualSecondary || 
+      coreFromOrder?.secondaryCurrent ||
       order?.ratedSecondaryCurrent ||
       '1';
 
-    // Extract and split primary currents (handle "100-200" or "100,200" as separate rows)
-    const rawPrimaryCurrs = (order?.primaryCurrents && order.primaryCurrents.length > 0) ? order.primaryCurrents :
-      (Array.isArray(order?.ratio) ? order.ratio.map((r: string) => r.split('/')[0]) : ['200']);
+    // Extract and split primary currents
+    // Priority: Manual Prop -> Order PrimaryCurrents -> Order Ratio -> Fallback
+    const rawPrimaryCurrs = manualPrimary ? [manualPrimary] :
+      ((order?.primaryCurrents && order.primaryCurrents.length > 0) ? order.primaryCurrents :
+      (Array.isArray(order?.ratio) ? order.ratio.map((r: string) => String(r).split('/')[0]) : ['200']));
 
     let primaryCurrs = rawPrimaryCurrs.flatMap((pc: string) =>
-      pc.replace(/[\[\]"']/g, '').split(/[- ,]+/).filter(v => v.trim() !== '')
+      String(pc).replace(/[\[\]"']/g, '').split(/[- ,]+/).filter(v => v.trim() !== '')
     );
     primaryCurrs = [...new Set(primaryCurrs)];
 
@@ -136,10 +145,12 @@ export function SecondaryMeteringReport({
       const v100 = validateMeteringUI(accuracyClass, updatedRow.current, updatedRow.r100, updatedRow.p100, dbLimits);
       updatedRow.r100_r_pass = v100.rPass;
       updatedRow.r100_p_pass = v100.pPass;
+      updatedRow.r100_reason = v100.reason;
 
       const v25 = validateMeteringUI(accuracyClass, updatedRow.current, updatedRow.r25, updatedRow.p25, dbLimits);
       updatedRow.r25_r_pass = v25.rPass;
       updatedRow.r25_p_pass = v25.pPass;
+      updatedRow.r25_reason = v25.reason;
 
       updatedRows[rowIndex] = updatedRow;
       ratioBlock.rows = updatedRows;
@@ -173,11 +184,22 @@ export function SecondaryMeteringReport({
   const handleMarkAsFailed = async () => {
     if (readOnly) return;
     try {
-      await handleDatabaseSave();
+      const allReasons: string[] = [];
+      testResults.forEach(item => {
+        item.rows.forEach(row => {
+          if (row.r100_r_pass === false || row.r100_p_pass === false) {
+            allReasons.push(`${item.ratioValue} (${row.current}) 100% Burden: ${row.r100_reason || 'Limits Exceeded'}`);
+          }
+          if (row.r25_r_pass === false || row.r25_p_pass === false) {
+            allReasons.push(`${item.ratioValue} (${row.current}) 25% Burden: ${row.r25_reason || 'Limits Exceeded'}`);
+          }
+        });
+      });
+
       const payload = {
         orderId: transformer.orderId?._id || transformer.orderId,
         internalCoreNo: coreId,
-        failureReason: "Limits Exceeded",
+        failureReason: allReasons.length > 0 ? [...new Set(allReasons)].join(' | ') : "Accuracy Limits Exceeded",
         failureStage: `${stage}_metering_test`,
         dynamicValues: testResults
       };
@@ -188,7 +210,10 @@ export function SecondaryMeteringReport({
     }
   };
 
-  const hasAnyFailures = testResults.some(item => item.rows.some(row => row.r100_pass === false || row.r25_pass === false));
+  const hasAnyFailures = testResults.some(item => item.rows.some(row => 
+    row.r100_r_pass === false || row.r100_p_pass === false || 
+    row.r25_r_pass === false || row.r25_p_pass === false
+  ));
 
   return (
     <div className="space-y-6 p-4">
@@ -219,7 +244,7 @@ export function SecondaryMeteringReport({
             {!readOnly && hasAnyFailures && (
               <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2"><AlertTriangle className="w-4 h-4" /> Add to Failed Cores</Button>
             )}
-            <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2" disabled={hasAnyFailures}><Save className="w-4 h-4" /> Save</Button>
+            <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2"><Save className="w-4 h-4" /> Save</Button>
             <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2"><Printer className="w-4 h-4" /> Print</Button>
           </div>
         </div>
@@ -382,7 +407,9 @@ function getInitialData(accClass?: string) {
     r100_r_pass: null,
     r100_p_pass: null,
     r25_r_pass: null,
-    r25_p_pass: null
+    r25_p_pass: null,
+    r100_reason: '',
+    r25_reason: ''
   }));
 }
 

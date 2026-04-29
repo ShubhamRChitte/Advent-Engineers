@@ -88,7 +88,7 @@ const protectionTestRoutes = require('./routes/protectionTestRoutes');
 
 // 1. CORS (Must be first)
 app.use(cors({
-  origin: function(origin, callback) {
+  origin: function (origin, callback) {
     return callback(null, true);
   },
   credentials: true
@@ -262,16 +262,16 @@ const generateTransformersForOrder = async (order) => {
     // Identify all unique testers assigned in this order for the starting stage
     if (assignments && assignments.length > 0) {
       const uniqueTesters = [...new Set(assignments.filter(a => a.stage === startStage).map(a => a.testerName))];
-      
+
       const notificationPromises = uniqueTesters.map(tester => {
-          return new NotificationModel({
-              recipientRole: startStage,
-              recipientName: tester,
-              message: `New testing task assigned: ${quantity} units for ${order.clientName} (Job: ${jobId})`,
-              orderId: order._id,
-              jobId: jobId,
-              type: "ASSIGNMENT"
-          }).save();
+        return new NotificationModel({
+          recipientRole: startStage,
+          recipientName: tester,
+          message: `New testing task assigned: ${quantity} units for ${order.clientName} (Job: ${jobId})`,
+          orderId: order._id,
+          jobId: jobId,
+          type: "ASSIGNMENT"
+        }).save();
       });
       await Promise.all(notificationPromises);
       console.log(`Created ${uniqueTesters.length} notifications for ${startStage} testers.`);
@@ -533,7 +533,7 @@ app.get('/api/orders/:orderId', async (req, res) => {
     if (mongoose.Types.ObjectId.isValid(orderId)) {
       order = await OrderModel.findById(orderId);
     }
-    
+
     if (!order) {
       order = await OrderModel.findOne({ jobId: orderId });
     }
@@ -541,7 +541,7 @@ app.get('/api/orders/:orderId', async (req, res) => {
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
-    
+
     res.json({ success: true, data: order });
   } catch (error) {
     console.error("Fetch Order Error:", error);
@@ -2160,7 +2160,7 @@ app.get("/api/reports/:id", async (req, res) => {
     if (mongoose.Types.ObjectId.isValid(id)) {
       transformer = await TransformerModel.findById(id).populate('orderId');
     }
-    
+
     if (!transformer) {
       transformer = await TransformerModel.findOne({ uniqueId: id }).populate('orderId');
     }
@@ -2175,38 +2175,38 @@ app.get("/api/reports/:id", async (req, res) => {
       if (transformer.orderId) {
         const orderId = transformer.orderId._id || transformer.orderId;
         const type = transformer.orderId.transformerType || "PT";
-        
-        const hRecord = await HeatingRecordModel.findOne({ 
+
+        const hRecord = await HeatingRecordModel.findOne({
           orderId: orderId,
           transformerType: { $regex: type, $options: 'i' }
         });
 
         if (hRecord && hRecord.blocks) {
           // Find the block matching this transformer's uniqueId
-          const block = hRecord.blocks.find(b => 
-            b.serialNumber === transformer.uniqueId || 
+          const block = hRecord.blocks.find(b =>
+            b.serialNumber === transformer.uniqueId ||
             (b.transformerId && b.transformerId.toString() === transformer._id.toString())
           );
 
           if (block) {
             // NORMALIZE: Convert String dates to Date objects for report consistency
             const normalizedSteps = (block.processSteps || []).map(step => {
-               const normalized = { ...step.toObject ? step.toObject() : step };
-               
-               // Construct startDateTime if missing but strings exist
-               if (!normalized.startDateTime && normalized.startDate && normalized.startTime) {
-                 try {
-                   normalized.startDateTime = new Date(`${normalized.startDate}T${normalized.startTime}`);
-                 } catch (e) {}
-               }
-               // Construct completionDateTime if missing
-               if (!normalized.completionDateTime && normalized.endDate && normalized.endTime) {
-                 try {
-                   normalized.completionDateTime = new Date(`${normalized.endDate}T${normalized.endTime}`);
-                 } catch (e) {}
-               }
-               
-               return normalized;
+              const normalized = { ...step.toObject ? step.toObject() : step };
+
+              // Construct startDateTime if missing but strings exist
+              if (!normalized.startDateTime && normalized.startDate && normalized.startTime) {
+                try {
+                  normalized.startDateTime = new Date(`${normalized.startDate}T${normalized.startTime}`);
+                } catch (e) { }
+              }
+              // Construct completionDateTime if missing
+              if (!normalized.completionDateTime && normalized.endDate && normalized.endTime) {
+                try {
+                  normalized.completionDateTime = new Date(`${normalized.endDate}T${normalized.endTime}`);
+                } catch (e) { }
+              }
+
+              return normalized;
             });
 
             heatingRecordFromCollection = {
@@ -2234,12 +2234,12 @@ app.get("/api/reports/:id", async (req, res) => {
             if (!normalized.startDateTime && normalized.startDate && normalized.startTime) {
               try {
                 normalized.startDateTime = new Date(`${normalized.startDate}T${normalized.startTime}`);
-              } catch (e) {}
+              } catch (e) { }
             }
             if (!normalized.completionDateTime && normalized.completionDate && normalized.completionTime) {
               try {
                 normalized.completionDateTime = new Date(`${normalized.completionDate}T${normalized.completionTime}`);
-              } catch (e) {}
+              } catch (e) { }
             }
             return normalized;
           });
@@ -2250,7 +2250,7 @@ app.get("/api/reports/:id", async (req, res) => {
 
     const currentStage = stage || transformer.currentStage;
     const stageKey = `${currentStage}_test`;
-    
+
     // Extract readings based on stage
     let readings = [];
     const history = transformer.testHistory?.[stageKey];
@@ -2301,10 +2301,14 @@ app.post("/transformer-primary-metering-tests", async (req, res) => {
         resultBlock.rows.forEach(row => {
           const v100 = validateMeteringReading(accuracyClass, row.current, row.r100, row.p100);
           row.r100_pass = v100.isPass;
+          row.r100_r_pass = v100.rPass;
+          row.r100_p_pass = v100.pPass;
           row.r100_reason = v100.reason;
 
           const v25 = validateMeteringReading(accuracyClass, row.current, row.r25, row.p25);
           row.r25_pass = v25.isPass;
+          row.r25_r_pass = v25.rPass;
+          row.r25_p_pass = v25.pPass;
           row.r25_reason = v25.reason;
         });
       }
@@ -2413,14 +2417,14 @@ app.post("/transformer-primary-ps-tests", async (req, res) => {
     if (!transformerDoc.testHistory.primary_test) transformerDoc.testHistory.primary_test = {};
 
     transformerDoc.testHistory.primary_test.tester = tester;
-    
+
     // Merge logic for PS
     const newResults = ps_results.map(r => ({ ...r, internalCoreNo: coreId || r.internalCoreNo || r.coreId }));
     const existingResults = transformerDoc.testHistory.primary_test.ps_results || [];
     const otherCoresResults = existingResults.filter(r =>
       r.internalCoreNo !== coreId && r.coreId !== coreId
     );
-    
+
     transformerDoc.testHistory.primary_test.ps_results = [...otherCoresResults, ...newResults];
     transformerDoc.testHistory.primary_test.status = "Completed";
     transformerDoc.testHistory.primary_test.timestamp = new Date();
@@ -2481,10 +2485,14 @@ app.post("/transformer-final-metering-tests", async (req, res) => {
         resultBlock.rows.forEach(row => {
           const v100 = validateMeteringReading(accuracyClass, row.current, row.r100, row.p100);
           row.r100_pass = v100.isPass;
+          row.r100_r_pass = v100.rPass;
+          row.r100_p_pass = v100.pPass;
           row.r100_reason = v100.reason;
 
           const v25 = validateMeteringReading(accuracyClass, row.current, row.r25, row.p25);
           row.r25_pass = v25.isPass;
+          row.r25_r_pass = v25.rPass;
+          row.r25_p_pass = v25.pPass;
           row.r25_reason = v25.reason;
         });
       }
@@ -2610,14 +2618,14 @@ app.post("/transformer-final-ps-tests", async (req, res) => {
     if (!existingTransformer.testHistory.final_test) existingTransformer.testHistory.final_test = {};
 
     existingTransformer.testHistory.final_test.tester = tester;
-    
+
     // Merge logic for PS (Final)
     const newResults = ps_results.map(r => ({ ...r, internalCoreNo: coreId || r.internalCoreNo || r.coreId }));
     const existingResults = existingTransformer.testHistory.final_test.ps_results || [];
     const otherCoresResults = existingResults.filter(r =>
       r.internalCoreNo !== coreId && r.coreId !== coreId
     );
-    
+
     existingTransformer.testHistory.final_test.ps_results = [...otherCoresResults, ...newResults];
     existingTransformer.testHistory.final_test.status = "Completed";
     existingTransformer.testHistory.final_test.timestamp = new Date();
@@ -2692,11 +2700,15 @@ app.post("/transformer-secondary-metering-tests", async (req, res) => {
           // Validate 100% Burden Inputs
           const v100 = validateMeteringReading(accuracyClass, row.current, row.r100, row.p100);
           row.r100_pass = v100.isPass;
+          row.r100_r_pass = v100.rPass;
+          row.r100_p_pass = v100.pPass;
           row.r100_reason = v100.reason;
 
           // Validate 25% Burden Inputs
           const v25 = validateMeteringReading(accuracyClass, row.current, row.r25, row.p25);
           row.r25_pass = v25.isPass;
+          row.r25_r_pass = v25.rPass;
+          row.r25_p_pass = v25.pPass;
           row.r25_reason = v25.reason;
 
           if (!v100.isPass || !v25.isPass) {
@@ -2972,6 +2984,170 @@ app.put("/api/transformers/:id/approve-stage", isAuthenticated, async (req, res)
 });
 
 //primary protection test handle
+// -------------------------------------------------------------------
+// STRICT APPROVAL ROUTES
+// -------------------------------------------------------------------
+const StrictApproval = require('./schema/StrictApprovalSchema');
+
+app.post('/api/strict-approvals/request', async (req, res) => {
+  try {
+    const { orderId, jobId, unitId, clientName, coreType, testType, failureReason, testData, requestedBy } = req.body;
+
+    const newRequest = new StrictApproval({
+      orderId,
+      jobId,
+      unitId,
+      clientName,
+      coreType,
+      testType,
+      failureReason,
+      requestedBy,
+      testData,
+      status: 'Pending'
+    });
+
+    await newRequest.save();
+
+    res.status(201).json({ success: true, message: 'Strict approval requested successfully' });
+  } catch (error) {
+    console.error("Strict approval request error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.get('/api/strict-approvals', async (req, res) => {
+  try {
+    const approvals = await StrictApproval.find({ status: 'Pending' }).populate('orderId').sort({ createdAt: -1 });
+    res.json(approvals);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.post('/api/strict-approvals/:id/resolve', async (req, res) => {
+  try {
+    const { approved, adminComments, resolvedBy } = req.body;
+    const action = approved ? 'Approve' : 'Reject';
+
+    const approval = await StrictApproval.findById(req.params.id);
+    if (!approval) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+
+    approval.status = approved ? 'Approved' : 'Rejected';
+    approval.resolvedBy = resolvedBy || 'Admin';
+    approval.resolutionRemark = adminComments;
+    await approval.save();
+
+    // ✅ If approved, move the transformer to the next stage
+    if (approval.unitId) {
+      const transformer = await TransformerModel.findOne({ uniqueId: approval.unitId });
+      if (transformer) {
+        let historyKey = 'secondary_test';
+        let targetStageApprove = 'primary';
+        let targetStageReject = 'secondary';
+
+        if (approval.testType === 'Primary Testing') {
+          historyKey = 'primary_test';
+          targetStageApprove = 'final';
+          targetStageReject = 'primary';
+        } else if (approval.testType === 'Final Testing') {
+          historyKey = 'final_test_login';
+          targetStageApprove = 'shipped';
+          targetStageReject = 'final';
+        }
+
+        if (approved) {
+          transformer.currentStage = targetStageApprove;
+          if (!transformer.testHistory) transformer.testHistory = {};
+          if (!transformer.testHistory[historyKey]) transformer.testHistory[historyKey] = {};
+          transformer.testHistory[historyKey].status = 'Completed';
+          transformer.testHistory[historyKey].adminApproved = true;
+          transformer.testHistory[historyKey].approvalDate = new Date();
+
+          console.log(`[STRICT APPROVAL] Transformer ${approval.unitId} approved and moved to ${targetStageApprove}.`);
+        } else {
+          transformer.currentStage = targetStageReject;
+          console.log(`[STRICT APPROVAL] Transformer ${approval.unitId} rejected and moved back to ${targetStageReject}.`);
+        }
+        await transformer.save();
+
+        // Update Order if it needs to transition
+        if (approved && transformer.orderId) {
+          const order = await OrderModel.findById(transformer.orderId);
+          if (order) {
+            const { notifyNextStage, handleOrderCompletion } = require('./services/notificationService');
+
+            // 1. Send Assignment Notification if this is the FIRST unit to reach this stage
+            // This ensures testers are notified as soon as work is available, even if others are pending.
+            if (targetStageApprove !== 'shipped' && approved) {
+              const existingNotification = await NotificationModel.findOne({
+                orderId: order._id,
+                recipientRole: targetStageApprove,
+                type: 'ASSIGNMENT'
+              });
+
+              if (!existingNotification) {
+                // We follow the "regular notification" style requested by the user
+                const nextStageAssignments = order.assignments.filter(a => a.stage === targetStageApprove);
+                for (const assignment of nextStageAssignments) {
+                  await NotificationModel.create({
+                    recipientName: assignment.testerName,
+                    recipientRole: targetStageApprove,
+                    message: `New testing task assigned: Job ${order.jobId} (${order.clientName || 'Active Order'})`,
+                    type: 'ASSIGNMENT',
+                    orderId: order._id,
+                    jobId: order.jobId
+                  });
+                }
+                console.log(`[STRICT APPROVAL] First unit reached ${targetStageApprove}. Assignment notification sent for ${order.jobId}.`);
+              }
+            }
+
+            // 2. Global Order Stage Transition (if ALL units are now past the previous stage)
+            if (order.currentStage !== targetStageApprove && order.currentStage !== 'completed') {
+              const pendingTotalCount = await TransformerModel.countDocuments({
+                $or: [
+                  { orderId: transformer.orderId },
+                  { orderId: transformer.orderId.toString() },
+                  { jobId: transformer.jobId }
+                ],
+                currentStage: { $in: [targetStageReject, 'admin_review'] }
+              });
+              
+              if (pendingTotalCount === 0) {
+                if (targetStageApprove === 'shipped') {
+                  const oldStatus = order.status;
+                  order.currentStage = 'completed';
+                  order.status = 'COMPLETED';
+                  if (order.completionStages) order.completionStages.final = true;
+                  await order.save();
+                  await handleOrderCompletion(order, oldStatus);
+                  console.log(`[STRICT APPROVAL] All units shipped. Order ${order.jobId} marked as COMPLETED.`);
+                } else {
+                  order.currentStage = targetStageApprove;
+                  if (order.completionStages) {
+                    if (targetStageApprove === 'primary') order.completionStages.secondary = true;
+                    if (targetStageApprove === 'final') order.completionStages.primary = true;
+                  }
+                  await order.save();
+                  // Note: We don't call notifyNextStage here because we already sent it for the "first unit" above
+                  console.log(`[STRICT APPROVAL] Order ${order.jobId} transitioned to ${targetStageApprove}.`);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    res.json({ success: true, message: `Request ${action}d successfully` });
+  } catch (error) {
+    console.error("Resolution Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`App Started! ${PORT}`);
 })

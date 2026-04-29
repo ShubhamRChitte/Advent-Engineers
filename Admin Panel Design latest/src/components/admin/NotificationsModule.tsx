@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Loader2
 } from 'lucide-react';
+import { StrictApprovalDashboard } from './StrictApprovalDashboard';
 
 interface Order {
   _id: string;
@@ -49,7 +50,6 @@ export function NotificationsModule({ onNavigateToOrder, isActive }: Notificatio
       if (response.data.success) {
         const newNotifications = response.data.notifications;
         
-        // Smart Polling: Only update if data changed (length or newest ID)
         setNotifications(prev => {
           if (prev.length === newNotifications.length && prev[0]?._id === newNotifications[0]?._id) {
             return prev;
@@ -69,29 +69,16 @@ export function NotificationsModule({ onNavigateToOrder, isActive }: Notificatio
   useEffect(() => {
     fetchNotifications();
 
-    // Smart Polling Logic: Only poll when tab is visible AND this view is active
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible' && isActive) {
         fetchNotifications(true);
       }
     }, 10000);
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && isActive) {
-        fetchNotifications(true);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+    return () => clearInterval(interval);
   }, [fetchNotifications, isActive]);
 
   const handleMarkAllRead = async () => {
-    // Optimistic UI Update
     const previousNotifications = [...notifications];
     setNotifications(notifications.map(n => ({ ...n, isRead: true })));
 
@@ -110,7 +97,6 @@ export function NotificationsModule({ onNavigateToOrder, isActive }: Notificatio
 
   const handleMarkSingleRead = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    // Optimistic update
     setNotifications(notifications.map(n => n._id === id ? { ...n, isRead: true } : n));
     try {
       await axios.put(`http://localhost:5001/api/notifications/${id}/read`, {}, { withCredentials: true });
@@ -160,6 +146,9 @@ export function NotificationsModule({ onNavigateToOrder, isActive }: Notificatio
           </Button>
         </div>
       </div>
+
+      {/* ✅ Add Strict Approval Requests Dashboard right here at the top of Notifications */}
+      <StrictApprovalDashboard />
 
       {error && (
         <Card className="p-4 border-red-200 bg-red-50 text-red-700 flex items-center justify-between">

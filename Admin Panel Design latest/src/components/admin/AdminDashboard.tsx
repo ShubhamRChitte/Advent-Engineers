@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { Users, Package, ClipboardCheck, TrendingUp, AlertCircle, CheckCircle2, PlusCircle, List, ArrowRight } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { AdminReviewPanel } from './AdminReviewPanel';
+import { StrictApprovalDashboard } from './StrictApprovalDashboard';
 
 interface AdminDashboardProps {
   setActiveView?: (view: string) => void;
@@ -56,11 +57,12 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2>Dashboard Overview</h2>
+        <h2 className="text-2xl font-bold">Dashboard Overview</h2>
         <p className="text-gray-500 mt-1">Welcome back! Here's your testing system summary.</p>
       </div>
 
-      {/* Admin Review Needs Attention Section */}
+      {/* Admin Review & Strict Approvals Section */}
+      <StrictApprovalDashboard />
       <AdminReviewPanel />
 
       {/* Stats Grid */}
@@ -73,7 +75,7 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-gray-500">{stat.label}</p>
-                  <h3 className="mt-2">{stat.value}</h3>
+                  <h3 className="text-xl font-bold mt-2">{stat.value}</h3>
                   <p className="text-sm text-green-600 mt-2">{stat.change} this month</p>
                 </div>
                 <div className={`p-3 bg-${stat.color}-50 rounded-lg`}>
@@ -95,7 +97,7 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
                   <PlusCircle className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-white">Add New Order</h3>
+                  <h3 className="text-white font-bold text-lg">Add New Order</h3>
                   <p className="text-white/90 text-sm mt-1">Create and assign transformer orders</p>
                 </div>
               </div>
@@ -110,7 +112,7 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
                   <List className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-purple-900">View All Orders</h3>
+                  <h3 className="text-purple-900 font-bold text-lg">View All Orders</h3>
                   <p className="text-purple-700 text-sm mt-1">Track order status and reports</p>
                 </div>
               </div>
@@ -123,7 +125,7 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="p-6">
-          <h3 className="mb-4">Testing Progress Trend</h3>
+          <h3 className="text-lg font-bold mb-4">Testing Progress Trend</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={testingData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -139,7 +141,7 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
         </Card>
 
         <Card className="p-6">
-          <h3 className="mb-4">Order Status Distribution</h3>
+          <h3 className="text-lg font-bold mb-4">Order Status Distribution</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={orderData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -154,7 +156,7 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
 
       {/* Recent Activity */}
       <Card className="p-6">
-        <h3 className="mb-4">Recent Activity</h3>
+        <h3 className="text-lg font-bold mb-4">Recent Activity</h3>
         <div className="space-y-4">
           {activities.length === 0 ? (
             <p className="text-gray-500 text-sm">No recent activity.</p>
@@ -165,7 +167,7 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
                   activity.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
                   }`} />
                 <div className="flex-1">
-                  <p>{activity.action}</p>
+                  <p className="font-medium">{activity.action}</p>
                   <p className="text-sm text-gray-500">{activity.detail}</p>
                 </div>
                 <span className="text-sm text-gray-400 whitespace-nowrap">{formatTime(activity.time)}</span>

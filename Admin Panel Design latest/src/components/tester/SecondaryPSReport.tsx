@@ -583,9 +583,24 @@ interface SecondaryPSReportProps {
   readOnly?: boolean;
   stage?: 'secondary' | 'primary' | 'final';
   accuracyClass?: string | undefined;
+  primaryCurrent?: string;
+  secondaryCurrent?: string;
+  order?: any;
 }
 
-export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName, onBack, readOnly = false, stage = 'secondary', accuracyClass: explicitClass }: SecondaryPSReportProps) {
+export function SecondaryPSReport({ 
+  transformer, 
+  coreNumber, 
+  coreId, 
+  testerName, 
+  onBack, 
+  readOnly = false, 
+  stage = 'secondary', 
+  accuracyClass: explicitClass,
+  primaryCurrent: manualPrimary,
+  secondaryCurrent: manualSecondary,
+  order: propOrder
+}: SecondaryPSReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
     (!isNaN(parseInt(coreId.replace('Core ', ''))) ? parseInt(coreId.replace('Core ', '')) - 1 : 0);
 
@@ -593,22 +608,24 @@ export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName,
   // Determine ratios from transformer (passed from props)
   const dynamicRatios: string[] = (() => {
     // 1. Find the secondary current for THIS core
-
-    const order = (transformer as any).fullOrder || (transformer as any).orderId;
+    const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
     const orderCores = order?.coreDetails || [];
     const coreFromOrder = orderCores[coreIndex];
 
-    // Get secondary current: use core-specific one, then order-level, then fallback to 1
-    const secCurr = coreFromOrder?.secondaryCurrent ||
+    // Priority: Manual Prop -> Core Specific -> Order Level -> Fallback
+    const secCurr = manualSecondary || 
+      coreFromOrder?.secondaryCurrent ||
       order?.ratedSecondaryCurrent ||
       '1';
 
-    // 2. Get primary currents: use primaryCurrents array, then extract from ratios, then fallback
-    const rawPrimaryCurrs = (order?.primaryCurrents && order.primaryCurrents.length > 0) ? order.primaryCurrents :
-      (Array.isArray(order?.ratio) ? order.ratio.map((r: string) => r.split('/')[0]) : ['200']);
+    // 2. Get primary currents
+    // Priority: Manual Prop -> Order PrimaryCurrents -> Order Ratio -> Fallback
+    const rawPrimaryCurrs = manualPrimary ? [manualPrimary] :
+      ((order?.primaryCurrents && order.primaryCurrents.length > 0) ? order.primaryCurrents :
+      (Array.isArray(order?.ratio) ? order.ratio.map((r: string) => String(r).split('/')[0]) : ['200']));
 
     let primaryCurrs = rawPrimaryCurrs.flatMap((pc: string) =>
-      pc.replace(/[\[\]"']/g, '').split(/[- ,]+/).filter(v => v.trim() !== '')
+      String(pc).replace(/[\[\]"']/g, '').split(/[- ,]+/).filter(v => v.trim() !== '')
     );
     primaryCurrs = [...new Set(primaryCurrs)];
 
@@ -769,17 +786,22 @@ export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName,
         tester: testerName, // Use prop directly
         coreId: coreId,
         stage: stage, // Add stage info if helpful for backend logging
-        ps_results: psData.map((row: any) => ({
-          internalCoreNo: coreId, // Inject Core ID for persistence
-          ratioValue: row.ratioValue,
-          accuracyClass: accuracyClass || 'N/A',
-          turnRatioError: row.turnRatioError,
-          resistance: row.resistance,
-          vk: row.vk,
-          vkVal: row.vkVal,
-          iexVk: row.iexVk,
-          iex11Vk: row.iex11Vk
-        }))
+        ps_results: psData.map((row: any) => {
+          const validation = validatePSRow(row);
+          return {
+            internalCoreNo: coreId,
+            ratioValue: row.ratioValue,
+            accuracyClass: accuracyClass || 'N/A',
+            turnRatioError: row.turnRatioError,
+            resistance: row.resistance,
+            vk: row.vk,
+            vkVal: row.vkVal,
+            iexVk: row.iexVk,
+            iex11Vk: row.iex11Vk,
+            isPass: validation.isPass,
+            reason: validation.reason
+          };
+        })
       };
 
       console.log("handleDatabaseSave (PS): Payload ready", payload);
@@ -803,28 +825,41 @@ export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName,
   };
 
   // Validation Logic for PS Cores
-  const calculateRowStatus = (row: PSRow) => {
+  const validatePSRow = (row: PSRow) => {
     // Both ratio errors and excitation currents must be populated to grade
-    if (!row.turnRatioError || !row.iexVk || !row.iex11Vk) return null;
+    if (!row.turnRatioError || !row.iexVk || !row.iex11Vk) return { isPass: null, reason: null };
 
     const ratioError = parseFloat(row.turnRatioError);
     const iexVk = parseFloat(row.iexVk);
     const iex11Vk = parseFloat(row.iex11Vk);
 
-    if (isNaN(ratioError) || isNaN(iexVk) || isNaN(iex11Vk)) return null;
+    if (isNaN(ratioError) || isNaN(iexVk) || isNaN(iex11Vk)) return { isPass: null, reason: null };
 
     const limitRatio = psLimit?.psRatioErrorLimit ?? 0.25;
     const limitMulti = psLimit?.psExcitationMultiplier ?? 1.5;
 
+    let reasons: string[] = [];
+
     // Condition 1: Ratio Error must be strictly between limits
     const isRatioPass = ratioError > -limitRatio && ratioError < limitRatio;
+    if (!isRatioPass) {
+        reasons.push(`Ratio Error (${ratioError}) meets or exceeds ±${limitRatio} limit`);
+    }
 
     // Condition 2: (Iex at Vk * limitMulti) > Iex at 1.1Vk
     const calculatedValue = iexVk * limitMulti;
     const isExcitationPass = calculatedValue > iex11Vk;
+    if (!isExcitationPass) {
+        reasons.push(`Excitation check failed: IexVk * ${limitMulti} (${calculatedValue.toFixed(2)}) is not > Iex11Vk (${iex11Vk})`);
+    }
 
-    return isRatioPass && isExcitationPass;
+    return {
+        isPass: isRatioPass && isExcitationPass,
+        reason: reasons.length > 0 ? reasons.join('; ') : null
+    };
   };
+
+  const calculateRowStatus = (row: PSRow) => validatePSRow(row).isPass;
 
   // Check if any row has explicitly failed the test constraints
   const hasFailures = psData.some(row => calculateRowStatus(row) === false);
@@ -1024,7 +1059,7 @@ export function SecondaryPSReport({ transformer, coreNumber, coreId, testerName,
                 <AlertTriangle className="w-4 h-4" /> Add to Failed Cores
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2" disabled={hasFailures}>
+            <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2">
               <Save className="w-4 h-4" /> Save
             </Button>
             <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">

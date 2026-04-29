@@ -5,6 +5,9 @@ interface FinalPSReportProps {
   core: { coreNumber: number; coreId: string; accuracyClass?: string; };
   testerName: string;
   onBack: () => void;
+  primaryCurrent?: string;
+  secondaryCurrent?: string;
+  order?: any;
 }
 
 export function FinalPSReport({
@@ -12,6 +15,9 @@ export function FinalPSReport({
   core,
   testerName,
   onBack,
+  primaryCurrent,
+  secondaryCurrent,
+  order,
 }: FinalPSReportProps) {
 
   return (
@@ -22,6 +28,9 @@ export function FinalPSReport({
       onBack={onBack}
       stage="final"
       accuracyClass={core.accuracyClass}
+      primaryCurrent={primaryCurrent}
+      secondaryCurrent={secondaryCurrent}
+      order={order}
     />
   );
 }

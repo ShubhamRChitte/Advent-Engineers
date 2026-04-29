@@ -69,7 +69,8 @@ const validateMeteringReading = (accClass, load, ratioValue, phaseValue) => {
     const limitConfig = classLimits.find(c => c.load === load);
     if (!limitConfig) return { isPass: false, reason: `Unknown load %: ${load}` };
 
-    let isPass = true;
+    let rPass = true;
+    let pPass = true;
     const reasons = [];
 
     // Ratio Validation
@@ -77,7 +78,7 @@ const validateMeteringReading = (accClass, load, ratioValue, phaseValue) => {
         const ratioNum = parseFloat(ratioValue);
         if (!isNaN(ratioNum) && limitConfig.ratioLimit !== null) {
             if (Math.abs(ratioNum) >= limitConfig.ratioLimit) {
-                isPass = false;
+                rPass = false;
                 reasons.push(`Ratio Error (${ratioValue}%) exceeds ±${limitConfig.ratioLimit}%`);
             }
         }
@@ -88,14 +89,16 @@ const validateMeteringReading = (accClass, load, ratioValue, phaseValue) => {
         const phaseNum = parseFloat(phaseValue);
         if (!isNaN(phaseNum) && limitConfig.phaseLimit !== null) {
             if (Math.abs(phaseNum) >= limitConfig.phaseLimit) {
-                isPass = false;
+                pPass = false;
                 reasons.push(`Phase Error (${phaseValue}m) exceeds ±${limitConfig.phaseLimit}m`);
             }
         }
     }
 
     return {
-        isPass,
+        isPass: rPass && pPass,
+        rPass,
+        pPass,
         reason: reasons.length > 0 ? reasons.join('; ') : null
     };
 };

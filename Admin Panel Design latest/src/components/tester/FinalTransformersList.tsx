@@ -62,6 +62,27 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
   const [transformers, setTransformers] = useState<FinalTransformer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [meteringLimits, setMeteringLimits] = useState<any[]>([]);
+  const [psLimits, setPsLimits] = useState<any[]>([]);
+  const [protectionLimits, setProtectionLimits] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchLimits = async () => {
+      try {
+        const [mRes, psRes, pRes] = await Promise.all([
+          axios.get('http://localhost:5001/api/accuracy-limits/metering', { withCredentials: true }),
+          axios.get('http://localhost:5001/api/accuracy-limits/ps', { withCredentials: true }),
+          axios.get('http://localhost:5001/api/accuracy-limits/protection', { withCredentials: true })
+        ]);
+        setMeteringLimits(mRes.data);
+        setPsLimits(psRes.data);
+        setProtectionLimits(pRes.data);
+      } catch (err) {
+        console.error("Failed to fetch limits in list view", err);
+      }
+    };
+    fetchLimits();
+  }, []);
 
   useEffect(() => {
     const fetchTransformers = async () => {
@@ -178,6 +199,92 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
           
           const coresComplete = actualCoresCount >= expectedCoresCount;
           
+          const checkFailures = () => {
+            const finalTest = t.testHistory?.final_test || {};
+            return coresList.some(core => {
+              const type = core.coreType;
+              const results = finalTest[`${type}_results`]?.filter((r: any) =>
+                r.coreId === core.coreId || r.internalCoreNo === core.coreId
+              ) || [];
+
+              if (type === 'metering') {
+                return results.some((res: any) => {
+                  if (!res.rows) return false;
+                  const rawClass = res.accuracyClass || core.accuracyClass || '0.5';
+                  const cleanClass = rawClass.toString().toUpperCase().replace(/\s+/g, '');
+                  const limitConfig = meteringLimits.find((l: any) => l.accuracyClass.toString().toUpperCase().replace(/\s+/g, '') === cleanClass);
+
+                  return res.rows.some((row: any) => {
+                    if (row.r100_r_pass === false || row.r100_p_pass === false || 
+                        row.r25_r_pass === false || row.r25_p_pass === false ||
+                        row.r100_pass === false || row.r25_pass === false) return true;
+
+                    const r100 = parseFloat(row.r100);
+                    const p100 = parseFloat(row.p100);
+                    const r25 = parseFloat(row.r25);
+                    const p25 = parseFloat(row.p25);
+
+                    if (limitConfig && row.current) {
+                      const loadLimit = limitConfig.limits.find((l: any) => l.load.toString() === row.current.toString());
+                      if (loadLimit) {
+                        if (!isNaN(r100) && Math.abs(r100) >= (loadLimit.ratioLimit || 999)) return true;
+                        if (!isNaN(p100) && Math.abs(p100) >= (loadLimit.phaseLimit || 999)) return true;
+                        if (!isNaN(r25) && Math.abs(r25) >= (loadLimit.ratioLimit || 999)) return true;
+                        if (!isNaN(p25) && Math.abs(p25) >= (loadLimit.phaseLimit || 999)) return true;
+                      }
+                    } else {
+                      if (!isNaN(r100) && Math.abs(r100) > 5) return true;
+                      if (!isNaN(r25) && Math.abs(r25) > 5) return true;
+                    }
+                    return false;
+                  });
+                });
+              }
+
+              if (type === 'ps') {
+                return results.some((res: any) => {
+                  if (res.isPass === false) return true;
+                  const ratioError = parseFloat(res.turnRatioError);
+                  const iexVk = parseFloat(res.iexVk);
+                  const iex11Vk = parseFloat(res.iex11Vk);
+                  
+                  const psLimit = psLimits[0];
+                  const limitRatio = psLimit?.psRatioErrorLimit ?? 0.25;
+                  const limitMulti = psLimit?.psExcitationMultiplier ?? 1.5;
+
+                  if (!isNaN(ratioError) && Math.abs(ratioError) >= limitRatio) return true;
+                  if (!isNaN(iexVk) && !isNaN(iex11Vk) && (iexVk * limitMulti) < iex11Vk) return true;
+                  return false;
+                });
+              }
+
+              if (type === 'protection') {
+                return results.some((res: any) => {
+                  if (res.isPass === false) return true;
+                  const ratioError = parseFloat(res.ratioError100);
+                  const phaseError = parseFloat(res.phaseError);
+                  const compositeError = parseFloat(res.compositeError);
+                  
+                  const rawClass = res.protectionClass || core.accuracyClass || '5P';
+                  const cleanClass = rawClass.toString().toUpperCase().replace(/\s+/g, '');
+                  const limitConfig = protectionLimits.find((l: any) => l.protectionClass.toString().toUpperCase().replace(/\s+/g, '') === cleanClass);
+
+                  if (limitConfig) {
+                    if (!isNaN(ratioError) && Math.abs(ratioError) >= (limitConfig.maxCurrentError || 999)) return true;
+                    if (!isNaN(phaseError) && Math.abs(phaseError) >= (limitConfig.maxPhaseError || 999)) return true;
+                    if (!isNaN(compositeError) && Math.abs(compositeError) >= (limitConfig.maxCompositeError || 999)) return true;
+                  } else {
+                    if (!isNaN(ratioError) && Math.abs(ratioError) > 5) return true;
+                    if (!isNaN(compositeError) && Math.abs(compositeError) > 10) return true;
+                  }
+                  return false;
+                });
+              }
+              return false;
+            });
+          };
+
+          const hasFailures = checkFailures();
           const isFilled = comprehensiveComplete && coresComplete;
           
           // Strict completion: Must have 'Completed' status or all fields + core tests
@@ -202,7 +309,10 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
             voltageClass: order.nominalSystemVoltage ? `${order.nominalSystemVoltage}kV` : 'N/A',
             cores: coresList,
             status: status,
-            isFilled: isFilled, // Pass this to UI
+            isFilled: isFilled,
+            hasFailures: hasFailures,
+            canRequestStrictApproval: isFilled && hasFailures && t.currentStage === 'final',
+            canApprove: isFilled && !hasFailures && t.currentStage === 'final',
             ratios: t.ratios || (Array.isArray(order.ratio) ? order.ratio : [order.ratio]),
             testHistory: t.testHistory,
             orderId: order,
@@ -239,7 +349,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
     if (order && order._id) {
       fetchTransformers();
     }
-  }, [order]);
+  }, [order, meteringLimits, psLimits, protectionLimits]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -365,7 +475,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                           {transformer.status === 'pending' ? 'Start Test' : 'Edit / Continue'}
                         </Button>
 
-                        {(transformer.status === 'in-progress' || transformer.isFilled) && (
+                        {transformer.canApprove && (
                           <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white font-bold shadow-md"
@@ -375,6 +485,69 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                             }}
                           >
                             Approve
+                          </Button>
+                        )}
+                        {transformer.canRequestStrictApproval && (
+                          <Button
+                            size="sm"
+                            className="bg-red-600 hover:bg-red-700 text-white font-bold shadow-md"
+                            onClick={async (e: React.MouseEvent) => {
+                              e.stopPropagation();
+                              if (!confirm("Are you sure you want to request Strict Admin Approval for this Final test?")) return;
+                              
+                              let reasons: string[] = [];
+                              transformer.cores.forEach(core => {
+                                const type = core.coreType;
+                                const results = transformer.testHistory?.final_test?.[`${type}_results`]?.filter((r: any) => 
+                                  r.coreId === core.coreId || r.internalCoreNo === core.coreId
+                                ) || [];
+                                
+                                results.forEach((res: any) => {
+                                  const accClass = res.accuracyClass || res.protectionClass || core.accuracyClass || 'N/A';
+                                  const coreName = `Core ${core.coreNumber} (${type.toUpperCase()})`;
+                                  
+                                  if (type === 'metering' && res.rows) {
+                                    res.rows.forEach((row: any) => {
+                                      const load = row.current || 'N/A';
+                                      if (row.r100_r_pass === false) reasons.push(`${coreName} [Class ${accClass}]: 100% Ratio Error at ${load}`);
+                                      if (row.r100_p_pass === false) reasons.push(`${coreName} [Class ${accClass}]: 100% Phase Error at ${load}`);
+                                      if (row.r25_r_pass === false) reasons.push(`${coreName} [Class ${accClass}]: 25% Ratio Error at ${load}`);
+                                      if (row.r25_p_pass === false) reasons.push(`${coreName} [Class ${accClass}]: 25% Phase Error at ${load}`);
+                                    });
+                                  } else if (res.isPass === false) {
+                                    reasons.push(`${coreName} [Class ${accClass}]: ${res.reason || 'Limit Failure'}`);
+                                  }
+                                });
+                              });
+                              const finalReason = reasons.length > 0 ? [...new Set(reasons)].join(' | ') : "Accuracy Limits Exceeded during Final Test";
+
+                              try {
+                                await axios.post('http://localhost:5001/api/strict-approvals/request', {
+                                  orderId: transformer.orderId?._id || transformer.orderId,
+                                  jobId: order.jobId,
+                                  unitId: transformer.uniqueId,
+                                  clientName: order.clientName,
+                                  coreType: 'Multiple',
+                                  testType: 'Final Testing',
+                                  failureReason: finalReason,
+                                  testData: transformer.testHistory?.final_test,
+                                  requestedBy: 'Final Tester'
+                                }, { withCredentials: true });
+
+                                await axios.put(`http://localhost:5001/api/transformers/${transformer.uniqueId}/approve-stage`, { 
+                                  stage: 'final', 
+                                  nextStage: 'admin_review' 
+                                }, { withCredentials: true });
+
+                                toast.success("Strict Approval Requested!");
+                                window.location.reload();
+                              } catch (err) {
+                                console.error("Strict approval request failed", err);
+                                toast.error("Failed to request strict approval.");
+                              }
+                            }}
+                          >
+                            Strict Approve
                           </Button>
                         )}
                       </div>

@@ -3,8 +3,10 @@ import axios from 'axios';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { ArrowLeft, PlayCircle, Loader2, CheckCircle, Eye } from 'lucide-react';
+import { Label } from '../ui/label';
+import { ArrowLeft, PlayCircle, Loader2, CheckCircle, Eye, AlertTriangle } from 'lucide-react';
 import { Transformer as AfterPrimaryTransformer } from './AfterPrimaryTransformersList';
+import { toast } from 'sonner';
 
 interface Order {
   _id: string;
@@ -16,6 +18,10 @@ interface Order {
   deadline: string;
   status: string;
   priority: string;
+  primaryCurrents?: string[];
+  ratedSecondaryCurrent?: string;
+  coreDetails?: any[];
+  ratio?: string[];
 }
 
 interface CoreConfig {
@@ -28,7 +34,7 @@ interface CoreConfig {
 interface AfterPrimaryCoreSelectionProps {
   transformer: AfterPrimaryTransformer;
   order: Order;
-  onSelectCore: (core: CoreConfig) => void;
+  onSelectCore: (core: CoreConfig, primaryCurrent: string, secondaryCurrent: string) => void;
   onBack: () => void;
 }
 
@@ -41,7 +47,6 @@ export function AfterPrimaryCoreSelection({
 
   const [transformer, setTransformer] = useState<AfterPrimaryTransformer>(initialTransformer);
   const [isLoading, setIsLoading] = useState(false);
-
   // Fetch latest transformer data to ensure status is up-to-date
   useEffect(() => {
     const fetchTransformerData = async () => {
@@ -51,12 +56,9 @@ export function AfterPrimaryCoreSelection({
           withCredentials: true
         });
         if (response.data) {
-          // Merge API response with prop structure if needed, or just assume response is sufficient.
-          // However, to keep 'ratios' and other mapped fields correct, we might need to preserve some fields from 'initialTransformer'
-          // or re-map them. The easiest viewing logic depends on 'testHistory'.
           setTransformer(prev => ({
             ...prev,
-            testHistory: response.data.testHistory // Update history specifically
+            testHistory: response.data.testHistory
           }));
         }
       } catch (error) {
@@ -92,26 +94,16 @@ export function AfterPrimaryCoreSelection({
     const history = transformer.testHistory?.primary_test;
     if (!history) return 'pending';
 
-    // Get expected ratios for this transformer
     const expectedRatios = transformer.ratios && transformer.ratios.length > 0 ? transformer.ratios : ['200/1'];
 
     if (core.coreType === 'metering') {
       const results = history.metering_results || [];
-      // Filter for this core
       const coreResults = results.filter((r: any) => r.internalCoreNo === core.coreId || r.coreId === core.coreId);
-
-      // Must have a result block for every expected ratio
-      // (Simple check: count of results >= count of ratios. Better: check keys, but count is usually sufficient if created sequentially)
       if (coreResults.length < expectedRatios.length) return 'pending';
-
-      // Check strict field completion
       for (const res of coreResults) {
         if (!res.rows || res.rows.length === 0) return 'pending';
         for (const row of res.rows) {
-          // Check all required Metering columns
-          if (!row.r100 || !row.p100 || !row.r25 || !row.p25) {
-            return 'pending';
-          }
+          if (!row.r100 || !row.p100 || !row.r25 || !row.p25) return 'pending';
         }
       }
       return 'completed';
@@ -120,15 +112,9 @@ export function AfterPrimaryCoreSelection({
     if (core.coreType === 'ps') {
       const results = history.ps_results || [];
       const coreResults = results.filter((r: any) => r.internalCoreNo === core.coreId || r.coreId === core.coreId);
-
       if (coreResults.length < expectedRatios.length) return 'pending';
-
       for (const res of coreResults) {
-        // Check all required PS columns
-        // Note: vkVal is the 1.1Vk input
-        if (!res.turnRatioError || !res.resistance || !res.vk || !res.vkVal || !res.iexVk || !res.iex11Vk) {
-          return 'pending';
-        }
+        if (!res.turnRatioError || !res.resistance || !res.vk || !res.vkVal || !res.iexVk || !res.iex11Vk) return 'pending';
       }
       return 'completed';
     }
@@ -136,20 +122,125 @@ export function AfterPrimaryCoreSelection({
     if (core.coreType === 'protection') {
       const results = history.protection_results || [];
       const coreResults = results.filter((r: any) => r.internalCoreNo === core.coreId || r.coreId === core.coreId);
-
       if (coreResults.length < expectedRatios.length) return 'pending';
-
       for (const res of coreResults) {
-        // Check all required Protection columns
-        if (!res.burden100_1 || !res.burden100_2 || !res.resistance || !res.secondaryLimitingVtg || !res.excitationCurrent || !res.compositeError) {
-          return 'pending';
-        }
+        if (!res.burden100_1 || !res.burden100_2 || !res.resistance || !res.secondaryLimitingVtg || !res.excitationCurrent || !res.compositeError) return 'pending';
       }
       return 'completed';
     }
 
     return 'pending';
   };
+
+  const checkCoreFailures = (core: CoreConfig) => {
+    const history = transformer.testHistory?.primary_test;
+    if (!history) return false;
+
+    if (core.coreType === 'metering') {
+      const results = history.metering_results || [];
+      const coreResults = results.filter((r: any) => r.internalCoreNo === core.coreId || r.coreId === core.coreId);
+      return coreResults.some((res: any) => res.rows?.some((row: any) => 
+        row.r100_r_pass === false || row.r100_p_pass === false || row.r100_pass === false || 
+        row.r25_r_pass === false || row.r25_p_pass === false || row.r25_pass === false
+      ));
+    }
+
+    if (core.coreType === 'ps') {
+      const results = history.ps_results || [];
+      const coreResults = results.filter((r: any) => r.internalCoreNo === core.coreId || r.coreId === core.coreId);
+      return coreResults.some((res: any) => res.isPass === false);
+    }
+
+    if (core.coreType === 'protection') {
+      const results = history.protection_results || [];
+      const coreResults = results.filter((r: any) => r.internalCoreNo === core.coreId || r.coreId === core.coreId);
+      return coreResults.some((res: any) => res.isPass === false);
+    }
+
+    return false;
+  };
+
+  const handleStrictApproval = async () => {
+    try {
+      if (!confirm("Are you sure you want to request strict approval for this transformer?")) return;
+
+      let failureReasons: string[] = [];
+      transformer.cores.forEach(core => {
+        const history = transformer.testHistory?.primary_test;
+        if (!history) return;
+
+        if (core.coreType === 'metering') {
+          const results = history.metering_results?.filter((r: any) => r.internalCoreNo === core.coreId) || [];
+          results.forEach((res: any) => {
+            res.rows?.forEach((row: any) => {
+              if (row.r100_r_pass === false || row.r100_p_pass === false) {
+                failureReasons.push(`Core ${core.coreNumber} (Metering 100%): ${row.r100_reason || 'Ratio/Phase Error Limit Exceeded'}`);
+              }
+              if (row.r25_r_pass === false || row.r25_p_pass === false) {
+                failureReasons.push(`Core ${core.coreNumber} (Metering 25%): ${row.r25_reason || 'Ratio/Phase Error Limit Exceeded'}`);
+              }
+            });
+          });
+        } else if (core.coreType === 'ps') {
+          const results = history.ps_results?.filter((r: any) => r.internalCoreNo === core.coreId) || [];
+          results.forEach((res: any) => {
+            if (res.isPass === false && res.reason) failureReasons.push(`Core ${core.coreNumber} (PS): ${res.reason}`);
+          });
+        } else if (core.coreType === 'protection') {
+          const results = history.protection_results?.filter((r: any) => r.internalCoreNo === core.coreId) || [];
+          results.forEach((res: any) => {
+            if (res.isPass === false && res.reason) failureReasons.push(`Core ${core.coreNumber} (Protection): ${res.reason}`);
+          });
+        }
+      });
+
+      const finalReason = failureReasons.length > 0 ? [...new Set(failureReasons)].join(' | ') : "Accuracy Limits Exceeded during Primary Test";
+
+      const payload = {
+        orderId: order._id,
+        jobId: order.jobId,
+        clientName: order.clientName,
+        coreType: 'Multiple',
+        testType: 'Primary Testing',
+        failureReason: finalReason,
+        testData: transformer.testHistory?.primary_test,
+        requestedBy: 'Primary Tester'
+      };
+
+      await axios.post('http://localhost:5001/api/strict-approvals/request', payload, { withCredentials: true });
+      
+      await axios.put(`http://localhost:5001/api/transformers/${transformer.uniqueId}/approve-stage`, {
+        stage: 'primary',
+        nextStage: 'admin_review'
+      }, { withCredentials: true });
+
+      toast.success("Strict Approval Requested!");
+      onBack();
+    } catch (error) {
+      console.error("Strict approval request failed", error);
+      toast.error("Failed to request strict approval.");
+    }
+  };
+
+  const handleApproveTransformer = async () => {
+    try {
+      if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Final Testing?`)) return;
+      const response = await axios.put(`http://localhost:5001/api/transformers/${transformer.uniqueId}/approve-stage`, {
+        stage: 'primary',
+        nextStage: 'final'
+      }, { withCredentials: true });
+      if (response.data.success) {
+        toast.success("Transformer Approved successfully!");
+        onBack();
+      }
+    } catch (err) {
+      console.error("Approval failed", err);
+      toast.error("Failed to approve transformer");
+    }
+  };
+
+  const isAllCoresCompleted = transformer.cores.every(core => checkCoreStatus(core) === 'completed');
+  const hasAnyFailures = transformer.cores.some(core => checkCoreFailures(core));
 
   return (
     <div className="space-y-6">
@@ -188,6 +279,9 @@ export function AfterPrimaryCoreSelection({
         </div>
       </Card>
 
+
+
+
       {/* Cores Grid */}
       {isLoading ? (
         <div className="flex justify-center p-8">
@@ -198,31 +292,41 @@ export function AfterPrimaryCoreSelection({
           {transformer.cores.map((core) => {
             const status = checkCoreStatus(core);
             const isCompleted = status === 'completed';
+            const hasFailure = checkCoreFailures(core);
+
+            // Automatic detection of parameters
+            const coreFromOrder = order?.coreDetails?.[core.coreNumber - 1];
+            const secondaryVal = coreFromOrder?.secondaryCurrent || order?.ratedSecondaryCurrent || '1';
+            const primaryVal = coreFromOrder?.primaryCurrent || order?.ratedPrimaryCurrent || (order?.ratio?.[0]?.split('/')[0] || '');
 
             return (
               <Card
                 key={core.coreNumber}
-                className={`p-6 hover:shadow-lg transition-all cursor-pointer border-2 ${isCompleted ? 'border-green-400 bg-green-50' : getCoreTypeColor(core.coreType)}`}
-                onClick={() => onSelectCore(core)}
+                className={`p-6 hover:shadow-lg transition-all cursor-pointer border-2 ${
+                  isCompleted ? (hasFailure ? 'border-amber-400 bg-amber-50' : 'border-green-400 bg-green-50') : 
+                  getCoreTypeColor(core.coreType)
+                }`}
+                onClick={() => onSelectCore(core, String(primaryVal), String(secondaryVal))}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <p className="text-sm text-gray-600">Core Number</p>
-                    <h3 className="mt-1">{core.coreNumber}</h3>
+                    <h3 className="mt-1 text-xl font-bold">Core {core.coreNumber}</h3>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <Badge className={getCoreTypeColor(core.coreType)}>
                       {core.coreType.toUpperCase()}
                     </Badge>
                     {isCompleted && (
-                      <Badge className="bg-green-600 text-white flex gap-1 items-center">
-                        <CheckCircle className="w-3 h-3" /> Done
+                      <Badge className={hasFailure ? "bg-amber-600 text-white" : "bg-green-600 text-white"}>
+                        {hasFailure ? <AlertTriangle className="w-3 h-3 mr-1" /> : <CheckCircle className="w-3 h-3 mr-1" />}
+                        {hasFailure ? 'Failed' : 'Passed'}
                       </Badge>
                     )}
                   </div>
                 </div>
 
-                <div className="space-y-2 mb-4">
+                <div className="space-y-3 mb-6">
                   <div>
                     <p className="text-sm text-gray-600">Core Type</p>
                     <p className="font-medium">{getCoreTypeLabel(core.coreType)}</p>
@@ -231,13 +335,19 @@ export function AfterPrimaryCoreSelection({
                     <p className="text-sm text-gray-600">Core ID (from Secondary)</p>
                     <p className="font-medium text-blue-600">{core.coreId}</p>
                   </div>
+                  <div className="flex justify-between items-center bg-white p-2 rounded border border-gray-100 shadow-sm">
+                    <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Secondary Current</span>
+                    <Badge variant="outline" className="text-blue-700 font-bold border-blue-200 bg-blue-50">
+                      {secondaryVal}A
+                    </Badge>
+                  </div>
                 </div>
 
                 <Button
                   className={`w-full ${isCompleted ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onSelectCore(core);
+                    onSelectCore(core, '', String(secondaryVal));
                   }}
                 >
                   {isCompleted ? (
@@ -258,17 +368,61 @@ export function AfterPrimaryCoreSelection({
         </div>
       )}
 
+      {/* Approval Section */}
+      {isAllCoresCompleted && !hasAnyFailures && (
+        <Card className="p-6 bg-green-50 border-green-200">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="w-10 h-10 text-green-600" />
+              <div>
+                <h4 className="font-semibold text-green-900">Transformer Ready for Approval</h4>
+                <p className="text-sm text-green-700">All cores have passed accuracy limits. Move to Final Testing stage.</p>
+              </div>
+            </div>
+            <Button
+              className="bg-green-600 hover:bg-green-700 text-white gap-2 px-8 py-6 text-lg font-bold shadow-lg"
+              onClick={handleApproveTransformer}
+            >
+              Approve Transformer
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {isAllCoresCompleted && hasAnyFailures && (
+        <Card className="p-6 bg-red-50 border-red-200">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-10 h-10 text-red-600" />
+              <div>
+                <h4 className="font-semibold text-red-900">Strict Approval Required</h4>
+                <p className="text-sm text-red-700">One or more cores have failed accuracy limits. You must request admin approval.</p>
+              </div>
+            </div>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white gap-2 px-8 py-6 text-lg font-bold shadow-lg"
+              onClick={handleStrictApproval}
+            >
+              Request Strict Approval
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {/* Info Box */}
       <Card className="p-6 bg-blue-50 border-blue-200">
         <div className="flex items-start gap-3">
           <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-white">i</span>
+            <span className="text-white font-bold">i</span>
           </div>
           <div>
-            <h4 className="mb-1">Auto-Loaded Core Information</h4>
-            <p className="text-sm text-gray-700">
-              All core IDs shown above were automatically loaded from the Secondary Test data.
-              When you select a core, the appropriate report template will open with the core information pre-filled.
+            <h4 className="font-semibold text-blue-900 mb-1">Testing Instructions</h4>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              1. Click on a core card to open its test report.
+              <br />
+              2. The report automatically uses the Secondary Current specified for that core in the order.
+              <br />
+              3. If a core fails accuracy limits, the card will turn orange. All cores must be completed before requesting approval.
             </p>
           </div>
         </div>

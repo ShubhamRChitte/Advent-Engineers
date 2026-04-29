@@ -13,13 +13,19 @@ interface AfterPrimaryPSReportProps {
   core: CoreConfig;
   testerName: string;
   onBack: () => void;
+  primaryCurrent?: string;
+  secondaryCurrent?: string;
+  order?: any;
 }
 
 export function AfterPrimaryPSReport({
   transformer,
   core,
   testerName,
-  onBack
+  onBack,
+  primaryCurrent,
+  secondaryCurrent,
+  order,
 }: AfterPrimaryPSReportProps) {
 
   return (
@@ -30,6 +36,9 @@ export function AfterPrimaryPSReport({
       onBack={onBack}
       stage="primary"
       accuracyClass={core.accuracyClass}
+      primaryCurrent={primaryCurrent}
+      secondaryCurrent={secondaryCurrent}
+      order={order}
     />
   );
 }

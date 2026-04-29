@@ -120,6 +120,10 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
         // 2. Update Transformer Stage & Timestamp
         transformer.currentStage = nextStage; // e.g., 'primary'
 
+        if (!transformer.testHistory) {
+            transformer.testHistory = {};
+        }
+
         // Update History Timestamp for the completed stage
         if (stage === 'secondary') {
             if (!transformer.testHistory.secondary_test) {
@@ -171,7 +175,7 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
                     a.stage === stage
                 );
 
-                if (assignment) {
+                if (assignment && assignment.unitRange) {
                     // Verify if ALL transformers in this range are now done
                     const { from, to } = assignment.unitRange;
                     const jobId = order.jobId;
@@ -193,8 +197,36 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
                 }
             }
 
-            // --- GLOBAL ORDER STAGE TRANSITION ---
-            // Check if ALL units in the entire order have moved beyond the current stage
+            // 3. Send Notification to Next Stage (As soon as the FIRST unit arrives)
+            if (nextStage !== 'admin_review' \u0026\u0026 nextStage !== 'shipped') {
+                const { NotificationModel } = require('../models/NotificationModel');
+                const existingNotification = await NotificationModel.findOne({
+                    orderId: order._id,
+                    recipientRole: nextStage,
+                    type: 'ASSIGNMENT'
+                });
+
+                if (!existingNotification) {
+                    const { notifyNextStage } = require('../services/notificationService');
+                    // We call notifyNextStage which will handle creating notifications for assigned testers
+                    // But we'll override the message style in the service or just call it here manually
+                    // To follow the user's request for "only order information"
+                    const nextStageAssignments = order.assignments.filter(a =\u003e a.stage === nextStage);
+                    for (const assignment of nextStageAssignments) {
+                        await NotificationModel.create({
+                            recipientName: assignment.testerName,
+                            recipientRole: nextStage,
+                            message: `New testing task assigned: Job ${order.jobId} (${order.clientName || 'Active Order'})`,
+                            type: 'ASSIGNMENT',
+                            orderId: order._id,
+                            jobId: order.jobId
+                        });
+                    }
+                    console.log(`[NOTIFICATION] First unit reached ${nextStage}. Assignment notification sent for ${order.jobId}.`);
+                }
+            }
+
+            // 4. GLOBAL ORDER STAGE TRANSITION (If ALL units are done)
             const tripleQuery = {
                 $or: [
                     { orderId: order._id },
@@ -205,33 +237,45 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
             };
             const pendingTotalCount = await TransformerModel.countDocuments(tripleQuery);
 
-            if (pendingTotalCount === 0) {
-                console.log(`Order ${order.jobId} transitioning from ${stage} to ${nextStage}`);
+            if (pendingTotalCount === 0 && nextStage !== 'admin_review') {
+                // Also check if any unit is in admin_review. If so, order must wait for transition.
+                const adminReviewCount = await TransformerModel.countDocuments({
+                    $or: [
+                        { orderId: order._id },
+                        { orderId: order._id.toString() },
+                        { jobId: order.jobId }
+                    ],
+                    currentStage: 'admin_review'
+                });
 
-                // Also update completionStages flags
-                if (order.completionStages) {
-                    if (stage === 'core') order.completionStages.core = true;
-                    if (stage === 'secondary') order.completionStages.secondary = true;
-                    if (stage === 'primary') order.completionStages.primary = true;
-                    if (stage === 'heating') order.completionStages.heating = true;
-                    if (stage === 'final') order.completionStages.final = true;
-                }
+                if (adminReviewCount === 0) {
+                    console.log(`Order ${order.jobId} transitioning from ${stage} to ${nextStage}`);
 
-                const { clearNotifications, notifyNextStage, handleOrderCompletion } = require('../services/notificationService');
-                
-                // Clear notifications for the current stage/order
-                await clearNotifications(order._id, stage);
+                    // Also update completionStages flags
+                    if (order.completionStages) {
+                        if (stage === 'core') order.completionStages.core = true;
+                        if (stage === 'secondary') order.completionStages.secondary = true;
+                        if (stage === 'primary') order.completionStages.primary = true;
+                        if (stage === 'heating') order.completionStages.heating = true;
+                        if (stage === 'final') order.completionStages.final = true;
+                    }
 
-                if (stage === 'final') {
-                    const oldStatus = order.status;
-                    order.currentStage = 'completed';
-                    order.status = 'COMPLETED'; // Normalize to Uppercase
+                    const { clearNotifications, handleOrderCompletion } = require('../services/notificationService');
                     
-                    // Trigger completion notification with old status for transition check
-                    await handleOrderCompletion(order, oldStatus);
-                } else {
-                    order.currentStage = nextStage;
-                    await notifyNextStage(order, nextStage);
+                    // Clear notifications for the current stage/order
+                    await clearNotifications(order._id, stage);
+
+                    if (stage === 'final') {
+                        const oldStatus = order.status;
+                        order.currentStage = 'completed';
+                        order.status = 'COMPLETED'; // Normalize to Uppercase
+                        
+                        // Trigger completion notification with old status for transition check
+                        await handleOrderCompletion(order, oldStatus);
+                    } else {
+                        order.currentStage = nextStage;
+                        // Notification already sent above when the first unit arrived
+                    }
                 }
             }
 
