@@ -1,4 +1,4 @@
-require("dotenv").config({ override: true });
+require("dotenv").config({ override: true }); // trigger restart
 
 
 
@@ -144,6 +144,8 @@ app.use('/api/pt-heating-record', ptHeatingRecordRoutes); // PT Heating Record R
 app.use('/api/accuracy-limits', require('./routes/accuracyLimits.cjs')); // Accuracy Limits Management
 app.use('/api/core-vendors', require('./routes/coreVendorRoutes')); // Core Vendors Management
 app.use('/api/notifications', notificationRoutes); // Persistent Notifications
+app.use('/api/ready-transformers', require('./routes/readyTransformerRoutes')); // Ready Transformers System
+app.use('/api/pre-test-batches', require('./routes/preTestBatchRoutes')); // Pre-Test Batch Management
 
 // Provide configuration for Accuracy Classes dynamically to the frontend
 app.get('/api/accuracy-limits', (req, res) => {
@@ -3300,7 +3302,35 @@ app.post('/api/strict-approvals/:id/resolve', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`App Started! ${PORT}`);
-})
+const http = require('http');
+const { Server } = require('socket.io');
+const { initReservationCleanup } = require('./cron/reservationCleanup');
 
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: function (origin, callback) {
+      // Allow requests with no origin (mobile apps, curl, etc.) and localhost dev ports
+      if (!origin || origin.startsWith("http://localhost")) {
+        return callback(null, true);
+      }
+      callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true
+  }
+});
+
+global.io = io; // Make io accessible globally
+
+io.on('connection', (socket) => {
+  console.log('Client connected for real-time updates');
+  socket.on('disconnect', () => {
+    console.log('Client disconnected');
+  });
+});
+
+initReservationCleanup();
+
+server.listen(PORT, () => {
+  console.log(`App Started! Server running on port ${PORT}`);
+});

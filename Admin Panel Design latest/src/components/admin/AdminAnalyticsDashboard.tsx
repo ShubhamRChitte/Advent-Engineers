@@ -27,6 +27,7 @@ import {
   AreaChart,
   Area
 } from 'recharts';
+import ReadyAnalyticsDashboard from './ReadyAnalyticsDashboard';
 
 export function AdminAnalyticsDashboard() {
   const [data, setData] = useState<any>(null);
@@ -259,6 +260,11 @@ export function AdminAnalyticsDashboard() {
                   </div>
               </div>
           </Card>
+      </div>
+
+      {/* Ready Inventory Analytics Section */}
+      <div className="pt-8 border-t border-gray-200">
+        <ReadyAnalyticsDashboard />
       </div>
     </div>
   );

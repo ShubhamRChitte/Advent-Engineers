@@ -4,7 +4,18 @@ const MeteringCoreTestSchema = new Schema({
   orderId: {
     type: Schema.Types.ObjectId,
     ref: "Order",
-    required: true
+    required: false
+  },
+  batchId: {
+    type: String,
+    index: true
+  },
+  isPreTest: {
+    type: Boolean,
+    default: false
+  },
+  vendorName: {
+    type: String
   },
   coreType: {
     type: String,
@@ -58,7 +69,7 @@ const MeteringCoreTestSchema = new Schema({
 
       result: {
         type: String,
-        enum: ["P", "F"]
+        enum: ["P", "F", "PRE_TESTED"]
       },
       status: {
         type: String,
@@ -72,6 +83,15 @@ const MeteringCoreTestSchema = new Schema({
       replacedCoreId: {
         type: String,
         trim: true
+      },
+      verified: {
+        type: Boolean,
+        default: true
+      },
+      source: {
+        type: String,
+        enum: ["MANUAL", "READY_STOCK"],
+        default: "MANUAL"
       }
     }
   ],

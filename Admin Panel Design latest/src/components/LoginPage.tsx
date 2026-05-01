@@ -61,6 +61,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       const data = await response.json();
 
       if (response.ok && data.success) {
+        // Store token for Bearer authentication
+        if (data.token) localStorage.setItem('token', data.token);
+        
         // Map backend user to frontend User interface
         const user: User = {
           id: data.user.id,
@@ -68,7 +71,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           employeeId: data.user.employeeId,
           role: data.user.role,
           department: data.user.department,
-          // email is optional now
         };
         onLogin(user);
       } else {

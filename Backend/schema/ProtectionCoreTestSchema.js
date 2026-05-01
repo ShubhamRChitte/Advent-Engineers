@@ -4,9 +4,19 @@ const ProtectionCoreTestSchema = new Schema({
   orderId: {
     type: Schema.Types.ObjectId,
     ref: "Order",
-    required: true
+    required: false
   },
-
+  batchId: {
+    type: String,
+    index: true
+  },
+  isPreTest: {
+    type: Boolean,
+    default: false
+  },
+  vendorName: {
+    type: String
+  },
   coreType: {
     type: String,
     enum: ["Protection", "PS"],
@@ -52,7 +62,7 @@ const ProtectionCoreTestSchema = new Schema({
       value: Number,      // Reading value
       result: {
         type: String,
-        enum: ["P", "F"]
+        enum: ["P", "F", "PRE_TESTED"]
       },
       status: {
         type: String,
@@ -66,6 +76,15 @@ const ProtectionCoreTestSchema = new Schema({
       replacedCoreId: {
         type: String,
         trim: true
+      },
+      verified: {
+        type: Boolean,
+        default: true
+      },
+      source: {
+        type: String,
+        enum: ["MANUAL", "READY_STOCK"],
+        default: "MANUAL"
       }
     }
   ],

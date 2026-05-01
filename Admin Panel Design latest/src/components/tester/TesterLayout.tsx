@@ -20,6 +20,8 @@ import { PTReportsList } from './PTReportsList';
 import { OrdersListViewEnhanced } from '../entry/OrdersListViewEnhanced';
 import { OrderDetailsView } from './OrderDetailsView';
 import { useTesterStats } from './useTesterStats';
+import ReadyStockView from '../inventory/ReadyStockView';
+
 
 interface TesterLayoutProps {
   user: User;
@@ -162,8 +164,12 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return <OrdersListViewEnhanced userRole={user.role} />;
       } else if (activeView === 'failed-cores') {
         return <FailedCoresPage />;
+      } else if (activeView === 'ready-stock') {
+        return <ReadyStockView />;
       }
     }
+
+
 
     // Secondary Tester
     if (user.role === 'secondary-tester') {

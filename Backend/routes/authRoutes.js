@@ -1,6 +1,7 @@
 const express = require("express");
 const passport = require("passport");
 const router = express.Router();
+const jwt = require("jsonwebtoken");
 
 // Helper to map designation/department to frontend role
 const getMappedRole = (user) => {
@@ -26,6 +27,13 @@ router.post("/login", (req, res, next) => {
 
             const role = getMappedRole(user);
 
+            // Generate JWT Token
+            const token = jwt.sign(
+                { id: user._id, role: role },
+                process.env.JWT_SECRET || 'advent_engineers_secret_key',
+                { expiresIn: '24h' }
+            );
+
             // Manually save session to ensure cookie is set before response
             req.session.save((err) => {
                 if (err) return next(err);
@@ -33,6 +41,7 @@ router.post("/login", (req, res, next) => {
                 return res.status(200).json({
                     success: true,
                     message: "Login successful",
+                    token: token, // Send token to frontend
                     user: {
                         id: user._id,
                         fullName: user.fullName,

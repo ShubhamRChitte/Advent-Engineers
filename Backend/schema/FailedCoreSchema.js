@@ -6,15 +6,20 @@ const FailedCoreSchema = new Schema(
         orderId: {
             type: Schema.Types.ObjectId,
             ref: "Order",
-            required: true,
+            required: false,
             index: true
         },
         orderNumber: {
             type: String,
-            required: true,
+            required: false,
             index: true,
             trim: true
-        }, // Snapshot for Audit
+        },
+        batchId: {
+            type: String,
+            index: true
+        },
+        // Snapshot for Audit
         jobId: {
             type: String,
             trim: true
@@ -45,7 +50,7 @@ const FailedCoreSchema = new Schema(
         // --- Vendor Information ---
         vendorId: {
             type: Schema.Types.ObjectId,
-            ref: "Vendor", // Assumes Vendor model exists or will be created
+            ref: "CoreVendor", // Reference to CoreVendor model
             index: true
         },
         vendorName: {
