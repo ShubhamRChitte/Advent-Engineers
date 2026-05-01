@@ -124,7 +124,7 @@ export function CoreTestingForm({
       if (parts.length >= 4) {
         const datePart = parts[1];
         const typePart = parts[2];
-        const batchSeq = parts[3].slice(-2); // Use last 2 digits of batch sequence
+        const batchSeq = parts[3]?.slice(-2) || '00'; // Use last 2 digits of batch sequence
         return `PRE-${datePart}-${typePart}-${batchSeq}-${String(transformerNum).padStart(3, '0')}`;
       }
       
@@ -134,7 +134,8 @@ export function CoreTestingForm({
       const mm = String(now.getMonth() + 1).padStart(2, '0');
       const yy = String(now.getFullYear()).slice(-2);
       const datePart = `${dd}${mm}${yy}`;
-      const batchDigits = (batchData.batchId.match(/\d+/) || ['00'])[0].slice(-2).padStart(2, '0');
+      const match = batchData.batchId.match(/\d+/);
+      const batchDigits = (match ? match[0] : '00').slice(-2).padStart(2, '0');
       return `PRE-${datePart}-B${batchDigits}-${String(transformerNum).padStart(3, '0')}`;
     }
     const upperType = coreType.toUpperCase();
