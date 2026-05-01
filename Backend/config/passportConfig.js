@@ -1,20 +1,21 @@
 const LocalStrategy = require("passport-local").Strategy;
+const JwtStrategy = require("passport-jwt").Strategy;
+const ExtractJwt = require("passport-jwt").ExtractJwt;
 const bcrypt = require("bcryptjs");
 const { UserModel } = require("../models/UserModel");
 
 module.exports = (passport) => {
+    // 1. Local Strategy (for login)
     passport.use(
         new LocalStrategy(
-            { usernameField: "employeeId" }, // Match schema field
+            { usernameField: "employeeId" },
             async (employeeId, password, done) => {
                 try {
-                    // 1. Find user by employeeId
                     const user = await UserModel.findOne({ employeeId });
                     if (!user) {
                         return done(null, false, { message: "User not found" });
                     }
 
-                    // 2. Compare password
                     const isMatch = await bcrypt.compare(password, user.password);
                     if (isMatch) {
                         return done(null, user);
@@ -28,12 +29,30 @@ module.exports = (passport) => {
         )
     );
 
-    // Serialize User (Store ID in session)
+    // 2. JWT Strategy (for API requests)
+    const opts = {
+        jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+        secretOrKey: process.env.JWT_SECRET || 'advent_engineers_secret_key'
+    };
+
+    passport.use(
+        new JwtStrategy(opts, async (jwt_payload, done) => {
+            try {
+                const user = await UserModel.findById(jwt_payload.id);
+                if (user) {
+                    return done(null, user);
+                }
+                return done(null, false);
+            } catch (err) {
+                return done(err, false);
+            }
+        })
+    );
+
     passport.serializeUser((user, done) => {
         done(null, user.id);
     });
 
-    // Deserialize User (Retrieve user from session)
     passport.deserializeUser(async (id, done) => {
         try {
             const user = await UserModel.findById(id);

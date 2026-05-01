@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, PlusCircle, List, FileText, Bell, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Users, PlusCircle, List, FileText, Bell, AlertTriangle, Warehouse } from 'lucide-react';
 import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { useState, useEffect } from 'react';
@@ -15,7 +15,13 @@ export function AdminSidebar({ activeView, setActiveView }: AdminSidebarProps) {
   useEffect(() => {
     const fetchCount = async () => {
       try {
-        const res = await axios.get('http://localhost:5001/api/failed-cores/count', { withCredentials: true });
+        const token = localStorage.getItem('token');
+        const res = await axios.get('http://localhost:5001/api/failed-cores/count', { 
+          withCredentials: true,
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : ''
+          }
+        });
         if (res.data.success) {
           setFailedCount(res.data.count);
         }
@@ -37,6 +43,7 @@ export function AdminSidebar({ activeView, setActiveView }: AdminSidebarProps) {
     { id: 'add-order', label: 'Add Orders', icon: PlusCircle },
     { id: 'view-orders', label: 'View Orders', icon: List },
     { id: 'reports', label: 'Reports', icon: FileText },
+    { id: 'ready-stock', label: 'Ready Stock', icon: Warehouse },
     { id: 'notifications', label: 'Notifications', icon: Bell },
   ];
 

@@ -1,4 +1,5 @@
-import { ClipboardCheck, FileText, Home, Bell, Zap, AlertTriangle } from 'lucide-react';
+import { ClipboardCheck, FileText, Home, Bell, Zap, AlertTriangle, Warehouse } from 'lucide-react';
+
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
@@ -46,9 +47,11 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'view-orders', label: 'View Orders', icon: FileText },
         { id: 'core-tracking', label: 'Core Tracking', icon: Zap },
+        { id: 'ready-stock', label: 'Ready Stock', icon: Warehouse },
         { id: 'failed-cores', label: 'Failed Cores', icon: AlertTriangle, badge: failedCount > 0 ? failedCount : undefined },
       ];
     }
+
 
     // For secondary, after-primary, and final testers
     return [

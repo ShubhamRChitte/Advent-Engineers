@@ -16,8 +16,12 @@ export function AdminHeader({ user, onLogout, onNotificationClick }: AdminHeader
 
   const fetchUnreadCount = async () => {
     try {
+      const token = localStorage.getItem('token');
       const response = await axios.get('http://localhost:5001/api/notifications/unread-count', {
-        withCredentials: true
+        withCredentials: true,
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
       });
       if (response.data.success) {
         setUnreadCount(response.data.count);

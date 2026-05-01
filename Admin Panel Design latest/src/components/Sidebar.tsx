@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Users, Warehouse, Truck, ClipboardCheck, UserPlus, PlusCircle, BarChart3, FileText, Calendar } from 'lucide-react';
+import { LayoutDashboard, Package, Users, Warehouse, Truck, ClipboardCheck, UserPlus, PlusCircle, BarChart3, FileText, Calendar, Zap } from 'lucide-react';
 
 interface SidebarProps {
   activeView: string;
@@ -15,6 +15,7 @@ export function Sidebar({ activeView, setActiveView, userRole }: SidebarProps) {
     { id: 'inventory', label: 'Inventory', icon: Warehouse },
     { id: 'dispatch', label: 'Dispatch History', icon: Truck },
     { id: 'testing', label: 'Testing Workflow', icon: ClipboardCheck },
+    { id: 'ready-stock', label: 'Ready Stock', icon: Zap },
     { id: 'calendar', label: 'Calendar', icon: Calendar },
     { id: 'reports', label: 'Reports', icon: FileText },
   ];

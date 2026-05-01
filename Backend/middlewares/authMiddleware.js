@@ -1,12 +1,23 @@
+const passport = require('passport');
+
 const isAuthenticated = (req, res, next) => {
-  // Passport adds the isAuthenticated() method to the request object
+  // 1. Check Session (for browser requests)
   if (req.isAuthenticated() && req.user) {
     return next();
   }
-  return res.status(401).json({ 
-    success: false, 
-    message: "Unauthorized: No active session found. Please log in." 
-  });
+
+  // 2. Check JWT (for API requests with Bearer token)
+  passport.authenticate('jwt', { session: false }, (err, user, info) => {
+    if (err) return next(err);
+    if (user) {
+      req.user = user;
+      return next();
+    }
+    return res.status(401).json({ 
+      success: false, 
+      message: "Unauthorized: No active session or valid token found. Please log in." 
+    });
+  })(req, res, next);
 };
 
 const isAdmin = (req, res, next) => {
