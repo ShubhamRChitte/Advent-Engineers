@@ -64,13 +64,20 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
 
 
     // For secondary, after-primary, and final testers
-    return [
+    const baseItems = [
       { id: 'home', label: 'Home', icon: Home },
       { id: 'notifications', label: 'Notifications', icon: Bell },
       { id: 'testing', label: 'Testing', icon: ClipboardCheck },
       { id: 'view-orders', label: 'View Orders', icon: FileText },
-      { id: 'failed-cores', label: 'Failed Cores', icon: AlertTriangle, badge: failedCount > 0 ? failedCount : undefined },
     ];
+
+    if (userRole === 'final-tester') {
+      baseItems.push({ id: 'reports', label: 'Customer Reports', icon: FileText });
+    }
+
+    baseItems.push({ id: 'failed-cores', label: 'Failed Cores', icon: AlertTriangle, badge: failedCount > 0 ? failedCount : undefined });
+
+    return baseItems;
   };
 
   const menuItems = getMenuItems();

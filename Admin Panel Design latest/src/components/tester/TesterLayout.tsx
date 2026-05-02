@@ -23,6 +23,7 @@ import { PTPretestReportsList } from './PTPretestReportsList';
 import { OrdersListViewEnhanced } from '../entry/OrdersListViewEnhanced';
 import { OrderDetailsView } from './OrderDetailsView';
 import { useTesterStats } from './useTesterStats';
+import { CTReportsList } from './CTReportsList';
 import ReadyStockView from '../inventory/ReadyStockView';
 
 
@@ -292,7 +293,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
       } else if (activeView === 'testing') {
         return <FinalTestingModule userName={user.name} />;
       } else if (activeView === 'reports') {
-        return <FinalReportsList />;
+        return <CTReportsList onBack={setViewHome} />;
       } else if (activeView === 'view-orders') {
         return <OrdersListViewEnhanced userRole={user.role} />;
       } else if (activeView === 'failed-cores') {

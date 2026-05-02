@@ -42,8 +42,16 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
     const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
     const [selectedTransformer, setSelectedTransformer] = useState<CompletedTransformer | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedTester, setSelectedTester] = useState<string>('All');
     const [customerReportJob, setCustomerReportJob] = useState<string | null>(null);
     const printRef = useRef<HTMLDivElement>(null);
+
+    // Get Admin status
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    const isAdmin = user?.role === 'admin' || 
+                    user?.designation === 'Admin' || 
+                    ['management', 'admin', 'office'].includes((user?.department || '').toLowerCase());
 
     useEffect(() => {
         fetchReports();
@@ -52,8 +60,10 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
     const fetchReports = async () => {
         setLoading(true);
         try {
+            const token = localStorage.getItem('token');
             const response = await axios.get('http://localhost:5001/api/pt-tests/reports', {
-                withCredentials: true
+                withCredentials: true,
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
 
             const data = response.data;
@@ -116,7 +126,10 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
 
     // --- LEVEL 2: TRANSFORMERS LIST (For Selected Order) ---
     if (selectedJobId) {
-        const jobTransformers = groupByJob[selectedJobId] || [];
+        let jobTransformers = groupByJob[selectedJobId] || [];
+        if (selectedTester !== 'All') {
+            jobTransformers = jobTransformers.filter(t => (t.testHistory?.pt_test?.tester || t.testHistory?.pt_test?.testedBy) === selectedTester);
+        }
         // Extract client name from the first transformer's populated order if available
         const clientName = jobTransformers[0]?.orderId?.clientName || 'Unknown Client';
 
@@ -146,9 +159,17 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
 
     // --- FILTER LOGIC ---
     let filteredJobIds = jobIds;
+
+    if (selectedTester !== 'All') {
+        filteredJobIds = filteredJobIds.filter(jobId => {
+            const jobTransformers = groupByJob[jobId] || [];
+            return jobTransformers.some(tf => (tf.testHistory?.pt_test?.tester || tf.testHistory?.pt_test?.testedBy) === selectedTester);
+        });
+    }
+
     if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
-        filteredJobIds = jobIds.filter(jobId => {
+        filteredJobIds = filteredJobIds.filter(jobId => {
             // 1. Matches Job ID directly
             if (jobId.toLowerCase().includes(query)) return true;
 
@@ -158,19 +179,37 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
         });
     }
 
+    const allTesters = Array.from(new Set(reports.map(t => t.testHistory?.pt_test?.tester || t.testHistory?.pt_test?.testedBy).filter(Boolean))).sort() as string[];
+
     return (
         <div className="space-y-6">
             {/* ── Normal grid view (hidden when viewing a report) ── */}
             {!customerReportJob && (
                 <div>
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                        <div>
-                            <h2 className="text-2xl font-bold text-gray-800">Completed Customer Reports</h2>
-                            <p className="text-gray-500 mt-1">View history of your approved PT tests</p>
+                    <div className="flex flex-col gap-4 mb-6">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-800">Completed Customer Reports</h2>
+                                <p className="text-gray-500 mt-1">View history of your approved PT tests</p>
+                            </div>
+                            <Button variant="outline" onClick={onBack}>Back to Dashboard</Button>
                         </div>
 
-                        <div className="flex items-center gap-3 w-full md:w-auto">
-                            <div className="relative w-full md:w-72">
+                        <div className="flex items-center gap-3 w-full">
+                            {isAdmin && (
+                                <select
+                                    className="px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 min-w-[150px] w-48"
+                                    value={selectedTester}
+                                    onChange={(e) => setSelectedTester(e.target.value)}
+                                >
+                                    <option value="All">All Testers</option>
+                                    {allTesters.map(tester => (
+                                        <option key={tester} value={tester}>{tester}</option>
+                                    ))}
+                                </select>
+                            )}
+
+                            <div className="relative flex-1">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                                 <Input
                                     placeholder="Search Job ID or Transformer ID..."
@@ -179,7 +218,6 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />
                             </div>
-                            <Button variant="outline" onClick={onBack}>Back to Dashboard</Button>
                         </div>
                     </div>
 
@@ -209,7 +247,10 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {filteredJobIds.map(jobId => {
-                                const transformers = groupByJob[jobId] || [];
+                                let transformers = groupByJob[jobId] || [];
+                                if (selectedTester !== 'All') {
+                                    transformers = transformers.filter(t => (t.testHistory?.pt_test?.tester || t.testHistory?.pt_test?.testedBy) === selectedTester);
+                                }
                                 const count = transformers.length;
                                 const orderData = transformers[0]?.orderId || {};
                                 const client = orderData.clientName || 'Unknown Client';

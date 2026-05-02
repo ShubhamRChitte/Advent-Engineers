@@ -421,15 +421,19 @@ router.get('/secondary/reports', isAuthenticated, async (req, res) => {
 
     console.log("Fetching secondary reports for names:", namesToCheck);
 
+    const isAdmin = user.role === 'admin' || user.designation === 'Admin' || ['Management', 'Office', 'Admin'].includes(user.department);
     const query = {
       // User Request: Show ONLY "Completed" reports (approved by tester).
       // STRICTLY match the 'tester' field (no assignment fallback) to ensure they only see what THEY tested.
       // Excludes "In Progress" and "Pending".
-      "testHistory.secondary_test.status": "Completed",
-      $or: [
-        ...nameRegexes.map(r => ({ "testHistory.secondary_test.tester": { $regex: r } }))
-      ]
+      "testHistory.secondary_test.status": "Completed"
     };
+
+    if (!isAdmin) {
+      query.$or = [
+        ...nameRegexes.map(r => ({ "testHistory.secondary_test.tester": { $regex: r } }))
+      ];
+    }
 
     const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 }).populate('orderId');
 
@@ -471,13 +475,17 @@ router.get('/after-primary/reports', isAuthenticated, async (req, res) => {
     const namesToCheck = [user.name, user.fullName, user.username].filter(n => n && n.trim().length > 0).map(n => n.trim());
     const nameRegexes = namesToCheck.map(n => new RegExp(n, 'i'));
 
+    const isAdmin = user.role === 'admin' || user.designation === 'Admin' || ['Management', 'Office', 'Admin'].includes(user.department);
     const query = {
       // User Request: Show ONLY "Completed" reports (approved by tester).
-      "testHistory.primary_test.status": "Completed",
-      $or: [
-        ...nameRegexes.map(r => ({ "testHistory.primary_test.tester": { $regex: r } }))
-      ]
+      "testHistory.primary_test.status": "Completed"
     };
+
+    if (!isAdmin) {
+      query.$or = [
+        ...nameRegexes.map(r => ({ "testHistory.primary_test.tester": { $regex: r } }))
+      ];
+    }
 
     const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 }).populate('orderId');
 
@@ -512,13 +520,17 @@ router.get('/final/reports', isAuthenticated, async (req, res) => {
     const namesToCheck = [user.name, user.fullName, user.username].filter(n => n && n.trim().length > 0).map(n => n.trim());
     const nameRegexes = namesToCheck.map(n => new RegExp(n, 'i'));
 
+    const isAdmin = user.role === 'admin' || user.designation === 'Admin' || ['Management', 'Office', 'Admin'].includes(user.department);
     const query = {
       // User Request: Show ONLY "Completed" reports (approved by tester).
-      "testHistory.final_test.status": "Completed",
-      $or: [
-        ...nameRegexes.map(r => ({ "testHistory.final_test.tester": { $regex: r } }))
-      ]
+      "testHistory.final_test.status": "Completed"
     };
+
+    if (!isAdmin) {
+      query.$or = [
+        ...nameRegexes.map(r => ({ "testHistory.final_test.tester": { $regex: r } }))
+      ];
+    }
 
     const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 }).populate('orderId');
 

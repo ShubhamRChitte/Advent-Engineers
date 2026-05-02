@@ -11,6 +11,7 @@ import { ReportsModule } from '../entry/ReportsModule';
 import { NotificationsModule } from './NotificationsModule';
 import { FailedCoresPage } from '../../pages/FailedCoresPage';
 import ReadyStockView from '../inventory/ReadyStockView';
+import { CustomerReportsPage } from './CustomerReportsPage';
 
 interface AdminLayoutProps {
   user: User;
@@ -59,6 +60,8 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
         );
       case 'reports':
         return <ReportsModule />;
+      case 'customer-reports':
+        return <CustomerReportsPage onBack={() => setActiveView('dashboard')} />;
       case 'notifications':
         return (
           <NotificationsModule 

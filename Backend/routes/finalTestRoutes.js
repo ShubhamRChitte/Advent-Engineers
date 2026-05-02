@@ -8,12 +8,15 @@ const { isAuthenticated } = require('../middlewares/authMiddleware');
 router.get('/reports', isAuthenticated, async (req, res) => {
     try {
         const user = req.user;
-        const isAdmin = user.role === 'admin';
+        const isAdmin = user.role === 'admin' || user.designation === 'Admin';
 
         // Build Query
-        // 1. Must be completed final test
+        // 1. Must be completed final test or have final report data generated
         const query = {
-            'testHistory.final_test.status': 'Completed'
+            $or: [
+                { 'testHistory.final_test.status': 'Completed' },
+                { 'finalReportData': { $exists: true } }
+            ]
         };
 
         // 2. If not admin, maybe filter by tester (optional, currently showing all for transparency or filter by assignment)
@@ -25,10 +28,15 @@ router.get('/reports', isAuthenticated, async (req, res) => {
         // Commented out to allow view all for now, as per typical pattern
 
         // Fetch and populate Order to get Client Name, Job ID, etc.
+        console.log('[DEBUG] GET /api/final/reports =>', { role: user.role, isAdmin, query: JSON.stringify(query) });
         const reports = await TransformerModel.find(query)
             .populate('orderId')
             .sort({ 'testHistory.final_test.timestamp': -1 });
 
+        // Temporarily sending debug data to the client if length is 0
+        if (reports.length === 0) {
+            return res.json({ debugQuery: query, debugRole: user.role, reports: [] });
+        }
         res.json(reports);
 
     } catch (error) {

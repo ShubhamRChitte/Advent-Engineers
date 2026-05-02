@@ -43,6 +43,7 @@ export function AdminSidebar({ activeView, setActiveView }: AdminSidebarProps) {
     { id: 'add-order', label: 'Add Orders', icon: PlusCircle },
     { id: 'view-orders', label: 'View Orders', icon: List },
     { id: 'reports', label: 'Reports', icon: FileText },
+    { id: 'customer-reports', label: 'Customer Reports', icon: FileText },
     { id: 'ready-stock', label: 'Ready Stock', icon: Warehouse },
     { id: 'notifications', label: 'Notifications', icon: Bell },
   ];
