@@ -36,7 +36,17 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
       return [
         { id: 'home', label: 'Home Dashboard', icon: Home },
         { id: 'notifications', label: 'Notifications', icon: Bell },
-        { id: 'testing', label: 'PT Testing', icon: ClipboardCheck },
+        { id: 'testing', label: 'Final PT Testing', icon: ClipboardCheck },
+        { id: 'reports', label: 'Customer Reports', icon: FileText },
+        { id: 'view-orders', label: 'View Orders', icon: FileText },
+      ];
+    }
+
+    if (userRole === 'pt-pretester') {
+      return [
+        { id: 'home', label: 'Home Dashboard', icon: Home },
+        { id: 'notifications', label: 'Notifications', icon: Bell },
+        { id: 'testing', label: 'PT Pretesting', icon: ClipboardCheck },
         { id: 'view-orders', label: 'View Orders', icon: FileText },
       ];
     }

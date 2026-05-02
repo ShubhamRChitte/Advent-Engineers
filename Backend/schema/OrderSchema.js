@@ -42,7 +42,7 @@ const OrderSchema = new Schema(
         testerName: { type: String, required: true }, // e.g., "Rahul Sharma"
         stage: {
           type: String,
-          enum: ["core", "secondary", "primary", "heating", "final", "pt"],
+          enum: ["core", "secondary", "primary", "heating", "final", "pt", "pt_pretest"],
           required: true
         },
         unitRange: {
@@ -56,7 +56,7 @@ const OrderSchema = new Schema(
     // --- WORKFLOW TRACKING (NEW) ---
     currentStage: {
       type: String,
-      enum: ["core", "secondary", "primary", "heating", "final", "completed", "pt"],
+      enum: ["core", "secondary", "primary", "heating", "final", "completed", "pt", "pt_pretest"],
       default: "core" // Determines which dashboard this order appears on
     },
 
@@ -66,7 +66,8 @@ const OrderSchema = new Schema(
       primary: { type: Boolean, default: false },
       heating: { type: Boolean, default: false },
       final: { type: Boolean, default: false },
-      pt: { type: Boolean, default: false }
+      pt: { type: Boolean, default: false },
+      pt_pretest: { type: Boolean, default: false }
     },
 
     // --- TESTING STATS (Derived from Core Testing) ---
@@ -81,7 +82,7 @@ const OrderSchema = new Schema(
     isRead: { type: Boolean, default: false }, // For Admin Notification badge
     status: {
       type: String,
-      enum: ["Pending Approval", "In Progress", "COMPLETED", "Core Testing In Progress", "Core Testing Completed", "PT Testing In Progress", "PT Testing Completed"],
+      enum: ["Pending Approval", "In Progress", "COMPLETED", "Core Testing In Progress", "Core Testing Completed", "PT Testing In Progress", "PT Testing Completed", "PT Pretesting In Progress", "PT Pretesting Completed"],
       default: "Pending Approval"
     },
     statusText: { type: String }, // For manual status overrides

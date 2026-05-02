@@ -23,9 +23,10 @@ interface PTAssignedOrdersProps {
   onStartTesting: (order: Order) => void;
   onViewReports?: (order: Order) => void;
   refreshTrigger?: number; // Added to trigger re-fetch
+  endpoint?: string; // Added to support different endpoints
 }
 
-export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0 }: PTAssignedOrdersProps) {
+export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0, endpoint = 'http://localhost:5001/api/pt-tests/assigned-orders' }: PTAssignedOrdersProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
@@ -39,8 +40,8 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0 }: PTAssig
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      // Use the specialized PT assigned orders endpoint
-      const response = await axios.get('http://localhost:5001/api/pt-tests/assigned-orders', {
+      // Use the provided endpoint or default to pt-tests
+      const response = await axios.get(endpoint, {
         withCredentials: true
       });
 
@@ -108,6 +109,10 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0 }: PTAssig
     if (selectedStatus === 'in-testing') return matchesSearch && (status === 'in-testing' || status === 'PT Testing In Progress');
     if (selectedStatus === 'completed') return matchesSearch && (status === 'completed' || status === 'PT Testing Completed');
     return matchesSearch && status === selectedStatus;
+  }).sort((a, b) => {
+    const dateA = new Date((a as any).createdAt || a.assignedDate || a.deadline || 0).getTime();
+    const dateB = new Date((b as any).createdAt || b.assignedDate || b.deadline || 0).getTime();
+    return dateB - dateA; // Descending order (newest first)
   });
 
   const statusCounts = {
@@ -222,7 +227,7 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0 }: PTAssig
                         <div className="flex justify-center flex-col sm:flex-row gap-2">
                            <Button 
                             size="sm" 
-                            className={isCompleted ? "bg-green-600 hover:bg-green-700 w-full" : "bg-blue-600 hover:bg-blue-700 w-full"}
+                            className={isCompleted ? "bg-green-600 hover:bg-green-700 w-full" : "bg-[#003a70] hover:bg-blue-900 w-full text-white"}
                             onClick={() => onStartTesting && onStartTesting(order)}
                           >
                             {isCompleted ? <Eye className="w-4 h-4 mr-2" /> : <PlayCircle className="w-4 h-4 mr-2" />}

@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
-import { ChevronRight, FileText, Search, Calendar, LayoutGrid } from 'lucide-react';
+import { ChevronRight, FileText, Search, Calendar, LayoutGrid, Printer, X } from 'lucide-react';
 import axios from 'axios';
 import { PTReportView } from './PTReportView';
 import { PTCompletedTransformersList } from './PTCompletedTransformersList';
+import { PTCustomerReport } from './customer-report/PTCustomerReport';
 
 // Types
 interface CompletedTransformer {
@@ -41,6 +42,8 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
     const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
     const [selectedTransformer, setSelectedTransformer] = useState<CompletedTransformer | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [customerReportJob, setCustomerReportJob] = useState<string | null>(null);
+    const printRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         fetchReports();
@@ -76,12 +79,38 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
 
     // --- LEVEL 3: REPORT VIEW ---
     if (selectedTransformer) {
+        const orderData = selectedTransformer.orderId || {};
+        const ptTest = selectedTransformer.testHistory?.pt_test || {};
+        const pretestData = selectedTransformer.testHistory?.pt_pretest_test?.preTesting || {};
+        const activeCores = selectedTransformer.coreDetails?.map((c: any) => c.coreType || c.type || 'metering') || ['metering'];
+
         return (
-            <PTReportView
-                transformer={selectedTransformer}
-                order={selectedTransformer.orderId}
-                onBack={() => setSelectedTransformer(null)}
-            />
+            <div>
+                {/* Toolbar */}
+                <div className="flex items-center justify-between no-print mb-6">
+                    <Button variant="outline" size="sm" onClick={() => setSelectedTransformer(null)} className="gap-2">
+                        <ChevronRight className="w-4 h-4 rotate-180" />
+                        Back to Transformers
+                    </Button>
+                    <div className="flex gap-2">
+                        <Badge className="bg-green-100 text-green-700 mt-1 self-center">Completed</Badge>
+                        <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
+                            <Printer className="w-4 h-4" /> Print Report
+                        </Button>
+                    </div>
+                </div>
+
+                <div ref={printRef}>
+                    <PTCustomerReport
+                        order={orderData}
+                        transformer={selectedTransformer}
+                        reportData={ptTest}
+                        pretestData={pretestData}
+                        activeCores={activeCores}
+                        user={null}
+                    />
+                </div>
+            </div>
         );
     }
 
@@ -102,8 +131,18 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
         );
     }
 
-    // --- LEVEL 1: ORDERS LIST ---
-    const jobIds = Object.keys(groupByJob).sort((a, b) => b.localeCompare(a)); // Newest jobs first
+    // --- LEVEL 1: ORDERS LIST --- sorted by most recently tested date (newest first)
+    const getGroupLatestDate = (transformers: CompletedTransformer[]): number => {
+        const dates = transformers.map(t => {
+            const ptDateStr = t.testHistory?.pt_test?.savedAt || t.testHistory?.pt_test?.date;
+            if (!ptDateStr) return 0;
+            const parts = typeof ptDateStr === 'string' ? ptDateStr.split('/') : [];
+            if (parts.length === 3) return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime();
+            return new Date(ptDateStr).getTime();
+        }).filter(d => !isNaN(d) && d > 0);
+        return dates.length > 0 ? Math.max(...dates) : 0;
+    };
+    const jobIds = Object.keys(groupByJob).sort((a, b) => getGroupLatestDate(groupByJob[b]) - getGroupLatestDate(groupByJob[a]));
 
     // --- FILTER LOGIC ---
     let filteredJobIds = jobIds;
@@ -121,115 +160,109 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* ── Normal grid view (hidden when viewing a report) ── */}
+            {!customerReportJob && (
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-800">My Completed PT Reports</h2>
-                    <p className="text-gray-500 mt-1">View history of your approved PT tests</p>
-                </div>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-800">Completed Customer Reports</h2>
+                            <p className="text-gray-500 mt-1">View history of your approved PT tests</p>
+                        </div>
 
-                <div className="flex items-center gap-3 w-full md:w-auto">
-                    <div className="relative w-full md:w-72">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                        <Input
-                            placeholder="Search Job ID or Transformer ID..."
-                            className="pl-9 w-full bg-white"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
+                        <div className="flex items-center gap-3 w-full md:w-auto">
+                            <div className="relative w-full md:w-72">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                <Input
+                                    placeholder="Search Job ID or Transformer ID..."
+                                    className="pl-9 w-full bg-white"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                            </div>
+                            <Button variant="outline" onClick={onBack}>Back to Dashboard</Button>
+                        </div>
                     </div>
-                    <Button variant="outline" onClick={onBack}>Back to Dashboard</Button>
-                </div>
-            </div>
 
-            {loading ? (
-                <div className="flex justify-center py-12">Loading reports...</div>
-            ) : jobIds.length === 0 ? (
-                <Card className="p-12 border-dashed border-2 border-gray-200 bg-gray-50/50 flex flex-col items-center justify-center text-center">
-                    <div className="w-16 h-16 bg-purple-50 text-purple-300 rounded-full flex items-center justify-center mb-4">
-                        <FileText className="w-8 h-8" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-700">No Reports Found</h3>
-                    <p className="text-gray-500 max-w-sm mt-2">
-                        You haven't completed and approved any PT tests yet.
-                        Once you approve a test in the "Testing" tab, it will appear here.
-                    </p>
-                </Card>
-            ) : filteredJobIds.length === 0 ? (
-                <Card className="p-12 border-dashed border-2 border-gray-200 bg-gray-50/50 flex flex-col items-center justify-center text-center">
-                    <div className="w-16 h-16 bg-purple-50 text-purple-300 rounded-full flex items-center justify-center mb-4">
-                        <Search className="w-8 h-8" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-700">No matching reports found</h3>
-                    <p className="text-gray-500 max-w-sm mt-2">
-                        Try adjusting your search query to find the job or transformer you are looking for.
-                    </p>
-                </Card>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredJobIds.map(jobId => {
-                        const transformers = groupByJob[jobId] || [];
-                        const count = transformers.length;
-                        // Use first transformer to get Order metadata
-                        const orderData = transformers[0]?.orderId || {};
-                        const client = orderData.clientName || transformers[0]?.orderId?.clientName || 'Unknown Client';
+                    {loading ? (
+                        <div className="flex justify-center py-12">Loading reports...</div>
+                    ) : jobIds.length === 0 ? (
+                        <Card className="p-12 border-dashed border-2 border-gray-200 bg-gray-50/50 flex flex-col items-center justify-center text-center">
+                            <div className="w-16 h-16 bg-purple-50 text-purple-300 rounded-full flex items-center justify-center mb-4">
+                                <FileText className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-700">No Reports Found</h3>
+                            <p className="text-gray-500 max-w-sm mt-2">
+                                You haven't completed and approved any PT tests yet.
+                                Once you approve a test in the "Testing" tab, it will appear here.
+                            </p>
+                        </Card>
+                    ) : filteredJobIds.length === 0 ? (
+                        <Card className="p-12 border-dashed border-2 border-gray-200 bg-gray-50/50 flex flex-col items-center justify-center text-center">
+                            <div className="w-16 h-16 bg-purple-50 text-purple-300 rounded-full flex items-center justify-center mb-4">
+                                <Search className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-700">No matching reports found</h3>
+                            <p className="text-gray-500 max-w-sm mt-2">
+                                Try adjusting your search query to find the job or transformer you are looking for.
+                            </p>
+                        </Card>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {filteredJobIds.map(jobId => {
+                                const transformers = groupByJob[jobId] || [];
+                                const count = transformers.length;
+                                const orderData = transformers[0]?.orderId || {};
+                                const client = orderData.clientName || 'Unknown Client';
 
-                        // Find most recent test date in this group
-                        const dates = transformers
-                            .map(t => {
-                                const ptDateStr = t.testHistory?.pt_test?.date;
-                                // In PT Schema, date is often stored as 'DD/MM/YYYY', parse it properly if possible
-                                if (!ptDateStr) return 0;
-                                const parts = ptDateStr.split('/');
-                                if (parts.length === 3) {
-                                    return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime();
-                                }
-                                return new Date(ptDateStr).getTime();
-                            })
-                            .filter(d => !isNaN(d) && d > 0);
-                        const lastTestDate = dates.length > 0 ? new Date(Math.max(...dates)).toLocaleDateString('en-GB') : 'N/A';
+                                // Latest test date (timestamp-based)
+                                const latestTs = getGroupLatestDate(transformers);
+                                const lastTestDate = latestTs > 0 ? new Date(latestTs).toLocaleDateString('en-GB') : 'N/A';
 
-                        return (
-                            <Card
-                                key={jobId}
-                                className="group hover:shadow-lg transition-all duration-200 cursor-pointer border-gray-200 hover:border-purple-300 overflow-hidden"
-                                onClick={() => setSelectedJobId(jobId)}
-                            >
-                                <div className="h-2 bg-gradient-to-r from-purple-500 to-pink-500" />
-                                <div className="p-5 space-y-4">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <h3 className="font-bold text-lg text-gray-800 group-hover:text-purple-700 transition-colors">
-                                                {jobId}
-                                            </h3>
-                                            <p className="text-sm text-gray-500 font-medium truncate max-w-[180px]" title={client}>
-                                                {client}
-                                            </p>
+                                return (
+                                    <Card
+                                        key={jobId}
+                                        className="group hover:shadow-lg transition-all duration-200 border-gray-200 hover:border-purple-300 overflow-hidden"
+                                    >
+                                        <div className="p-5 space-y-4">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <h3 className="font-bold text-lg text-gray-800 group-hover:text-purple-700 transition-colors">
+                                                        {jobId}
+                                                    </h3>
+                                                    <p className="text-sm text-gray-500 font-medium truncate max-w-[180px]" title={client}>
+                                                        {client}
+                                                    </p>
+                                                </div>
+                                                <Badge variant="secondary" className="bg-purple-50 text-purple-700 hover:bg-purple-100">
+                                                    {count} Units
+                                                </Badge>
+                                            </div>
+
+                                            <div className="space-y-2 pt-2 border-t border-gray-100">
+                                                <div className="flex items-center text-sm text-gray-600">
+                                                    <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                                                    <span>Last Test: {lastTestDate}</span>
+                                                </div>
+                                                <div className="flex items-center text-sm text-gray-600">
+                                                    <LayoutGrid className="w-4 h-4 mr-2 text-gray-400" />
+                                                    <span>Total Qty: {orderData.quantity || 'N/A'}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="pt-2 flex items-center justify-end border-t border-gray-100">
+                                                <button
+                                                    className="text-xs font-semibold text-purple-600 flex items-center hover:translate-x-1 transition-transform"
+                                                    onClick={() => setSelectedJobId(jobId)}
+                                                >
+                                                    View Transformers <ChevronRight className="w-3 h-3 ml-1" />
+                                                </button>
+                                            </div>
                                         </div>
-                                        <Badge variant="secondary" className="bg-purple-50 text-purple-700 hover:bg-purple-100">
-                                            {count} Units
-                                        </Badge>
-                                    </div>
-
-                                    <div className="space-y-2 pt-2 border-t border-gray-100">
-                                        <div className="flex items-center text-sm text-gray-600">
-                                            <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                                            <span>Last Test: {lastTestDate}</span>
-                                        </div>
-                                        <div className="flex items-center text-sm text-gray-600">
-                                            <LayoutGrid className="w-4 h-4 mr-2 text-gray-400" />
-                                            <span>Total Qty: {orderData.quantity || 'N/A'}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-2 flex justify-end">
-                                        <div className="text-xs font-semibold text-purple-600 flex items-center group-hover:translate-x-1 transition-transform">
-                                            View Transformers <ChevronRight className="w-3 h-3 ml-1" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </Card>
-                        );
-                    })}
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
         </div>

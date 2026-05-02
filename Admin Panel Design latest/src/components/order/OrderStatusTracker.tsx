@@ -81,11 +81,18 @@ export function OrderStatusTracker({
       description: 'Order registered in system'
     },
     {
+      id: 'pt_pretest',
+      label: 'PT Pretesting',
+      icon: Zap,
+      color: 'indigo',
+      description: 'PT Pretesting phase'
+    },
+    {
       id: 'pt',
-      label: 'PT Testing',
+      label: 'Final PT Testing',
       icon: Zap,
       color: 'purple',
-      description: 'Pre-Test and Final-Test'
+      description: 'Final PT Testing'
     },
     {
       id: 'completed',

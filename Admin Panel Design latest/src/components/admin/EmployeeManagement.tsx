@@ -226,6 +226,7 @@ export function EmployeeManagement() {
                     <SelectItem value="Primary Test">Primary Test</SelectItem>
                     <SelectItem value="Final Test">Final Test</SelectItem>
                     <SelectItem value="PT Test">PT Test</SelectItem>
+                    <SelectItem value="PT Pretest">PT Pretest</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

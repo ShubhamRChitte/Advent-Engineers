@@ -100,7 +100,10 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
   }, []);
 
   const testTypes = orderData?.transformerType === 'PT' 
-    ? [ { id: 'pt-test', name: 'PT Test', icon: Zap, color: 'purple' } ]
+    ? [ 
+        { id: 'pt-pretest', name: 'PT Pretest', icon: Zap, color: 'indigo' },
+        { id: 'pt-test', name: 'PT Test', icon: Zap, color: 'purple' } 
+      ]
     : [
         { id: 'core-test', name: 'Core Test', icon: TestTube, color: 'blue' },
         { id: 'after-secondary', name: 'After Secondary Test', icon: Zap, color: 'purple' },

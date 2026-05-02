@@ -86,7 +86,8 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
             'Secondary Test': 'secondary', // Also support direct name
             'After Primary Test': 'primary',
             'Final Test': 'final',
-            'PT Test': 'pt'
+            'PT Test': 'pt',
+            'PT Pretest': 'pt_pretest'
           };
 
           return {

@@ -13,7 +13,7 @@ export interface User {
   name: string;
   employeeId: string;
   email?: string; // Made optional as we login with employeeId
-  role: 'admin' | 'entry-operator' | 'core-tester' | 'secondary-tester' | 'after-primary-tester' | 'final-tester' | 'pt-tester' | 'heating_operator';
+  role: 'admin' | 'entry-operator' | 'core-tester' | 'secondary-tester' | 'after-primary-tester' | 'final-tester' | 'pt-tester' | 'pt-pretester' | 'heating_operator';
   department?: string;
 }
 
@@ -58,6 +58,7 @@ export default function App() {
     'after-primary-tester', 
     'final-tester', 
     'pt-tester',
+    'pt-pretester',
     'heating_operator'
   ].includes(user.role);
 
@@ -89,7 +90,7 @@ export default function App() {
     );
   }
 
-  if (['core-tester', 'secondary-tester', 'after-primary-tester', 'final-tester', 'pt-tester'].includes(user.role)) {
+  if (['core-tester', 'secondary-tester', 'after-primary-tester', 'final-tester', 'pt-tester', 'pt-pretester'].includes(user.role)) {
     return (
       <>
         <TesterLayout user={user} onLogout={handleLogout} />

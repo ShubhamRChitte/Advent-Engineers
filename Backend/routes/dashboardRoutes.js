@@ -17,7 +17,8 @@ router.get('/tester-stats', async (req, res) => {
             'secondary-tester': 'secondary',
             'after-primary-tester': 'primary',
             'final-tester': 'final',
-            'pt-tester': 'pt'
+            'pt-tester': 'pt',
+            'pt-pretester': 'pt_pretest'
         };
 
         const stage = stageMap[role];

@@ -3,6 +3,7 @@ const router = express.Router();
 const { TransformerModel } = require('../models/TransformerModel');
 const { OrderModel } = require('../models/OrderModel');
 const { FailedTransformerModel } = require('../models/FailedTransformerModel');
+const { NotificationModel } = require('../models/NotificationModel');
 const { isAuthenticated } = require('../middlewares/authMiddleware');
 
 // POST /api/pt-tests/submit
@@ -34,7 +35,7 @@ router.post('/submit', isAuthenticated, async (req, res) => {
     };
 
     const updateFields = {
-      'testHistory.pt_test': updatePayload
+      'testHistory.pt_pretest_test': updatePayload
     };
 
     // Keep transformer at 'pt' stage so it remains visible in PT list
@@ -52,13 +53,13 @@ router.post('/submit', isAuthenticated, async (req, res) => {
     });
 
     const allCompleted = allTransformers.length > 0 && allTransformers.every(
-      t => t.testHistory && t.testHistory.pt_test && Object.keys(t.testHistory.pt_test).length > 0
+      t => t.testHistory && t.testHistory.pt_pretest_test && Object.keys(t.testHistory.pt_pretest_test).length > 0
     );
 
     // 4. Update Order status
     // Instead of auto-completing, we leave it "In Progress" until manually approved
     await OrderModel.findByIdAndUpdate(orderId, {
-      $set: { status: 'PT Testing In Progress' }
+      $set: { status: 'PT Pretesting In Progress' }
     });
 
     res.status(200).json({ 
@@ -89,7 +90,7 @@ router.put('/:orderId/approve', isAuthenticated, async (req, res) => {
     }
 
     const allCompleted = allTransformers.every(
-      t => t.testHistory && t.testHistory.pt_test && Object.keys(t.testHistory.pt_test).length > 0
+      t => t.testHistory && t.testHistory.pt_pretest_test && Object.keys(t.testHistory.pt_pretest_test).length > 0
     );
 
     if (!allCompleted) {
@@ -98,12 +99,26 @@ router.put('/:orderId/approve', isAuthenticated, async (req, res) => {
 
     await OrderModel.findByIdAndUpdate(orderId, {
       $set: { 
-        status: 'PT Testing Completed',
-        'completionStages.pt': true
+        status: 'PT Testing In Progress',
+        'completionStages.pt_pretest': true,
+        currentStage: 'pt'
       }
     });
 
-    res.status(200).json({ success: true, message: "PT Testing approved and completed successfully." });
+    try {
+        const order = await OrderModel.findById(orderId);
+        await NotificationModel.create({
+            recipientRole: 'pt',
+            message: `Order pre-testing approved. Ready for Final PT Test.`,
+            orderId: orderId,
+            jobId: order ? order.jobId : 'Unknown Job',
+            type: 'STAGE_TRANSITION'
+        });
+    } catch (notifErr) {
+        console.error("Error creating notification:", notifErr);
+    }
+
+    res.status(200).json({ success: true, message: "PT Pretesting approved and completed successfully." });
   } catch (error) {
     console.error("Error approving PT order:", error);
     res.status(500).json({ success: false, message: "Server Error", error: error.message });
@@ -122,28 +137,31 @@ router.put('/transformer/:transformerId/approve', isAuthenticated, async (req, r
       return res.status(404).json({ success: false, message: "Transformer not found." });
     }
 
-    // 2. CHECK: Must have PT testing data
-    if (!transformer.testHistory || !transformer.testHistory.pt_test || Object.keys(transformer.testHistory.pt_test).length === 0) {
-      return res.status(400).json({ success: false, message: "Cannot approve. Transformer doesn't have PT testing data saved." });
+    // 2. CHECK: Must have PT Pretesting data
+    if (!transformer.testHistory || !transformer.testHistory.pt_pretest_test || Object.keys(transformer.testHistory.pt_pretest_test).length === 0) {
+      return res.status(400).json({ success: false, message: "Cannot approve. Transformer doesn't have PT Pretesting data saved." });
     }
 
-    const ptTest = transformer.testHistory.pt_test;
-    // Check if at least some final testing data is present
-    const finalTesting = ptTest.finalTesting || {};
-    const mandatoryFinal = ['leakage', 'terminalMarking', 'polarityTesting', 'insulationResistance', 'hvPrimary', 'hvSecondary', 'inducedOverVoltage'];
-    const isFinalComplete = mandatoryFinal.every(f => finalTesting[f] && finalTesting[f].toString().trim() !== '' && finalTesting[f].toString() !== 'N/A');
+    // 3. CHECK: Unified PT report completeness (Pre-test + Final test)
+    const ptTest = transformer.testHistory.pt_pretest_test;
+    const preTesting = ptTest.preTesting?.metering || {};
+    const mandatoryPre = ['ratioError100', 'phaseError100'];
+    const isPreComplete = mandatoryPre.every(f => preTesting[f] && preTesting[f].toString().trim() !== '' && preTesting[f].toString() !== 'N/A');
 
-    if (!isFinalComplete) {
+    if (!isPreComplete) {
       return res.status(400).json({ 
         success: false, 
-        message: "Cannot approve. The report is missing required data in Final Testing section." 
+        message: "Cannot approve. The report is missing required data in Pre-Testing sections." 
       });
     }
 
     // Set approved flag on transformer's PT test
-    const ptTestUpdate = { ...transformer.testHistory.pt_test, approved: true };
+    const ptTestUpdate = { ...transformer.testHistory.pt_pretest_test, approved: true };
     await TransformerModel.findByIdAndUpdate(transformerId, {
-      $set: { 'testHistory.pt_test': ptTestUpdate }
+      $set: { 
+        'testHistory.pt_pretest_test': ptTestUpdate,
+        currentStage: 'pt' // Move transformer to Final PT Testing stage
+      }
     });
 
     // Check if ALL transformers for the same order are approved now
@@ -153,23 +171,37 @@ router.put('/transformer/:transformerId/approve', isAuthenticated, async (req, r
     });
 
     // Consider all completed and approved
-    // Using an optional chaining like t.testHistory?.pt_test?.approved
+    // Using an optional chaining like t.testHistory?.pt_pretest_test?.approved
     // and older orders might not have this, so we maintain backward compatibility
     const allApproved = allTransformers.length > 0 && allTransformers.every(
-      t => t.testHistory && t.testHistory.pt_test && (t.testHistory.pt_test.approved === true || t.testHistory.pt_test.approved === "true")
+      t => t.testHistory && t.testHistory.pt_pretest_test && (t.testHistory.pt_pretest_test.approved === true || t.testHistory.pt_pretest_test.approved === "true")
     );
 
     if (allApproved) {
       await OrderModel.findByIdAndUpdate(orderId, {
         $set: { 
-          status: 'PT Testing Completed',
-          'completionStages.pt': true
+          status: 'PT Testing In Progress', // Next stage
+          'completionStages.pt_pretest': true,
+          currentStage: 'pt' // Move the order to pt dashboard
         }
       });
+
+      try {
+          const order = await OrderModel.findById(orderId);
+          await NotificationModel.create({
+              recipientRole: 'pt',
+              message: `Order pre-testing approved. Ready for Final PT Test.`,
+              orderId: orderId,
+              jobId: order ? order.jobId : 'Unknown Job',
+              type: 'STAGE_TRANSITION'
+          });
+      } catch (notifErr) {
+          console.error("Error creating notification:", notifErr);
+      }
     } else {
       // Partially approved - order status remains in progress
       await OrderModel.findByIdAndUpdate(orderId, {
-         $set: { status: 'PT Testing In Progress' }
+         $set: { status: 'PT Pretesting In Progress' }
       });
     }
 
@@ -200,7 +232,7 @@ router.post('/failed', isAuthenticated, async (req, res) => {
             failureParameters,
             failureReason,
             reportedBy,
-            stage: "PT_TESTING",
+            stage: "pt_pretest_testING",
             status: "FAILED"
         });
 
@@ -254,10 +286,10 @@ router.get('/all-transformers', isAuthenticated, async (req, res) => {
 router.get('/reports', isAuthenticated, async (req, res) => {
     try {
         const query = {
-            'testHistory.pt_test': { $exists: true, $ne: {} }, // ensure it's not the default empty object
+            'testHistory.pt_pretest_test': { $exists: true, $ne: {} }, // ensure it's not the default empty object
             $or: [
-                { 'testHistory.pt_test.approved': true },
-                { 'testHistory.pt_test.approved': "true" }
+                { 'testHistory.pt_pretest_test.approved': true },
+                { 'testHistory.pt_pretest_test.approved': "true" }
             ]
         };
 
@@ -267,14 +299,14 @@ router.get('/reports', isAuthenticated, async (req, res) => {
                 match: { transformerType: 'PT' }, // Filter by PT Orders at population level
                 select: 'clientName quantity deadline ratio accuracyClass burden voltageRating jobId'
             })
-            .sort({ 'testHistory.pt_test.date': -1 });
+            .sort({ 'testHistory.pt_pretest_test.date': -1 });
             
-        // Filter out docs where populate failed (wasn't a PT order) or where pt_test is logically empty
+        // Filter out docs where populate failed (wasn't a PT order) or where pt_pretest_test is logically empty
         const validTransformers = transformers.filter(t => 
              t.orderId !== null &&
              t.testHistory && 
-             t.testHistory.pt_test && 
-             Object.keys(t.testHistory.pt_test).length > 0
+             t.testHistory.pt_pretest_test && 
+             Object.keys(t.testHistory.pt_pretest_test).length > 0
         );
 
         // Enrich with jobId and clientName from populated order (mirrors secondary/reports route)
@@ -301,10 +333,9 @@ router.get('/assigned-orders', isAuthenticated, async (req, res) => {
       const testerName = user.name || user.fullName;
 
       // 1. Find all transformers where this user is assigned for PT stage
-      // Only include transformers that have passed the pretest stage
+      // Returning all (active and completed) so the frontend tabs can filter them
       const query = {
-          "assignments.pt_tester": testerName,
-          currentStage: { $in: ['pt', 'final_print', 'dispatch', 'completed'] }
+          "assignments.pt_pretest_tester": testerName
       };
 
       const transformers = await TransformerModel.find(query).populate('orderId').lean();
@@ -347,7 +378,7 @@ router.get('/:transformerId', isAuthenticated, async (req, res) => {
 
         res.status(200).json({
             success: true,
-            data: transformer.testHistory?.pt_test || null
+            data: transformer.testHistory?.pt_pretest_test || null
         });
 
     } catch (err) {
@@ -357,3 +388,4 @@ router.get('/:transformerId', isAuthenticated, async (req, res) => {
 });
 
 module.exports = router;
+

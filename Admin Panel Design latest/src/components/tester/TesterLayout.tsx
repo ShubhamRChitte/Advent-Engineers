@@ -17,6 +17,9 @@ import { FailedCoresPage } from '../../pages/FailedCoresPage';
 import { PTTesterDashboard } from './PTTesterDashboard';
 import { PTTestingModule } from './PTTestingModule';
 import { PTReportsList } from './PTReportsList';
+import { PTPretestDashboard } from './PTPretestDashboard';
+import { PTPretestModule } from './PTPretestModule';
+import { PTPretestReportsList } from './PTPretestReportsList';
 import { OrdersListViewEnhanced } from '../entry/OrdersListViewEnhanced';
 import { OrderDetailsView } from './OrderDetailsView';
 import { useTesterStats } from './useTesterStats';
@@ -107,6 +110,16 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
       if (activeView === 'view-orders') return <OrdersListViewEnhanced userRole={user.role} />;
       if (activeView === 'reports') return <PTReportsList onBack={setViewHome} />;
       return <PTTesterDashboard setActiveView={setActiveView} stats={stats} recentActivity={recentActivity} loading={loading} />;
+    }
+
+    // PT Pretester
+    if (user.role === 'pt-pretester') {
+      if (activeView === 'home') return <PTPretestDashboard setActiveView={setActiveView} stats={stats} recentActivity={recentActivity} loading={loading} />;
+      if (activeView === 'testing') return <PTPretestModule user={user} />;
+
+      if (activeView === 'view-orders') return <OrdersListViewEnhanced userRole={user.role} />;
+      if (activeView === 'reports') return <PTPretestReportsList onBack={setViewHome} />;
+      return <PTPretestDashboard setActiveView={setActiveView} stats={stats} recentActivity={recentActivity} loading={loading} />;
     }
 
     // Core Tester Views

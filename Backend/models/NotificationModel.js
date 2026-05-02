@@ -5,7 +5,7 @@ const NotificationSchema = new Schema({
     recipientRole: { 
         type: String, 
         required: true,
-        enum: ["core", "secondary", "primary", "heating", "final", "pt", "admin"]
+        enum: ["core", "secondary", "primary", "heating", "final", "pt", "pt_pretest", "admin"]
     },
     recipientName: { type: String }, // Optional: If assigned to a specific person
     message: { type: String, required: true },

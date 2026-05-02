@@ -45,29 +45,38 @@ interface PTTransformersListProps {
   order: Order;
   onStartTest: (transformer: Transformer) => void;
   onBack: () => void;
+  testStage?: 'pretest' | 'final';
 }
 
-export function PTTransformersList({ order, onStartTest, onBack }: PTTransformersListProps) {
+export function PTTransformersList({ order, onStartTest, onBack, testStage = 'final' }: PTTransformersListProps) {
   const [transformers, setTransformers] = useState<Transformer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [heatingRecords, setHeatingRecords] = useState<any[]>([]);
 
+  const historyKey = testStage === 'pretest' ? 'pt_pretest_test' : 'pt_test';
+
   const checkIfPTReportIsComplete = (transformer: any, isHeatingApproved: boolean) => {
-    const ptTest = transformer.testHistory?.pt_test;
+    const ptTest = transformer.testHistory?.[historyKey];
 
     // If no core test data at all, obviously not complete
     if (!ptTest) return false;
 
-    // 1. Check Pre-Testing (Metering 100% burden ratio/phase)
+    // 1. Check Pre-Testing
     const preTesting = ptTest.preTesting || {};
-    const meteringPre = preTesting.metering || {};
-    const preMandatory = ['ratioError100', 'phaseError100'];
-    const preCompleted = preMandatory.every(f => {
-        const val = meteringPre[f];
-        return val !== undefined && val !== null && val.toString().trim() !== '' && val.toString() !== 'N/A';
-    });
-    if (!preCompleted) return false;
+    
+    if (testStage === 'pretest') {
+        let hasSavedData = false;
+        Object.values(preTesting).forEach((coreData: any) => {
+            if (coreData && (coreData.ratioError100 || coreData.phaseError100 || coreData.ratioError25 || coreData.phaseError25)) {
+                hasSavedData = true;
+            }
+        });
+        return hasSavedData;
+    }
+
+    // For Final Testing, check if pre-testing has at least one core filled
+    const hasAnyPreTest = Object.keys(preTesting).length > 0;
 
     // 2. Check Final Testing (All checkpoints must be filled)
     const final = ptTest.finalTesting || {};
@@ -91,13 +100,20 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
     });
     if (!finalCompleted) return false;
 
-    // 3. Check Accuracy Test (Metering 100% Burden)
+    // 3. Check Accuracy Test
     const accuracy = ptTest.accuracyTest || {};
-    const meteringData = accuracy.metering?.['100'] || {};
-    const accuracyCompleted = preMandatory.every(f => {
-        const val = meteringData[f];
-        return val !== undefined && val !== null && val.toString().trim() !== '' && val.toString() !== 'N/A';
-    });
+    let accuracyCompleted = false;
+    
+    // Ensure every core has at least some accuracy data
+    if (transformer.cores && transformer.cores.length > 0) {
+       accuracyCompleted = transformer.cores.every((c: any) => {
+           const coreData = accuracy[c.coreType] || accuracy[`${c.coreType} ${c.coreNumber}`] || accuracy[c.coreType === 'metering' ? 'metering' : `protection ${c.coreNumber}`] || accuracy[c.coreId] || accuracy['metering'];
+           return coreData && Object.keys(coreData).length > 0;
+       });
+    } else {
+       accuracyCompleted = Object.keys(accuracy).length > 0;
+    }
+    
     if (!accuracyCompleted) return false;
 
     // 4. Heating Status is no longer a blocker
@@ -149,7 +165,7 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
              coresList.push({ coreNumber: 1, coreType: 'metering', coreId: 'M-1' });
           }
 
-          const hasPtTest = !!(t.testHistory && t.testHistory.pt_test && Object.keys(t.testHistory.pt_test).length > 0);
+          const hasPtTest = !!(t.testHistory && t.testHistory[historyKey] && Object.keys(t.testHistory[historyKey]).length > 0);
           
           const getTrailingNum = (str: string) => {
             const match = str?.toString().match(/(\d+)$/);
@@ -171,7 +187,7 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
               return false;
           });
 
-          const isApproved = t.testHistory?.pt_test?.approved === true || t.testHistory?.pt_test?.approved === "true";
+          const isApproved = t.testHistory?.[historyKey]?.approved === true || t.testHistory?.[historyKey]?.approved === "true";
           const isHeatingApproved = t.isHeatingApproved === true || t.isHeatingApproved === "true" || t.testHistory?.heating_test?.status === "Approved";
           
           let currentStatus: 'pending' | 'in-progress' | 'completed' | 'approved' = 'pending';
@@ -226,7 +242,8 @@ export function PTTransformersList({ order, onStartTest, onBack }: PTTransformer
   const handleApproveTransformer = async (transformer: Transformer) => {
     try {
       if (!window.confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId}?`)) return;
-      await axios.put(`http://localhost:5001/api/pt-tests/transformer/${transformer._id}/approve`, {}, { withCredentials: true });
+      const apiBasePath = testStage === 'pretest' ? 'pt-pretests' : 'pt-tests';
+      await axios.put(`http://localhost:5001/api/${apiBasePath}/transformer/${transformer._id}/approve`, {}, { withCredentials: true });
       alert("Transformer approved successfully!");
       // Update local state to reflect approval (remove from active list)
       setTransformers(prev => prev.filter(t => t._id !== transformer._id));

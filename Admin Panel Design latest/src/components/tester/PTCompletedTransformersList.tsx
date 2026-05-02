@@ -95,7 +95,7 @@ export function PTCompletedTransformersList({
                                                 onClick={() => onViewReport(t)}
                                             >
                                                 <FileText className="w-4 h-4" />
-                                                View Report
+                                                View Customer Report
                                             </Button>
                                         </td>
                                     </tr>

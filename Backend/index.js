@@ -139,6 +139,7 @@ app.use('/api/dashboard', require('./routes/dashboardRoutes')); // New Dashboard
 app.use('/api/failed-cores', require('./routes/failedCoreRoutes')); // Failed Core Management
 app.use('/api/return-forms', require('./routes/returnFormRoutes')); // New Return Form Routes
 app.use('/api/pt-tests', require('./routes/ptTestRoutes')); // PT Testing Routes
+app.use('/api/pt-pretests', require('./routes/ptPretestRoutes')); // PT Pretesting Routes
 app.use('/api/heating-record', heatingRecordRoutes); // Heating Record Routes
 app.use('/api/pt-heating-record', ptHeatingRecordRoutes); // PT Heating Record Routes
 app.use('/api/accuracy-limits', require('./routes/accuracyLimits.cjs')); // Accuracy Limits Management
@@ -224,8 +225,8 @@ const generateTransformersForOrder = async (order) => {
     // Logic: If NO core assignments but YES secondary -> Start at Secondary
     // (User explicitly skipped core in assignments)
     if (order.transformerType === 'PT') {
-      startStage = 'pt';
-      order.currentStage = 'pt';
+      startStage = 'pt_pretest';
+      order.currentStage = 'pt_pretest';
       await order.save();
     } else if (!hasCore && hasSecondary) {
       startStage = 'secondary';

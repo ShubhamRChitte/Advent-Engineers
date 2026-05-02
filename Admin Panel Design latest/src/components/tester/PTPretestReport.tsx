@@ -4,9 +4,8 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
-import { Save, AlertCircle, ArrowLeft, AlertTriangle, Edit3, Printer } from 'lucide-react';
+import { Save, AlertCircle, ArrowLeft, AlertTriangle, Edit3, Printer, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { PTFinalPrintReport } from './PTFinalPrintReport';
 
 export function validatePTMeteringUI(accClass: string, ratioErrorStr: string, phaseErrorStr: string, meteringLimits: any) {
   if (!meteringLimits) return { isPass: undefined, reason: null };
@@ -74,14 +73,14 @@ export function validatePTProtectionUI(accClass: string, ratioErrorStr: string, 
   return { isPass, reason: reasons.length > 0 ? reasons.join('; ') : null };
 }
 
-interface PTTestingReportProps {
+interface PTPretestReportProps {
   order: any; // The selected order from the list
   transformer: any; // The specific transformer to test
   onBack: () => void;
   user: any; // The logged-in PT Tester user
 }
 
-export function PTTestingReport({ order, transformer, onBack, user }: PTTestingReportProps) {
+export function PTPretestReport({ order, transformer, onBack, user }: PTPretestReportProps) {
   const [loading, setLoading] = useState(false);
   const [reportsData, setReportsData] = useState<Record<string, any>>({});
   const [isReadOnly, setIsReadOnly] = useState(false);
@@ -99,7 +98,6 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
   const [coreClassesMap, setCoreClassesMap] = useState<Record<string, string>>({});
 
   const [dbMeteringLimits, setDbMeteringLimits] = useState<any>(null);
-  const [pretestData, setPretestData] = useState<Record<string, any>>({}); // Locked pretest data from pretester
   const [dbProtectionLimits, setDbProtectionLimits] = useState<any>(null);
 
   useEffect(() => {
@@ -207,7 +205,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
             let anyReadOnly = false;
 
             for (const t of responseList) {
-                const testRes = await axios.get(`http://localhost:5001/api/pt-tests/${t._id}`, {
+                const testRes = await axios.get(`http://localhost:5001/api/pt-pretests/${t._id}`, {
                     withCredentials: true
                 });
 
@@ -241,16 +239,14 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                         savedData.testedBy = user?.name || user?.fullName || 'Tester';
                     }
                     newReportsData[t._id] = savedData;
-
-                    // Fetch pretest data from pretester to autofill (read-only)
-                    const pretestRes = await axios.get(`http://localhost:5001/api/pt-pretests/${t._id}`, { withCredentials: true }).catch(() => null);
-                    if (pretestRes?.data?.success && pretestRes.data.data?.preTesting) {
-                        // Merge pretest data into the preTesting field (will be rendered read-only)
-                        newReportsData[t._id].preTesting = pretestRes.data.data.preTesting;
-                    }
-
-                    // Mark as readOnly only when the report has been explicitly saved (savedAt is set on submit)
-                    if (savedData.savedAt) {
+                    // Mark as readOnly if they actually saved test data
+                    let hasSavedData = false;
+                    Object.values(savedData.preTesting || {}).forEach((coreData: any) => {
+                        if (coreData && (coreData.ratioError100 || coreData.phaseError100 || coreData.ratioError25 || coreData.phaseError25)) {
+                            hasSavedData = true;
+                        }
+                    });
+                    if (hasSavedData) {
                          anyReadOnly = true;
                     }
                 } else {
@@ -271,16 +267,10 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                         }
                     });
 
-                    // Fetch pretest data from pretester to autofill (read-only)
-                    const pretestResNew = await axios.get(`http://localhost:5001/api/pt-pretests/${t._id}`, { withCredentials: true }).catch(() => null);
                     let defaultPreTesting: any = {};
-                    if (pretestResNew?.data?.success && pretestResNew.data.data?.preTesting) {
-                        defaultPreTesting = pretestResNew.data.data.preTesting;
-                    } else {
-                        coresList.forEach(core => {
-                            defaultPreTesting[core] = { ratioError100: '', phaseError100: '', ratioError25: '', phaseError25: '' };
-                        });
-                    }
+                    coresList.forEach(core => {
+                        defaultPreTesting[core] = { ratioError100: '', phaseError100: '', ratioError25: '', phaseError25: '' };
+                    });
 
                     newReportsData[t._id] = {
                         preTesting: defaultPreTesting,
@@ -362,23 +352,8 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
         // Validation: Ensure all fields are filled
         for (const t of transformersData) {
             const rData = reportsData[t._id] || {};
-            
-            // 1. Check finalTesting
-            const ft = rData.finalTesting || {};
-            const requiredFinalFields = [
-                'leakage', 'terminalMarking', 'polarityTesting', 
-                'insulationResistance', 'primaryToSecondary', 'primaryToEarth', 
-                'secondaryToEarth', 'hvSecondary', 'hvPrimary', 'inducedOverVoltage'
-            ];
-            for (const field of requiredFinalFields) {
-                if (!ft[field] || String(ft[field]).trim() === '') {
-                    toast.error(`Please complete Final Testing section (${field}) before saving.`);
-                    return;
-                }
-            }
-
-            // 1.5 Check preTesting
             const pt = rData.preTesting || {};
+            
             for (const core of activeCores) {
                 const row = pt[core] || {};
                 if (!row.ratioError100 || String(row.ratioError100).trim() === '' ||
@@ -386,31 +361,8 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                     !row.ratioError25 || String(row.ratioError25).trim() === '' ||
                     !row.phaseError25 || String(row.phaseError25).trim() === '') {
                     
-                    toast.error(`Missing Pre-testing data for ${core}. Please ensure Pre-testing is completed first.`);
+                    toast.error(`Please fill all Ratio and Phase errors for ${core} (100% & 25% Burden) before saving.`);
                     return;
-                }
-            }
-
-            // 2. Check accuracyTest
-            const at = rData.accuracyTest || {};
-            for (const core of activeCores) {
-                if (!at[core]) {
-                    toast.error(`Missing accuracy test data for core ${core}`);
-                    return;
-                }
-                const isProtection = core.startsWith('protection');
-                const percentages = isProtection ? ['100'] : ['120', '100', '80'];
-                
-                for (const pct of percentages) {
-                    const row = at[core][pct] || {};
-                    if (!row.ratioError100 || String(row.ratioError100).trim() === '' ||
-                        !row.phaseError100 || String(row.phaseError100).trim() === '' ||
-                        !row.ratioError25 || String(row.ratioError25).trim() === '' ||
-                        !row.phaseError25 || String(row.phaseError25).trim() === '') {
-                        
-                        toast.error(`Please fill all Ratio and Phase errors for ${core} at ${pct}% Burden`);
-                        return;
-                    }
                 }
             }
         }
@@ -426,7 +378,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
 
         // Wait for all to submit sequentially or in parallel
         const responses = await Promise.all(payloads.map(payload => 
-            axios.post('http://localhost:5001/api/pt-tests/submit', payload, { withCredentials: true })
+            axios.post('http://localhost:5001/api/pt-pretests/submit', payload, { withCredentials: true })
         ));
 
         if (responses.every(r => r.data.success)) {
@@ -458,7 +410,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
         }));
 
         await Promise.all(payloads.map(payload => 
-            axios.post('http://localhost:5001/api/pt-tests/failed', payload, {
+            axios.post('http://localhost:5001/api/pt-pretests/failed', payload, {
                 withCredentials: true
             })
         ));
@@ -470,6 +422,21 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
     } catch (err: any) {
         console.error("Error logging failure:", err);
         toast.error(err.response?.data?.message || "Failed to log errors.");
+    }
+  };
+
+  const handleApproveActiveTransformer = async () => {
+    try {
+      if (!activeTabId) return;
+      if (!window.confirm("Are you sure you want to approve this unit and send it to Final PT Testing?")) return;
+      
+      await axios.put(`http://localhost:5001/api/pt-pretests/transformer/${activeTabId}/approve`, {}, { withCredentials: true });
+      toast.success("Unit approved and sent to Final PT Testing!");
+      
+      setTimeout(() => onBack(), 1500);
+    } catch (e: any) {
+      console.error("Error approving transformer:", e);
+      toast.error(e.response?.data?.message || "Failed to approve transformer.");
     }
   };
 
@@ -551,7 +518,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
     return (
         <Card className="p-8 text-center bg-red-50 border-red-200">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-red-800 text-lg mb-2">Invalid Configuration for Final PT Testing</h3>
+            <h3 className="text-red-800 text-lg mb-2">Invalid Configuration for Final PT Pretesting</h3>
             <p className="text-red-600 mb-6">
                 No PT transformers found for this order, or the order is incorrectly configured.
             </p>
@@ -572,7 +539,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                     Back to Assigned Orders
                 </Button>
             </div>
-            <div className="p-8 text-center text-gray-500">Loading Final PT testing layout...</div>
+            <div className="p-8 text-center text-gray-500">Loading Final PT Pretesting layout...</div>
         </div>
       );
   }
@@ -721,8 +688,19 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                   </Button>
                 )}
 
+                {isReadOnly && (
+                    <Button 
+                        variant="default" 
+                        size="sm" 
+                        onClick={handleApproveActiveTransformer} 
+                        className="gap-2 bg-purple-600 hover:bg-purple-700 text-white shadow-md transition-all hover:scale-105"
+                    >
+                        <CheckCircle className="w-4 h-4" /> Approve Unit
+                    </Button>
+                )}
+
                 <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
-                    <Printer className="w-4 h-4" /> Print Report
+                    <Printer className="w-4 h-4" /> Print
                 </Button>
             </div>
         </div>
@@ -745,23 +723,8 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
             </div>
         )}
 
-        {/* Hidden print layout — only shown on window.print() */}
-        <div className="pt-print-wrapper" style={{ position: 'absolute', left: '-9999px', top: 0, width: '210mm', overflow: 'hidden' }}>
-            {transformersData.map((t) => (
-                <PTFinalPrintReport
-                    key={t._id}
-                    order={order}
-                    transformer={t}
-                    reportData={reportsData[t._id] || {}}
-                    pretestData={reportsData[t._id]?.preTesting || {}}
-                    activeCores={activeCores}
-                    user={user}
-                />
-            ))}
-        </div>
-
-        {/* INTERACTIVE REPORT FORMAT MULTI UNITS */}
-        <div className="print-container screen-only">
+        {/* PRINTABLE REPORT FORMAT MULTI UNITS */}
+        <div className="print-container">
             {transformersData.map((transformer) => {
                 const reportData = reportsData[transformer._id] || {};
                 const vState = getTransformerValidations(transformer._id, reportData);
@@ -793,13 +756,13 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                                     <td className="border border-black p-1 pl-2 font-medium w-1/4">Specification</td>
                                     <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{order.voltageRating || '33'} KV PT</td>
                                     <td className="border border-black p-1 pl-2 font-medium w-1/4">Type 1</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{order.indoorOutdoor || 'N/A'}</td>
+                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">O/D</td>
                                 </tr>
                                 <tr>
                                     <td className="border border-black p-1 pl-2 font-medium w-1/4">PT Ratio</td>
                                     <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{order.ratio?.[0] || 'N/A'}</td>
                                     <td className="border border-black p-1 pl-2 font-medium w-1/4">Type 2</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{order.insulationType || 'N/A'}</td>
+                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">O/C</td>
                                 </tr>
                                 <tr>
                                     <td className="border border-black p-1 pl-2 font-medium w-1/4">Burden</td>
@@ -838,6 +801,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                                         const isProtection = core.startsWith('protection');
                                         const coreNum = core.replace(/[a-z]/gi, '');
                                         const suffix = coreNum === '1' || coreNum === '' ? '' : ` ${coreNum}`;
+
                                         const label = isProtection 
                                             ? `Protection${suffix} 30%` 
                                             : core.startsWith('metering') 
@@ -850,13 +814,18 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
 
                                         return (
                                             <tr key={core}>
-                                                <td className="border border-black p-1 font-medium text-left pl-2 bg-gray-50">
+                                                <td className="border border-black p-1 font-medium text-left pl-2 relative bg-gray-50">
                                                     {label}
+                                                    {(v100.isPass === false || v25.isPass === false) ? (
+                                                        <div className="absolute right-1 top-1 text-[10px] font-bold px-1 py-0.5 rounded bg-red-100 text-red-700">FAIL</div>
+                                                    ) : (v100.isPass && v25.isPass) ? (
+                                                        <div className="absolute right-1 top-1 text-[10px] font-bold px-1 py-0.5 rounded bg-green-100 text-green-700">PASS</div>
+                                                    ) : null}
                                                 </td>
-                                                <td className="border border-black p-0.5"><Input className="h-7 border-none shadow-none text-center bg-gray-50 text-gray-600" value={reportData.preTesting?.[core]?.ratioError100 || ''} disabled /></td>
-                                                <td className="border border-black p-0.5"><Input className="h-7 border-none shadow-none text-center bg-gray-50 text-gray-600" value={reportData.preTesting?.[core]?.phaseError100 || ''} disabled /></td>
-                                                <td className="border border-black p-0.5"><Input className="h-7 border-none shadow-none text-center bg-gray-50 text-gray-600" value={reportData.preTesting?.[core]?.ratioError25 || ''} disabled /></td>
-                                                <td className="border border-black p-0.5"><Input className="h-7 border-none shadow-none text-center bg-gray-50 text-gray-600" value={reportData.preTesting?.[core]?.phaseError25 || ''} disabled /></td>
+                                                <td className="border border-black p-0.5"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${v100.isPass === false && v100.reason?.includes('Ratio') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.preTesting?.[core]?.ratioError100 || ''} onChange={(e) => handleInputChange(transformer._id, 'preTesting', core, e.target.value, 'ratioError100')} disabled={isReadOnly} /></td>
+                                                <td className="border border-black p-0.5"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${v100.isPass === false && v100.reason?.includes('Phase') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.preTesting?.[core]?.phaseError100 || ''} onChange={(e) => handleInputChange(transformer._id, 'preTesting', core, e.target.value, 'phaseError100')} disabled={isReadOnly} /></td>
+                                                <td className="border border-black p-0.5"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${v25.isPass === false && v25.reason?.includes('Ratio') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.preTesting?.[core]?.ratioError25 || ''} onChange={(e) => handleInputChange(transformer._id, 'preTesting', core, e.target.value, 'ratioError25')} disabled={isReadOnly} /></td>
+                                                <td className="border border-black p-0.5"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${v25.isPass === false && v25.reason?.includes('Phase') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.preTesting?.[core]?.phaseError25 || ''} onChange={(e) => handleInputChange(transformer._id, 'preTesting', core, e.target.value, 'phaseError25')} disabled={isReadOnly} /></td>
                                             </tr>
                                         );
                                     })}
@@ -870,107 +839,8 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                             </div>
                         </div>
 
-                        {/* Section 3: Final Testing */}
-                        <div className="border border-black mb-4">
-                            <div className="text-center font-bold bg-gray-100 border-b border-black py-1">Final Testing</div>
-                            <table className="w-full border-collapse border-hidden table-fixed text-sm text-left">
-                                <thead>
-                                    <tr>
-                                        <th className="border border-black p-1 font-normal text-center w-16">Sr no.</th>
-                                        <th className="border border-black p-1 font-normal w-1/2 text-center">Parameters</th>
-                                        <th className="border border-black p-1 font-normal w-auto text-center">Readings</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {[
-                                        { id: 1, label: 'Leakage', field: 'leakage' },
-                                        { id: 2, label: 'Terminal Marking', field: 'terminalMarking' },
-                                        { id: 3, label: 'Polarity Testing', field: 'polarityTesting' },
-                                        { id: 4, label: 'Insulation Resistance Test', field: 'insulationResistance' },
-                                        { id: 5, label: 'Primary to Secondary', field: 'primaryToSecondary' },
-                                        { id: 6, label: 'Primary to Earth', field: 'primaryToEarth' },
-                                        { id: 7, label: 'Secondary to Earth', field: 'secondaryToEarth' },
-                                        { id: 9, label: 'H.V.Test on Secondary Winding', field: 'hvSecondary' },
-                                        { id: 10, label: 'H.V.Test on Primary Winding', field: 'hvPrimary' },
-                                        { id: 11, label: 'Induced Over Voltage Test', field: 'inducedOverVoltage' },
-                                    ].map((row) => (
-                                        <tr key={row.id}>
-                                            <td className="border border-black p-1 text-center">{row.id}</td>
-                                            <td className="border border-black p-1 pl-4">{row.label}</td>
-                                            <td className="border border-black p-0">
-                                                <Input 
-                                                    className={`h-6 border-none shadow-none text-center bg-transparent w-full ${['OK', '10 GΩ'].includes(reportData.finalTesting?.[row.field]) ? 'text-blue-600' : ''}`}
-                                                    value={reportData.finalTesting?.[row.field] || ''} 
-                                                    onChange={(e) => handleInputChange(transformer._id, 'finalTesting', row.field, e.target.value)} 
-                                                    disabled={isReadOnly} 
-                                                />
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
 
-                        {/* Section 4: Accuracy Test Layout */}
-                        <div className="border border-black mb-4">
-                            <div className="text-center font-bold bg-gray-100 border-b border-black py-1 uppercase">Accuracy Test Metering</div>
-                            <table className="w-full border-collapse border-hidden table-fixed text-sm text-center">
-                                <thead>
-                                    <tr>
-                                        <td className="border border-black p-1 w-24 align-middle bg-gray-50 font-bold" rowSpan={2}>Core</td>
-                                        <td className="border border-black p-1 w-24 align-middle bg-gray-50 font-bold" rowSpan={2}>% of primary<br/>current</td>
-                                        <td className="border border-black p-1 font-bold w-auto bg-gray-50" colSpan={2}>100% Burden</td>
-                                        <td className="border border-black p-1 font-bold w-auto bg-gray-50" colSpan={2}>25% Burden</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="border border-black p-1 leading-tight bg-gray-50 font-medium">Ratio Error<br/>(%)</td>
-                                        <td className="border border-black p-1 leading-tight bg-gray-50 font-medium">Phase Error<br/>(min)</td>
-                                        <td className="border border-black p-1 leading-tight bg-gray-50 font-medium">Ratio Error<br/>(%)</td>
-                                        <td className="border border-black p-1 leading-tight bg-gray-50 font-medium">Phase error<br/>(min)</td>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {activeCores.map((core) => {
-                                        const isProtection = core.startsWith('protection');
-                                        const percentages = isProtection ? ['100'] : ['120', '100', '80'];
-                                        const label = isProtection ? 'Protection' : 'Metering';
 
-                                        return percentages.map((perc, idx) => {
-                                            const val100 = accuracyValidations[core]?.[perc]?.val100 || { isPass: null, reason: null };
-                                            const val25 = accuracyValidations[core]?.[perc]?.val25 || { isPass: null, reason: null };
-                                            
-                                            return (
-                                                <tr key={`${core}-${perc}`}>
-                                                    {idx === 0 && (
-                                                        <td className="border border-black p-1 font-bold align-middle bg-gray-100 uppercase" rowSpan={percentages.length}>
-                                                            {label}
-                                                        </td>
-                                                    )}
-                                                    <td className="border border-black p-1 text-center relative font-medium bg-gray-50">
-                                                        {perc}%
-                                                        {(val100.isPass === false || val25.isPass === false) ? (
-                                                            <div className="absolute right-0 top-1 text-[10px] font-bold px-1 py-0.5 rounded bg-red-100 text-red-700">FAIL</div>
-                                                        ) : null}
-                                                    </td>
-                                                    <td className="border border-black p-0"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${val100.isPass === false && val100.reason?.includes('Ratio') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.accuracyTest?.[core]?.[perc]?.ratioError100 || ''} onChange={(e) => handleAccuracyChange(transformer._id, core, perc, 'ratioError100', e.target.value)} disabled={isReadOnly} /></td>
-                                                    <td className="border border-black p-0"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${val100.isPass === false && val100.reason?.includes('Phase') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.accuracyTest?.[core]?.[perc]?.phaseError100 || ''} onChange={(e) => handleAccuracyChange(transformer._id, core, perc, 'phaseError100', e.target.value)} disabled={isReadOnly} /></td>
-                                                    <td className="border border-black p-0"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${val25.isPass === false && val25.reason?.includes('Ratio') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.accuracyTest?.[core]?.[perc]?.ratioError25 || ''} onChange={(e) => handleAccuracyChange(transformer._id, core, perc, 'ratioError25', e.target.value)} disabled={isReadOnly} /></td>
-                                                    <td className="border border-black p-0"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${val25.isPass === false && val25.reason?.includes('Phase') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.accuracyTest?.[core]?.[perc]?.phaseError25 || ''} onChange={(e) => handleAccuracyChange(transformer._id, core, perc, 'phaseError25', e.target.value)} disabled={isReadOnly} /></td>
-                                                </tr>
-                                            );
-                                        });
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Footer */}
-                        <div className="flex justify-between items-center p-2 text-sm border border-black bg-gray-50 mt-4">
-                            <div className="flex items-center">
-                                <span className="font-bold mr-2 ml-2">Tested By:</span>
-                                <Input value={reportData.testedBy || user?.name || user?.fullName || ''} className="w-48 h-7 text-blue-600 italic font-medium bg-transparent border-t-0 border-l-0 border-r-0 border-b border-gray-400 rounded-none px-1" readOnly disabled={isReadOnly} />
-                            </div>
-                        </div>
 
                     </div>
                 );
@@ -1004,3 +874,4 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
     </div>
   );
 }
+

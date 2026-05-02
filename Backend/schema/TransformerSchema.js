@@ -230,7 +230,7 @@ const TransformerSchema = new Schema({
   // Workflow tracking
   currentStage: {
     type: String,
-    enum: ["core", "secondary", "primary", "heating", "final", "shipped", "pt", "admin_review"],
+    enum: ["core", "secondary", "primary", "heating", "final", "shipped", "pt", "pt_pretest", "admin_review"],
     default: "core"
   },
 
@@ -269,7 +269,8 @@ const TransformerSchema = new Schema({
         reportDate: { type: Date, default: Date.now }
       },
       final_test: { type: TestStageSchema, default: {} },
-      pt_test: { type: Schema.Types.Mixed, default: {} }
+      pt_test: { type: Schema.Types.Mixed, default: {} },
+      pt_pretest_test: { type: Schema.Types.Mixed, default: {} }
     },
 
   // Granular Assignments (Per-Unit)
@@ -278,7 +279,8 @@ const TransformerSchema = new Schema({
     secondary_tester: String,
     primary_tester: String,
     final_tester: String,
-    pt_tester: String
+    pt_tester: String,
+    pt_pretest_tester: String
   },
 
   // Added newly for primary testing

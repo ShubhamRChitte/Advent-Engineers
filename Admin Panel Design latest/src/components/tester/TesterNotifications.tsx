@@ -158,10 +158,11 @@ export function TesterNotifications({ userRole, onViewOrder }: TesterNotificatio
             fromStage: 'Admin',
             fromEmployee: 'System',
             timestamp: new Date(n.createdAt).toLocaleString(),
+            rawDate: n.createdAt,
             isRead: n.isRead,
             priority: order.priority || 'Medium'
           };
-        });
+        }).sort((a: any, b: any) => new Date(b.rawDate || 0).getTime() - new Date(a.rawDate || 0).getTime());
         setNotifications(mapped);
       } catch (err) {
         console.error("API ERROR:", err);
@@ -271,33 +272,33 @@ export function TesterNotifications({ userRole, onViewOrder }: TesterNotificatio
       </div>
 
       {/* Notifications List */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {notifications.map((notification) => (
           <Card
             key={notification.id}
-            className={`p-6 ${!notification.isRead ? 'border-l-4 border-l-blue-600 bg-blue-50/30' : ''}`}
+            className={`p-4 ${!notification.isRead ? 'border-l-4 border-l-blue-600 bg-blue-50/30' : ''}`}
           >
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* Notification Header */}
               <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4 flex-1">
-                  <div className={`p-3 rounded-lg ${!notification.isRead ? 'bg-blue-500' : 'bg-gray-400'}`}>
-                    <Bell className="w-6 h-6 text-white" />
+                <div className="flex items-start gap-3 flex-1">
+                  <div className={`p-2 rounded-lg ${!notification.isRead ? 'bg-blue-500' : 'bg-gray-400'}`}>
+                    <Bell className="w-5 h-5 text-white" />
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-start justify-between mb-1">
                       <div>
                         {/* <h3 className="text-gray-900 mb-1">{notification.message}</h3> */}
-                        <h3 className="text-gray-900 mb-1">You have a new testing task assigned</h3>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-0.5">You have a new testing task assigned</h3>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm text-gray-600">{notification.jobId}</p>
+                          <p className="text-xs text-gray-600 font-medium">{notification.jobId}</p>
                         </div>
                       </div>
                       {!notification.isRead && (
-                        <Badge className="bg-blue-600 text-white">New</Badge>
+                        <Badge className="bg-blue-600 text-white text-[10px] px-1.5 py-0 h-5">New</Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
                       <span>From {notification.fromStage}: {notification.fromEmployee}</span>
                       <span>•</span>
                       <span>{notification.timestamp}</span>
@@ -309,30 +310,29 @@ export function TesterNotifications({ userRole, onViewOrder }: TesterNotificatio
                     variant="outline"
                     size="sm"
                     onClick={() => handleMarkAsRead(notification.id)}
-                    className="gap-2 ml-2"
+                    className="gap-1.5 ml-2 h-7 text-xs px-2"
                   >
-                    <CheckCircle className="w-4 h-4" />
+                    <CheckCircle className="w-3.5 h-3.5" />
                     Mark as Read
                   </Button>
                 )}
               </div>
 
               {/* Transformer Details */}
-              <div className="p-4 bg-white rounded-lg border border-gray-200">
-                <h4 className="text-sm text-gray-700 mb-3">Transformer Details</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-3 bg-white rounded-md border border-gray-100 shadow-sm">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">Client Name</p>
+                    <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">Client Name</p>
                     <p className="text-sm font-medium text-gray-900">{notification.clientName}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">Transformer</p>
+                    <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">Transformer</p>
                     <p className="text-sm font-medium text-gray-900">{notification.transformerName}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">Quantity</p>
+                    <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">Quantity</p>
                     <div className="flex items-center gap-1">
-                      <Package className="w-4 h-4 text-gray-400" />
+                      <Package className="w-3.5 h-3.5 text-gray-400" />
                       <span className="text-sm font-medium text-gray-900">{notification.quantity} units</span>
                     </div>
                   </div>
