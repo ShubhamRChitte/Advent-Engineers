@@ -43,6 +43,31 @@ const PreTestBatchSchema = new Schema({
     type: Number,
     default: 0
   },
+  discardedCount: {
+    type: Number,
+    default: 0
+  },
+  // Permanent log of core IDs that were discarded/replaced — never removed once added.
+  // Used to ensure skeleton row IDs skip these slots on reload.
+  discardedCoreIds: {
+    type: [String],
+    default: []
+  },
+  
+  // Storage for in-progress testing data
+  testSetup: {
+    type: Object,
+    default: {}
+  },
+  testLimits: {
+    type: Object,
+    default: {}
+  },
+  readings: {
+    type: [Object],
+    default: []
+  },
+  
   createdBy: {
     type: Schema.Types.ObjectId,
     ref: "User",

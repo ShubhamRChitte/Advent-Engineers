@@ -1,4 +1,5 @@
 import { ReportHeader } from '../reports';
+// Triggering fresh reload to clear potential rowsRef cache
 import { getSafeOrderId, getSafeClientName, getSafeBatchId } from '../../utils/orderUtils';
 
 interface BSATColumn {
@@ -188,21 +189,22 @@ export function CoreReportPrint({
                         <th className="text-center" style={{ width: '15%' }}>Date</th>
                         <th className="text-center" style={{ width: '20%' }}>Vendor core No.</th>
                         <th className="text-center" style={{ width: '25%' }}>Internal core No.</th>
-                        {bsatColumns.map(col => (
-                            <th key={col.id} className="text-center bg-amber-light">{col.bsatValue}</th>
-                        ))}
+                        {bsatColumns.map(col => {
+                            if (!col) return null;
+                            return <th key={col.id} className="text-center bg-amber-light">{col.bsatValue}</th>;
+                        })}
                         <th className="text-center" style={{ width: '15%' }}>Remark</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {rows.map((row, index) => (
+                    {rows && rows.map((row, index) => (
                         <tr key={index}>
                             <td className="text-center">{row.date}</td>
                             <td className="text-center">{row.coreVendorNo}</td>
                             <td className="text-center font-bold">{row.internalCoreNo}</td>
                             {bsatColumns.map(col => (
                                 <td key={col.id} className="text-center">
-                                    {row.dynamicValues[col.id] || '-'}
+                                    {row.dynamicValues?.[col.id] || '-'}
                                 </td>
                             ))}
                             <td className={`text-center font-bold ${row.remark === 'P' ? 'text-green-600' : 'text-red-600'}`}>
@@ -211,7 +213,7 @@ export function CoreReportPrint({
                         </tr>
                     ))}
                     {/* Add empty rows if needed for A4 height */}
-                    {rows.length < 15 && Array.from({ length: 15 - rows.length }).map((_, i) => (
+                    {rows && rows.length < 15 && Array.from({ length: 15 - rows.length }).map((_, i) => (
                         <tr key={`empty-${i}`} style={{ height: '24px' }}>
                             <td></td><td></td><td></td>
                             {bsatColumns.map(col => <td key={col.id}></td>)}

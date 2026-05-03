@@ -322,7 +322,8 @@ export function PreTestBatchModule({ onBack, user, initialBatch }: PreTestBatchM
             vendorName: batchData.vendorName,
             vendorId: batchData.vendorId,
             numberOfCores: numCores,
-            turns: finalTurns
+            turns: finalTurns,
+            discardedCoreIds: batchData.discardedCoreIds || []
           }}
         />
       </div>

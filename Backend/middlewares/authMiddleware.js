@@ -8,14 +8,25 @@ const isAuthenticated = (req, res, next) => {
 
   // 2. Check JWT (for API requests with Bearer token)
   passport.authenticate('jwt', { session: false }, (err, user, info) => {
-    if (err) return next(err);
+    if (err) {
+      console.error("[AUTH] JWT Authentication Error:", err);
+      return next(err);
+    }
+    
     if (user) {
       req.user = user;
       return next();
     }
+
+    // Diagnostic logging
+    const authHeader = req.headers.authorization;
+    const hasToken = !!authHeader;
+    const reason = info ? info.message : "No valid user found";
+    console.warn(`[AUTH] 401 Unauthorized at ${req.originalUrl}. Reason: ${reason}. Token Present: ${hasToken}`);
+
     return res.status(401).json({ 
       success: false, 
-      message: "Unauthorized: No active session or valid token found. Please log in." 
+      message: `Unauthorized: ${reason}. Please log in.`
     });
   })(req, res, next);
 };

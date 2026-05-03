@@ -1,3 +1,4 @@
+
 const ReadyTransformer = require("../models/ReadyTransformerModel");
 const { PreTestBatchModel } = require("../models/PreTestBatchModel");
 const { FailedCoreModel } = require("../models/FailedCoreModel");
@@ -51,7 +52,7 @@ exports.batchAddReadyTransformers = async (req, res) => {
       coreId: reading.internalCoreNo || generateCoreIdFromBatch(batchId, idx + 1),
       batchId,
       coreType,
-      specifications: { 
+      specifications: {
         turns,
         ratio: testSetup?.ratio || '', // Extract from setup if provided
         burden: testSetup?.burden || '',
@@ -81,7 +82,7 @@ exports.batchAddReadyTransformers = async (req, res) => {
       returnStatus: "PENDING",
       dynamicValues: reading.measuredMa || reading.dynamicValues || {},
       // Snapshots for audit
-      jobId: batchId, 
+      jobId: batchId,
       clientName: "PRE-TEST BATCH"
     }));
 
@@ -138,11 +139,23 @@ exports.getAvailableReadyTransformers = async (req, res) => {
 exports.reserveReadyTransformer = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    if (!req.user || !req.user._id) {
+      console.error("Reserve failed: No user found in request");
+      return res.status(401).json({ message: "Authentication required for reservation" });
+    }
+    
     const userId = req.user._id;
 
     const core = await ReadyTransformer.findById(id);
 
-    if (!core || core.status !== "available") {
+    if (!core) {
+      console.error(`Reserve failed: Core ${id} not found`);
+      return res.status(404).json({ message: "Core not found" });
+    }
+
+    if (core.status !== "available") {
+      console.error(`Reserve failed: Core ${id} status is ${core.status}`);
       return res.status(400).json({ message: "Core not available or already reserved" });
     }
 
@@ -155,6 +168,7 @@ exports.reserveReadyTransformer = async (req, res) => {
     if (global.io) global.io.emit("readyStockUpdated");
     res.json({ message: "Core reserved successfully", core });
   } catch (err) {
+    console.error("Reserve error detail:", err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -184,6 +198,20 @@ exports.useReadyTransformer = async (req, res) => {
     });
 
     await core.save();
+
+    // Update PreTestBatch counter and remove reading if this core belongs to a batch
+    if (core.batchId && typeof core.batchId === 'string' && !core.batchId.startsWith("MANUAL-")) {
+      await PreTestBatchModel.findOneAndUpdate(
+        { batchId: core.batchId },
+        { 
+          $inc: { 
+            passedCount: -1,
+            numberOfCores: -1 
+          },
+          $pull: { readings: { internalCoreNo: core.coreId } }
+        }
+      );
+    }
 
     if (global.io) global.io.emit("readyStockUpdated");
     res.json({ message: "Core assigned successfully", transformer: core });

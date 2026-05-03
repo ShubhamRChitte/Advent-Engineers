@@ -14,8 +14,9 @@ export function AdminSidebar({ activeView, setActiveView }: AdminSidebarProps) {
 
   useEffect(() => {
     const fetchCount = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
       try {
-        const token = localStorage.getItem('token');
         const res = await axios.get('http://localhost:5001/api/failed-cores/count', { 
           withCredentials: true,
           headers: {

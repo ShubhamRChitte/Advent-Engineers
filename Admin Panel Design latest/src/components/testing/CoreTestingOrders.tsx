@@ -40,6 +40,7 @@ export interface CoreTestingOrder {
   approved?: boolean;
   instructions?: string;
   assignedUnitIds?: string[]; // Granular visibility: specific Transformer IDs assigned to user
+  createdAt?: string;
   [key: string]: any; // Allow loose typing to prevent crashes on extra fields
 }
 
@@ -216,7 +217,7 @@ export function CoreTestingOrders({ onStartTesting, user: _user, type = 'active'
                     <p className="text-xs text-gray-500">Order Date</p>
                     <div className="flex items-center gap-1 mt-0.5">
                       <Clock className="w-3 h-3 text-gray-400" />
-                      <span>{new Date(order.createdAt || order.assignedDate || order.deadline).toLocaleDateString()}</span>
+                      <span>{new Date(order['createdAt'] || order.assignedDate || order.deadline).toLocaleDateString()}</span>
                     </div>
                   </div>
                 </div>

@@ -11,11 +11,21 @@ interface TesterSidebarProps {
   userRole: string;
 }
 
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: any;
+  badge?: number | undefined;
+}
+
 export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSidebarProps) {
   const [failedCount, setFailedCount] = useState(0);
 
   useEffect(() => {
     const fetchCount = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
       try {
         const res = await axios.get('http://localhost:5001/api/failed-cores/count', { withCredentials: true });
         if (res.data.success) {
@@ -31,7 +41,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
     return () => clearInterval(interval);
   }, []);
 
-  const getMenuItems = () => {
+  const getMenuItems = (): MenuItem[] => {
     if (userRole === 'pt-tester') {
       return [
         { id: 'home', label: 'Home Dashboard', icon: Home },
@@ -64,7 +74,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
 
 
     // For secondary, after-primary, and final testers
-    const baseItems = [
+    const baseItems: MenuItem[] = [
       { id: 'home', label: 'Home', icon: Home },
       { id: 'notifications', label: 'Notifications', icon: Bell },
       { id: 'testing', label: 'Testing', icon: ClipboardCheck },

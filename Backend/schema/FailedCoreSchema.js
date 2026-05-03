@@ -64,6 +64,10 @@ const FailedCoreSchema = new Schema(
             required: true,
             trim: true
         },
+        dynamicValues: {
+            type: Schema.Types.Mixed,
+            default: {}
+        },
         failureStage: {
             type: String,
             enum: [

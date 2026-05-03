@@ -8,7 +8,8 @@ import {
   Search, 
   Plus, 
   RefreshCw, 
-  CheckCircle2
+  CheckCircle2,
+  Trash2
 } from 'lucide-react';
 import axios from 'axios';
 import { socket } from '../../utils/socket';
@@ -17,6 +18,7 @@ import { PreTestBatchModule } from '../testing/PreTestBatchModule';
 
 interface ReadyTransformer {
   _id: string;
+  batchId?: string;
   coreId: string;
   coreType: string; // Fixed: root level
   serialNumber?: string;
@@ -87,14 +89,26 @@ export default function ReadyStockView() {
     };
   }, []);
 
+  const availableCoresPerBatch = stock.reduce((acc, core) => {
+    if (core.status === 'available' && core.batchId) {
+      acc[core.batchId] = (acc[core.batchId] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  const activeBatches = batches.filter(b => {
+    if (b.status !== 'COMPLETED') return true;
+    return (availableCoresPerBatch[b.batchId] || 0) > 0;
+  });
+
   const counts = {
-    All: batches.length,
+    All: activeBatches.length,
     Metering: stock.filter(s => s.coreType === 'Metering').length,
     Protection: stock.filter(s => s.coreType === 'Protection').length,
     PS: stock.filter(s => s.coreType === 'PS').length
   };
 
-  const filteredBatches = batches.filter(b => 
+  const filteredBatches = activeBatches.filter(b => 
     b.batchId.toLowerCase().includes(search.toLowerCase()) ||
     b.vendorName.toLowerCase().includes(search.toLowerCase()) ||
     b.coreType.toLowerCase().includes(search.toLowerCase())
@@ -120,6 +134,34 @@ export default function ReadyStockView() {
       />
     );
   }
+
+  const handleApproveBatch = async (batchId: string) => {
+    if (!window.confirm("Are you sure you want to approve this batch? All passed cores will be moved to inventory.")) return;
+    try {
+      const res = await axios.post(`http://localhost:5001/api/pre-test-batches/${batchId}/approve`, {}, {
+        withCredentials: true
+      });
+      if (res.status === 200) {
+        toast.success("Batch approved and moved to Ready Stock!");
+        fetchData();
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to approve batch");
+    }
+  };
+
+  const handleDeleteBatch = async (batchId: string) => {
+    if (!window.confirm("Are you sure you want to delete this batch? This action cannot be undone.")) return;
+    try {
+      await axios.delete(`http://localhost:5001/api/pre-test-batches/${batchId}`, {
+        withCredentials: true
+      });
+      toast.success("Batch deleted successfully!");
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to delete batch");
+    }
+  };
 
   const getCoreTypeColor = (type: string) => {
     switch (type) {
@@ -270,7 +312,17 @@ export default function ReadyStockView() {
                     <td className="px-6 py-4 text-right text-gray-500 whitespace-nowrap">
                       {new Date(batch.createdAt).toLocaleDateString('en-GB')}
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
+                      {batch.status !== 'COMPLETED' && (batch.passedCount + (batch.failedCount || 0)) >= batch.numberOfCores && (
+                        <Button 
+                          size="sm" 
+                          className="bg-[#003a70] hover:bg-[#002a50] text-white h-8 px-3 gap-1 font-bold shadow-sm"
+                          onClick={() => handleApproveBatch(batch.batchId)}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Approve
+                        </Button>
+                      )}
                       <Button 
                         variant="ghost" 
                         size="sm" 
@@ -280,8 +332,19 @@ export default function ReadyStockView() {
                           setView('pre-test');
                         }}
                       >
-                        {batch.status || 'CREATED'}
+                        {batch.status === 'COMPLETED' ? 'View' : (batch.status || 'CREATED')}
                       </Button>
+                      {batch.status !== 'COMPLETED' && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                          title="Delete Batch"
+                          onClick={() => handleDeleteBatch(batch.batchId)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))

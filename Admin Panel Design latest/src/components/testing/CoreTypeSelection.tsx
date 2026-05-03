@@ -94,7 +94,7 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
                 // Start granular check
                 const assignedIndices = assignedParams.map((id: string) => {
                   const match = id.match(/[/\-](\d+)$/);
-                  return match ? parseInt(match[1]) : null;
+                  return match ? parseInt(match[1] ?? '') : null;
                 }).filter((n: any) => n !== null);
 
                 // 2. Determine Cores Per Transformer (for ID generation logic)

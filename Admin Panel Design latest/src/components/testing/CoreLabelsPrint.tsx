@@ -162,7 +162,7 @@ export function CoreLabelsPrint({ cores, order, coreType, onBack }: CoreLabelsPr
       </div>
 
       {/* Print Styles */}
-      <style jsx>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           .no-print {
             display: none !important;
@@ -205,7 +205,7 @@ export function CoreLabelsPrint({ cores, order, coreType, onBack }: CoreLabelsPr
             page-break-inside: avoid !important;
           }
         }
-      `}</style>
+      ` }} />
     </div>
   );
 }
