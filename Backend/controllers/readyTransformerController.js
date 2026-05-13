@@ -201,16 +201,23 @@ exports.useReadyTransformer = async (req, res) => {
 
     // Update PreTestBatch counter and remove reading if this core belongs to a batch
     if (core.batchId && typeof core.batchId === 'string' && !core.batchId.startsWith("MANUAL-")) {
-      await PreTestBatchModel.findOneAndUpdate(
-        { batchId: core.batchId },
-        { 
-          $inc: { 
-            passedCount: -1,
-            numberOfCores: -1 
-          },
-          $pull: { readings: { internalCoreNo: core.coreId } }
-        }
-      );
+      const batch = await PreTestBatchModel.findOne({ batchId: core.batchId });
+      if (batch) {
+        // Ensure counts don't go negative
+        const newPassedCount = Math.max(0, (batch.passedCount || 0) - 1);
+        const newTotalCores = Math.max(0, (batch.numberOfCores || 0) - 1);
+        
+        await PreTestBatchModel.findOneAndUpdate(
+          { batchId: core.batchId },
+          { 
+            $set: { 
+              passedCount: newPassedCount,
+              numberOfCores: newTotalCores 
+            },
+            $pull: { readings: { internalCoreNo: core.coreId } }
+          }
+        );
+      }
     }
 
     if (global.io) global.io.emit("readyStockUpdated");

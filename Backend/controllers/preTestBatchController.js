@@ -1,6 +1,8 @@
 const { PreTestBatchModel } = require("../models/PreTestBatchModel");
 const { MeteringCoreTestModel } = require("../models/MeteringCoreTestModel");
 const { ProtectionCoreTestModel } = require("../models/ProtectionCoreTestModel");
+const { FailedCoreModel } = require("../models/FailedCoreModel");
+const ReadyTransformer = require("../models/ReadyTransformerModel");
 const { generateBatchId } = require("../utils/idGenerator");
 
 exports.createBatch = async (req, res) => {
@@ -79,6 +81,20 @@ exports.saveBatchReading = async (req, res) => {
   const { reading, testSetup, testLimits } = req.body;
   const { batchId } = req.params;
 
+  // Helper: determine if a reading is "empty" (all values cleared by user)
+  const isEmptyReading = (r) => {
+    const hasResult = r.result && r.result !== '';
+    if (hasResult) return false;
+    // Check measuredMa (metering/protection/PS)
+    if (Array.isArray(r.measuredMa)) {
+      const allNull = r.measuredMa.every(v => v === null || v === undefined);
+      if (allNull) return true;
+    }
+    // Check single value
+    if (r.value === null || r.value === undefined || r.value === '') return true;
+    return false;
+  };
+
   let retries = 3;
   while (retries > 0) {
     try {
@@ -95,15 +111,25 @@ exports.saveBatchReading = async (req, res) => {
 
       // Find if reading already exists (by internalCoreNo)
       const existingIndex = batch.readings.findIndex(r => r.internalCoreNo === reading.internalCoreNo);
-      if (existingIndex > -1) {
-        batch.readings[existingIndex] = reading;
+
+      if (isEmptyReading(reading)) {
+        // If the row was cleared, REMOVE it from readings so it doesn't persist stale 'F' result
+        if (existingIndex > -1) {
+          batch.readings.splice(existingIndex, 1);
+        }
+        // No need to add it back — skeleton rows are re-created on load
       } else {
-        batch.readings.push(reading);
+        if (existingIndex > -1) {
+          batch.readings[existingIndex] = reading;
+        } else {
+          batch.readings.push(reading);
+        }
       }
 
-      // Recalculate passed and failed counts
-      batch.passedCount = batch.readings.filter(r => r.result === 'P' || r.status === 'PASS').length;
-      const currentlyFailed = batch.readings.filter(r => r.result === 'F' || r.status === 'FAIL').length;
+      // Recalculate passed and failed counts — ONLY use result field, never status
+      // This prevents the -1 passedCount bug caused by double-counting via status field
+      batch.passedCount = batch.readings.filter(r => r.result === 'P').length;
+      const currentlyFailed = batch.readings.filter(r => r.result === 'F').length;
       batch.failedCount = (batch.discardedCount || 0) + currentlyFailed;
 
       batch.markModified('readings');
@@ -127,7 +153,6 @@ exports.saveBatchReading = async (req, res) => {
 };
 
 exports.discardCore = async (req, res) => {
-  const { FailedCoreModel } = require("../models/FailedCoreModel");
   try {
     const { internalCoreNo, vendorCoreNo, reason } = req.body;
     const { batchId } = req.params;
@@ -172,8 +197,8 @@ exports.discardCore = async (req, res) => {
     );
 
     // 4. Recalculate passed and failed counts based on the updated state
-    const currentlyFailed = updatedBatch.readings.filter(r => r.result === 'F' || r.status === 'FAIL').length;
-    updatedBatch.passedCount = updatedBatch.readings.filter(r => r.result === 'P' || r.status === 'PASS').length;
+    const currentlyFailed = updatedBatch.readings.filter(r => r.result === 'F').length;
+    updatedBatch.passedCount = updatedBatch.readings.filter(r => r.result === 'P').length;
     updatedBatch.failedCount = updatedBatch.discardedCount + currentlyFailed;
 
     await updatedBatch.save(); // This save is now safer as it happens on a fresh document and the most intensive part (pull/inc) was atomic.
@@ -226,8 +251,6 @@ exports.approveBatch = async (req, res) => {
     }).filter(entry => entry !== null);
 
     console.log(`Approving batch ${batchId} with ${readyStockEntries.length} valid entries`);
-    const ReadyTransformer = require("../models/ReadyTransformerModel");
-    
     try {
       if (readyStockEntries.length > 0) {
         await ReadyTransformer.insertMany(readyStockEntries, { ordered: false });

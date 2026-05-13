@@ -15,8 +15,9 @@ interface ReadyCore {
   _id: string;
   coreId: string;
   serialNumber?: string;
+  coreType?: string;
   specifications: {
-    coreType: string;
+    coreType?: string;
     ratio?: string;
     burden?: string;
     class?: string;
@@ -33,22 +34,11 @@ interface ReadyStockModalProps {
 
 export function ReadyStockModal({ isOpen, onClose, cores, onSelect, isLoading }: ReadyStockModalProps) {
   const [search, setSearch] = useState('');
-  const [filterRatio, setFilterRatio] = useState('');
-  const [filterBurden, setFilterBurden] = useState('');
-  const [filterClass, setFilterClass] = useState('');
   
   const filteredCores = cores.filter(c => {
     if (!c) return false;
-    const matchesSearch = (c.coreId || c.serialNumber || "").toLowerCase().includes(search.toLowerCase());
-    const matchesRatio = !filterRatio || c.specifications?.ratio === filterRatio;
-    const matchesBurden = !filterBurden || c.specifications?.burden === filterBurden;
-    const matchesClass = !filterClass || c.specifications?.class === filterClass;
-    return matchesSearch && matchesRatio && matchesBurden && matchesClass;
+    return (c.coreId || c.serialNumber || "").toLowerCase().includes(search.toLowerCase());
   });
-
-  const ratios = Array.from(new Set(cores.map(c => c.specifications?.ratio).filter(Boolean)));
-  const burdens = Array.from(new Set(cores.map(c => c.specifications?.burden).filter(Boolean)));
-  const classes = Array.from(new Set(cores.map(c => c.specifications?.class).filter(Boolean)));
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -66,42 +56,14 @@ export function ReadyStockModal({ isOpen, onClose, cores, onSelect, isLoading }:
         </DialogHeader>
 
         <div className="p-6 bg-white border-b border-slate-100 shrink-0">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                placeholder="Search by Core ID or Serial..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 h-10 bg-slate-50 border-slate-200 focus:bg-white transition-all rounded-lg"
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <select 
-                className="h-10 px-3 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                value={filterRatio}
-                onChange={(e) => setFilterRatio(e.target.value)}
-              >
-                <option value="">All Ratios</option>
-                {ratios.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-              <select 
-                className="h-10 px-3 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                value={filterBurden}
-                onChange={(e) => setFilterBurden(e.target.value)}
-              >
-                <option value="">All Burdens</option>
-                {burdens.map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
-              <select 
-                className="h-10 px-3 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                value={filterClass}
-                onChange={(e) => setFilterClass(e.target.value)}
-              >
-                <option value="">All Classes</option>
-                {classes.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input
+              placeholder="Search by Core ID or Serial..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10 h-10 bg-slate-50 border-slate-200 focus:bg-white transition-all rounded-lg"
+            />
           </div>
         </div>
 
@@ -112,50 +74,39 @@ export function ReadyStockModal({ isOpen, onClose, cores, onSelect, isLoading }:
               <p className="text-slate-500 font-medium">Fetching ready stock...</p>
             </div>
           ) : filteredCores.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {filteredCores.map((core) => (
                 <div 
                   key={core._id} 
-                  className="group relative bg-white border border-slate-200 rounded-xl p-5 hover:border-blue-400 hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+                  className="group relative bg-white border border-slate-200 rounded-2xl p-6 hover:border-blue-600 hover:shadow-xl transition-all duration-300 flex flex-col gap-6"
                 >
-                  <div>
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider px-2 py-0.5 bg-blue-50 rounded-full mb-1 inline-block">
-                          {core.specifications?.coreType || 'Metering'}
-                        </span>
-                        <h4 className="text-base font-bold text-slate-800 block leading-tight">
-                          {core.coreId || core.serialNumber}
-                        </h4>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[10px] text-slate-400 font-bold block uppercase leading-none mb-1">Status</span>
-                        <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Available</span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2 mb-4">
-                      <div className="bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-lg">
-                        <span className="text-[10px] text-slate-400 font-bold block uppercase leading-none mb-1">Ratio</span>
-                        <span className="text-sm font-bold text-slate-700">{core.specifications?.ratio || 'N/A'}</span>
-                      </div>
-                      <div className="bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-lg">
-                        <span className="text-[10px] text-slate-400 font-bold block uppercase leading-none mb-1">Burden</span>
-                        <span className="text-sm font-bold text-slate-700">{core.specifications?.burden || 'N/A'}</span>
-                      </div>
-                      <div className="bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-lg">
-                        <span className="text-[10px] text-slate-400 font-bold block uppercase leading-none mb-1">Class</span>
-                        <span className="text-sm font-bold text-slate-700">{core.specifications?.class || 'N/A'}</span>
-                      </div>
+                  {/* Status & Type Bar */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-black text-blue-700 uppercase tracking-widest px-2.5 py-1 bg-blue-50 rounded-md flex-shrink-0">
+                      {core.coreType || core.specifications?.coreType || 'Core Unit'}
+                    </span>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-50 rounded-full border border-green-100 flex-shrink-0">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse flex-shrink-0"></div>
+                      <span className="text-[10px] font-black text-green-700 uppercase tracking-tight whitespace-nowrap">Available</span>
                     </div>
                   </div>
 
-                  <Button 
-                    onClick={() => onSelect(core)} 
-                    className="w-full bg-slate-900 hover:bg-blue-600 text-white font-bold h-10 rounded-lg transition-all group-hover:shadow-lg active:scale-[0.98]"
+                  {/* Identification Section */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Internal Reference</span>
+                    <h4 className="text-lg font-black text-slate-900 break-all leading-none tracking-tight">
+                      {core.coreId || core.serialNumber}
+                    </h4>
+                  </div>
+
+                  {/* Action Button - Explicit Styles for Visibility */}
+                  <button 
+                    onClick={(e) => { e.preventDefault(); onSelect(core); }} 
+                    className="w-full h-11 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-[0.98] cursor-pointer"
                   >
+                    <Package className="w-4 h-4" />
                     Select Core
-                  </Button>
+                  </button>
                 </div>
               ))}
             </div>
@@ -166,15 +117,15 @@ export function ReadyStockModal({ isOpen, onClose, cores, onSelect, isLoading }:
               </div>
               <h3 className="text-lg font-bold text-slate-800 mb-1">No Matching Stock</h3>
               <p className="text-slate-500 max-w-xs mx-auto">
-                We couldn't find any ready cores matching your current specifications and filters.
+                We couldn't find any ready cores matching your search query.
               </p>
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => { setSearch(''); setFilterRatio(''); setFilterBurden(''); setFilterClass(''); }}
+                onClick={() => setSearch('')}
                 className="mt-8 border-slate-200 hover:bg-slate-50 rounded-xl px-10 h-10 font-bold"
               >
-                Clear Filters
+                Clear Search
               </Button>
             </div>
           )}

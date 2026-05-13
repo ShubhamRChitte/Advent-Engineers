@@ -104,6 +104,7 @@ export interface FailedCore {
   value7000: string;
   singleValue?: string;
   dynamicValues?: { [key: string]: string };
+  status?: string;
 }
 
 export function CoreTestingForm({
@@ -188,11 +189,17 @@ export function CoreTestingForm({
 
   const isRowLocked = (row: CoreTestRow) => {
     if (isPreTest) return false;
-    return row.status === 'PASS' || row.status === 'FAIL' || row.status === 'RETURNED';
+    if (row.isReplacement) return false; // Always allow editing replacements
+    // Allow editing even if it's FAIL, as long as it's not approved (isReadOnly)
+    return row.status === 'PASS' || row.status === 'RETURNED';
   };
 
   // Vendor selection helpers
   const getVendors = () => {
+    if (isPreTest && batchData?.vendorName) {
+      // For pre-test, include the batch vendor as an option
+      return [{ serialNo: "V-1", name: batchData.vendorName }];
+    }
     const vendorsObj = ((order as any).coreVendors || (order as any).order?.coreVendors) || {};
     return (vendorsObj[coreType.toLowerCase()] || []) as { serialNo: string; name: string }[];
   };
@@ -346,7 +353,24 @@ export function CoreTestingForm({
           });
         }
 
-        // If data exists, map it; otherwise, use fresh initialization
+        let dbFailedCoreIds = new Set<string>();
+        let dbFailedCores: any[] = [];
+        if (!isPreTest) {
+          const txnOrderId = getSafeOrderId(order);
+          
+          // Use the dedicated order-specific endpoint which is more reliable
+          try {
+            const fcRes = await axios.get(`http://localhost:5001/api/failed-cores/order/${txnOrderId}`, {
+              withCredentials: true,
+              headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+            });
+            dbFailedCores = fcRes.data.data || [];
+            dbFailedCores.forEach(fc => dbFailedCoreIds.add(fc.internalCoreNo?.trim().toUpperCase() || ''));
+            console.log("[LOAD] FETCHED FAILED CORES FOR ORDER:", dbFailedCores.map((f: any) => f.internalCoreNo));
+          } catch (err) {
+            console.error("[LOAD] Failed to load actual failed cores", err);
+          }
+        }
 
         // If data exists, map it; otherwise, use fresh initialization
         if (response.data && response.data.readings && response.data.readings.length > 0) {
@@ -366,9 +390,9 @@ export function CoreTestingForm({
             dynamicValues: isMeteringCheck
               ? Object.fromEntries(bsatColumns.map((col, i) => [col.id, r.measuredMa?.[i] != null ? String(r.measuredMa[i]) : '']))
               : (isProtectionCore || isPSCore)
-                ? Object.fromEntries((isProtectionCore ? protectionBColumns : psBColumns).map((col, i) => [col.id, String(r.measuredMa?.[i] || r.value || '')]))
+                ? Object.fromEntries((isProtectionCore ? protectionBColumns : psBColumns).map((col, i) => [col.id, r.measuredMa?.[i] != null ? String(r.measuredMa[i]) : (r.value != null ? String(r.value) : '')]))
                 : {},
-            singleValue: r.value !== undefined ? String(r.value) : '',
+            singleValue: r.value != null ? String(r.value) : '',
             remark: r.result || '',
             status: r.status || 'PENDING',
             isReplacement: r.isReplacement || false,
@@ -379,53 +403,85 @@ export function CoreTestingForm({
           const restoredFailedCores: FailedCore[] = [];
 
           initializedSkeleton.forEach(skel => {
-            // Check if this base core has been replaced
-            const replacement = mappedSavedRows.find(
-              (s: any) => s.isReplacement && s.replacedCoreId === skel.internalCoreNo
-            );
+            const baseReading = mappedSavedRows.find((s: any) => s.internalCoreNo === skel.internalCoreNo);
+            const sourceRow = baseReading || skel;
 
-            if (replacement) {
-              // The base core was replaced: put base into failedCores, show only replacement
-              const baseReading = mappedSavedRows.find((s: any) => s.internalCoreNo === skel.internalCoreNo);
-              const sourceRow = baseReading || skel;
+            const currentSourceId = sourceRow.internalCoreNo?.trim().toUpperCase() || '';
+            console.log(`Checking if ${currentSourceId} is in Failed Cores:`, dbFailedCoreIds.has(currentSourceId));
+            if (dbFailedCoreIds.has(currentSourceId)) {
+              // The user clicked "Replace" and moved it to Failed Cores section
+              const dbFc = dbFailedCores.find((fc: any) => fc.internalCoreNo?.trim().toUpperCase() === currentSourceId);
               restoredFailedCores.push({
+                _id: dbFc._id,
                 orderId: getSafeOrderId(order),
                 jobId: order.jobId,
                 clientName: order.clientName,
                 coreType: coreType,
                 internalCoreNo: sourceRow.internalCoreNo,
                 coreVendorNo: sourceRow.coreVendorNo,
+                vendorCoreNo: sourceRow.coreVendorNo,
                 date: sourceRow.date,
-                failureReason: 'Replaced from Ready Stock',
+                failureReason: dbFc.failureReason || 'Replaced from Ready Stock',
                 dynamicValues: sourceRow.dynamicValues,
                 value1000: sourceRow.value1000 || '',
                 value3000: sourceRow.value3000 || '',
                 value5000: sourceRow.value5000 || '',
                 value7000: sourceRow.value7000 || '',
                 singleValue: sourceRow.singleValue || '',
+                status: sourceRow.status || 'FAIL'
               });
-              // Show replacement, then walk any further transitive replacements
-              finalRowsToShow.push(replacement);
-              let lastId = replacement.internalCoreNo;
-              let furtherChild;
-              do {
-                furtherChild = mappedSavedRows.find((s: any) => s.isReplacement && s.replacedCoreId === lastId);
-                if (furtherChild) {
-                  finalRowsToShow.push(furtherChild);
-                  lastId = furtherChild.internalCoreNo;
-                }
-              } while (furtherChild);
             } else {
-              // No replacement — add the base core (from saved data or fresh skeleton)
-              const baseReading = mappedSavedRows.find((s: any) => s.internalCoreNo === skel.internalCoreNo);
-              finalRowsToShow.push(baseReading || skel);
+              // Keep it in the table
+              finalRowsToShow.push(sourceRow);
             }
+
+            // Now trace any replacements
+            let lastId = sourceRow.internalCoreNo;
+            let furtherChild: any;
+            do {
+              furtherChild = mappedSavedRows.find((s: any) => s.isReplacement && s.replacedCoreId === lastId);
+              if (furtherChild) {
+                const furtherChildId = furtherChild.internalCoreNo?.trim().toUpperCase() || '';
+                if (dbFailedCoreIds.has(furtherChildId)) {
+                  const dbFc = dbFailedCores.find((fc: any) => fc.internalCoreNo?.trim().toUpperCase() === furtherChildId);
+                  restoredFailedCores.push({
+                    _id: dbFc._id,
+                    orderId: getSafeOrderId(order),
+                    jobId: order.jobId,
+                    clientName: order.clientName,
+                    coreType: coreType,
+                    internalCoreNo: furtherChild.internalCoreNo,
+                    coreVendorNo: furtherChild.coreVendorNo,
+                    vendorCoreNo: furtherChild.coreVendorNo,
+                    date: furtherChild.date,
+                    failureReason: dbFc.failureReason || 'Replaced from Ready Stock',
+                    dynamicValues: furtherChild.dynamicValues,
+                    value1000: furtherChild.value1000 || '',
+                    value3000: furtherChild.value3000 || '',
+                    value5000: furtherChild.value5000 || '',
+                    value7000: furtherChild.value7000 || '',
+                    singleValue: furtherChild.singleValue || '',
+                    status: furtherChild.status || 'FAIL'
+                  });
+                } else {
+                  finalRowsToShow.push(furtherChild);
+                }
+                lastId = furtherChild.internalCoreNo;
+              }
+            } while (furtherChild);
           });
 
           if (restoredFailedCores.length > 0) {
             setFailedCores(restoredFailedCores);
           }
-          setRows(finalRowsToShow);
+          
+          // STRICT FINAL FILTER: absolutely guarantee no failed cores make it to the grid
+          const sanitizedRowsToShow = finalRowsToShow.filter(row => {
+            const id = row.internalCoreNo?.trim().toUpperCase();
+            return !id || !dbFailedCoreIds.has(id);
+          });
+          
+          setRows(sanitizedRowsToShow);
         } else {
           if (!isReadOnly) setRows(initializeRows());
           else setRows([]); // No data to show in read-only
@@ -648,10 +704,10 @@ export function CoreTestingForm({
 
   const handleApproveBatch = async () => {
     if (!isPreTest || !batchData?.batchId) return;
-    
+
     const { passed, failed } = getPassFailCount();
     const totalTested = passed + failed;
-    
+
     if (totalTested < localCoreCount) {
       if (!window.confirm(`Only ${totalTested} out of ${localCoreCount} cores have been tested. Are you sure you want to approve the batch? Untested cores will remain in the batch.`)) {
         return;
@@ -709,7 +765,7 @@ export function CoreTestingForm({
     const updatedSpecs = { ...specs, [field]: value };
     setSpecs(updatedSpecs);
     specsRef.current = updatedSpecs;
-    
+
     // Autosave for Pre-Test
     if (isPreTest && batchData?.batchId) {
       debouncedSaveConfig();
@@ -739,7 +795,8 @@ export function CoreTestingForm({
           mmp: parseFloat(currentSpecs.mmp || '0') || 0,
           testBy: testByRef.current,
           authorizedSignatory: authSigRef.current,
-          testDate: testDateRef.current
+          testDate: testDateRef.current,
+          class: isPSCore ? "PS" : ""
         },
         testLimits: isMetering ? {
           bsatGauss: currentBsatCols.map(col => parseFloat(col.bsatValue) || 0),
@@ -813,57 +870,32 @@ export function CoreTestingForm({
 
   const calculateRemark = (row: CoreTestRow): string => {
     if (row.remark === 'PRE_TESTED') return 'PRE_TESTED';
-    if (isProtectionCore) {
-      // Protection core - check all dynamic values
-      if (Object.keys(row.dynamicValues).length === 0) return '';
+    
+    const columns = isProtectionCore ? protectionBColumns : (isPSCore ? psBColumns : bsatColumns);
+    if (columns.length === 0) return '';
 
-      for (const column of protectionBColumns) {
-        const value = row.dynamicValues[column.id];
-        if (!value) continue;
-        const numValue = parseFloat(value);
-        const limit = parseFloat(column.leLimitValue);
-        if (isNaN(numValue)) continue;
-        if (numValue > limit) return 'F';
-      }
+    let anyAboveLimit = false;
+    let allFilled = true;
+    let anyFilled = false;
 
-      // If we have at least one value and none failed, it's a pass
-      const hasAnyValue = Object.values(row.dynamicValues).some(v => v !== '');
-      return hasAnyValue ? 'P' : '';
-    }
-
-    if (isPSCore) {
-      // PS core - check all dynamic values like Protection core
-      if (Object.keys(row.dynamicValues).length === 0) return '';
-
-      for (const column of psBColumns) {
-        const value = row.dynamicValues[column.id];
-        if (!value) continue;
-        const numValue = parseFloat(value);
-        const limit = parseFloat(column.leLimitValue);
-        if (isNaN(numValue)) continue;
-        if (numValue > limit) return 'F';
-      }
-
-      // If we have at least one value and none failed, it's a pass
-      const hasAnyValue = Object.values(row.dynamicValues).some(v => v !== '');
-      return hasAnyValue ? 'P' : '';
-    }
-
-    // Metering - check dynamic values
-    if (Object.keys(row.dynamicValues).length === 0) return '';
-
-    for (const column of bsatColumns) {
+    for (const column of columns) {
       const value = row.dynamicValues[column.id];
-      if (!value) continue;
+      if (value === '' || value === undefined || value === null) {
+        allFilled = false;
+        continue;
+      }
+      
+      anyFilled = true;
       const numValue = parseFloat(value);
       const limit = parseFloat(column.leLimitValue);
-      if (isNaN(numValue)) continue;
-      if (numValue > limit) return 'F';
+      if (!isNaN(numValue) && numValue > limit) {
+        anyAboveLimit = true;
+      }
     }
 
-    // If we have at least one value and none failed, it's a pass
-    const hasAnyValue = Object.values(row.dynamicValues).some(v => v !== '');
-    return hasAnyValue ? 'P' : '';
+    if (anyAboveLimit) return 'F';
+    if (allFilled && anyFilled) return 'P';
+    return '';
   };
 
   const handleRowChange = (index: number, field: keyof CoreTestRow, value: string | any) => {
@@ -942,23 +974,47 @@ export function CoreTestingForm({
   };
 
   const fetchMatchingReadyCores = async (index: number) => {
+    console.log(`[FETCH_READY] Triggered for index ${index}. Current coreType: ${coreType}`);
     setIsReadyLoading(true);
     setActiveReplaceIndex(index);
     setIsReadyModalOpen(true);
+    
     try {
-      const coreSpecs = order.coreDetails?.find((c: any) => (c.coreType || c.type) === coreType) || {};
-      const res = await axios.get(`http://localhost:5001/api/ready-transformers/available`, {
-        params: {
-          coreType: coreType,
-          ratio: coreSpecs.ratio,
-          burden: coreSpecs.burden,
-          classType: coreSpecs.class
-        },
-        withCredentials: true
+      const row = rows[index];
+      // Search for specs in order details first, fallback to current component specs
+      let coreSpecs = (order.coreDetails || []).find((c: any) => {
+        const desc = (c.description || "").toUpperCase();
+        const cType = c.coreType || "";
+        // More robust detection: PS cores often have Iex limit, Protection cores have specific types.
+        const looksLikePS = cType === 'PS' || c.class === 'PS' || desc.includes(' PS ') || desc.includes('PS');
+        
+        if (coreType === 'PS') return looksLikePS;
+        if (coreType === 'Protection') return cType === 'Protection' && !looksLikePS;
+        if (coreType === 'Metering') return cType === 'Metering';
+        return false;
       });
+
+      console.log(`[FETCH_READY] Detected coreSpecs for ${coreType}:`, coreSpecs);
+
+      const sourceSpecs = coreSpecs || specs;
+      const queryParams: any = {
+        status: 'available',
+        coreType: coreType,
+      };
+
+      console.log(`[FETCH_READY] Final Query Params:`, queryParams);
+
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`http://localhost:5001/api/ready-transformers/available`, {
+        params: queryParams,
+        withCredentials: true,
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+      });
+      
+      console.log(`[FETCH_READY] Received ${res.data.length} matching cores.`);
       setMatchingReadyCores(res.data);
     } catch (err) {
-      console.error("Error fetching ready cores:", err);
+      console.error("[FETCH_READY] Error fetching ready cores:", err);
       toast.error("Failed to fetch matching stock");
     } finally {
       setIsReadyLoading(false);
@@ -967,9 +1023,11 @@ export function CoreTestingForm({
 
   const handleReserveReadyCore = async (core: any) => {
     if (!core?._id) return;
+    const token = localStorage.getItem('token');
     try {
       await axios.post(`http://localhost:5001/api/ready-transformers/reserve/${core._id}`, {}, {
-        withCredentials: true
+        withCredentials: true,
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
       });
       setSelectedReadyCore(core);
       setIsReadyModalOpen(false);
@@ -990,8 +1048,10 @@ export function CoreTestingForm({
 
       const txnOrderId = getSafeOrderId(order);
 
-      // 1. Move failed unit to Failed Section in Backend
+      // 1. Move failed unit to Failed Section in Backend ONLY for Pre-Test immediately.
+      // For standard orders, we wait until user clicks "Replace" on the UI to move it to Failed Cores.
       if (isPreTest && batchData?.batchId) {
+        const token = localStorage.getItem('token');
         // Pre-Test batch: use the batch discard endpoint
         await axios.post(`http://localhost:5001/api/pre-test-batches/${batchData.batchId}/discard-core`, {
           internalCoreNo: failedRow.internalCoreNo,
@@ -999,138 +1059,173 @@ export function CoreTestingForm({
           reason: "Replaced from Ready Stock",
           isReplacement: true,
           dynamicValues: failedRow.dynamicValues
-        }, { withCredentials: true });
-      } else if (txnOrderId) {
-        // Regular Job Order: persist to FailedCoreModel via the dedicated route
-        // This is idempotent — the service checks for duplicates before creating
-        try {
-          await axios.post(`http://localhost:5001/api/failed-cores`, {
-            orderId: txnOrderId,
-            internalCoreNo: failedRow.internalCoreNo,
-            vendorCoreNo: failedRow.coreVendorNo,
-            failureReason: getFailureReason(failedRow) || "Replaced from Ready Stock",
-            failureStage: "TESTING",
-            dynamicValues: failedRow.dynamicValues
-          }, { withCredentials: true });
-        } catch (fcErr: any) {
-          // Non-fatal: core is still replaced, just log the audit failure
-          console.error("[AUDIT] Failed to save failed core record:", fcErr.response?.data || fcErr.message);
-          toast.error("Warning: Failed core audit record could not be saved. Please check Failed Cores section.");
-        }
+        }, { 
+          withCredentials: true,
+          headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+        });
       }
 
       // 2. Mark as used in Inventory and Link to Order
+      const token = localStorage.getItem('token');
       const res = await axios.post(`http://localhost:5001/api/ready-transformers/use/${currentCore._id}`, {
         orderId: txnOrderId,
         replacedCoreId: failedRow.internalCoreNo
       }, {
-        withCredentials: true
+        withCredentials: true,
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
       });
 
       const usedCore = res.data.transformer;
       const systemDate = getSystemDate();
-
-      // 3. Move failed core to local failed section state
-      const failedCoreData: FailedCore = {
-        orderId: txnOrderId,
-        jobId: order.jobId,
-        clientName: order.clientName,
-        coreType: coreType,
-        internalCoreNo: failedRow.internalCoreNo,
-        coreVendorNo: failedRow.coreVendorNo,
-        date: failedRow.date || systemDate,
-        failureReason: getFailureReason(failedRow) || "Replaced from Stock",
-        dynamicValues: failedRow.dynamicValues,
-        value1000: failedRow.value1000 || '',
-        value3000: failedRow.value3000 || '',
-        value5000: failedRow.value5000 || '',
-        value7000: failedRow.value7000 || '',
-        singleValue: failedRow.singleValue || '',
-      };
-      setFailedCores(prev => [...prev, failedCoreData]);
-
-      // 4. Update rows: Replace failed unit with the stock unit
-      const updatedRows = [...rows];
-      const replacementId = `${failedRow.internalCoreNo} (R)`;
-
-      // Copy and format test data from the stock core
       const testData = usedCore.testResults || {};
+      const failedCoreId = failedRow.internalCoreNo;
+      const replacementNo = `${failedCoreId} (R)`;
+      
+      const newReading = {
+        internalCoreNo: replacementNo,
+        coreVendorNo: currentCore.vendorName || testData.vendorCoreNo || batchData?.vendorName || "",
+        dynamicValues: testData.dynamicValues || {},
+        remark: testData.remark || 'PRE_TESTED',
+        status: 'PASS',
+        isReplacement: true,
+        replacedCoreId: failedCoreId
+      };
       
       // Smart reading extraction: Match based on current columns
       let dynamicValues: { [key: string]: string } = {};
-      const currentCols = ((coreType as string) === 'PS' ? psBColumns : bsatColumns);
-      
+      const isPS = (coreType as string) === 'PS';
+      const isProtection = (coreType as string) === 'Protection';
+      const currentCols = isPS ? psBColumns : (isProtection ? protectionBColumns : bsatColumns);
+
+      console.log(`[USE_READY] Extracting readings for ${coreType} using ${currentCols.length} columns.`);
+
       // First: map measuredMa array by index to column ids (1-indexed)
-      if (Array.isArray(testData.measuredMa)) {
+      if (Array.isArray(testData.measuredMa) && testData.measuredMa.length > 0) {
         currentCols.forEach((col, i) => {
           if (testData.measuredMa[i] != null) {
             dynamicValues[col.id] = String(testData.measuredMa[i]);
           }
         });
       } else if (testData.dynamicValues && typeof testData.dynamicValues === 'object') {
+        // Fallback: try to match by key if dynamicValues exists
         dynamicValues = { ...testData.dynamicValues };
+      } else if (testData.value != null) {
+        // Fallback for single-value cores (Metering non-BSAT)
+        dynamicValues["1"] = String(testData.value);
       }
+
+      console.log(`[USE_READY] Extracted dynamic values:`, dynamicValues);
 
       // Second: fill any still-missing cols from flat testData keys
       currentCols.forEach(col => {
         if (!dynamicValues[col.id]) {
           const val = testData[`value${col.bsatValue}`] ||
-                      testData[`v${col.bsatValue}`] ||
-                      testData[col.bsatValue] ||
-                      testData[`value_${col.bsatValue}`];
+            testData[`v${col.bsatValue}`] ||
+            testData[col.bsatValue] ||
+            testData[`value_${col.bsatValue}`];
           if (val != null) dynamicValues[col.id] = String(val);
         }
       });
 
-      const replacementRow: any = {
+      const replacementRow: CoreTestRow = {
         date: testData.date || systemDate,
-        coreVendorNo: testData.vendorCoreNo || testData.coreVendorNo || failedRow.coreVendorNo || usedCore.coreId || `STOCK`,
-        internalCoreNo: replacementId,
+        coreVendorNo: testData.vendorCoreNo || usedCore.vendorCoreNo || usedCore.coreVendorNo || failedRow.coreVendorNo || `STOCK`,
+        internalCoreNo: replacementNo,
         value1000: testData.value1000 || testData.v1000 || '',
         value3000: testData.value3000 || testData.v3000 || '',
         value5000: testData.value5000 || testData.v5000 || '',
         value7000: testData.value7000 || testData.v7000 || '',
-        singleValue: testData.value || testData.reading || '',
+        singleValue: usedCore.value != null ? String(usedCore.value) : (dynamicValues["1"] || ''),
         dynamicValues,
-        remark: testData.remark || 'P',
+        remark: testData.remark || 'PRE_TESTED',
         isReplacement: true,
         replacedCoreId: failedRow.internalCoreNo,
-        status: testData.status || 'PASS'
+        status: (testData.status as any) || 'PASS'
       };
 
       // Replace the failed row entirely with the new ready stock row
-      updatedRows.splice(currentIndex, 1, replacementRow);
+      // No, we keep the failed row and insert the replacement after it!
+      const nextRows = [...rows];
+      nextRows[currentIndex] = { ...failedRow, status: 'FAIL', remark: 'F' };
+      nextRows.splice(currentIndex + 1, 0, replacementRow);
 
-      setRows(updatedRows);
-      activeRowsRef.current = updatedRows;
+      setRows(nextRows);
+      activeRowsRef.current = nextRows;
 
-      // CRITICAL: Save the replacement row IMMEDIATELY (not debounced)
-      // This makes the entire replacement atomic — the ready core is already
-      // consumed from stock, so we must persist the replacement row right now.
-      // If this save fails, we abort the whole operation.
+      // CRITICAL: Save the replacement row IMMEDIATELY
       if (isPreTest && batchData?.batchId) {
-        const rowToSave = updatedRows[currentIndex];
+        const rowToSave = nextRows[currentIndex + 1];
         if (rowToSave) {
-          await performRowSave(rowToSave, currentIndex);
+          await performRowSave(rowToSave, currentIndex + 1);
         }
+      } else {
+        await handleSave(nextRows, failedCores);
       }
 
       setIsConfirmUseModalOpen(false);
       setSelectedReadyCore(null);
       setActiveReplaceIndex(null);
-      
+
       // FIXED: Do NOT decrement localCoreCount for replacements
       // if (isPreTest) {
       //   setLocalCoreCount(prev => Math.max(0, prev - 1));
       // }
-      
+
       toast.success("Ready core assigned successfully!");
     } catch (err: any) {
       console.error("Use Core Error:", err);
       toast.error(err.response?.data?.message || "Failed to use core");
     }
   };
-  
+
+  const handleMoveToFailed = async (index: number) => {
+    const failedRow = rows[index];
+    if (!failedRow) return;
+
+    if (!window.confirm(`Are you sure you want to move core ${failedRow.internalCoreNo} to the Failed Core section permanently?`)) {
+      return;
+    }
+
+    const txnOrderId = getSafeOrderId(order);
+    if (!txnOrderId) {
+      toast.error("Error: Order ID missing. Cannot move to failed section.");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      // 1. Move failed unit to Failed Section in Backend
+      const payload = {
+        orderId: txnOrderId,
+        internalCoreNo: failedRow.internalCoreNo,
+        vendorCoreNo: failedRow.coreVendorNo,
+        failureReason: getFailureReason(failedRow) || "Replaced from Ready Stock",
+        failureStage: "TESTING",
+        dynamicValues: failedRow.dynamicValues,
+        coreType: coreType // Backend normalizes this
+      };
+
+      console.log("Moving core to failed section:", payload);
+      await axios.post(`http://localhost:5001/api/failed-cores`, payload, { 
+        withCredentials: true,
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+      });
+
+      // 2. Update local UI state
+      const nextRows = rows.filter((_, i) => i !== index);
+      setRows(nextRows);
+      
+      // 3. Persist the grid state immediately (crucial for permanent removal from this order)
+      console.log("Persisting grid state after removal...");
+      await handleSave(nextRows);
+
+      toast.success("Core moved to failed section and removed from grid.");
+    } catch (err: any) {
+      console.error("Move to failed error:", err);
+      toast.error(err.response?.data?.message || "Failed to move core to Failed Section");
+    }
+  };
+
   const saveTimers = useRef<{ [key: number]: NodeJS.Timeout }>({});
 
   useEffect(() => {
@@ -1158,10 +1253,15 @@ export function CoreTestingForm({
           vendorCoreNo: row.coreVendorNo,
           internalCoreNo: row.internalCoreNo,
           ...(isMetering || isProtectionCore || isPSCore
-            ? { measuredMa: (isMetering ? currentBsatCols : (isProtectionCore ? currentProtCols : currentPsCols)).map(col => parseFloat(row.dynamicValues[col.id] || '0') || 0) }
-            : { value: parseFloat(row.singleValue || '0') }
+            ? { measuredMa: (isMetering ? currentBsatCols : (isProtectionCore ? currentProtCols : currentPsCols)).map(col => {
+                const val = row.dynamicValues[col.id];
+                if (val === '' || val === undefined || val === null) return null;
+                const num = parseFloat(val);
+                return isNaN(num) ? null : num;
+              }) }
+            : { value: (row.singleValue === '' || row.singleValue === undefined || row.singleValue === null) ? null : parseFloat(row.singleValue) }
           ),
-          result: row.remark || "F",
+          result: row.remark || "",
           status: row.status || (row.remark === 'P' ? 'PASS' : (row.remark === 'F' ? 'FAIL' : 'PENDING'))
         },
         testSetup: {
@@ -1193,8 +1293,10 @@ export function CoreTestingForm({
       };
 
       console.log(`DEBUG: Saving row ${index} (${payload.reading.internalCoreNo}) to batch ${batchData.batchId}`);
+      const token = localStorage.getItem('token');
       await axios.post(`http://localhost:5001/api/pre-test-batches/${batchData.batchId}/save-reading`, payload, {
-        withCredentials: true
+        withCredentials: true,
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
       });
 
       console.log("DEBUG: Save successful for row", index);
@@ -1246,12 +1348,16 @@ export function CoreTestingForm({
     }
 
     try {
+      const token = localStorage.getItem('token');
       const response = await axios.post(`http://localhost:5001/api/pre-test-batches/${batchData.batchId}/discard-core`, {
         internalCoreNo: row.internalCoreNo,
         vendorCoreNo: row.coreVendorNo,
         reason: "Failed testing",
         dynamicValues: row.dynamicValues
-      }, { withCredentials: true });
+      }, { 
+        withCredentials: true, 
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+      });
 
       if (response.status === 200) {
         toast.success("Core discarded and moved to Failed Section");
@@ -1295,14 +1401,17 @@ export function CoreTestingForm({
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (rowsOverride?: CoreTestRow[], failedCoresOverride?: FailedCore[]) => {
     if (isReadOnly) return;
     try {
       const isMetering = coreType === 'Metering';
       const isPS = coreType === 'PS';
 
+      const currentRows = rowsOverride || rows;
+      const currentFailedCores = failedCoresOverride || failedCores;
+
       // 1. AUTO-FILL IDs & CALCULATE REMARKS
-      const processedRows = rows.map((row, index) => {
+      const processedRows = currentRows.map((row, index) => {
         // FIX: Check both dynamicValues AND singleValue
         const hasDynValues = Object.values(row.dynamicValues || {}).some(v => v !== '' && v !== null);
         const hasSingleValue = row.singleValue !== '' && row.singleValue !== null;
@@ -1384,7 +1493,8 @@ export function CoreTestingForm({
           },
           turnsUsed: parseInt(specs.turnUsed || '0') || 0,
           areaSqCm: parseFloat(specs.area || '0') || 0,
-          mmp: parseFloat(specs.mmp || '0') || 0
+          mmp: parseFloat(specs.mmp || '0') || 0,
+          class: isPSCore ? "PS" : ""
         },
         readings: [
           ...validReadings.map(row => ({
@@ -1399,18 +1509,6 @@ export function CoreTestingForm({
             result: row.remark || "F",
             isReplacement: !!row.isReplacement,
             replacedCoreId: row.replacedCoreId || null
-          })),
-          ...failedCores.map(fc => ({
-            date: formattedDate,
-            vendorCoreNo: fc.coreVendorNo,
-            internalCoreNo: fc.internalCoreNo,
-            ...(isMetering
-              ? { measuredMa: bsatColumns.map(col => parseFloat((fc.dynamicValues ?? {})[col.id] || '0') || 0) }
-              : { value: parseFloat(fc.singleValue || Object.values(fc.dynamicValues ?? {})[0] || '0') }
-            ),
-            result: "F",
-            isReplacement: false,
-            replacedCoreId: null
           }))
         ]
       };
@@ -1437,10 +1535,15 @@ export function CoreTestingForm({
             vendorCoreNo: row.coreVendorNo,
             internalCoreNo: row.internalCoreNo,
             ...(isMetering
-              ? { measuredMa: bsatColumns.map(col => parseFloat(row.dynamicValues[col.id] || '0') || 0) }
-              : { value: parseFloat(row.singleValue || Object.values(row.dynamicValues)[0] || '0') }
+              ? { measuredMa: bsatColumns.map(col => {
+                  const val = row.dynamicValues[col.id];
+                  if (val === '' || val === undefined || val === null) return null;
+                  const num = parseFloat(val);
+                  return isNaN(num) ? null : num;
+                }) }
+              : { value: (row.singleValue === '' || row.singleValue === undefined || row.singleValue === null) ? null : parseFloat(row.singleValue) }
             ),
-            result: row.remark || "F",
+            result: row.remark || "",
             status: row.status || (row.remark === 'P' ? 'PASS' : (row.remark === 'F' ? 'FAIL' : 'PENDING'))
           })),
           testSetup: finalPayload.testSetup,
@@ -1504,15 +1607,11 @@ export function CoreTestingForm({
   };
 
   const getPassFailCount = () => {
-    const passed = rows.filter(row => 
-      row.remark === 'P' || 
-      row.remark === 'PRE_TESTED' || 
-      row.status === 'PASS'
-    ).length;
-    const failed = rows.filter(row => 
-      row.remark === 'F' || 
-      row.status === 'FAIL'
-    ).length;
+    // P: only cores explicitly marked as 'P' (passed threshold test)
+    // F: only cores explicitly marked as 'F' (failed threshold test)
+    // Cores with empty remark = untested/incomplete — NOT counted in either P or F
+    const passed = rows.filter(row => row.remark === 'P').length;
+    const failed = rows.filter(row => row.remark === 'F').length;
     return { passed, failed };
   };
 
@@ -1569,16 +1668,18 @@ export function CoreTestingForm({
     }
   };
 
-  const renderReadyStockModals = () => (
-    <>
-      {/* Ready Stock Selection Modal */}
-      <ReadyStockModal
-        isOpen={isReadyModalOpen}
-        onClose={() => setIsReadyModalOpen(false)}
-        cores={matchingReadyCores}
-        isLoading={isReadyLoading}
-        onSelect={handleReserveReadyCore}
-      />
+  const renderReadyStockModals = () => {
+    console.log(`[RENDER_MODALS] Rendering modals. isReadyModalOpen: ${isReadyModalOpen}, matchingReadyCores: ${matchingReadyCores.length}`);
+    return (
+      <>
+        {/* Ready Stock Selection Modal */}
+        <ReadyStockModal
+          isOpen={isReadyModalOpen}
+          onClose={() => setIsReadyModalOpen(false)}
+          cores={matchingReadyCores}
+          isLoading={isReadyLoading}
+          onSelect={handleReserveReadyCore}
+        />
 
       {/* Confirmation Modal for using ready core */}
       <Dialog open={isConfirmUseModalOpen} onOpenChange={setIsConfirmUseModalOpen}>
@@ -1594,7 +1695,7 @@ export function CoreTestingForm({
             <p className="text-sm font-semibold">Ready Core Details:</p>
             <div className="text-xs space-y-1">
               <p>Serial: {selectedReadyCore?.coreId || selectedReadyCore?.serialNumber}</p>
-              <p>Specs: {selectedReadyCore?.specifications?.ratio} | {selectedReadyCore?.specifications?.burden} | {selectedReadyCore?.specifications?.["class"] || selectedReadyCore?.specifications?.class}</p>
+              <p>Type: {selectedReadyCore?.coreType || selectedReadyCore?.specifications?.coreType || 'Core'}</p>
             </div>
           </div>
           <DialogFooter>
@@ -1605,6 +1706,7 @@ export function CoreTestingForm({
       </Dialog>
     </>
   );
+};
 
   if (isLoading) {
     return (
@@ -1952,7 +2054,7 @@ export function CoreTestingForm({
                 Approve Batch
               </Button>
             )}
-            <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={handleSave}>
+            <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={() => handleSave()}>
               <Save className="w-3 h-3" />
               Save All
             </Button>
@@ -2188,7 +2290,7 @@ export function CoreTestingForm({
                             handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: filtered });
                           }}
                           disabled={isReadOnly || isRowLocked(row)}
-                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue) ? 'bg-red-50 text-red-700' : ''
+                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] !== '' && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue) ? 'bg-red-50 text-red-700' : ''
                             }`}
                           placeholder="9.5"
                         />
@@ -2215,7 +2317,7 @@ export function CoreTestingForm({
                                 Discard
                               </Button>
                             ) : (
-                              !row.isReplacement && !rows.some(r => r.replacedCoreId === row.internalCoreNo) && (
+                              !rows.some(r => r.replacedCoreId === row.internalCoreNo) ? (
                                 <>
                                   <Button
                                     size="sm"
@@ -2229,15 +2331,32 @@ export function CoreTestingForm({
                                   </Button>
                                   <Button
                                     size="sm"
+                                    type="button"
                                     variant="outline"
-                                    onClick={() => fetchMatchingReadyCores(index)}
-                                    className="h-7 px-2 text-[10px] gap-1 border-blue-500 text-blue-700 hover:bg-blue-50 bg-white font-bold shadow-sm"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      console.log("Use Ready Stock clicked for row", index);
+                                      fetchMatchingReadyCores(index);
+                                    }}
+                                    className="h-7 px-2 text-[10px] gap-1 border-blue-500 text-blue-700 hover:bg-blue-50 bg-white font-bold shadow-sm cursor-pointer relative z-10"
                                     title="Use pre-tested core from stock"
                                   >
-                                    <Package className="w-3 h-3" />
+                                    <Package className="w-3 h-3 pointer-events-none" />
                                     Use Ready Stock
                                   </Button>
                                 </>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleMoveToFailed(index)}
+                                  className="h-7 px-2 text-[10px] gap-1 border-red-500 text-red-600 hover:bg-red-50 bg-white font-bold shadow-sm"
+                                  title="Move this replaced core to the Failed Core section"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  Move to Failed
+                                </Button>
                               )
                             )}
                           </div>
@@ -2338,6 +2457,7 @@ export function CoreTestingForm({
             )}
           </div>
         </Card>
+        {renderReadyStockModals()}
       </div>
     );
   }
@@ -2653,7 +2773,7 @@ export function CoreTestingForm({
                 Approve Batch
               </Button>
             )}
-            <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={handleSave}>
+            <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={() => handleSave()}>
               <Save className="w-3 h-3" />
               Save All
             </Button>
@@ -2888,7 +3008,7 @@ export function CoreTestingForm({
                             const filtered = e.target.value.replace(/[^0-9+\-.]/g, '');
                             handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: filtered });
                           }}
-                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue ?? '0') ? 'bg-red-50 text-red-700' : ''
+                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] !== '' && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue ?? '0') ? 'bg-red-50 text-red-700' : ''
                             }`}
                           placeholder="9.5"
                         />
@@ -2915,29 +3035,48 @@ export function CoreTestingForm({
                                 Discard
                               </Button>
                             ) : (
-                              !row.isReplacement && !rows.some(r => r.replacedCoreId === row.internalCoreNo) && (
-                                <>
+                              (
+                                !rows.some(r => r.replacedCoreId === row.internalCoreNo) ? (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleReplaceCore(index)}
+                                      className="h-7 px-2 text-[10px] gap-1 border-orange-500 text-orange-700 bg-white hover:bg-orange-50 font-bold shadow-sm"
+                                      title="Replace this failed core with manual testing"
+                                    >
+                                      <RefreshCw className="w-3 h-3" />
+                                      Manual Replace
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      type="button"
+                                      variant="outline"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        console.log("Use Ready Stock clicked for row", index);
+                                        fetchMatchingReadyCores(index);
+                                      }}
+                                      className="h-7 px-2 text-[10px] gap-1 border-blue-500 text-blue-700 hover:bg-blue-50 bg-white font-bold shadow-sm cursor-pointer relative z-10"
+                                      title="Use pre-tested core from stock"
+                                    >
+                                      <Package className="w-3 h-3 pointer-events-none" />
+                                      Use Ready Stock
+                                    </Button>
+                                  </>
+                                ) : (
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => handleReplaceCore(index)}
-                                    className="h-7 px-2 text-[10px] gap-1 border-orange-500 text-orange-700 bg-white hover:bg-orange-50 font-bold shadow-sm"
-                                    title="Replace this failed core with manual testing"
+                                    onClick={() => handleMoveToFailed(index)}
+                                    className="h-7 px-2 text-[10px] gap-1 border-red-500 text-red-600 hover:bg-red-50 bg-white font-bold shadow-sm"
+                                    title="Move this replaced core to the Failed Core section"
                                   >
-                                    <RefreshCw className="w-3 h-3" />
-                                    Manual Replace
+                                    <Trash2 className="w-3 h-3" />
+                                    Move to Failed
                                   </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => fetchMatchingReadyCores(index)}
-                                    className="h-7 px-2 text-[10px] gap-1 border-blue-500 text-blue-700 hover:bg-blue-50 bg-white font-bold shadow-sm"
-                                    title="Use pre-tested core from stock"
-                                  >
-                                    <Package className="w-3 h-3" />
-                                    Use Ready Stock
-                                  </Button>
-                                </>
+                                )
                               )
                             )}
                           </div>
@@ -3037,6 +3176,7 @@ export function CoreTestingForm({
             )}
           </div>
         </Card>
+        {renderReadyStockModals()}
       </div>
     );
   }
@@ -3349,7 +3489,7 @@ export function CoreTestingForm({
               Approve Batch
             </Button>
           )}
-          <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={handleSave}>
+          <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={() => handleSave()}>
             <Save className="w-3 h-3" />
             Save All
           </Button>
@@ -3631,7 +3771,7 @@ export function CoreTestingForm({
                             handleRowChange(index, 'dynamicValues', { ...(row.dynamicValues || {}), [column.id]: filtered });
                           }}
                           disabled={isReadOnly || isRowLocked(row)}
-                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues?.[column.id] && parseFloat(row.dynamicValues?.[column.id] || '0') > parseFloat(column.leLimitValue || '0') ? 'bg-red-50 text-red-700' : ''
+                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues?.[column.id] !== '' && parseFloat(row.dynamicValues?.[column.id] || '0') > parseFloat(column.leLimitValue || '0') ? 'bg-red-50 text-red-700' : ''
                             }`}
                           placeholder="9.5"
                         />
@@ -3659,7 +3799,7 @@ export function CoreTestingForm({
                               Discard
                             </Button>
                           ) : (
-                            !row.isReplacement && !rows.some(r => r.replacedCoreId === row.internalCoreNo) && (
+                            !rows.some(r => r.replacedCoreId === row.internalCoreNo) ? (
                               <>
                                 <Button
                                   size="sm"
@@ -3673,15 +3813,32 @@ export function CoreTestingForm({
                                 </Button>
                                 <Button
                                   size="sm"
+                                  type="button"
                                   variant="outline"
-                                  onClick={() => fetchMatchingReadyCores(index)}
-                                  className="h-7 px-2 text-[10px] gap-1 border-blue-500 text-blue-700 bg-white hover:bg-blue-50 font-bold shadow-sm"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    console.log("Use Ready Stock clicked for row", index);
+                                    fetchMatchingReadyCores(index);
+                                  }}
+                                  className="h-7 px-2 text-[10px] gap-1 border-blue-500 text-blue-700 hover:bg-blue-50 bg-white font-bold shadow-sm cursor-pointer relative z-10"
                                   title="Use pre-tested core from stock"
                                 >
-                                  <Package className="w-3 h-3" />
+                                  <Package className="w-3 h-3 pointer-events-none" />
                                   Use Ready Stock
                                 </Button>
                               </>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleMoveToFailed(index)}
+                                className="h-7 px-2 text-[10px] gap-1 border-red-500 text-red-600 hover:bg-red-50 bg-white font-bold shadow-sm"
+                                title="Move this replaced core to the Failed Core section"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                Move to Failed
+                              </Button>
                             )
                           )}
                         </div>
@@ -3731,7 +3888,7 @@ export function CoreTestingForm({
           </div>
           {isPreTest ? (
             <div className="flex flex-col items-end gap-2">
-              <Button 
+              <Button
                 onClick={handleApproveBatch}
                 className="bg-[#003a70] hover:bg-[#002a50] text-white px-6 h-12 gap-2 font-bold shadow-lg shadow-blue-100"
               >
