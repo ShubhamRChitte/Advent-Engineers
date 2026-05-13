@@ -132,6 +132,16 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
             transformer.testHistory.secondary_test.status = 'Completed';
             transformer.testHistory.secondary_test.timestamp = new Date();
             transformer.testHistory.secondary_test.tester = testerName;
+            
+            // --- TIMER COMPLETION LOGIC ---
+            const stageData = transformer.testHistory.secondary_test;
+            if (stageData.timerStatus === "In Progress" && stageData.startTime) {
+                const elapsedMs = Date.now() - new Date(stageData.startTime).getTime();
+                stageData.accumulatedTimeMs = (stageData.accumulatedTimeMs || 0) + elapsedMs;
+            }
+            stageData.timerStatus = "Completed";
+            stageData.startTime = null;
+            // ------------------------------
         } else if (stage === 'primary') {
             if (!transformer.testHistory.primary_test) {
                 transformer.testHistory.primary_test = {};
@@ -148,6 +158,7 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
             transformer.testHistory.final_test.tester = testerName;
         }
 
+        transformer.markModified('testHistory');
         await transformer.save();
 
         // 3. Check Order Assignment Completion
@@ -362,6 +373,107 @@ router.put('/:uniqueId/approve-retest', isAuthenticated, async (req, res) => {
     } catch (error) {
         console.error("Error approving retest:", error);
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/transformers/:uniqueId/update-timer
+// Handles start, pause, complete actions for a transformer's test stage timer
+router.post('/:uniqueId/update-timer', isAuthenticated, async (req, res) => {
+    try {
+        const { uniqueId } = req.params;
+        const { action, stage } = req.body; // stage: 'secondary_test', 'primary_test', etc.
+
+        if (!action || !stage) {
+            return res.status(400).json({ success: false, message: "action and stage are required" });
+        }
+
+        const transformer = await TransformerModel.findOne({ uniqueId });
+        if (!transformer) {
+            return res.status(404).json({ success: false, message: "Transformer not found" });
+        }
+
+        if (!transformer.testHistory) {
+            transformer.testHistory = {};
+        }
+        if (!transformer.testHistory[stage]) {
+            transformer.testHistory[stage] = {};
+        }
+        const stageData = transformer.testHistory[stage];
+
+        if (action === 'start') {
+            // Allocate time if not already set
+            if (!stageData.allocatedMinutes) {
+                const order = await OrderModel.findById(transformer.orderId);
+                const noOfCores = order?.noOfCores || 1;
+
+                if (stage === 'primary_test') {
+                    const { SettingsModel } = require('../models/SettingsModel');
+                    let timeSetting;
+                    
+                    if (noOfCores === 1) {
+                        timeSetting = await SettingsModel.findOne({ key: 'primary_single_core_minutes' });
+                        if (!timeSetting) {
+                            timeSetting = await SettingsModel.create({ key: 'primary_single_core_minutes', value: 5 });
+                        }
+                    } else {
+                        timeSetting = await SettingsModel.findOne({ key: 'primary_multi_core_minutes' });
+                        if (!timeSetting) {
+                            timeSetting = await SettingsModel.create({ key: 'primary_multi_core_minutes', value: 20 });
+                        }
+                    }
+                    stageData.allocatedMinutes = parseInt(timeSetting.value, 10);
+                } else if (stage === 'secondary_test') {
+                    const { SettingsModel } = require('../models/SettingsModel');
+                    let timeSetting = await SettingsModel.findOne({ key: 'secondary_core_minutes' });
+                    if (!timeSetting) {
+                        timeSetting = await SettingsModel.create({ key: 'secondary_core_minutes', value: 5 });
+                    }
+                    stageData.allocatedMinutes = noOfCores * parseInt(timeSetting.value, 10);
+                } else if (stage === 'final_test') {
+                    const { SettingsModel } = require('../models/SettingsModel');
+                    let timeSetting = await SettingsModel.findOne({ key: 'final_test_minutes' });
+                    if (!timeSetting) {
+                        timeSetting = await SettingsModel.create({ key: 'final_test_minutes', value: 22 });
+                    }
+                    stageData.allocatedMinutes = parseInt(timeSetting.value, 10);
+                } else {
+                    // Other stages fallback
+                    stageData.allocatedMinutes = noOfCores * 5;
+                }
+            }
+            
+            // Only start if not already running
+            if (stageData.timerStatus !== "In Progress") {
+                stageData.startTime = new Date();
+                stageData.timerStatus = "In Progress";
+            }
+        } else if (action === 'pause') {
+            if (stageData.timerStatus === "In Progress" && stageData.startTime) {
+                const elapsedMs = Date.now() - new Date(stageData.startTime).getTime();
+                stageData.accumulatedTimeMs = (stageData.accumulatedTimeMs || 0) + elapsedMs;
+                stageData.timerStatus = "Paused";
+                stageData.startTime = null; // Reset start time
+            }
+        } else if (action === 'complete') {
+            if (stageData.timerStatus === "In Progress" && stageData.startTime) {
+                const elapsedMs = Date.now() - new Date(stageData.startTime).getTime();
+                stageData.accumulatedTimeMs = (stageData.accumulatedTimeMs || 0) + elapsedMs;
+            }
+            stageData.timerStatus = "Completed";
+            stageData.startTime = null;
+        } else {
+            return res.status(400).json({ success: false, message: "Invalid action" });
+        }
+
+        // Inform Mongoose that the nested object changed
+        transformer.markModified(`testHistory.${stage}`);
+        await transformer.save();
+
+        res.json({ success: true, message: `Timer updated to ${action}`, data: stageData });
+
+    } catch (error) {
+        console.error("Error updating transformer timer:", error);
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 

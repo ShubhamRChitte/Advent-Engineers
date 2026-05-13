@@ -197,6 +197,13 @@ const TestStageSchema = new Schema({
   reportDate: { type: Date },
   status: { type: String, enum: ['Pending', 'In Progress', 'Completed', 'Approved'], default: 'Pending' },
 
+  // --- TIMER FIELDS FOR SECONDARY (AND OTHER) TESTS ---
+  startTime: { type: Date },
+  accumulatedTimeMs: { type: Number, default: 0 },
+  allocatedMinutes: { type: Number },
+  timerStatus: { type: String, enum: ["Pending", "In Progress", "Paused", "Completed"], default: "Pending" },
+  isAcknowledged: { type: Boolean, default: false },
+
   // These arrays will hold the results based on the Order's core configuration
   metering_results: [MeteringBlockSchema],
   protection_results: [ProtectionBlockSchema],

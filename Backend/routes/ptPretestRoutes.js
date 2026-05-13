@@ -180,9 +180,9 @@ router.put('/transformer/:transformerId/approve', isAuthenticated, async (req, r
     if (allApproved) {
       await OrderModel.findByIdAndUpdate(orderId, {
         $set: { 
-          status: 'PT Testing In Progress', // Next stage
+          status: 'PT Pretesting Completed', // Explicit stage completion
           'completionStages.pt_pretest': true,
-          currentStage: 'pt' // Move the order to pt dashboard
+          currentStage: 'pt' // Move the order to final pt dashboard
         }
       });
 
@@ -345,8 +345,7 @@ router.get('/assigned-orders', isAuthenticated, async (req, res) => {
       transformers.forEach(t => {
           if (t.orderId) {
               const oid = t.orderId._id.toString();
-              if (!ordersMap.has(oid)) {
-                  // Attach a custom status for UI context if needed
+               if (!ordersMap.has(oid)) {
                   const order = { ...t.orderId, assignedUnitIds: [] };
                   ordersMap.set(oid, order);
               }

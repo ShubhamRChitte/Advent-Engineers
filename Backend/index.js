@@ -532,6 +532,95 @@ app.put('/api/orders/:orderId/approve', approveOrder);
 app.put('/api/orders/:orderId/reassign', reassignTester); // New Reassign Route
 app.put('/api/orders/:orderId', updateOrder); // Generic Update Route
 app.delete('/api/orders/:orderId', isAuthenticated, deleteOrder); // Delete order with Cloudinary cleanup
+
+// POST /api/orders/:orderId/update-timer
+// Handles start, pause, complete actions for order-level core testing timer
+app.post('/api/orders/:orderId/update-timer', isAuthenticated, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { action, coreType } = req.body; // coreType: 'metering', 'protection', 'ps'
+
+    if (!action || !coreType) {
+      return res.status(400).json({ success: false, message: "action and coreType are required" });
+    }
+
+    const { OrderModel } = require('./models/OrderModel');
+    const order = await OrderModel.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (!order.stageTracking) order.stageTracking = {};
+    if (!order.stageTracking.core) order.stageTracking.core = {};
+    if (!order.stageTracking.core[coreType]) {
+      order.stageTracking.core[coreType] = {
+        accumulatedTimeMs: 0,
+        status: "Pending",
+        isAcknowledged: false
+      };
+    }
+
+    const stageData = order.stageTracking.core[coreType];
+
+    if (action === 'start') {
+      // Allocate time if not already set using dynamic database value
+      if (!stageData.allocatedMinutes) {
+        const { SettingsModel } = require('./models/SettingsModel');
+        let timeSetting = await SettingsModel.findOne({ key: 'core_core_minutes' });
+        if (!timeSetting) {
+          timeSetting = await SettingsModel.create({ key: 'core_core_minutes', value: 3 });
+        }
+        
+        // Calculate total number of cores of this specific type for the whole order
+        const coresPerTransformer = (order.coreDetails || []).filter(
+          (core) => (core.coreType || core.type).toLowerCase() === coreType.toLowerCase()
+        ).length || 1;
+        const totalRowsNeeded = (order.quantity || 1) * coresPerTransformer;
+        
+        stageData.allocatedMinutes = totalRowsNeeded * parseInt(timeSetting.value, 10);
+      }
+
+      if (stageData.status !== 'In Progress') {
+        stageData.status = 'In Progress';
+        stageData.startTime = new Date();
+        if (stageData.accumulatedTimeMs === undefined) {
+          stageData.accumulatedTimeMs = 0;
+        }
+      }
+    } else if (action === 'pause') {
+      if (stageData.status === 'In Progress' && stageData.startTime) {
+        const elapsedMs = new Date() - new Date(stageData.startTime);
+        stageData.accumulatedTimeMs = (stageData.accumulatedTimeMs || 0) + elapsedMs;
+        stageData.status = 'Paused';
+        stageData.startTime = null;
+      }
+    } else if (action === 'complete') {
+      if (stageData.status === 'In Progress' && stageData.startTime) {
+        const elapsedMs = new Date() - new Date(stageData.startTime);
+        stageData.accumulatedTimeMs = (stageData.accumulatedTimeMs || 0) + elapsedMs;
+      }
+      stageData.status = 'Completed';
+      stageData.startTime = null;
+    }
+
+    // Save changes
+    await OrderModel.findByIdAndUpdate(orderId, { stageTracking: order.stageTracking });
+
+    res.json({
+      success: true,
+      data: {
+        startTime: stageData.startTime,
+        accumulatedTimeMs: stageData.accumulatedTimeMs,
+        allocatedMinutes: stageData.allocatedMinutes,
+        status: stageData.status
+      }
+    });
+
+  } catch (error) {
+    console.error("Error updating order timer:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 app.get('/api/orders/:orderId', async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -3299,6 +3388,193 @@ app.post('/api/strict-approvals/:id/resolve', async (req, res) => {
     res.json({ success: true, message: `Request ${action}d successfully` });
   } catch (error) {
     console.error("Resolution Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET /api/dashboard/efficiency
+// Returns active/delayed testing sessions across stages
+app.get('/api/dashboard/efficiency', isAuthenticated, async (req, res) => {
+  try {
+    const { OrderModel } = require('./models/OrderModel');
+    const { TransformerModel } = require('./models/TransformerModel');
+
+    // --- 1. CORE TEST DELAY TRACKING ---
+    const orders = await OrderModel.find({
+      $or: [
+        { 'stageTracking.core.metering.status': { $in: ['In Progress', 'Paused', 'Completed'] } },
+        { 'stageTracking.core.protection.status': { $in: ['In Progress', 'Paused', 'Completed'] } },
+        { 'stageTracking.core.ps.status': { $in: ['In Progress', 'Paused', 'Completed'] } }
+      ],
+      $or: [
+        { status: { $ne: 'COMPLETED' } },
+        { currentStage: { $ne: 'completed' } }
+      ]
+    });
+
+    const activeTimers = [];
+    orders.forEach(order => {
+      if (!order.stageTracking || !order.stageTracking.core) return;
+      
+      // Find the tester assigned to core testing for this order
+      const coreAssignment = order.assignments?.find(a => a.stage === 'core');
+      const testerName = coreAssignment ? coreAssignment.testerName : "Unassigned";
+
+      const cores = order.stageTracking.core;
+      ['metering', 'protection', 'ps'].forEach(type => {
+        const timer = cores[type];
+        if (timer && timer.status && timer.status !== "Pending" && !timer.isAcknowledged) {
+          let elapsedMs = timer.accumulatedTimeMs || 0;
+          if (timer.status === "In Progress" && timer.startTime) {
+            elapsedMs += (Date.now() - new Date(timer.startTime).getTime());
+          }
+          
+          const allocatedMs = (timer.allocatedMinutes || 0) * 60 * 1000;
+          const isDelayed = elapsedMs > allocatedMs;
+
+          // User requested to show only delayed orders or focusing on them
+          // We will include the testerName and potentially filter here if "delay only" was literal
+          activeTimers.push({
+            orderId: order._id,
+            jobId: order.jobId,
+            clientName: order.clientName,
+            testerName: testerName,
+            coreType: type.toUpperCase(),
+            startTime: timer.startTime,
+            status: timer.status,
+            allocatedMinutes: timer.allocatedMinutes,
+            elapsedMinutes: Math.floor(elapsedMs / 60000),
+            elapsedMs: elapsedMs,
+            isDelayed: isDelayed
+          });
+        }
+      });
+    });
+
+    // --- 2. SECONDARY & PRIMARY TEST DELAY TRACKING ---
+    // Fetch all transformers that have test data but are not fully shipped yet
+    const transformers = await TransformerModel.find({
+      'currentStage': { $ne: 'shipped' },
+      $or: [
+        { 'testHistory.secondary_test.timerStatus': { $in: ['In Progress', 'Paused', 'Completed'] } },
+        { 'testHistory.primary_test.timerStatus': { $in: ['In Progress', 'Paused', 'Completed'] } },
+        { 'testHistory.final_test.timerStatus': { $in: ['In Progress', 'Paused', 'Completed'] } }
+      ]
+    }).populate('orderId').lean();
+
+    transformers.forEach(transformer => {
+      // Don't show delays for completely finished orders
+      if (transformer.orderId?.status === 'COMPLETED' || transformer.orderId?.currentStage === 'completed' || transformer.orderId?.currentStage === 'shipped') return;
+
+      const stagesToTrack = [
+        { stage: 'secondary_test', label: 'SEC', testerField: 'secondary_tester', role: 'secondary' },
+        { stage: 'primary_test', label: 'PRI', testerField: 'primary_tester', role: 'primary' },
+        { stage: 'final_test', label: 'FINAL', testerField: 'final_tester', role: 'final' }
+      ];
+
+      stagesToTrack.forEach(({ stage, label, defaultMins, testerField, role }) => {
+        const stageData = transformer.testHistory?.[stage];
+        if (stageData && stageData.timerStatus !== "Pending" && !stageData.isAcknowledged) {
+          let elapsedMs = stageData.accumulatedTimeMs || 0;
+          // Only continuously track time if it's strictly in progress
+          if (stageData.timerStatus === "In Progress" && stageData.startTime) {
+            elapsedMs += (Date.now() - new Date(stageData.startTime).getTime());
+          }
+          
+          const allocatedMs = (stageData.allocatedMinutes || 0) * 60 * 1000;
+          const isDelayed = elapsedMs > allocatedMs;
+
+          if (isDelayed) {
+            let orderAssignments = transformer.orderId?.assignments || [];
+            let assignment = orderAssignments.find(a => a.stage === role);
+
+            activeTimers.push({
+              orderId: transformer.orderId?._id || transformer.orderId,
+              jobId: transformer.jobId,
+              clientName: transformer.orderId?.clientName || 'Unknown Client',
+              testerName: transformer.assignments?.[testerField] || assignment?.testerName || 'Unknown Tester', 
+              coreType: `TR-${transformer.uniqueId.split('-').pop()} (${label})`, // E.g., TR-001 (SEC)
+              startTime: stageData.startTime,
+              status: stageData.timerStatus,
+              allocatedMinutes: stageData.allocatedMinutes || 0,
+              elapsedMinutes: Math.floor(elapsedMs / 60000),
+              elapsedMs: elapsedMs,
+              isDelayed: isDelayed
+            });
+          }
+        }
+      });
+    });
+
+    const delayedOnly = activeTimers.filter(t => t.isDelayed);
+    res.json({ success: true, data: delayedOnly });
+  } catch (error) {
+    console.error("Efficiency API Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// PUT /api/dashboard/efficiency/acknowledge
+// Marks a specific delayed timer as acknowledged so it disappears from the dashboard
+app.put('/api/dashboard/efficiency/acknowledge', isAuthenticated, async (req, res) => {
+  try {
+    const { orderId, jobId, coreType } = req.body;
+    
+    if (!orderId || !coreType) {
+      return res.status(400).json({ success: false, message: "Missing orderId or coreType" });
+    }
+
+    const { OrderModel } = require('./models/OrderModel');
+    const { TransformerModel } = require('./models/TransformerModel');
+
+    // Check if it's a secondary or primary test delay
+    if (coreType.includes('(SEC)') || coreType.includes('(PRI)') || coreType.includes('(FINAL)')) {
+      const isSecondary = coreType.includes('(SEC)');
+      const isPrimary = coreType.includes('(PRI)');
+      const isFinal = coreType.includes('(FINAL)');
+      
+      const stageField = isSecondary ? 'secondary_test' : (isPrimary ? 'primary_test' : 'final_test');
+      const label = isSecondary ? 'SEC' : (isPrimary ? 'PRI' : 'FINAL');
+
+      // Find the specific transformer based on the coreType name, e.g., "TR-001 (SEC)"
+      const regex = new RegExp(`TR-(\\d+) \\(${label}\\)`);
+      const coreNumberMatch = coreType.match(regex);
+      
+      const transformers = await TransformerModel.find({ jobId });
+      let transformer;
+      if (coreNumberMatch && coreNumberMatch[1]) {
+        const suffix = `-${coreNumberMatch[1]}`;
+        transformer = transformers.find(t => t.uniqueId.endsWith(suffix));
+      } else {
+        // Fallback just in case
+        transformer = transformers[0]; 
+      }
+      
+      if (transformer) {
+        if (transformer.testHistory && transformer.testHistory[stageField]) {
+          transformer.testHistory[stageField].isAcknowledged = true;
+          transformer.markModified('testHistory');
+          await transformer.save();
+          return res.json({ success: true, message: `Marked ${isSecondary ? 'secondary' : 'primary'} test delay as read.` });
+        }
+      }
+    } else {
+      // It's a core test delay (METERING, PROTECTION, PS)
+      const order = await OrderModel.findById(orderId);
+      if (order && order.stageTracking && order.stageTracking.core) {
+        const typeKey = coreType.toLowerCase(); // metering, protection, ps
+        if (order.stageTracking.core[typeKey]) {
+          order.stageTracking.core[typeKey].isAcknowledged = true;
+          order.markModified('stageTracking');
+          await order.save();
+          return res.json({ success: true, message: `Marked ${coreType} test delay as read.` });
+        }
+      }
+    }
+
+    res.status(404).json({ success: false, message: "Timer record not found" });
+  } catch (error) {
+    console.error("Error acknowledging delay:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

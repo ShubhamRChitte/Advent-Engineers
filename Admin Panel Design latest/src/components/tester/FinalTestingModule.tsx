@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { Clock, ArrowLeft } from 'lucide-react';
 import { FinalOrdersList } from './FinalOrdersList';
 import { FinalTransformersList, FinalTransformer } from './FinalTransformersList';
 import { FinalCoreSelection } from './FinalCoreSelection';
@@ -49,6 +50,41 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
   const [selectedCore, setSelectedCore] = useState<CoreConfig | null>(null);
   const [selectedPrimary, setSelectedPrimary] = useState<string>('');
   const [selectedSecondary, setSelectedSecondary] = useState<string>('');
+  const [timerData, setTimerData] = useState<any>(null);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  const handleTimerAction = async (transformer: FinalTransformer, action: 'start' | 'pause' | 'complete') => {
+    try {
+      const response = await axios.post(`http://localhost:5001/api/transformers/${transformer.uniqueId}/update-timer`, {
+        stage: 'final_test',
+        action
+      }, { withCredentials: true });
+      
+      if (response.data.success) {
+        setTimerData(response.data.data);
+      }
+    } catch (error) {
+      console.error(`Failed to ${action} timer:`, error);
+    }
+  };
+
+  useEffect(() => {
+    let interval: any;
+    if (timerData && timerData.timerStatus === "In Progress" && timerData.startTime) {
+      interval = setInterval(() => {
+        const allocatedMs = timerData.allocatedMinutes * 60 * 1000;
+        const elapsed = (timerData.accumulatedTimeMs || 0) + (Date.now() - new Date(timerData.startTime).getTime());
+        setTimeLeft(allocatedMs - elapsed);
+      }, 1000);
+    } else if (timerData) {
+      const allocatedMs = timerData.allocatedMinutes * 60 * 1000;
+      const elapsed = timerData.accumulatedTimeMs || 0;
+      setTimeLeft(allocatedMs - elapsed);
+    } else {
+      setTimeLeft(null);
+    }
+    return () => clearInterval(interval);
+  }, [timerData]);
 
 
   const handleStartTesting = (order: any) => {
@@ -65,6 +101,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
   const handleStartTest = (transformer: FinalTransformer) => {
     setSelectedTransformer(transformer);
     setCurrentView('cores');
+    handleTimerAction(transformer, 'start');
   };
 
   const handleSelectCore = (core: CoreConfig, primary: string, secondary: string) => {
@@ -79,16 +116,26 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
   };
 
   const handleBackToOrders = () => {
+    if (selectedTransformer) {
+      handleTimerAction(selectedTransformer, 'pause');
+    }
     setCurrentView('orders');
     setSelectedOrder(null);
     setSelectedTransformer(null);
     setSelectedCore(null);
+    setTimerData(null);
+    setTimeLeft(null);
   };
 
   const handleBackToTransformers = () => {
+    if (selectedTransformer) {
+      handleTimerAction(selectedTransformer, 'pause');
+    }
     setCurrentView('transformers');
     setSelectedTransformer(null);
     setSelectedCore(null);
+    setTimerData(null);
+    setTimeLeft(null);
   };
 
   const handleBackToCores = () => {
@@ -113,6 +160,8 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
 
       if (response.data.success) {
         toast.success(`Transformer ${target.uniqueId} approved successfully!`);
+        // Stop the timer
+        handleTimerAction(target, 'complete');
         // Return to list to refresh data
         handleBackToTransformers();
       } else {
@@ -127,6 +176,29 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
   };
 
   const testerName = userName || 'Final Tester';
+
+  const formatTime = (ms: number) => {
+    const totalSec = Math.floor(ms / 1000);
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const TimerDisplay = () => {
+    if (timeLeft === null) return null;
+    const isOvertime = timeLeft <= 0;
+    return (
+      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border shadow-sm ${
+        isOvertime ? 'bg-red-50 border-red-200 text-red-600' : 'bg-blue-50 border-blue-200 text-blue-700'
+      }`}>
+        <Clock className="w-4 h-4" />
+        <span className="text-sm font-bold font-mono">
+          {isOvertime ? `Overtime: ${formatTime(Math.abs(timeLeft))}` : `Time Left: ${formatTime(timeLeft)}`}
+        </span>
+      </div>
+    );
+  };
+
 
   // Orders List View
   if (currentView === 'orders') {
@@ -158,85 +230,100 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
     );
   }
 
+  const HeaderWithTimer = ({ title, onBack }: { title: string; onBack: () => void }) => (
+    <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center gap-4">
+        <button 
+          onClick={onBack}
+          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">{title}</h2>
+          <p className="text-sm text-gray-500">{selectedTransformer?.uniqueId}</p>
+        </div>
+      </div>
+      <TimerDisplay />
+    </div>
+  );
+
+
   // Core Selection View
   if (currentView === 'cores' && selectedTransformer && selectedOrder) {
     return (
-      <FinalCoreSelection
-        transformer={selectedTransformer}
-        order={{
-          ...selectedOrder,
-          client: selectedOrder.clientName || selectedOrder.client || '',
-          // Added ratios property to the order object being passed to FinalCoreSelection
-          // This assumes 't' is a FinalTransformer and 'order' is the selectedOrder.
-          // The original snippet was a bit fragmented, so this is an interpretation
-          // of how `ratios` might be passed if `t` was available in this scope.
-          // Since `t` is not available here, I'm using `selectedOrder.ratio` if it exists.
-          ratios: selectedOrder.ratio || [],
-        } as any}
-        onSelectCore={handleSelectCore}
-        onOpenComprehensiveReport={handleOpenComprehensiveReport}
-        onBack={handleBackToTransformers}
-        onApprove={() => handleApproveTransformer()}
-      />
+      <div className="bg-white p-6 rounded-lg shadow-sm">
+        <HeaderWithTimer title="Select Core for Final Testing" onBack={handleBackToTransformers} />
+        <FinalCoreSelection
+          transformer={selectedTransformer}
+          order={{
+            ...selectedOrder,
+            client: selectedOrder.clientName || selectedOrder.client || '',
+            ratios: selectedOrder.ratio || [],
+          } as any}
+          onSelectCore={handleSelectCore}
+          onOpenComprehensiveReport={handleOpenComprehensiveReport}
+          onBack={handleBackToTransformers}
+          onApprove={() => handleApproveTransformer()}
+        />
+      </div>
     );
   }
 
   // Core-Wise Report View - Route to correct report based on core type
   if (currentView === 'core-report' && selectedTransformer && selectedCore) {
-
-    // Route to the appropriate report based on core type
-    if (selectedCore.coreType === 'metering') {
-      return (
-        <FinalMeteringReport
-          transformer={selectedTransformer}
-          core={selectedCore as any} 
-          testerName={testerName}
-          onBack={handleBackToCores}
-          order={selectedOrder}
-          primaryCurrent={selectedPrimary}
-          secondaryCurrent={selectedSecondary}
-        />
-      );
-    }
-
-    if (selectedCore.coreType === 'ps') {
-      return (
-        <FinalPSReport
-          transformer={selectedTransformer}
-          core={selectedCore as any}
-          testerName={testerName}
-          onBack={handleBackToCores}
-          order={selectedOrder}
-          primaryCurrent={selectedPrimary}
-          secondaryCurrent={selectedSecondary}
-        />
-      );
-    }
-
-    if (selectedCore.coreType === 'protection') {
-      return (
-        <FinalProtectionReport
-          transformer={selectedTransformer}
-          core={selectedCore as any}
-          testerName={testerName}
-          onBack={handleBackToCores}
-          order={selectedOrder}
-          primaryCurrent={selectedPrimary}
-          secondaryCurrent={selectedSecondary}
-        />
-      );
-    }
+    return (
+      <div className="bg-white p-6 rounded-lg shadow-sm">
+        <HeaderWithTimer title={`${selectedCore.coreType.toUpperCase()} Core Test`} onBack={handleBackToCores} />
+        {selectedCore.coreType === 'metering' && (
+          <FinalMeteringReport
+            transformer={selectedTransformer}
+            core={selectedCore as any} 
+            testerName={testerName}
+            onBack={handleBackToCores}
+            order={selectedOrder}
+            primaryCurrent={selectedPrimary}
+            secondaryCurrent={selectedSecondary}
+          />
+        )}
+        {selectedCore.coreType === 'ps' && (
+          <FinalPSReport
+            transformer={selectedTransformer}
+            core={selectedCore as any}
+            testerName={testerName}
+            onBack={handleBackToCores}
+            order={selectedOrder}
+            primaryCurrent={selectedPrimary}
+            secondaryCurrent={selectedSecondary}
+          />
+        )}
+        {selectedCore.coreType === 'protection' && (
+          <FinalProtectionReport
+            transformer={selectedTransformer}
+            core={selectedCore as any}
+            testerName={testerName}
+            onBack={handleBackToCores}
+            order={selectedOrder}
+            primaryCurrent={selectedPrimary}
+            secondaryCurrent={selectedSecondary}
+          />
+        )}
+      </div>
+    );
   }
 
   // Comprehensive Report View
   if (currentView === 'comprehensive-report' && selectedTransformer) {
     return (
-      <FinalTestReport
-        transformer={selectedTransformer}
-        testerName={testerName}
-        onBack={handleBackToCores}
-        onApprove={() => handleApproveTransformer(selectedTransformer)}
-      />
+      <div className="bg-white p-6 rounded-lg shadow-sm">
+        <HeaderWithTimer title="Comprehensive Final Test Report" onBack={handleBackToCores} />
+        <FinalTestReport
+          transformer={selectedTransformer}
+          testerName={testerName}
+          onBack={handleBackToCores}
+          onApprove={() => handleApproveTransformer(selectedTransformer)}
+        />
+      </div>
     );
   }
 

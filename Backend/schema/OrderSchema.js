@@ -129,7 +129,37 @@ const OrderSchema = new Schema(
     images: [{
       url: String, // Cloudinary secure_url
       public_id: String // Cloudinary public_id for deletion
-    }]
+    }],
+
+    // --- TIMING & EFFICIENCY TRACKING ---
+    stageTracking: {
+      core: {
+        metering: { 
+          startTime: { type: Date }, 
+          accumulatedTimeMs: { type: Number, default: 0 },
+          allocatedMinutes: { type: Number },
+          status: { type: String, enum: ["Pending", "In Progress", "Paused", "Completed"], default: "Pending" },
+          isAcknowledged: { type: Boolean, default: false }
+        },
+        protection: { 
+          startTime: { type: Date }, 
+          accumulatedTimeMs: { type: Number, default: 0 },
+          allocatedMinutes: { type: Number },
+          status: { type: String, enum: ["Pending", "In Progress", "Paused", "Completed"], default: "Pending" },
+          isAcknowledged: { type: Boolean, default: false }
+        },
+        ps: { 
+          startTime: { type: Date }, 
+          accumulatedTimeMs: { type: Number, default: 0 },
+          allocatedMinutes: { type: Number },
+          status: { type: String, enum: ["Pending", "In Progress", "Paused", "Completed"], default: "Pending" },
+          isAcknowledged: { type: Boolean, default: false }
+        }
+      },
+      secondary: { startTime: Date, allocatedMinutes: Number, status: String },
+      primary: { startTime: Date, allocatedMinutes: Number, status: String },
+      final: { startTime: Date, allocatedMinutes: Number, status: String }
+    }
   },
 
   { timestamps: true }

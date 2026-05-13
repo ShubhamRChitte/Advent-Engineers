@@ -209,10 +209,13 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
           };
         });
 
-        // Do not filter out approved transformers from the view so users can still see their reports
+        // Filter: ONLY show transformers that are NOT yet approved for this stage.
+        // Once approved, they should vanish from the PT Pretest list.
+        const activeUnitsOnly = mappedTransformers.filter(t => t.status !== 'approved');
+
         const filtered = (!order.assignedUnitIds || order.assignedUnitIds.length === 0)
-          ? mappedTransformers
-          : mappedTransformers.filter(t => order.assignedUnitIds?.some(assignedId =>
+          ? activeUnitsOnly
+          : activeUnitsOnly.filter(t => order.assignedUnitIds?.some(assignedId =>
             assignedId === t.uniqueId || assignedId.includes(t.uniqueId)
           ));
 

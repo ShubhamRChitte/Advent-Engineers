@@ -640,6 +640,135 @@ export function CoreTestingForm({
     { id: '1', bsatValue: '1.5', setMvValue: '7.04', leLimitValue: '1150' },
   ]);
 
+<<<<<<< Updated upstream
+=======
+  const [timerData, setTimerData] = useState<{ 
+    startTime: string | null; 
+    accumulatedTimeMs: number; 
+    allocatedMinutes: number;
+    status: string;
+  } | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  const handleTimerAction = async (action: 'start' | 'pause' | 'complete') => {
+    if (isReadOnly || isPreTest) return;
+    try {
+      const txnOrderId = getSafeOrderId(order);
+      const response = await axios.post(`http://localhost:5001/api/orders/${txnOrderId}/update-timer`, {
+        stage: 'core',
+        coreType: coreType.toLowerCase(),
+        action
+      }, { withCredentials: true });
+      
+      if (response.data.success) {
+        setTimerData(response.data.data);
+      }
+    } catch (err) {
+      console.error(`Timer ${action} failed`, err);
+    }
+  };
+
+  useEffect(() => {
+    // Only start timer if we are in the actual testing screens (configured)
+    if (meteringConfigured || protectionConfigured || psConfigured) {
+      handleTimerAction('start');
+    }
+    
+    return () => {
+      // Pause when navigating away from this component (unmount)
+      if (meteringConfigured || protectionConfigured || psConfigured) {
+        handleTimerAction('pause');
+      }
+    };
+  }, [meteringConfigured, protectionConfigured, psConfigured, coreType]);
+
+  useEffect(() => {
+    if (!timerData) return;
+
+    // If paused, just set the static time left
+    if (timerData.status !== "In Progress" || !timerData.startTime) {
+      const allocatedMs = timerData.allocatedMinutes * 60 * 1000;
+      const elapsed = timerData.accumulatedTimeMs || 0;
+      setTimeLeft(allocatedMs - elapsed);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const start = new Date(timerData.startTime!).getTime();
+      const accumulated = timerData.accumulatedTimeMs || 0;
+      const allocatedMs = timerData.allocatedMinutes * 60 * 1000;
+      const now = Date.now();
+      
+      const totalElapsed = accumulated + (now - start);
+      setTimeLeft(allocatedMs - totalElapsed);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timerData]);
+
+  const handleBack = () => {
+    handleTimerAction('pause');
+    onBack();
+  };
+
+  const formatTime = (ms: number) => {
+    const isNegative = ms < 0;
+    const absMs = Math.abs(ms);
+    const totalSeconds = Math.floor(absMs / 1000);
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${isNegative ? '-' : ''}${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const TimerDisplay = () => {
+    if (timeLeft === null) return null;
+    const isOver = timeLeft < 0;
+    const isPaused = timerData?.status === "Paused";
+
+    return (
+      <div className={`mb-4 px-4 py-2 rounded-lg border-2 flex items-center justify-between transition-all ${
+        isOver ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' : 
+        isPaused ? 'bg-amber-50 border-amber-300 text-amber-600' :
+        'bg-green-50 border-green-500 text-green-600'
+      }`}>
+        <div className="flex items-center gap-2 font-bold">
+          {isPaused ? <Clock className="w-4 h-4" /> : <RefreshCw className={`w-4 h-4 ${!isOver ? 'animate-spin-slow' : ''}`} />}
+          <span className="text-sm uppercase tracking-wider">
+            {coreType} Testing Time {isPaused ? '(Paused)' : 'Limit'}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium opacity-80">Remaining:</span>
+          <span className="text-2xl font-mono font-black tabular-nums">{formatTime(timeLeft)}</span>
+        </div>
+      </div>
+    );
+  };
+
+  const protectionLimit = 600;
+
+  // Socket Listener for real-time inventory updates
+  useEffect(() => {
+    const handleStockUpdate = () => {
+      if (isReadyModalOpen && activeReplaceIndex !== null) {
+        fetchMatchingReadyCores(activeReplaceIndex);
+      }
+    };
+
+    socket.on('readyStockUpdated', handleStockUpdate);
+    return () => {
+      socket.off('readyStockUpdated', handleStockUpdate);
+    };
+  }, [isReadyModalOpen, activeReplaceIndex]);
+
+  // Handle "IN_PROGRESS" status update when tester enters the testing report
+  useEffect(() => {
+    if (isPreTest && (meteringConfigured || protectionConfigured || psConfigured)) {
+      updatePreTestBatchStatus("IN_PROGRESS");
+    }
+  }, [meteringConfigured, protectionConfigured, psConfigured]);
+
+>>>>>>> Stashed changes
   // Specification data - Different for Protection
   const [specs, setSpecs] = useState(
     isProtectionCore ? {
@@ -1960,6 +2089,7 @@ export function CoreTestingForm({
     // Protection Testing Form (after configuration)
     return (
       <div className="space-y-4">
+        <TimerDisplay />
         {isReadOnly && (
           <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4" role="alert">
             <div className="flex items-center">
@@ -1976,7 +2106,7 @@ export function CoreTestingForm({
           <div>
             <Button
               variant="outline"
-              onClick={onBack}
+              onClick={handleBack}
               size="sm"
               className="mb-2 gap-1"
             >
@@ -2679,6 +2809,7 @@ export function CoreTestingForm({
     // PS Testing Form (after configuration)
     return (
       <div className="space-y-4">
+        <TimerDisplay />
         {isReadOnly && (
           <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4" role="alert">
             <div className="flex items-center">
@@ -2695,7 +2826,7 @@ export function CoreTestingForm({
           <div>
             <Button
               variant="outline"
-              onClick={onBack}
+              onClick={handleBack}
               size="sm"
               className="mb-2 gap-1"
             >
@@ -3394,7 +3525,12 @@ export function CoreTestingForm({
 
   // Metering/PS Core Template (Original)
   return (
+<<<<<<< Updated upstream
     <div className="space-y-4 p-2 sm:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
+=======
+    <div className="space-y-4">
+      <TimerDisplay />
+>>>>>>> Stashed changes
       {isReadOnly && (
         <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4" role="alert">
           <div className="flex items-center">
