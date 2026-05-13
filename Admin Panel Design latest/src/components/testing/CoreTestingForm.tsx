@@ -980,7 +980,6 @@ export function CoreTestingForm({
     setIsReadyModalOpen(true);
     
     try {
-      const row = rows[index];
       // Search for specs in order details first, fallback to current component specs
       let coreSpecs = (order.coreDetails || []).find((c: any) => {
         const desc = (c.description || "").toUpperCase();
@@ -996,7 +995,6 @@ export function CoreTestingForm({
 
       console.log(`[FETCH_READY] Detected coreSpecs for ${coreType}:`, coreSpecs);
 
-      const sourceSpecs = coreSpecs || specs;
       const queryParams: any = {
         status: 'available',
         coreType: coreType,
@@ -1080,17 +1078,6 @@ export function CoreTestingForm({
       const testData = usedCore.testResults || {};
       const failedCoreId = failedRow.internalCoreNo;
       const replacementNo = `${failedCoreId} (R)`;
-      
-      const newReading = {
-        internalCoreNo: replacementNo,
-        coreVendorNo: currentCore.vendorName || testData.vendorCoreNo || batchData?.vendorName || "",
-        dynamicValues: testData.dynamicValues || {},
-        remark: testData.remark || 'PRE_TESTED',
-        status: 'PASS',
-        isReplacement: true,
-        replacedCoreId: failedCoreId
-      };
-      
       // Smart reading extraction: Match based on current columns
       let dynamicValues: { [key: string]: string } = {};
       const isPS = (coreType as string) === 'PS';
@@ -1129,7 +1116,7 @@ export function CoreTestingForm({
 
       const replacementRow: CoreTestRow = {
         date: testData.date || systemDate,
-        coreVendorNo: testData.vendorCoreNo || usedCore.vendorCoreNo || usedCore.coreVendorNo || failedRow.coreVendorNo || `STOCK`,
+        coreVendorNo: currentCore.vendorName || testData.vendorCoreNo || usedCore.vendorCoreNo || usedCore.coreVendorNo || failedRow.coreVendorNo || 'STOCK',
         internalCoreNo: replacementNo,
         value1000: testData.value1000 || testData.v1000 || '',
         value3000: testData.value3000 || testData.v3000 || '',
@@ -1159,7 +1146,7 @@ export function CoreTestingForm({
           await performRowSave(rowToSave, currentIndex + 1);
         }
       } else {
-        await handleSave(nextRows, failedCores);
+        await handleSave(nextRows);
       }
 
       setIsConfirmUseModalOpen(false);
@@ -1401,14 +1388,13 @@ export function CoreTestingForm({
     }
   };
 
-  const handleSave = async (rowsOverride?: CoreTestRow[], failedCoresOverride?: FailedCore[]) => {
+  const handleSave = async (rowsOverride?: CoreTestRow[]) => {
     if (isReadOnly) return;
     try {
       const isMetering = coreType === 'Metering';
       const isPS = coreType === 'PS';
 
       const currentRows = rowsOverride || rows;
-      const currentFailedCores = failedCoresOverride || failedCores;
 
       // 1. AUTO-FILL IDs & CALCULATE REMARKS
       const processedRows = currentRows.map((row, index) => {
