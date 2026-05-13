@@ -141,8 +141,7 @@ const handlePostTestAutomation = async ({
       }
     });
 
-    // 2. Bulk Insert
-    if (readyBulk.length > 0) await ReadyTransformer.insertMany(readyBulk);
+    // 2. Bulk Insert (Only FAILED cores immediately. PASSED cores wait for Approval)
     if (failedBulk.length > 0) await FailedCoreModel.insertMany(failedBulk);
 
     // 3. Update Batch Analytics & Status

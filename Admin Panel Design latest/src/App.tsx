@@ -7,6 +7,7 @@ import { HeatingOperatorLayout } from './components/heating/HeatingOperatorLayou
 import { Toaster } from 'sonner';
 import { ReportPage } from './pages/ReportPage';
 import { AdminReportViewPage } from './pages/AdminReportViewPage';
+import './utils/axiosConfig';
 
 export interface User {
   id: string;

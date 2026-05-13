@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+// Forcing fresh state reload for activeRowsRef
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -15,6 +16,7 @@ import {
   Edit,
   Trash2,
   Package,
+  CheckCircle2,
 } from 'lucide-react';
 import { CoreTestingOrder } from './CoreTestingOrders';
 import { FailedCoresManager } from './FailedCoresManager';
@@ -22,13 +24,13 @@ import { CoreLabelsPrint } from './CoreLabelsPrint';
 import { ReadyStockModal } from './ReadyStockModal';
 import { socket } from '../../utils/socket';
 import { toast } from 'sonner';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogDescription,
-  DialogFooter 
+  DialogFooter
 } from '../ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Label } from '../ui/label';
@@ -52,6 +54,10 @@ interface CoreTestingFormProps {
     vendorId: string;
     numberOfCores: number;
     turns: string;
+    discardedCount?: number;
+    passedCount?: number;
+    failedCount?: number;
+    discardedCoreIds?: string[]; // Permanently consumed IDs — never reuse
   };
 }
 
@@ -98,13 +104,14 @@ export interface FailedCore {
   value7000: string;
   singleValue?: string;
   dynamicValues?: { [key: string]: string };
+  status?: string;
 }
 
-export function CoreTestingForm({ 
-  order, 
-  coreType, 
-  onBack, 
-  isReadOnly = false, 
+export function CoreTestingForm({
+  order,
+  coreType,
+  onBack,
+  isReadOnly = false,
   user,
   isPreTest = false,
   batchData
@@ -117,17 +124,17 @@ export function CoreTestingForm({
       // Linked Format: PRE-DDMMYY-[TYPE]-[BATCH_SEQ]-[CORE_SEQ]
       // Example Batch: BATCH-300426-MTR-001
       // Example Core: PRE-300426-MTR-01-001
-      
+
       const parts = batchData.batchId.split('-');
       // parts[0] = BATCH, parts[1] = DDMMYY, parts[2] = TYPE, parts[3] = SEQ
-      
+
       if (parts.length >= 4) {
         const datePart = parts[1];
         const typePart = parts[2];
         const batchSeq = parts[3]?.slice(-2) || '00'; // Use last 2 digits of batch sequence
         return `PRE-${datePart}-${typePart}-${batchSeq}-${String(transformerNum).padStart(3, '0')}`;
       }
-      
+
       // Fallback for old batch IDs
       const now = new Date();
       const dd = String(now.getDate()).padStart(2, '0');
@@ -181,11 +188,18 @@ export function CoreTestingForm({
   const getSystemDate = () => new Date().toLocaleDateString('en-GB');
 
   const isRowLocked = (row: CoreTestRow) => {
-    return row.status === 'PASS' || row.status === 'FAIL' || row.status === 'RETURNED';
+    if (isPreTest) return false;
+    if (row.isReplacement) return false; // Always allow editing replacements
+    // Allow editing even if it's FAIL, as long as it's not approved (isReadOnly)
+    return row.status === 'PASS' || row.status === 'RETURNED';
   };
 
   // Vendor selection helpers
   const getVendors = () => {
+    if (isPreTest && batchData?.vendorName) {
+      // For pre-test, include the batch vendor as an option
+      return [{ serialNo: "V-1", name: batchData.vendorName }];
+    }
     const vendorsObj = ((order as any).coreVendors || (order as any).order?.coreVendors) || {};
     return (vendorsObj[coreType.toLowerCase()] || []) as { serialNo: string; name: string }[];
   };
@@ -260,6 +274,7 @@ export function CoreTestingForm({
 
 
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   // 3. PERSISTENT DATA LOADING
   useEffect(() => {
@@ -267,24 +282,95 @@ export function CoreTestingForm({
       setIsLoading(true);
       try {
         // Correct ID for fetching: batchId for pre-test, else orderId
-        const txnOrderId = isPreTest && batchData?.batchId 
-          ? batchData.batchId 
-          : ((order as any).mainOrderId || (order as any).orderId?._id || (order as any)._id);
-          
         const isMeteringCheck = coreType === 'Metering';
-        const endpoint = isMeteringCheck ? '/metering-tests' : '/protection-tests';
-        const typeParam = !isMeteringCheck ? `?type=${coreType}` : '';
-
-        // Fetch existing data with Authorization
+        let response: any;
         const token = localStorage.getItem('token');
-        const response = await axios.get(`http://localhost:5001/api${endpoint}/${txnOrderId}${typeParam}`, {
-          withCredentials: true,
-          headers: {
-            'Authorization': token ? `Bearer ${token}` : ''
-          }
-        });
 
-        // If data exists, map it; otherwise, use fresh initialization
+        if (isPreTest && batchData?.batchId) {
+          response = await axios.get(`http://localhost:5001/api/pre-test-batches/${batchData.batchId}`, {
+            withCredentials: true,
+            headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+          });
+
+          if (response.data.numberOfCores !== undefined) {
+            setLocalCoreCount(response.data.numberOfCores);
+          }
+
+          // Auto-configure if data exists in batch
+          if (response.data.testSetup) {
+            setSpecs({
+              coreSize1: String(response.data.testSetup.coreSizeMm?.id || ''),
+              coreSize2: String(response.data.testSetup.coreSizeMm?.od || ''),
+              coreSize3: String(response.data.testSetup.coreSizeMm?.height || ''),
+              turnUsed: String(response.data.testSetup.turnsUsed || ''),
+              area: String(response.data.testSetup.areaSqCm || ''),
+              mmp: String(response.data.testSetup.mmp || ''),
+              // For Protection/PS
+              bFlux: String(response.data.testLimits?.fluxTesla || ''),
+              voltage: String(response.data.testLimits?.voltageV || ''),
+              iexLimit: String(response.data.testLimits?.iexLimitMa || '')
+            });
+
+            if (isMeteringCheck && response.data.testLimits?.bsatGauss) {
+              setBsatColumns(response.data.testLimits.bsatGauss.map((val: any, i: number) => ({
+                id: String(i + 1),
+                bsatValue: String(val),
+                setMvValue: String(response.data.testLimits.setMilliVolt?.[i] || ''),
+                leLimitValue: String(response.data.testLimits.leLimitMa?.[i] || '')
+              })));
+              setCoreTypeNano(response.data.testSetup.coreMaterial);
+              setMeteringConfigured(true);
+            } else if (coreType === 'Protection') {
+              if (response.data.testLimits?.bsatGauss) {
+                setProtectionBColumns(response.data.testLimits.bsatGauss.map((val: any, i: number) => ({
+                  id: String(i + 1),
+                  bsatValue: String(val),
+                  setMvValue: String(response.data.testLimits.setMilliVolt?.[i] || ''),
+                  leLimitValue: String(response.data.testLimits.leLimitMa?.[i] || '')
+                })));
+              }
+              setProtectionConfigured(true);
+            } else if (coreType === 'PS') {
+              if (response.data.testLimits?.bsatGauss) {
+                setPsBColumns(response.data.testLimits.bsatGauss.map((val: any, i: number) => ({
+                  id: String(i + 1),
+                  bsatValue: String(val),
+                  setMvValue: String(response.data.testLimits.setMilliVolt?.[i] || ''),
+                  leLimitValue: String(response.data.testLimits.leLimitMa?.[i] || '')
+                })));
+              }
+              setPsConfigured(true);
+            }
+          }
+        } else {
+          const txnOrderId = ((order as any).mainOrderId || (order as any).orderId?._id || (order as any)._id);
+          const endpoint = isMeteringCheck ? '/metering-tests' : '/protection-tests';
+          const typeParam = !isMeteringCheck ? `?type=${coreType}` : '';
+
+          response = await axios.get(`http://localhost:5001/api${endpoint}/${txnOrderId}${typeParam}`, {
+            withCredentials: true,
+            headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+          });
+        }
+
+        let dbFailedCoreIds = new Set<string>();
+        let dbFailedCores: any[] = [];
+        if (!isPreTest) {
+          const txnOrderId = getSafeOrderId(order);
+          
+          // Use the dedicated order-specific endpoint which is more reliable
+          try {
+            const fcRes = await axios.get(`http://localhost:5001/api/failed-cores/order/${txnOrderId}`, {
+              withCredentials: true,
+              headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+            });
+            dbFailedCores = fcRes.data.data || [];
+            dbFailedCores.forEach(fc => dbFailedCoreIds.add(fc.internalCoreNo?.trim().toUpperCase() || ''));
+            console.log("[LOAD] FETCHED FAILED CORES FOR ORDER:", dbFailedCores.map((f: any) => f.internalCoreNo));
+          } catch (err) {
+            console.error("[LOAD] Failed to load actual failed cores", err);
+          }
+        }
 
         // If data exists, map it; otherwise, use fresh initialization
         if (response.data && response.data.readings && response.data.readings.length > 0) {
@@ -302,9 +388,11 @@ export function CoreTestingForm({
             coreVendorNo: r.vendorCoreNo || '',
             internalCoreNo: r.internalCoreNo || '',
             dynamicValues: isMeteringCheck
-              ? Object.fromEntries(bsatColumns.map((col, i) => [col.id, String(r.measuredMa?.[i] || '')]))
-              : ((r.value !== undefined && protectionBColumns[0]) ? { [protectionBColumns[0]?.id ?? '']: String(r.value) } : {}),
-            singleValue: r.value !== undefined ? String(r.value) : '',
+              ? Object.fromEntries(bsatColumns.map((col, i) => [col.id, r.measuredMa?.[i] != null ? String(r.measuredMa[i]) : '']))
+              : (isProtectionCore || isPSCore)
+                ? Object.fromEntries((isProtectionCore ? protectionBColumns : psBColumns).map((col, i) => [col.id, r.measuredMa?.[i] != null ? String(r.measuredMa[i]) : (r.value != null ? String(r.value) : '')]))
+                : {},
+            singleValue: r.value != null ? String(r.value) : '',
             remark: r.result || '',
             status: r.status || 'PENDING',
             isReplacement: r.isReplacement || false,
@@ -312,30 +400,88 @@ export function CoreTestingForm({
           }));
 
           const finalRowsToShow: CoreTestRow[] = [];
+          const restoredFailedCores: FailedCore[] = [];
 
           initializedSkeleton.forEach(skel => {
-            // 1. Add the base core (either from saved data or skeleton)
             const baseReading = mappedSavedRows.find((s: any) => s.internalCoreNo === skel.internalCoreNo);
-            if (baseReading) {
-              finalRowsToShow.push(baseReading);
+            const sourceRow = baseReading || skel;
+
+            const currentSourceId = sourceRow.internalCoreNo?.trim().toUpperCase() || '';
+            console.log(`Checking if ${currentSourceId} is in Failed Cores:`, dbFailedCoreIds.has(currentSourceId));
+            if (dbFailedCoreIds.has(currentSourceId)) {
+              // The user clicked "Replace" and moved it to Failed Cores section
+              const dbFc = dbFailedCores.find((fc: any) => fc.internalCoreNo?.trim().toUpperCase() === currentSourceId);
+              restoredFailedCores.push({
+                _id: dbFc._id,
+                orderId: getSafeOrderId(order),
+                jobId: order.jobId,
+                clientName: order.clientName,
+                coreType: coreType,
+                internalCoreNo: sourceRow.internalCoreNo,
+                coreVendorNo: sourceRow.coreVendorNo,
+                vendorCoreNo: sourceRow.coreVendorNo,
+                date: sourceRow.date,
+                failureReason: dbFc.failureReason || 'Replaced from Ready Stock',
+                dynamicValues: sourceRow.dynamicValues,
+                value1000: sourceRow.value1000 || '',
+                value3000: sourceRow.value3000 || '',
+                value5000: sourceRow.value5000 || '',
+                value7000: sourceRow.value7000 || '',
+                singleValue: sourceRow.singleValue || '',
+                status: sourceRow.status || 'FAIL'
+              });
             } else {
-              finalRowsToShow.push(skel);
+              // Keep it in the table
+              finalRowsToShow.push(sourceRow);
             }
 
-            // 2. Transitive Replacements: Find any replacements for THIS base core,
-            // or replacements of those replacements, and show them in sequence.
-            let lastId = skel.internalCoreNo;
-            let foundChild;
+            // Now trace any replacements
+            let lastId = sourceRow.internalCoreNo;
+            let furtherChild: any;
             do {
-              foundChild = mappedSavedRows.find((s: any) => s.isReplacement && s.replacedCoreId === lastId);
-              if (foundChild) {
-                finalRowsToShow.push(foundChild);
-                lastId = foundChild.internalCoreNo;
+              furtherChild = mappedSavedRows.find((s: any) => s.isReplacement && s.replacedCoreId === lastId);
+              if (furtherChild) {
+                const furtherChildId = furtherChild.internalCoreNo?.trim().toUpperCase() || '';
+                if (dbFailedCoreIds.has(furtherChildId)) {
+                  const dbFc = dbFailedCores.find((fc: any) => fc.internalCoreNo?.trim().toUpperCase() === furtherChildId);
+                  restoredFailedCores.push({
+                    _id: dbFc._id,
+                    orderId: getSafeOrderId(order),
+                    jobId: order.jobId,
+                    clientName: order.clientName,
+                    coreType: coreType,
+                    internalCoreNo: furtherChild.internalCoreNo,
+                    coreVendorNo: furtherChild.coreVendorNo,
+                    vendorCoreNo: furtherChild.coreVendorNo,
+                    date: furtherChild.date,
+                    failureReason: dbFc.failureReason || 'Replaced from Ready Stock',
+                    dynamicValues: furtherChild.dynamicValues,
+                    value1000: furtherChild.value1000 || '',
+                    value3000: furtherChild.value3000 || '',
+                    value5000: furtherChild.value5000 || '',
+                    value7000: furtherChild.value7000 || '',
+                    singleValue: furtherChild.singleValue || '',
+                    status: furtherChild.status || 'FAIL'
+                  });
+                } else {
+                  finalRowsToShow.push(furtherChild);
+                }
+                lastId = furtherChild.internalCoreNo;
               }
-            } while (foundChild);
+            } while (furtherChild);
           });
 
-          setRows(finalRowsToShow);
+          if (restoredFailedCores.length > 0) {
+            setFailedCores(restoredFailedCores);
+          }
+          
+          // STRICT FINAL FILTER: absolutely guarantee no failed cores make it to the grid
+          const sanitizedRowsToShow = finalRowsToShow.filter(row => {
+            const id = row.internalCoreNo?.trim().toUpperCase();
+            return !id || !dbFailedCoreIds.has(id);
+          });
+          
+          setRows(sanitizedRowsToShow);
         } else {
           if (!isReadOnly) setRows(initializeRows());
           else setRows([]); // No data to show in read-only
@@ -374,7 +520,7 @@ export function CoreTestingForm({
   };
 
   const calculateTotalRowsNeeded = () => {
-    if (isPreTest && batchData) return batchData.numberOfCores;
+    if (isPreTest) return localCoreCount;
     const assignedIndices = getAssignedTransformerIndices();
     // If granular assignment exists, use that count. Else use total quantity.
     const validQuantity = assignedIndices ? assignedIndices.length : (order?.quantity || order?.transformerQuantity || 0);
@@ -389,15 +535,27 @@ export function CoreTestingForm({
 
   const initializeRows = (): CoreTestRow[] => {
     if (isPreTest && batchData) {
-      return Array.from({ length: batchData.numberOfCores }, (_, i) => ({
-        date: getSystemDate(),
-        coreVendorNo: batchData.vendorName,
-        internalCoreNo: generateCoreId(i + 1),
-        value1000: '', value3000: '', value5000: '', value7000: '',
-        singleValue: '',
-        dynamicValues: {},
-        remark: '',
-      }));
+      const consumedIds = new Set(batchData.discardedCoreIds || []);
+      // Generate enough sequential IDs to fill numberOfCores slots,
+      // skipping any IDs that are permanently consumed (discarded/replaced).
+      const rows: CoreTestRow[] = [];
+      let seq = 1;
+      while (rows.length < batchData.numberOfCores) {
+        const id = generateCoreId(seq);
+        seq++;
+        if (!consumedIds.has(id)) {
+          rows.push({
+            date: getSystemDate(),
+            coreVendorNo: batchData.vendorName,
+            internalCoreNo: id,
+            value1000: '', value3000: '', value5000: '', value7000: '',
+            singleValue: '',
+            dynamicValues: {},
+            remark: '',
+          });
+        }
+      }
+      return rows;
     }
     const assignedIndices = getAssignedTransformerIndices();
     const coresPerTransformer = (order?.coreDetails || []).filter(
@@ -456,6 +614,8 @@ export function CoreTestingForm({
   const [isConfirmUseModalOpen, setIsConfirmUseModalOpen] = useState(false);
   const [selectedReadyCore, setSelectedReadyCore] = useState<any>(null);
 
+  const [localCoreCount, setLocalCoreCount] = useState<number>(batchData?.numberOfCores || 0);
+
   // Metering configuration state
   const [meteringConfigured, setMeteringConfigured] = useState(false);
   const [coreTypeNano, setCoreTypeNano] = useState<'TOROIDAL CORE NANO CRYSTALLINE' | 'M4CRGO'>('TOROIDAL CORE NANO CRYSTALLINE');
@@ -479,29 +639,6 @@ export function CoreTestingForm({
   const [psBColumns, setPsBColumns] = useState<BSATColumn[]>([
     { id: '1', bsatValue: '1.5', setMvValue: '7.04', leLimitValue: '1150' },
   ]);
-
-  const protectionLimit = 600;
-
-  // Socket Listener for real-time inventory updates
-  useEffect(() => {
-    const handleStockUpdate = () => {
-      if (isReadyModalOpen && activeReplaceIndex !== null) {
-        fetchMatchingReadyCores(activeReplaceIndex);
-      }
-    };
-
-    socket.on('readyStockUpdated', handleStockUpdate);
-    return () => {
-      socket.off('readyStockUpdated', handleStockUpdate);
-    };
-  }, [isReadyModalOpen, activeReplaceIndex]);
-
-  // Handle "IN_PROGRESS" status update when tester enters the testing report
-  useEffect(() => {
-    if (isPreTest && (meteringConfigured || protectionConfigured || psConfigured)) {
-      updatePreTestBatchStatus("IN_PROGRESS");
-    }
-  }, [meteringConfigured, protectionConfigured, psConfigured]);
 
   // Specification data - Different for Protection
   const [specs, setSpecs] = useState(
@@ -537,13 +674,157 @@ export function CoreTestingForm({
     }
   );
 
+  const protectionLimit = 600;
+
+  const specsRef = useRef(specs);
+  const bsatColumnsRef = useRef(bsatColumns);
+  const protectionBColumnsRef = useRef(protectionBColumns);
+  const psBColumnsRef = useRef(psBColumns);
+  const activeRowsRef = useRef<CoreTestRow[]>(rows);
+  const testByRef = useRef(testBy);
+  const authSigRef = useRef(authorizedSignatory);
+  const testDateRef = useRef(testDate);
+
+  useEffect(() => { specsRef.current = specs; }, [specs]);
+  useEffect(() => { bsatColumnsRef.current = bsatColumns; }, [bsatColumns]);
+  useEffect(() => { protectionBColumnsRef.current = protectionBColumns; }, [protectionBColumns]);
+  useEffect(() => { psBColumnsRef.current = psBColumns; }, [psBColumns]);
+  useEffect(() => { activeRowsRef.current = rows; }, [rows]);
+  useEffect(() => { testByRef.current = testBy; }, [testBy]);
+  useEffect(() => { authSigRef.current = authorizedSignatory; }, [authorizedSignatory]);
+  useEffect(() => { testDateRef.current = testDate; }, [testDate]);
+
+  // ADDED: Comprehensive Autosave Effect
+  useEffect(() => {
+    if (isPreTest && batchData?.batchId) {
+      debouncedSaveConfig(specs);
+    }
+  }, [specs, testBy, authorizedSignatory, testDate, bsatColumns, protectionBColumns, psBColumns]);
+
+
+  const handleApproveBatch = async () => {
+    if (!isPreTest || !batchData?.batchId) return;
+
+    const { passed, failed } = getPassFailCount();
+    const totalTested = passed + failed;
+
+    if (totalTested < localCoreCount) {
+      if (!window.confirm(`Only ${totalTested} out of ${localCoreCount} cores have been tested. Are you sure you want to approve the batch? Untested cores will remain in the batch.`)) {
+        return;
+      }
+    } else {
+      if (!window.confirm(`Are you sure you want to approve this batch? ${passed} cores will be moved to Ready Stock.`)) {
+        return;
+      }
+    }
+
+    try {
+      const res = await axios.post(`http://localhost:5001/api/pre-test-batches/${batchData.batchId}/approve`, {}, {
+        withCredentials: true
+      });
+      if (res.status === 200) {
+        toast.success("Batch approved and moved to Ready Stock!");
+        onBack();
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to approve batch");
+    }
+  };
+
+
+  // Socket Listener for real-time inventory updates
+  useEffect(() => {
+    const handleStockUpdate = () => {
+      if (isReadyModalOpen && activeReplaceIndex !== null) {
+        fetchMatchingReadyCores(activeReplaceIndex);
+      }
+    };
+
+    socket.on('readyStockUpdated', handleStockUpdate);
+    return () => {
+      socket.off('readyStockUpdated', handleStockUpdate);
+    };
+  }, [isReadyModalOpen, activeReplaceIndex]);
+
+  // Handle "IN_PROGRESS" status update when tester enters the testing report
+  useEffect(() => {
+    if (isPreTest && (meteringConfigured || protectionConfigured || psConfigured)) {
+      updatePreTestBatchStatus("IN_PROGRESS");
+    }
+  }, [meteringConfigured, protectionConfigured, psConfigured]);
+
+
+
+
 
 
 
 
   const handleSpecChange = (field: string, value: string) => {
     if (isReadOnly) return;
-    setSpecs({ ...specs, [field]: value });
+    const updatedSpecs = { ...specs, [field]: value };
+    setSpecs(updatedSpecs);
+    specsRef.current = updatedSpecs;
+
+    // Autosave for Pre-Test
+    if (isPreTest && batchData?.batchId) {
+      debouncedSaveConfig();
+    }
+  };
+
+  const performConfigSave = async (updatedSpecs?: any) => {
+    if (!isPreTest || !batchData?.batchId) return;
+    const currentSpecs = updatedSpecs || specsRef.current;
+    const currentBsatCols = bsatColumnsRef.current;
+    const currentProtCols = protectionBColumnsRef.current;
+    const currentPsCols = psBColumnsRef.current;
+
+    try {
+      const payload = {
+        testSetup: {
+          [isMetering ? 'coreMaterial' : 'description']: isMetering
+            ? (coreTypeNano || "TOROIDAL CORE NANO CRYSTALLINE")
+            : (coreType === 'Protection' ? (protectionCoreTypeM4CRGO || "M4CRGO") : (psCoreTypeM4CRGO || "M4CRGO")),
+          coreSizeMm: {
+            id: parseFloat(currentSpecs.coreSize1) || 0,
+            od: parseFloat(currentSpecs.coreSize2) || 0,
+            height: parseFloat(currentSpecs.coreSize3) || 0
+          },
+          turnsUsed: parseInt(currentSpecs.turnUsed || '0') || 0,
+          areaSqCm: parseFloat(currentSpecs.area || '0') || 0,
+          mmp: parseFloat(currentSpecs.mmp || '0') || 0,
+          testBy: testByRef.current,
+          authorizedSignatory: authSigRef.current,
+          testDate: testDateRef.current,
+          class: isPSCore ? "PS" : ""
+        },
+        testLimits: isMetering ? {
+          bsatGauss: currentBsatCols.map(col => parseFloat(col.bsatValue) || 0),
+          setMilliVolt: currentBsatCols.map(col => parseFloat(col.setMvValue) || 0),
+          leLimitMa: currentBsatCols.map(col => parseFloat(col.leLimitValue) || 0)
+        } : (isProtectionCore || isPSCore) ? {
+          bsatGauss: (isProtectionCore ? currentProtCols : currentPsCols).map(col => parseFloat(col.bsatValue) || 0),
+          setMilliVolt: (isProtectionCore ? currentProtCols : currentPsCols).map(col => parseFloat(col.setMvValue) || 0),
+          leLimitMa: (isProtectionCore ? currentProtCols : currentPsCols).map(col => parseFloat(col.leLimitValue) || 0)
+        } : {
+          fluxTesla: parseFloat(currentSpecs.bFlux) || 0,
+          voltageV: parseFloat(currentSpecs.voltage) || 0,
+          iexLimitMa: isPSCore ? parseFloat(currentSpecs.iexLimit || '0') : protectionLimit
+        }
+      };
+
+      await axios.patch(`http://localhost:5001/api/pre-test-batches/${batchData.batchId}`, payload, {
+        withCredentials: true
+      });
+    } catch (err) {
+      console.error("Config autosave failed", err);
+    }
+  };
+
+  const configSaveTimer = useRef<NodeJS.Timeout | null>(null);
+  const debouncedSaveConfig = (updatedSpecs?: any) => {
+    if (configSaveTimer.current) clearTimeout(configSaveTimer.current);
+    configSaveTimer.current = setTimeout(() => performConfigSave(updatedSpecs), 1500);
   };
 
   const getFailureReason = (row: CoreTestRow): string => {
@@ -589,57 +870,32 @@ export function CoreTestingForm({
 
   const calculateRemark = (row: CoreTestRow): string => {
     if (row.remark === 'PRE_TESTED') return 'PRE_TESTED';
-    if (isProtectionCore) {
-      // Protection core - check all dynamic values
-      if (Object.keys(row.dynamicValues).length === 0) return '';
+    
+    const columns = isProtectionCore ? protectionBColumns : (isPSCore ? psBColumns : bsatColumns);
+    if (columns.length === 0) return '';
 
-      for (const column of protectionBColumns) {
-        const value = row.dynamicValues[column.id];
-        if (!value) continue;
-        const numValue = parseFloat(value);
-        const limit = parseFloat(column.leLimitValue);
-        if (isNaN(numValue)) continue;
-        if (numValue > limit) return 'F';
-      }
+    let anyAboveLimit = false;
+    let allFilled = true;
+    let anyFilled = false;
 
-      // If we have at least one value and none failed, it's a pass
-      const hasAnyValue = Object.values(row.dynamicValues).some(v => v !== '');
-      return hasAnyValue ? 'P' : '';
-    }
-
-    if (isPSCore) {
-      // PS core - check all dynamic values like Protection core
-      if (Object.keys(row.dynamicValues).length === 0) return '';
-
-      for (const column of psBColumns) {
-        const value = row.dynamicValues[column.id];
-        if (!value) continue;
-        const numValue = parseFloat(value);
-        const limit = parseFloat(column.leLimitValue);
-        if (isNaN(numValue)) continue;
-        if (numValue > limit) return 'F';
-      }
-
-      // If we have at least one value and none failed, it's a pass
-      const hasAnyValue = Object.values(row.dynamicValues).some(v => v !== '');
-      return hasAnyValue ? 'P' : '';
-    }
-
-    // Metering - check dynamic values
-    if (Object.keys(row.dynamicValues).length === 0) return '';
-
-    for (const column of bsatColumns) {
+    for (const column of columns) {
       const value = row.dynamicValues[column.id];
-      if (!value) continue;
+      if (value === '' || value === undefined || value === null) {
+        allFilled = false;
+        continue;
+      }
+      
+      anyFilled = true;
       const numValue = parseFloat(value);
       const limit = parseFloat(column.leLimitValue);
-      if (isNaN(numValue)) continue;
-      if (numValue > limit) return 'F';
+      if (!isNaN(numValue) && numValue > limit) {
+        anyAboveLimit = true;
+      }
     }
 
-    // If we have at least one value and none failed, it's a pass
-    const hasAnyValue = Object.values(row.dynamicValues).some(v => v !== '');
-    return hasAnyValue ? 'P' : '';
+    if (anyAboveLimit) return 'F';
+    if (allFilled && anyFilled) return 'P';
+    return '';
   };
 
   const handleRowChange = (index: number, field: keyof CoreTestRow, value: string | any) => {
@@ -653,6 +909,12 @@ export function CoreTestingForm({
     }
 
     setRows(updatedRows);
+    activeRowsRef.current = updatedRows;
+
+    // Add Autosave for Pre-Test
+    if (isPreTest && batchData?.batchId) {
+      debouncedSaveRow(updatedRows[index], index);
+    }
   };
 
 
@@ -695,8 +957,8 @@ export function CoreTestingForm({
     const updatedRows = [...rows];
     const replacementId = `${failedRow.internalCoreNo} (R)`;
 
-    // Insert the replacement row immediately after the failed row
-    updatedRows.splice(index + 1, 0, {
+    // Replace the failed row entirely with the new blank replacement row
+    updatedRows.splice(index, 1, {
       date: systemDate,
       coreVendorNo: failedRow.coreVendorNo, // Keep same vendor by default
       internalCoreNo: replacementId,
@@ -708,33 +970,49 @@ export function CoreTestingForm({
       replacedCoreId: failedRow.internalCoreNo,
     });
 
-    // Mark the parent row as FAIL in status to ensure backend sync
-    updatedRows[index] = {
-      ...failedRow,
-      status: 'FAIL'
-    };
-
     setRows(updatedRows);
   };
 
   const fetchMatchingReadyCores = async (index: number) => {
+    console.log(`[FETCH_READY] Triggered for index ${index}. Current coreType: ${coreType}`);
     setIsReadyLoading(true);
     setActiveReplaceIndex(index);
     setIsReadyModalOpen(true);
+    
     try {
-      const coreSpecs = order.coreDetails?.find((c: any) => (c.coreType || c.type) === coreType) || {};
-      const res = await axios.get(`http://localhost:5001/api/ready-transformers/available`, {
-        params: {
-          coreType: coreType,
-          ratio: coreSpecs.ratio,
-          burden: coreSpecs.burden,
-          classType: coreSpecs.class
-        },
-        withCredentials: true
+      // Search for specs in order details first, fallback to current component specs
+      let coreSpecs = (order.coreDetails || []).find((c: any) => {
+        const desc = (c.description || "").toUpperCase();
+        const cType = c.coreType || "";
+        // More robust detection: PS cores often have Iex limit, Protection cores have specific types.
+        const looksLikePS = cType === 'PS' || c.class === 'PS' || desc.includes(' PS ') || desc.includes('PS');
+        
+        if (coreType === 'PS') return looksLikePS;
+        if (coreType === 'Protection') return cType === 'Protection' && !looksLikePS;
+        if (coreType === 'Metering') return cType === 'Metering';
+        return false;
       });
+
+      console.log(`[FETCH_READY] Detected coreSpecs for ${coreType}:`, coreSpecs);
+
+      const queryParams: any = {
+        status: 'available',
+        coreType: coreType,
+      };
+
+      console.log(`[FETCH_READY] Final Query Params:`, queryParams);
+
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`http://localhost:5001/api/ready-transformers/available`, {
+        params: queryParams,
+        withCredentials: true,
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+      });
+      
+      console.log(`[FETCH_READY] Received ${res.data.length} matching cores.`);
       setMatchingReadyCores(res.data);
     } catch (err) {
-      console.error("Error fetching ready cores:", err);
+      console.error("[FETCH_READY] Error fetching ready cores:", err);
       toast.error("Failed to fetch matching stock");
     } finally {
       setIsReadyLoading(false);
@@ -743,9 +1021,11 @@ export function CoreTestingForm({
 
   const handleReserveReadyCore = async (core: any) => {
     if (!core?._id) return;
+    const token = localStorage.getItem('token');
     try {
       await axios.post(`http://localhost:5001/api/ready-transformers/reserve/${core._id}`, {}, {
-        withCredentials: true
+        withCredentials: true,
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
       });
       setSelectedReadyCore(core);
       setIsReadyModalOpen(false);
@@ -758,70 +1038,366 @@ export function CoreTestingForm({
   const handleUseReadyCore = async () => {
     const currentCore = selectedReadyCore;
     const currentIndex = activeReplaceIndex;
-    
+
     if (!currentCore || currentIndex === null) return;
     try {
       const failedRow = rows[currentIndex];
       if (!failedRow) return;
 
+      const txnOrderId = getSafeOrderId(order);
+
+      // 1. Move failed unit to Failed Section in Backend ONLY for Pre-Test immediately.
+      // For standard orders, we wait until user clicks "Replace" on the UI to move it to Failed Cores.
+      if (isPreTest && batchData?.batchId) {
+        const token = localStorage.getItem('token');
+        // Pre-Test batch: use the batch discard endpoint
+        await axios.post(`http://localhost:5001/api/pre-test-batches/${batchData.batchId}/discard-core`, {
+          internalCoreNo: failedRow.internalCoreNo,
+          vendorCoreNo: failedRow.coreVendorNo,
+          reason: "Replaced from Ready Stock",
+          isReplacement: true,
+          dynamicValues: failedRow.dynamicValues
+        }, { 
+          withCredentials: true,
+          headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+        });
+      }
+
+      // 2. Mark as used in Inventory and Link to Order
+      const token = localStorage.getItem('token');
       const res = await axios.post(`http://localhost:5001/api/ready-transformers/use/${currentCore._id}`, {
-        orderId: getSafeOrderId(order),
+        orderId: txnOrderId,
         replacedCoreId: failedRow.internalCoreNo
       }, {
-        withCredentials: true
+        withCredentials: true,
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
       });
 
       const usedCore = res.data.transformer;
       const systemDate = getSystemDate();
+      const testData = usedCore.testResults || {};
+      const failedCoreId = failedRow.internalCoreNo;
+      const replacementNo = `${failedCoreId} (R)`;
+      // Smart reading extraction: Match based on current columns
+      let dynamicValues: { [key: string]: string } = {};
+      const isPS = (coreType as string) === 'PS';
+      const isProtection = (coreType as string) === 'Protection';
+      const currentCols = isPS ? psBColumns : (isProtection ? protectionBColumns : bsatColumns);
 
-      // 1. Mark current row as FAIL
-      const updatedRows = [...rows];
-      updatedRows[currentIndex] = {
-        ...failedRow,
-        status: 'FAIL'
-      };
+      console.log(`[USE_READY] Extracting readings for ${coreType} using ${currentCols.length} columns.`);
 
-      // 2. Insert the PRE_TESTED replacement row
-      updatedRows.splice(currentIndex + 1, 0, {
-        date: systemDate,
-        coreVendorNo: "READY_STOCK",
-        internalCoreNo: usedCore.serialNumber,
-        singleValue: "",
-        dynamicValues: {},
-        remark: 'PRE_TESTED',
+      // First: map measuredMa array by index to column ids (1-indexed)
+      if (Array.isArray(testData.measuredMa) && testData.measuredMa.length > 0) {
+        currentCols.forEach((col, i) => {
+          if (testData.measuredMa[i] != null) {
+            dynamicValues[col.id] = String(testData.measuredMa[i]);
+          }
+        });
+      } else if (testData.dynamicValues && typeof testData.dynamicValues === 'object') {
+        // Fallback: try to match by key if dynamicValues exists
+        dynamicValues = { ...testData.dynamicValues };
+      } else if (testData.value != null) {
+        // Fallback for single-value cores (Metering non-BSAT)
+        dynamicValues["1"] = String(testData.value);
+      }
+
+      console.log(`[USE_READY] Extracted dynamic values:`, dynamicValues);
+
+      // Second: fill any still-missing cols from flat testData keys
+      currentCols.forEach(col => {
+        if (!dynamicValues[col.id]) {
+          const val = testData[`value${col.bsatValue}`] ||
+            testData[`v${col.bsatValue}`] ||
+            testData[col.bsatValue] ||
+            testData[`value_${col.bsatValue}`];
+          if (val != null) dynamicValues[col.id] = String(val);
+        }
+      });
+
+      const replacementRow: CoreTestRow = {
+        date: testData.date || systemDate,
+        coreVendorNo: currentCore.vendorName || testData.vendorCoreNo || usedCore.vendorCoreNo || usedCore.coreVendorNo || failedRow.coreVendorNo || 'STOCK',
+        internalCoreNo: replacementNo,
+        value1000: testData.value1000 || testData.v1000 || '',
+        value3000: testData.value3000 || testData.v3000 || '',
+        value5000: testData.value5000 || testData.v5000 || '',
+        value7000: testData.value7000 || testData.v7000 || '',
+        singleValue: usedCore.value != null ? String(usedCore.value) : (dynamicValues["1"] || ''),
+        dynamicValues,
+        remark: testData.remark || 'PRE_TESTED',
         isReplacement: true,
         replacedCoreId: failedRow.internalCoreNo,
-        status: 'PASS' // Automatically pass since it's pre-tested
-      } as any);
+        status: (testData.status as any) || 'PASS'
+      };
 
-      setRows(updatedRows);
+      // Replace the failed row entirely with the new ready stock row
+      // No, we keep the failed row and insert the replacement after it!
+      const nextRows = [...rows];
+      nextRows[currentIndex] = { ...failedRow, status: 'FAIL', remark: 'F' };
+      nextRows.splice(currentIndex + 1, 0, replacementRow);
+
+      setRows(nextRows);
+      activeRowsRef.current = nextRows;
+
+      // CRITICAL: Save the replacement row IMMEDIATELY
+      if (isPreTest && batchData?.batchId) {
+        const rowToSave = nextRows[currentIndex + 1];
+        if (rowToSave) {
+          await performRowSave(rowToSave, currentIndex + 1);
+        }
+      } else {
+        await handleSave(nextRows);
+      }
+
       setIsConfirmUseModalOpen(false);
       setSelectedReadyCore(null);
       setActiveReplaceIndex(null);
+
+      // FIXED: Do NOT decrement localCoreCount for replacements
+      // if (isPreTest) {
+      //   setLocalCoreCount(prev => Math.max(0, prev - 1));
+      // }
+
       toast.success("Ready core assigned successfully!");
     } catch (err: any) {
+      console.error("Use Core Error:", err);
       toast.error(err.response?.data?.message || "Failed to use core");
     }
   };
 
+  const handleMoveToFailed = async (index: number) => {
+    const failedRow = rows[index];
+    if (!failedRow) return;
 
+    if (!window.confirm(`Are you sure you want to move core ${failedRow.internalCoreNo} to the Failed Core section permanently?`)) {
+      return;
+    }
 
+    const txnOrderId = getSafeOrderId(order);
+    if (!txnOrderId) {
+      toast.error("Error: Order ID missing. Cannot move to failed section.");
+      return;
+    }
 
+    try {
+      const token = localStorage.getItem('token');
+      // 1. Move failed unit to Failed Section in Backend
+      const payload = {
+        orderId: txnOrderId,
+        internalCoreNo: failedRow.internalCoreNo,
+        vendorCoreNo: failedRow.coreVendorNo,
+        failureReason: getFailureReason(failedRow) || "Replaced from Ready Stock",
+        failureStage: "TESTING",
+        dynamicValues: failedRow.dynamicValues,
+        coreType: coreType // Backend normalizes this
+      };
 
+      console.log("Moving core to failed section:", payload);
+      await axios.post(`http://localhost:5001/api/failed-cores`, payload, { 
+        withCredentials: true,
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+      });
 
+      // 2. Update local UI state
+      const nextRows = rows.filter((_, i) => i !== index);
+      setRows(nextRows);
+      
+      // 3. Persist the grid state immediately (crucial for permanent removal from this order)
+      console.log("Persisting grid state after removal...");
+      await handleSave(nextRows);
 
+      toast.success("Core moved to failed section and removed from grid.");
+    } catch (err: any) {
+      console.error("Move to failed error:", err);
+      toast.error(err.response?.data?.message || "Failed to move core to Failed Section");
+    }
+  };
 
+  const saveTimers = useRef<{ [key: number]: NodeJS.Timeout }>({});
 
+  useEffect(() => {
+    return () => {
+      // Cleanup all pending timers on unmount
+      Object.values(saveTimers.current).forEach(timer => clearTimeout(timer));
+    };
+  }, []);
 
+  const performRowSave = async (row: CoreTestRow, index: number) => {
+    if (!isPreTest || !batchData?.batchId) return;
+    const currentSpecs = specsRef.current;
+    const currentBsatCols = bsatColumnsRef.current;
+    const currentProtCols = protectionBColumnsRef.current;
+    const currentPsCols = psBColumnsRef.current;
 
-  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const [day, month, year] = testDate.split('/');
+      const formattedDate = new Date(`${year}-${month}-${day}`);
+
+      const payload = {
+        reading: {
+          date: formattedDate,
+          vendorCoreNo: row.coreVendorNo,
+          internalCoreNo: row.internalCoreNo,
+          ...(isMetering || isProtectionCore || isPSCore
+            ? { measuredMa: (isMetering ? currentBsatCols : (isProtectionCore ? currentProtCols : currentPsCols)).map(col => {
+                const val = row.dynamicValues[col.id];
+                if (val === '' || val === undefined || val === null) return null;
+                const num = parseFloat(val);
+                return isNaN(num) ? null : num;
+              }) }
+            : { value: (row.singleValue === '' || row.singleValue === undefined || row.singleValue === null) ? null : parseFloat(row.singleValue) }
+          ),
+          result: row.remark || "",
+          status: row.status || (row.remark === 'P' ? 'PASS' : (row.remark === 'F' ? 'FAIL' : 'PENDING'))
+        },
+        testSetup: {
+          [isMetering ? 'coreMaterial' : 'description']: isMetering
+            ? (coreTypeNano || "TOROIDAL CORE NANO CRYSTALLINE")
+            : (coreType === 'Protection' ? (protectionCoreTypeM4CRGO || "M4CRGO") : (psCoreTypeM4CRGO || "M4CRGO")),
+          coreSizeMm: {
+            id: parseFloat(currentSpecs.coreSize1) || 0,
+            od: parseFloat(currentSpecs.coreSize2) || 0,
+            height: parseFloat(currentSpecs.coreSize3) || 0
+          },
+          turnsUsed: parseInt(currentSpecs.turnUsed || '0') || 0,
+          areaSqCm: parseFloat(currentSpecs.area || '0') || 0,
+          mmp: parseFloat(currentSpecs.mmp || '0') || 0
+        },
+        testLimits: isMetering ? {
+          bsatGauss: currentBsatCols.map(col => parseFloat(col.bsatValue) || 0),
+          setMilliVolt: currentBsatCols.map(col => parseFloat(col.setMvValue) || 0),
+          leLimitMa: currentBsatCols.map(col => parseFloat(col.leLimitValue) || 0)
+        } : (isProtectionCore || isPSCore) ? {
+          bsatGauss: (isProtectionCore ? currentProtCols : currentPsCols).map(col => parseFloat(col.bsatValue) || 0),
+          setMilliVolt: (isProtectionCore ? currentProtCols : currentPsCols).map(col => parseFloat(col.setMvValue) || 0),
+          leLimitMa: (isProtectionCore ? currentProtCols : currentPsCols).map(col => parseFloat(col.leLimitValue) || 0)
+        } : {
+          fluxTesla: parseFloat(currentSpecs.bFlux) || 0,
+          voltageV: parseFloat(currentSpecs.voltage) || 0,
+          iexLimitMa: isPSCore ? parseFloat(currentSpecs.iexLimit || '0') : protectionLimit
+        }
+      };
+
+      console.log(`DEBUG: Saving row ${index} (${payload.reading.internalCoreNo}) to batch ${batchData.batchId}`);
+      const token = localStorage.getItem('token');
+      await axios.post(`http://localhost:5001/api/pre-test-batches/${batchData.batchId}/save-reading`, payload, {
+        withCredentials: true,
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+      });
+
+      console.log("DEBUG: Save successful for row", index);
+      delete saveTimers.current[index];
+    } catch (err) {
+      console.error("Autosave failed", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const debouncedSaveRow = (row: CoreTestRow, index: number) => {
+    if (saveTimers.current[index]) clearTimeout(saveTimers.current[index]);
+    saveTimers.current[index] = setTimeout(() => performRowSave(row, index), 1500);
+  };
+
+  const handleBack = async () => {
+    if (isPreTest && batchData?.batchId) {
+      setIsSaving(true);
+      // 1. Flush pending row saves
+      const timers = Object.entries(saveTimers.current);
+      for (const [index, timer] of timers) {
+        clearTimeout(timer);
+        const idx = parseInt(index);
+        const row = activeRowsRef.current[idx];
+        if (row) {
+          await performRowSave(row, idx);
+        }
+      }
+
+      // 2. Flush config save
+      if (configSaveTimer.current) {
+        clearTimeout(configSaveTimer.current);
+        await performConfigSave();
+      }
+      setIsSaving(false);
+    }
+    onBack();
+  };
+
+  const handleDiscardCore = async (index: number) => {
+    if (!isPreTest || !batchData?.batchId) return;
+    const row = rows[index];
+    if (!row) return;
+    if (!row.internalCoreNo) return;
+
+    if (!window.confirm(`Are you sure you want to discard core ${row.internalCoreNo}? It will be moved to the failed section and removed from this batch.`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`http://localhost:5001/api/pre-test-batches/${batchData.batchId}/discard-core`, {
+        internalCoreNo: row.internalCoreNo,
+        vendorCoreNo: row.coreVendorNo,
+        reason: "Failed testing",
+        dynamicValues: row.dynamicValues
+      }, { 
+        withCredentials: true, 
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+      });
+
+      if (response.status === 200) {
+        toast.success("Core discarded and moved to Failed Section");
+        const newRows = [...rows];
+        newRows.splice(index, 1);
+        setRows(newRows);
+        setLocalCoreCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to discard core");
+    }
+  };
+
+  const handleApprovePreTest = async () => {
+    if (!isPreTest || !batchData?.batchId) return;
+
+    if (getFilledRowsCount() < rows.length) {
+      alert("Please complete testing for all cores in the batch.");
+      return;
+    }
+
+    if (rows.some(r => r.remark === 'F')) {
+      alert("Please discard failed cores before approving the batch.");
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to approve this batch of ${rows.length} cores? This will move them to Ready Stock.`)) {
+      return;
+    }
+
+    try {
+      const res = await axios.post(`http://localhost:5001/api/pre-test-batches/${batchData.batchId}/approve`, {}, {
+        withCredentials: true
+      });
+      if (res.status === 200) {
+        toast.success("Batch approved and moved to Ready Stock!");
+        onBack();
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to approve batch");
+    }
+  };
+
+  const handleSave = async (rowsOverride?: CoreTestRow[]) => {
     if (isReadOnly) return;
     try {
       const isMetering = coreType === 'Metering';
       const isPS = coreType === 'PS';
 
+      const currentRows = rowsOverride || rows;
+
       // 1. AUTO-FILL IDs & CALCULATE REMARKS
-      const processedRows = rows.map((row, index) => {
+      const processedRows = currentRows.map((row, index) => {
         // FIX: Check both dynamicValues AND singleValue
         const hasDynValues = Object.values(row.dynamicValues || {}).some(v => v !== '' && v !== null);
         const hasSingleValue = row.singleValue !== '' && row.singleValue !== null;
@@ -875,7 +1451,7 @@ export function CoreTestingForm({
 
       console.log("DEBUG: Sending Order ID to Backend:", txnOrderId);
 
-      if (!txnOrderId) {
+      if (!txnOrderId && !isPreTest) {
         alert("Error: Order ID is missing from the data. Please contact support.");
         return;
       }
@@ -903,21 +1479,24 @@ export function CoreTestingForm({
           },
           turnsUsed: parseInt(specs.turnUsed || '0') || 0,
           areaSqCm: parseFloat(specs.area || '0') || 0,
-          mmp: parseFloat(specs.mmp || '0') || 0
+          mmp: parseFloat(specs.mmp || '0') || 0,
+          class: isPSCore ? "PS" : ""
         },
-        readings: validReadings.map(row => ({
-          date: formattedDate,
-          vendorCoreNo: row.coreVendorNo,
-          internalCoreNo: row.internalCoreNo,
-          // For Protection/PS, use value; for Metering, use measuredMa
-          ...(isMetering
-            ? { measuredMa: bsatColumns.map(col => parseFloat(row.dynamicValues[col.id] || '0') || 0) }
-            : { value: parseFloat(row.singleValue || Object.values(row.dynamicValues)[0] || '0') }
-          ),
-          result: row.remark || "F",
-          isReplacement: !!row.isReplacement,
-          replacedCoreId: row.replacedCoreId || null
-        }))
+        readings: [
+          ...validReadings.map(row => ({
+            date: formattedDate,
+            vendorCoreNo: row.coreVendorNo,
+            internalCoreNo: row.internalCoreNo,
+            // For Protection/PS, use value; for Metering, use measuredMa
+            ...(isMetering
+              ? { measuredMa: bsatColumns.map(col => parseFloat(row.dynamicValues[col.id] || '0') || 0) }
+              : { value: parseFloat(row.singleValue || Object.values(row.dynamicValues)[0] || '0') }
+            ),
+            result: row.remark || "F",
+            isReplacement: !!row.isReplacement,
+            replacedCoreId: row.replacedCoreId || null
+          }))
+        ]
       };
 
       if (isMetering) {
@@ -934,14 +1513,35 @@ export function CoreTestingForm({
         };
       }
 
-      // For pre-test: inject batch metadata into the SAME payload, use SAME endpoint
       if (isPreTest && batchData) {
-        finalPayload.isPreTest = true;
-        finalPayload.batchId = batchData.batchId;
-        finalPayload.vendorName = batchData.vendorName;
-        finalPayload.vendorId = batchData.vendorId;
-        // IMPORTANT: Remove orderId to prevent CastError on backend for pre-test batches
-        delete finalPayload.orderId;
+        // Redirect to Pre-Test Batch API
+        const batchPayload = {
+          readings: validReadings.map(row => ({
+            date: formattedDate,
+            vendorCoreNo: row.coreVendorNo,
+            internalCoreNo: row.internalCoreNo,
+            ...(isMetering
+              ? { measuredMa: bsatColumns.map(col => {
+                  const val = row.dynamicValues[col.id];
+                  if (val === '' || val === undefined || val === null) return null;
+                  const num = parseFloat(val);
+                  return isNaN(num) ? null : num;
+                }) }
+              : { value: (row.singleValue === '' || row.singleValue === undefined || row.singleValue === null) ? null : parseFloat(row.singleValue) }
+            ),
+            result: row.remark || "",
+            status: row.status || (row.remark === 'P' ? 'PASS' : (row.remark === 'F' ? 'FAIL' : 'PENDING'))
+          })),
+          testSetup: finalPayload.testSetup,
+          testLimits: isMetering ? finalPayload.testLimits : finalPayload.testSpecification
+        };
+
+        await axios.patch(`http://localhost:5001/api/pre-test-batches/${batchData.batchId}`, batchPayload, {
+          withCredentials: true
+        });
+
+        toast.success("Batch progress saved successfully!");
+        return;
       }
 
       console.log("DEBUG: Sending Final Payload to Backend:", finalPayload);
@@ -949,7 +1549,7 @@ export function CoreTestingForm({
       const token = localStorage.getItem('token');
       const response = await axios.post(`http://localhost:5001/api${endpoint}`, finalPayload, {
         withCredentials: true,
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': token ? `Bearer ${token}` : ''
         }
@@ -986,12 +1586,16 @@ export function CoreTestingForm({
     // For Protection, PS, and Metering, check if any dynamic values are filled
     return rows.filter(row => {
       if (!row.internalCoreNo) return false;
+      if (row.remark === 'PRE_TESTED') return true;
       const hasAnyValue = Object.values(row.dynamicValues).some(v => v !== '');
       return hasAnyValue;
     }).length;
   };
 
   const getPassFailCount = () => {
+    // P: only cores explicitly marked as 'P' (passed threshold test)
+    // F: only cores explicitly marked as 'F' (failed threshold test)
+    // Cores with empty remark = untested/incomplete — NOT counted in either P or F
     const passed = rows.filter(row => row.remark === 'P').length;
     const failed = rows.filter(row => row.remark === 'F').length;
     return { passed, failed };
@@ -1050,16 +1654,18 @@ export function CoreTestingForm({
     }
   };
 
-  const renderReadyStockModals = () => (
-    <>
-      {/* Ready Stock Selection Modal */}
-      <ReadyStockModal 
-        isOpen={isReadyModalOpen}
-        onClose={() => setIsReadyModalOpen(false)}
-        cores={matchingReadyCores}
-        isLoading={isReadyLoading}
-        onSelect={handleReserveReadyCore}
-      />
+  const renderReadyStockModals = () => {
+    console.log(`[RENDER_MODALS] Rendering modals. isReadyModalOpen: ${isReadyModalOpen}, matchingReadyCores: ${matchingReadyCores.length}`);
+    return (
+      <>
+        {/* Ready Stock Selection Modal */}
+        <ReadyStockModal
+          isOpen={isReadyModalOpen}
+          onClose={() => setIsReadyModalOpen(false)}
+          cores={matchingReadyCores}
+          isLoading={isReadyLoading}
+          onSelect={handleReserveReadyCore}
+        />
 
       {/* Confirmation Modal for using ready core */}
       <Dialog open={isConfirmUseModalOpen} onOpenChange={setIsConfirmUseModalOpen}>
@@ -1067,15 +1673,15 @@ export function CoreTestingForm({
           <DialogHeader>
             <DialogTitle>Confirm Assignment</DialogTitle>
             <DialogDescription>
-              Are you sure you want to use pre-tested core <strong>{selectedReadyCore?.serialNumber}</strong> for this transformer?
+              Are you sure you want to use pre-tested core <strong>{selectedReadyCore?.coreId || selectedReadyCore?.serialNumber}</strong> for this transformer?
               This action will mark the current core as FAILED and assign the ready core as a replacement.
             </DialogDescription>
           </DialogHeader>
           <div className="bg-blue-50 p-4 rounded-md space-y-2">
             <p className="text-sm font-semibold">Ready Core Details:</p>
             <div className="text-xs space-y-1">
-              <p>Serial: {selectedReadyCore?.serialNumber}</p>
-              <p>Specs: {selectedReadyCore?.specifications?.ratio} | {selectedReadyCore?.specifications?.burden} | {selectedReadyCore?.specifications?.["class"] || selectedReadyCore?.specifications?.class}</p>
+              <p>Serial: {selectedReadyCore?.coreId || selectedReadyCore?.serialNumber}</p>
+              <p>Type: {selectedReadyCore?.coreType || selectedReadyCore?.specifications?.coreType || 'Core'}</p>
             </div>
           </div>
           <DialogFooter>
@@ -1086,6 +1692,7 @@ export function CoreTestingForm({
       </Dialog>
     </>
   );
+};
 
   if (isLoading) {
     return (
@@ -1138,9 +1745,12 @@ export function CoreTestingForm({
       };
 
       const updateBColumn = (id: string, field: keyof BSATColumn, value: string) => {
-        setProtectionBColumns(protectionBColumns.map(col =>
+        const updated = protectionBColumns.map(col =>
           col.id === id ? { ...col, [field]: value } : col
-        ));
+        );
+        setProtectionBColumns(updated);
+        protectionBColumnsRef.current = updated;
+        if (isPreTest && batchData?.batchId) debouncedSaveConfig();
       };
 
       const handleProtectionConfigSave = () => {
@@ -1155,18 +1765,20 @@ export function CoreTestingForm({
         }
 
         setProtectionConfigured(true);
+        // Save config immediately
+        debouncedSaveConfig(specs);
         updatePreTestBatchStatus("CONFIGURED");
         alert('Configuration saved successfully! You can now enter core testing data.');
       };
 
       return (
-        <div className="space-y-6">
+        <div className="space-y-6 p-2 sm:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
               <Button
                 variant="outline"
-                onClick={onBack}
+                onClick={handleBack}
                 size="sm"
                 className="mb-2 gap-1"
               >
@@ -1418,7 +2030,17 @@ export function CoreTestingForm({
               <Tag className="w-3 h-3" />
               Print Labels ({getPassedCores().length})
             </Button>
-            <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={handleSave}>
+            {!isReadOnly && (isPreTest ? true : getFilledRowsCount() >= calculateTotalRowsNeeded()) && (
+              <Button
+                size="sm"
+                className="gap-1 bg-[#003a70] hover:bg-[#002a50] text-white shadow-md border border-[#001a30] px-4 font-bold"
+                onClick={isPreTest ? handleApprovePreTest : handleApprove}
+              >
+                <Check className="w-3 h-3" />
+                Approve Batch
+              </Button>
+            )}
+            <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={() => handleSave()}>
               <Save className="w-3 h-3" />
               Save All
             </Button>
@@ -1429,7 +2051,7 @@ export function CoreTestingForm({
         <Card className="p-3">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-4">
-              <span className="text-gray-600">Cores Tested: <span className="font-medium text-gray-900">{getFilledRowsCount()} / {order.transformerQuantity}</span></span>
+              <span className="text-gray-600">Cores Tested: <span className="font-medium text-gray-900">{getFilledRowsCount()} / {calculateTotalRowsNeeded()}</span></span>
               <span className="flex items-center gap-1 text-green-600">
                 <Check className="w-4 h-4" />
                 Pass: <span className="font-medium">{passed}</span>
@@ -1619,14 +2241,6 @@ export function CoreTestingForm({
                 {/* Data Entry Rows */}
                 {rows.map((row, index) => (
                   <tr key={index} className={`hover:bg-gray-50 transition-colors ${row.isReplacement ? 'bg-blue-50' : 'bg-white'}`}>
-                    {/* <td className="p-2 border border-gray-300">
-                      <Input
-                        value={row.date}
-                        onChange={(e) => handleRowChange(index, 'date', e.target.value)}
-                        className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
-                        placeholder="DD/MM/YY"
-                      />
-                    </td> */}
                     <td className="bg-white p-3 border border-gray-400 text-center font-medium">
                       <Input
                         value={testDate} // Use the state variable
@@ -1662,7 +2276,7 @@ export function CoreTestingForm({
                             handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: filtered });
                           }}
                           disabled={isReadOnly || isRowLocked(row)}
-                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue) ? 'bg-red-50 text-red-700' : ''
+                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] !== '' && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue) ? 'bg-red-50 text-red-700' : ''
                             }`}
                           placeholder="9.5"
                         />
@@ -1675,28 +2289,62 @@ export function CoreTestingForm({
                           }`}>
                           {row.remark}
                         </div>
-                        {row.remark === 'F' && !row.isReplacement && !isPreTest && !rows.some(r => r.replacedCoreId === row.internalCoreNo) && (
+                        {row.remark === 'F' && (
                           <div className="flex flex-col gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleReplaceCore(index)}
-                              className="h-7 px-2 text-[10px] gap-1 border-orange-300 text-orange-600 hover:bg-orange-50"
-                              title="Replace this failed core with manual testing"
-                            >
-                              <RefreshCw className="w-3 h-3" />
-                              Manual Replace
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => fetchMatchingReadyCores(index)}
-                              className="h-7 px-2 text-[10px] gap-1 border-blue-300 text-blue-600 hover:bg-blue-50"
-                              title="Use pre-tested core from stock"
-                            >
-                              <Package className="w-3 h-3" />
-                              Use Ready Stock
-                            </Button>
+                            {isPreTest ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDiscardCore(index)}
+                                className="h-7 px-2 text-[10px] gap-1 border-red-500 text-red-600 hover:bg-red-50 bg-white font-bold shadow-sm"
+                                title="Discard this failed core and move to Failed section"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                Discard
+                              </Button>
+                            ) : (
+                              !rows.some(r => r.replacedCoreId === row.internalCoreNo) ? (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleReplaceCore(index)}
+                                    className="h-7 px-2 text-[10px] gap-1 border-orange-500 text-orange-700 bg-white hover:bg-orange-50 font-bold shadow-sm"
+                                    title="Replace this failed core with manual testing"
+                                  >
+                                    <RefreshCw className="w-3 h-3" />
+                                    Manual Replace
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    type="button"
+                                    variant="outline"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      console.log("Use Ready Stock clicked for row", index);
+                                      fetchMatchingReadyCores(index);
+                                    }}
+                                    className="h-7 px-2 text-[10px] gap-1 border-blue-500 text-blue-700 hover:bg-blue-50 bg-white font-bold shadow-sm cursor-pointer relative z-10"
+                                    title="Use pre-tested core from stock"
+                                  >
+                                    <Package className="w-3 h-3 pointer-events-none" />
+                                    Use Ready Stock
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleMoveToFailed(index)}
+                                  className="h-7 px-2 text-[10px] gap-1 border-red-500 text-red-600 hover:bg-red-50 bg-white font-bold shadow-sm"
+                                  title="Move this replaced core to the Failed Core section"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  Move to Failed
+                                </Button>
+                              )
+                            )}
                           </div>
                         )}
                       </div>
@@ -1747,8 +2395,27 @@ export function CoreTestingForm({
         {/* Completion Summary */}
         <Card className="p-4 bg-blue-50 border-blue-200">
           <div className="flex items-center justify-between">
-            <div>
-              <h4 className="font-medium text-blue-900">Testing Summary</h4>
+            <div className="flex-1">
+              <div className="flex items-center gap-3">
+                <h4 className="font-medium text-blue-900">Testing Summary</h4>
+                {isPreTest && (
+                  <>
+                    {isSaving ? (
+                      <div className="flex items-center gap-1.5 text-xs text-blue-600 bg-blue-100/50 px-2 py-0.5 rounded-full animate-pulse border border-blue-200">
+                        <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div>
+                        Saving...
+                      </div>
+                    ) : (
+                      Object.keys(saveTimers.current).length === 0 && (
+                        <div className="flex items-center gap-1 text-[10px] text-green-600 font-medium">
+                          <Check className="w-3 h-3" />
+                          Saved
+                        </div>
+                      )
+                    )}
+                  </>
+                )}
+              </div>
               <div className="flex flex-wrap gap-4 mt-2">
                 <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
                   <div className="text-[10px] text-gray-500 uppercase font-bold">Assigned</div>
@@ -1776,6 +2443,7 @@ export function CoreTestingForm({
             )}
           </div>
         </Card>
+        {renderReadyStockModals()}
       </div>
     );
   }
@@ -1796,9 +2464,12 @@ export function CoreTestingForm({
       };
 
       const updateBColumn = (id: string, field: keyof BSATColumn, value: string) => {
-        setPsBColumns(psBColumns.map(col =>
+        const updated = psBColumns.map(col =>
           col.id === id ? { ...col, [field]: value } : col
-        ));
+        );
+        setPsBColumns(updated);
+        psBColumnsRef.current = updated;
+        if (isPreTest && batchData?.batchId) debouncedSaveConfig();
       };
 
       const handlePSConfigSave = () => {
@@ -1813,18 +2484,20 @@ export function CoreTestingForm({
         }
 
         setPsConfigured(true);
+        // Save config immediately
+        debouncedSaveConfig(specs);
         updatePreTestBatchStatus("CONFIGURED");
         alert('Configuration saved successfully! You can now enter core testing data.');
       };
 
       return (
-        <div className="space-y-6">
+        <div className="space-y-6 p-2 sm:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
               <Button
                 variant="outline"
-                onClick={onBack}
+                onClick={handleBack}
                 size="sm"
                 className="mb-2 gap-1"
               >
@@ -2076,7 +2749,17 @@ export function CoreTestingForm({
               <Tag className="w-3 h-3" />
               Print Labels ({getPassedCores().length})
             </Button>
-            <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={handleSave}>
+            {!isReadOnly && (isPreTest ? true : getFilledRowsCount() >= calculateTotalRowsNeeded()) && (
+              <Button
+                size="sm"
+                className="gap-1 bg-[#003a70] hover:bg-[#002a50] text-white shadow-md border border-[#001a30] px-4 font-bold"
+                onClick={isPreTest ? handleApprovePreTest : handleApprove}
+              >
+                <Check className="w-3 h-3" />
+                Approve Batch
+              </Button>
+            )}
+            <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={() => handleSave()}>
               <Save className="w-3 h-3" />
               Save All
             </Button>
@@ -2087,7 +2770,7 @@ export function CoreTestingForm({
         <Card className="p-3">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-4">
-              <span className="text-gray-600">Cores Tested: <span className="font-medium text-gray-900">{getFilledRowsCount()} / {order.transformerQuantity}</span></span>
+              <span className="text-gray-600">Cores Tested: <span className="font-medium text-gray-900">{getFilledRowsCount()} / {calculateTotalRowsNeeded()}</span></span>
               <span className="flex items-center gap-1 text-green-600">
                 <Check className="w-4 h-4" />
                 Pass: <span className="font-medium">{passed}</span>
@@ -2276,14 +2959,6 @@ export function CoreTestingForm({
                 {/* Data Entry Rows */}
                 {rows.map((row, index) => (
                   <tr key={index} className={`hover:bg-gray-50 transition-colors ${row.isReplacement ? 'bg-blue-50' : 'bg-white'}`}>
-                    {/* <td className="p-2 border border-gray-300">
-                      <Input
-                        value={row.date}
-                        onChange={(e) => handleRowChange(index, 'date', e.target.value)}
-                        className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
-                        placeholder="DD/MM/YY"
-                      />
-                    </td> */}
                     <td className="bg-white p-3 border border-gray-400 text-center font-medium">
                       <Input
                         value={testDate} // Use the state variable
@@ -2319,7 +2994,7 @@ export function CoreTestingForm({
                             const filtered = e.target.value.replace(/[^0-9+\-.]/g, '');
                             handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: filtered });
                           }}
-                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue ?? '0') ? 'bg-red-50 text-red-700' : ''
+                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] !== '' && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue ?? '0') ? 'bg-red-50 text-red-700' : ''
                             }`}
                           placeholder="9.5"
                         />
@@ -2332,28 +3007,64 @@ export function CoreTestingForm({
                           }`}>
                           {row.remark}
                         </div>
-                        {row.remark === 'F' && !row.isReplacement && !isPreTest && !rows.some(r => r.replacedCoreId === row.internalCoreNo) && (
+                        {row.remark === 'F' && (
                           <div className="flex flex-col gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleReplaceCore(index)}
-                              className="h-7 px-2 text-[10px] gap-1 border-orange-300 text-orange-600 hover:bg-orange-50"
-                              title="Replace this failed core with manual testing"
-                            >
-                              <RefreshCw className="w-3 h-3" />
-                              Manual Replace
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => fetchMatchingReadyCores(index)}
-                              className="h-7 px-2 text-[10px] gap-1 border-blue-300 text-blue-600 hover:bg-blue-50"
-                              title="Use pre-tested core from stock"
-                            >
-                              <Package className="w-3 h-3" />
-                              Use Ready Stock
-                            </Button>
+                            {isPreTest ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDiscardCore(index)}
+                                className="h-7 px-2 text-[10px] gap-1 border-red-500 text-red-600 hover:bg-red-50 bg-white font-bold shadow-sm"
+                                title="Discard this failed core and move to Failed section"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                Discard
+                              </Button>
+                            ) : (
+                              (
+                                !rows.some(r => r.replacedCoreId === row.internalCoreNo) ? (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleReplaceCore(index)}
+                                      className="h-7 px-2 text-[10px] gap-1 border-orange-500 text-orange-700 bg-white hover:bg-orange-50 font-bold shadow-sm"
+                                      title="Replace this failed core with manual testing"
+                                    >
+                                      <RefreshCw className="w-3 h-3" />
+                                      Manual Replace
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      type="button"
+                                      variant="outline"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        console.log("Use Ready Stock clicked for row", index);
+                                        fetchMatchingReadyCores(index);
+                                      }}
+                                      className="h-7 px-2 text-[10px] gap-1 border-blue-500 text-blue-700 hover:bg-blue-50 bg-white font-bold shadow-sm cursor-pointer relative z-10"
+                                      title="Use pre-tested core from stock"
+                                    >
+                                      <Package className="w-3 h-3 pointer-events-none" />
+                                      Use Ready Stock
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleMoveToFailed(index)}
+                                    className="h-7 px-2 text-[10px] gap-1 border-red-500 text-red-600 hover:bg-red-50 bg-white font-bold shadow-sm"
+                                    title="Move this replaced core to the Failed Core section"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    Move to Failed
+                                  </Button>
+                                )
+                              )
+                            )}
                           </div>
                         )}
                       </div>
@@ -2403,8 +3114,27 @@ export function CoreTestingForm({
         {/* Completion Summary */}
         <Card className="p-4 bg-blue-50 border-blue-200">
           <div className="flex items-center justify-between">
-            <div>
-              <h4 className="font-medium text-blue-900">Testing Summary</h4>
+            <div className="flex-1">
+              <div className="flex items-center gap-3">
+                <h4 className="font-medium text-blue-900">Testing Summary</h4>
+                {isPreTest && (
+                  <>
+                    {isSaving ? (
+                      <div className="flex items-center gap-1.5 text-xs text-blue-600 bg-blue-100/50 px-2 py-0.5 rounded-full animate-pulse border border-blue-200">
+                        <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div>
+                        Saving...
+                      </div>
+                    ) : (
+                      Object.keys(saveTimers.current).length === 0 && (
+                        <div className="flex items-center gap-1 text-[10px] text-green-600 font-medium">
+                          <Check className="w-3 h-3" />
+                          Saved
+                        </div>
+                      )
+                    )}
+                  </>
+                )}
+              </div>
               <div className="flex flex-wrap gap-4 mt-2">
                 <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
                   <div className="text-[10px] text-gray-500 uppercase font-bold">Assigned</div>
@@ -2432,6 +3162,7 @@ export function CoreTestingForm({
             )}
           </div>
         </Card>
+        {renderReadyStockModals()}
       </div>
     );
   }
@@ -2450,9 +3181,12 @@ export function CoreTestingForm({
     };
 
     const updateBSATColumn = (id: string, field: keyof BSATColumn, value: string) => {
-      setBsatColumns(bsatColumns.map(col =>
+      const updated = bsatColumns.map(col =>
         col.id === id ? { ...col, [field]: value } : col
-      ));
+      );
+      setBsatColumns(updated);
+      bsatColumnsRef.current = updated;
+      if (isPreTest && batchData?.batchId) debouncedSaveConfig();
     };
 
     const handleConfigSave = () => {
@@ -2472,13 +3206,13 @@ export function CoreTestingForm({
     };
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-2 sm:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <Button
               variant="outline"
-              onClick={onBack}
+              onClick={handleBack}
               size="sm"
               className="mb-2 gap-1"
             >
@@ -2660,7 +3394,7 @@ export function CoreTestingForm({
 
   // Metering/PS Core Template (Original)
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-2 sm:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
       {isReadOnly && (
         <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4" role="alert">
           <div className="flex items-center">
@@ -2677,7 +3411,7 @@ export function CoreTestingForm({
         <div>
           <Button
             variant="outline"
-            onClick={onBack}
+            onClick={handleBack}
             size="sm"
             className="mb-2 gap-1"
           >
@@ -2731,17 +3465,17 @@ export function CoreTestingForm({
             <Tag className="w-3 h-3" />
             Print Labels ({getPassedCores().length})
           </Button>
-          {!isReadOnly && getFilledRowsCount() >= calculateTotalRowsNeeded() && (
-            <Button 
-              size="sm" 
-              className="gap-1 bg-blue-700 hover:bg-blue-800" 
-              onClick={handleApprove}
+          {!isReadOnly && (isPreTest ? true : getFilledRowsCount() >= calculateTotalRowsNeeded()) && (
+            <Button
+              size="sm"
+              className="gap-1 bg-[#003a70] hover:bg-[#002a50] text-white shadow-md border border-[#001a30] px-4 font-bold"
+              onClick={isPreTest ? handleApprovePreTest : handleApprove}
             >
               <Check className="w-3 h-3" />
               Approve Batch
             </Button>
           )}
-          <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={handleSave}>
+          <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={() => handleSave()}>
             <Save className="w-3 h-3" />
             Save All
           </Button>
@@ -2752,7 +3486,7 @@ export function CoreTestingForm({
       <Card className="p-3">
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-4">
-            <span className="text-gray-600">Cores Tested: <span className="font-medium text-gray-900">{getFilledRowsCount()} / {order.transformerQuantity}</span></span>
+            <span className="text-gray-600">Cores Tested: <span className="font-medium text-gray-900">{getFilledRowsCount()} / {calculateTotalRowsNeeded()}</span></span>
             <span className="flex items-center gap-1 text-green-600">
               <Check className="w-4 h-4" />
               Pass: <span className="font-medium">{passed}</span>
@@ -2776,27 +3510,27 @@ export function CoreTestingForm({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1">
             <Label className="text-xs text-gray-500 uppercase font-bold">Testing Date</Label>
-            <Input 
-              value={testDate} 
-              onChange={(e) => setTestDate(e.target.value)} 
+            <Input
+              value={testDate}
+              onChange={(e) => setTestDate(e.target.value)}
               className="h-9"
               placeholder="DD/MM/YYYY"
             />
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-gray-500 uppercase font-bold">Tested By</Label>
-            <Input 
-              value={testBy} 
-              onChange={(e) => setTestBy(e.target.value)} 
+            <Input
+              value={testBy}
+              onChange={(e) => setTestBy(e.target.value)}
               className="h-9"
               placeholder="Tester Name"
             />
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-gray-500 uppercase font-bold">TATA Reference</Label>
-            <Input 
-              value={tataRef} 
-              onChange={(e) => setTataRef(e.target.value)} 
+            <Input
+              value={tataRef}
+              onChange={(e) => setTataRef(e.target.value)}
               placeholder="TR-2024-001"
               className="h-9"
             />
@@ -2922,7 +3656,7 @@ export function CoreTestingForm({
                   BSAT(G)
                 </td>
                 <td colSpan={2} className="bg-white p-3 border border-gray-400"></td>
-                {bsatColumns.map(column => (
+                {((coreType as string) === 'PS' ? psBColumns : bsatColumns).map(column => (
                   <td key={column.id} className="bg-amber-50 p-3 border border-gray-400 text-center font-bold text-gray-700">
                     {column.bsatValue}
                   </td>
@@ -2936,7 +3670,7 @@ export function CoreTestingForm({
                   SET mV
                 </td>
                 <td colSpan={2} className="bg-white p-3 border border-gray-400"></td>
-                {bsatColumns.map(column => (
+                {((coreType as string) === 'PS' ? psBColumns : bsatColumns).map(column => (
                   <td key={column.id} className="bg-blue-50 p-3 border border-gray-400 text-center font-medium text-gray-700">
                     {column.setMvValue}
                   </td>
@@ -2950,7 +3684,7 @@ export function CoreTestingForm({
                   LE LIMIT in mA.
                 </td>
                 <td colSpan={2} className="bg-white p-3 border border-gray-400"></td>
-                {bsatColumns.map(column => (
+                {((coreType as string) === 'PS' ? psBColumns : bsatColumns).map(column => (
                   <td key={column.id} className="bg-white p-3 border border-gray-400 text-center font-medium text-gray-700">
                     {column.leLimitValue}
                   </td>
@@ -2965,7 +3699,7 @@ export function CoreTestingForm({
                 <td className="p-3 border border-gray-400 font-semibold text-gray-700 text-center text-xs">Date</td>
                 {renderVendorHeader()}
                 <td colSpan={2} className="p-3 border border-gray-400 font-semibold text-gray-700 text-center text-xs">Internal core No.</td>
-                {bsatColumns.map(column => (
+                {((coreType as string) === 'PS' ? psBColumns : bsatColumns).map(column => (
                   <td key={column.id} className="p-3 border border-gray-400 font-semibold text-gray-700 text-center text-xs bg-amber-50">
                     {column.bsatValue}
                   </td>
@@ -2985,29 +3719,8 @@ export function CoreTestingForm({
                     />
                   </td>
                   {renderVendorCell(row, index)}
-                  {/* <td colSpan={2} className="p-2 border border-gray-300">
-                    <div className="flex items-center gap-1">
-                      <Input
-                        value={row.internalCoreNo}
-                        onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
-                        className="flex-1 h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 font-mono"
-                        placeholder={index < order.transformerQuantity ? generateCoreId(index + 1) : ''}
-                      />
-                      {row.isReplacement && (
-                        <span className="text-xs text-blue-600 font-semibold whitespace-nowrap px-1 py-0.5 bg-blue-100 rounded">(R)</span>
-                      )}
-                    </div>
-                  </td> */}
                   <td colSpan={2} className="p-2 border border-gray-300">
                     <div className="flex items-center gap-1">
-                      {/* <Input
-                        // Ensure this matches your state property exactly
-                        value={String(row.internalCoreNo || '')}
-                        onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
-                        // Added 'text-gray-900' to ensure visibility
-                        className="flex-1 h-8 text-xs border-0 focus:ring-1 font-mono font-bold text-gray-900"
-                        placeholder=""
-                      /> */}
                       <Input
                         // 1. Ensure the value is always a string to avoid React warnings
                         value={String(row.internalCoreNo || '')}
@@ -3029,25 +3742,28 @@ export function CoreTestingForm({
                       )}
                     </div>
                   </td>
-                  {bsatColumns.map(column => (
-                    <td key={column.id} className="p-2 border border-gray-300 bg-white">
-                      <Input
-                        value={String(row.dynamicValues[column.id] || '')}
-                        onKeyDown={(e) => {
-                          if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                          if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                        }}
-                        onChange={(e) => {
-                          const filtered = e.target.value.replace(/[^0-9+\-.]/g, '');
-                          handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: filtered });
-                        }}
-                        disabled={isReadOnly || isRowLocked(row)}
-                        className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues[column.id] && parseFloat(row.dynamicValues[column.id] || '0') > parseFloat(column.leLimitValue || '0') ? 'bg-red-50 text-red-700' : ''
-                          }`}
-                        placeholder="9.5"
-                      />
-                    </td>
-                  ))}
+                  {((coreType as string) === 'PS' ? psBColumns : bsatColumns).map(column => {
+                    if (!column) return null;
+                    return (
+                      <td key={column.id} className="p-2 border border-gray-300 bg-white">
+                        <Input
+                          value={String(row.dynamicValues?.[column.id] || '')}
+                          onKeyDown={(e) => {
+                            if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                            if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                          }}
+                          onChange={(e) => {
+                            const filtered = e.target.value.replace(/[^0-9+\-.]/g, '');
+                            handleRowChange(index, 'dynamicValues', { ...(row.dynamicValues || {}), [column.id]: filtered });
+                          }}
+                          disabled={isReadOnly || isRowLocked(row)}
+                          className={`w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center font-medium ${row.dynamicValues?.[column.id] !== '' && parseFloat(row.dynamicValues?.[column.id] || '0') > parseFloat(column.leLimitValue || '0') ? 'bg-red-50 text-red-700' : ''
+                            }`}
+                          placeholder="9.5"
+                        />
+                      </td>
+                    );
+                  })}
                   <td className="p-2 border border-gray-300">
                     <div className="flex items-center justify-center gap-2">
                       <div className={`min-w-[2rem] h-8 flex items-center justify-center font-medium text-xs ${row.remark === 'P' ? 'text-green-700' :
@@ -3055,28 +3771,62 @@ export function CoreTestingForm({
                         }`}>
                         {row.remark}
                       </div>
-                      {row.remark === 'F' && !row.isReplacement && !isPreTest && !rows.some(r => r.replacedCoreId === row.internalCoreNo) && (
+                      {row.remark === 'F' && (
                         <div className="flex flex-col gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleReplaceCore(index)}
-                            className="h-7 px-2 text-[10px] gap-1 border-orange-300 text-orange-600 hover:bg-orange-50"
-                            title="Replace this failed core with manual testing"
-                          >
-                            <RefreshCw className="w-3 h-3" />
-                            Manual Replace
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => fetchMatchingReadyCores(index)}
-                            className="h-7 px-2 text-[10px] gap-1 border-blue-300 text-blue-600 hover:bg-blue-50"
-                            title="Use pre-tested core from stock"
-                          >
-                            <Package className="w-3 h-3" />
-                            Use Ready Stock
-                          </Button>
+                          {isPreTest ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDiscardCore(index)}
+                              className="h-7 px-2 text-[10px] gap-1 border-red-300 text-red-600 hover:bg-red-50"
+                              title="Discard this failed core and move to Failed section"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              Discard
+                            </Button>
+                          ) : (
+                            !rows.some(r => r.replacedCoreId === row.internalCoreNo) ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleReplaceCore(index)}
+                                  className="h-7 px-2 text-[10px] gap-1 border-orange-500 text-orange-700 bg-white hover:bg-orange-50 font-bold shadow-sm"
+                                  title="Replace this failed core with manual testing"
+                                >
+                                  <RefreshCw className="w-3 h-3" />
+                                  Manual Replace
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  type="button"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    console.log("Use Ready Stock clicked for row", index);
+                                    fetchMatchingReadyCores(index);
+                                  }}
+                                  className="h-7 px-2 text-[10px] gap-1 border-blue-500 text-blue-700 hover:bg-blue-50 bg-white font-bold shadow-sm cursor-pointer relative z-10"
+                                  title="Use pre-tested core from stock"
+                                >
+                                  <Package className="w-3 h-3 pointer-events-none" />
+                                  Use Ready Stock
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleMoveToFailed(index)}
+                                className="h-7 px-2 text-[10px] gap-1 border-red-500 text-red-600 hover:bg-red-50 bg-white font-bold shadow-sm"
+                                title="Move this replaced core to the Failed Core section"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                Move to Failed
+                              </Button>
+                            )
+                          )}
                         </div>
                       )}
                     </div>
@@ -3095,28 +3845,53 @@ export function CoreTestingForm({
             <h4 className="font-medium text-blue-900">Testing Summary</h4>
             <div className="flex flex-wrap gap-4 mt-2">
               <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
-                <div className="text-[10px] text-gray-500 uppercase font-bold">Assigned</div>
-                <div className="text-lg font-bold text-gray-900">{calculateTotalRowsNeeded()}</div>
+                <div className="text-[10px] text-gray-500 uppercase font-bold">
+                  {isPreTest ? "Batch Size" : "Target"}
+                </div>
+                <div className="text-lg font-bold text-gray-900">
+                  {calculateTotalRowsNeeded()}
+                </div>
               </div>
               <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
-                <div className="text-[10px] text-gray-500 uppercase font-bold">Completed</div>
-                <div className="text-lg font-bold text-green-600">{getFilledRowsCount()}</div>
+                <div className="text-[10px] text-gray-500 uppercase font-bold">Passed</div>
+                <div className="text-lg font-bold text-green-600">{passed}</div>
               </div>
               <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
                 <div className="text-[10px] text-gray-500 uppercase font-bold">Remaining</div>
-                <div className="text-lg font-bold text-blue-600">{Math.max(0, calculateTotalRowsNeeded() - getFilledRowsCount())}</div>
+                <div className="text-lg font-bold text-blue-600">
+                  {Math.max(0, calculateTotalRowsNeeded() - passed)}
+                </div>
               </div>
               <div className="bg-white p-2 rounded shadow-sm border border-blue-100 min-w-[100px]">
-                <div className="text-[10px] text-gray-500 uppercase font-bold">Auto-added (Failures)</div>
-                <div className="text-lg font-bold text-red-500">{failedCores.length}</div>
+                <div className="text-[10px] text-gray-500 uppercase font-bold">
+                  {isPreTest ? "Discarded" : "Failed"}
+                </div>
+                <div className="text-lg font-bold text-red-500">
+                  {isPreTest ? (batchData?.discardedCount || 0) : failed}
+                </div>
               </div>
             </div>
           </div>
-          {getFilledRowsCount() >= calculateTotalRowsNeeded() && (
-            <div className="flex items-center gap-2 text-green-600">
-              <Check className="w-5 h-5" />
-              <span className="font-medium">Complete</span>
+          {isPreTest ? (
+            <div className="flex flex-col items-end gap-2">
+              <Button
+                onClick={handleApproveBatch}
+                className="bg-[#003a70] hover:bg-[#002a50] text-white px-6 h-12 gap-2 font-bold shadow-lg shadow-blue-100"
+              >
+                <CheckCircle2 className="w-5 h-5" />
+                Approve & Move to Ready Stock
+              </Button>
+              <p className="text-[10px] text-gray-500 italic">
+                Finalizes passed cores and updates inventory
+              </p>
             </div>
+          ) : (
+            passed >= calculateTotalRowsNeeded() && (
+              <div className="flex items-center gap-2 text-green-600">
+                <Check className="w-5 h-5" />
+                <span className="font-medium">Complete</span>
+              </div>
+            )
           )}
         </div>
       </Card>

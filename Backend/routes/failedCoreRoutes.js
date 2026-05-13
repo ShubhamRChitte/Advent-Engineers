@@ -235,11 +235,31 @@ router.get('/', isAuthenticated, async (req, res) => {
     }
 });
 
+// GET /api/failed-cores/order/:orderId
+// Fetch all failed core records for a specific order
+router.get('/order/:orderId', isAuthenticated, async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        if (!orderId || orderId === 'undefined' || orderId === 'null') {
+            return res.status(400).json({ success: false, message: "Valid Order ID required" });
+        }
+
+        const failedCores = await FailedCoreModel.find({ orderId }).lean();
+        res.status(200).json({
+            success: true,
+            count: failedCores.length,
+            data: failedCores
+        });
+    } catch (error) {
+        console.error("Error fetching failed cores for order:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // GET /api/failed-cores/count
 // Quick count for badges (e.g., Navbar)
 router.get('/count', isAuthenticated, async (req, res) => {
     try {
-        // Optional: Allow filtering count via query params if needed
         const count = await FailedCoreModel.countDocuments({});
         res.json({ success: true, count });
     } catch (error) {

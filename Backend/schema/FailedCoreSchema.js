@@ -42,7 +42,7 @@ const FailedCoreSchema = new Schema(
         },
         coreType: {
             type: String,
-            enum: ["METERING", "PROTECTION", "SPECIAL", "OTHER"],
+            enum: ["METERING", "PROTECTION", "PS", "SPECIAL", "OTHER"],
             required: true,
             index: true
         },
@@ -64,10 +64,15 @@ const FailedCoreSchema = new Schema(
             required: true,
             trim: true
         },
+        dynamicValues: {
+            type: Schema.Types.Mixed,
+            default: {}
+        },
         failureStage: {
             type: String,
             enum: [
                 "INITIAL_TEST",
+                "TESTING",
                 "SECONDARY_TEST", "SECONDARY_METERING_TEST", "SECONDARY_PROTECTION_TEST", "SECONDARY_PS_TEST",
                 "PRIMARY_TEST", "PRIMARY_METERING_TEST", "PRIMARY_PROTECTION_TEST", "PRIMARY_PS_TEST",
                 "FINAL_QA", "FINAL_METERING_TEST", "FINAL_PROTECTION_TEST", "FINAL_PS_TEST",

@@ -8,7 +8,8 @@ import {
   Search, 
   Plus, 
   RefreshCw, 
-  CheckCircle2
+  CheckCircle2,
+  Trash2
 } from 'lucide-react';
 import axios from 'axios';
 import { socket } from '../../utils/socket';
@@ -17,6 +18,7 @@ import { PreTestBatchModule } from '../testing/PreTestBatchModule';
 
 interface ReadyTransformer {
   _id: string;
+  batchId?: string;
   coreId: string;
   coreType: string; // Fixed: root level
   serialNumber?: string;
@@ -38,6 +40,7 @@ interface PreTestBatch {
   numberOfCores: number;
   passedCount: number;
   failedCount: number;
+  discardedCount: number;
   status: string;
   createdAt: string;
 }
@@ -87,14 +90,26 @@ export default function ReadyStockView() {
     };
   }, []);
 
+  const availableCoresPerBatch = stock.reduce((acc, core) => {
+    if (core.status === 'available' && core.batchId) {
+      acc[core.batchId] = (acc[core.batchId] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  const activeBatches = batches.filter(b => {
+    if (b.status !== 'COMPLETED') return true;
+    return (availableCoresPerBatch[b.batchId] || 0) > 0;
+  });
+
   const counts = {
-    All: batches.length,
-    Metering: stock.filter(s => s.coreType === 'Metering').length,
-    Protection: stock.filter(s => s.coreType === 'Protection').length,
-    PS: stock.filter(s => s.coreType === 'PS').length
+    All: activeBatches.length,
+    Metering: stock.filter(s => s.coreType === 'Metering' && s.status === 'available').length,
+    Protection: stock.filter(s => s.coreType === 'Protection' && s.status === 'available').length,
+    PS: stock.filter(s => s.coreType === 'PS' && s.status === 'available').length
   };
 
-  const filteredBatches = batches.filter(b => 
+  const filteredBatches = activeBatches.filter(b => 
     b.batchId.toLowerCase().includes(search.toLowerCase()) ||
     b.vendorName.toLowerCase().includes(search.toLowerCase()) ||
     b.coreType.toLowerCase().includes(search.toLowerCase())
@@ -120,6 +135,19 @@ export default function ReadyStockView() {
       />
     );
   }
+
+  const handleDeleteBatch = async (batchId: string) => {
+    if (!window.confirm("Are you sure you want to delete this batch? This action cannot be undone.")) return;
+    try {
+      await axios.delete(`http://localhost:5001/api/pre-test-batches/${batchId}`, {
+        withCredentials: true
+      });
+      toast.success("Batch deleted successfully!");
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to delete batch");
+    }
+  };
 
   const getCoreTypeColor = (type: string) => {
     switch (type) {
@@ -213,19 +241,19 @@ export default function ReadyStockView() {
         />
       </div>
 
-      <Card className="overflow-hidden">
-        <table className="w-full text-sm text-left">
+      <Card className="overflow-x-auto border-none shadow-md">
+        <table className="w-full text-sm text-left min-w-[1000px] table-fixed">
           <thead className="bg-gray-50 border-b">
             {activeTab === 'All' ? (
               <tr>
-                <th className="px-6 py-4 font-semibold text-gray-700">Batch ID</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Type</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Vendor</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Cores</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">P / F</th>
-                <th className="px-6 py-4 font-semibold text-gray-700 text-center">Status</th>
-                <th className="px-6 py-4 font-semibold text-gray-700 text-right">Date</th>
-                <th className="px-6 py-4 font-semibold text-gray-700 text-right">Actions</th>
+                <th className="px-3 py-4 font-bold text-gray-700 w-[18%]">Batch ID</th>
+                <th className="px-3 py-4 font-bold text-gray-700 w-[10%]">Type</th>
+                <th className="px-3 py-4 font-bold text-gray-700 w-[15%]">Vendor</th>
+                <th className="px-3 py-4 font-bold text-gray-700 text-center w-[10%]">Total</th>
+                <th className="px-3 py-4 font-bold text-gray-700 text-center w-[12%]">P / F</th>
+                <th className="px-3 py-4 font-bold text-gray-700 text-center w-[12%]">Status</th>
+                <th className="px-3 py-4 font-bold text-gray-700 text-right w-[10%]">Date</th>
+                <th className="px-3 py-4 font-bold text-gray-700 text-right w-[13%] pr-6">Actions</th>
               </tr>
             ) : (
               <tr>
@@ -240,48 +268,61 @@ export default function ReadyStockView() {
             {activeTab === 'All' ? (
               filteredBatches.length > 0 ? (
                 filteredBatches.map((batch) => (
-                  <tr key={batch._id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-gray-900 font-mono text-xs">{batch.batchId}</td>
-                    <td className="px-6 py-4">
-                      <Badge variant="outline" className={getCoreTypeColor(batch.coreType)}>
+                  <tr key={batch._id} className="hover:bg-gray-50 transition-colors border-b">
+                    <td className="px-3 py-4 font-medium text-gray-900 font-mono text-[10px] break-all" title={batch.batchId}>{batch.batchId}</td>
+                    <td className="px-4 py-4">
+                      <Badge variant="outline" className={`${getCoreTypeColor(batch.coreType)} text-[10px] px-1.5 py-0`}>
                         {batch.coreType}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 text-gray-600 truncate max-w-[120px]">{batch.vendorName}</td>
-                    <td className="px-6 py-4 font-semibold">{batch.numberOfCores}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-green-600 font-bold">{batch.passedCount || 0}</span>
+                    <td className="px-4 py-4 text-gray-600 truncate max-w-[100px]" title={batch.vendorName}>{batch.vendorName}</td>
+                    <td className="px-4 py-4 font-semibold text-center">{batch.numberOfCores}</td>
+                    <td className="px-4 py-4 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="text-green-600 font-bold">P: {Math.max(0, batch.passedCount || 0)}</span>
                         <span className="text-gray-300">/</span>
-                        <span className="text-red-600 font-bold">{batch.failedCount || 0}</span>
+                        <span className="text-red-600 font-bold">F: {Math.max(0, batch.failedCount || 0)}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-4 py-4 text-center">
                       {batch.status === 'COMPLETED' ? (
-                        <Badge className="bg-green-100 text-green-700 border-green-200">COMPLETED</Badge>
+                        <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px]">COMPLETED</Badge>
                       ) : batch.status === 'IN_PROGRESS' ? (
-                        <Badge className="bg-blue-100 text-blue-700 border-blue-200">IN_PROGRESS</Badge>
+                        <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px]">IN_PROGRESS</Badge>
                       ) : batch.status === 'CONFIGURED' ? (
-                        <Badge className="bg-amber-100 text-amber-700 border-amber-200">CONFIGURED</Badge>
+                        <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">CONFIGURED</Badge>
                       ) : (
-                        <Badge className="bg-gray-100 text-gray-700 border-gray-200">CREATED</Badge>
+                        <Badge className="bg-gray-100 text-gray-700 border-gray-200 text-[10px]">CREATED</Badge>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-right text-gray-500 whitespace-nowrap">
+                    <td className="px-4 py-4 text-right text-gray-500 whitespace-nowrap text-xs">
                       {new Date(batch.createdAt).toLocaleDateString('en-GB')}
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-3 py-4 text-right flex items-center justify-end gap-1">
                       <Button 
-                        variant="ghost" 
+                        variant="outline" 
                         size="sm" 
-                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 font-semibold h-8 px-3"
+                        className="h-8 px-3 text-[10px] font-bold border-blue-200 text-blue-700 hover:bg-blue-50"
                         onClick={() => {
                           setResumingBatch(batch);
                           setView('pre-test');
                         }}
                       >
-                        {batch.status || 'CREATED'}
+                        {batch.status === 'COMPLETED' ? 'View' : 'Test'}
                       </Button>
+                      
+                      {/* Show delete if cores in batch becomes 0 */}
+                      {(availableCoresPerBatch[batch.batchId] || 0) === 0 && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                          title="Delete Batch"
+                          onClick={() => handleDeleteBatch(batch.batchId)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -308,11 +349,11 @@ export default function ReadyStockView() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Badge 
-                        className={
-                          item.status === 'available' ? 'bg-green-100 text-green-700' :
-                          item.status === 'reserved' ? 'bg-amber-100 text-amber-700' :
-                          'bg-blue-100 text-blue-700'
-                        }
+                        className={`px-2 py-0.5 rounded-full text-[9px] font-bold tracking-tight whitespace-nowrap inline-flex items-center justify-center min-w-[70px] ${
+                          item.status === 'available' ? 'bg-green-100 text-green-700 border-green-200' :
+                          item.status === 'reserved' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                          'bg-blue-100 text-blue-700 border-blue-200'
+                        }`}
                       >
                         {item.status.toUpperCase()}
                       </Badge>

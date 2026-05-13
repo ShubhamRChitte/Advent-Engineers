@@ -1,12 +1,10 @@
 import axios from 'axios';
 
-const instance = axios.create({
-  baseURL: 'http://localhost:5001/api',
-  withCredentials: true
-});
+// Global Axios Configuration
+axios.defaults.withCredentials = true;
 
-// Add a request interceptor to inject the token
-instance.interceptors.request.use(
+// Request Interceptor: Inject Token
+axios.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -14,23 +12,26 @@ instance.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Add a response interceptor to handle 401s
-instance.interceptors.response.use(
+// Response Interceptor: Handle 401s
+axios.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      console.warn("Unauthorized! Clearing session...");
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/'; // Force redirect to login
+      // Check if we are already on the login page to avoid infinite reloads
+      const isAuthPath = window.location.pathname === '/' || error.config.url?.includes('/auth/login');
+      
+      if (!isAuthPath) {
+        console.warn("Unauthorized request detected. Clearing session and redirecting to login.");
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/'; 
+      }
     }
     return Promise.reject(error);
   }
 );
 
-export default instance;
+export default axios;
