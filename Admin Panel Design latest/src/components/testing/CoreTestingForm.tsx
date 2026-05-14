@@ -11,6 +11,7 @@ import {
   Plus,
   Check,
   X,
+  Clock,
   RefreshCw,
   AlertTriangle,
   Tag,
@@ -718,11 +719,6 @@ export function CoreTestingForm({
 
     return () => clearInterval(interval);
   }, [timerData]);
-
-  const handleBack = () => {
-    handleTimerAction('pause');
-    onBack();
-  };
 
   const formatTime = (ms: number) => {
     const isNegative = ms < 0;
@@ -1498,36 +1494,6 @@ export function CoreTestingForm({
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to discard core");
-    }
-  };
-
-  const handleApprovePreTest = async () => {
-    if (!isPreTest || !batchData?.batchId) return;
-
-    if (getFilledRowsCount() < rows.length) {
-      alert("Please complete testing for all cores in the batch.");
-      return;
-    }
-
-    if (rows.some(r => r.remark === 'F')) {
-      alert("Please discard failed cores before approving the batch.");
-      return;
-    }
-
-    if (!window.confirm(`Are you sure you want to approve this batch of ${rows.length} cores? This will move them to Ready Stock.`)) {
-      return;
-    }
-
-    try {
-      const res = await axios.post(`http://localhost:5001/api/pre-test-batches/${batchData.batchId}/approve`, {}, {
-        withCredentials: true
-      });
-      if (res.status === 200) {
-        toast.success("Batch approved and moved to Ready Stock!");
-        onBack();
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to approve batch");
     }
   };
 
