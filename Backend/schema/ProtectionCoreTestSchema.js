@@ -59,7 +59,8 @@ const ProtectionCoreTestSchema = new Schema({
       vendorCoreNo: String,
       internalCoreNo: String,
 
-      value: Number,      // Reading value
+      value: Number,      // Single reading value (legacy / backward compat)
+      measuredMa: [Number], // Multi-point dynamic readings (Protection/PS columns)
       result: {
         type: String,
         enum: ["P", "F", "PRE_TESTED"]

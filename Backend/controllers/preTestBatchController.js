@@ -83,16 +83,20 @@ exports.saveBatchReading = async (req, res) => {
 
   // Helper: determine if a reading is "empty" (all values cleared by user)
   const isEmptyReading = (r) => {
-    const hasResult = r.result && r.result !== '';
-    if (hasResult) return false;
-    // Check measuredMa (metering/protection/PS)
+    // If it has a result (P/F/REPLACED), it is NOT empty
+    if (r.result && r.result !== '') return false;
+
+    // Check measuredMa (for Metering/Protection/PS cores)
+    let hasMeasuredData = false;
     if (Array.isArray(r.measuredMa)) {
-      const allNull = r.measuredMa.every(v => v === null || v === undefined);
-      if (allNull) return true;
+      hasMeasuredData = r.measuredMa.some(v => v !== null && v !== undefined && v !== '');
     }
+
     // Check single value
-    if (r.value === null || r.value === undefined || r.value === '') return true;
-    return false;
+    const hasSingleValue = r.value !== null && r.value !== undefined && r.value !== '';
+
+    // It is only empty if it has NO measured data AND NO single value
+    return !hasMeasuredData && !hasSingleValue;
   };
 
   let retries = 3;
@@ -128,7 +132,11 @@ exports.saveBatchReading = async (req, res) => {
 
       // Recalculate passed and failed counts — ONLY use result field, never status
       // This prevents the -1 passedCount bug caused by double-counting via status field
-      batch.passedCount = batch.readings.filter(r => r.result === 'P').length;
+      // Replacement cores (PRE_TESTED) are also counted as Passed
+      batch.passedCount = batch.readings.filter(r => 
+        r.result === 'P' || r.result === 'PRE_TESTED' || r.result === 'PRE TESTED'
+      ).length;
+      
       const currentlyFailed = batch.readings.filter(r => r.result === 'F').length;
       batch.failedCount = (batch.discardedCount || 0) + currentlyFailed;
 
@@ -198,8 +206,10 @@ exports.discardCore = async (req, res) => {
 
     // 4. Recalculate passed and failed counts based on the updated state
     const currentlyFailed = updatedBatch.readings.filter(r => r.result === 'F').length;
-    updatedBatch.passedCount = updatedBatch.readings.filter(r => r.result === 'P').length;
-    updatedBatch.failedCount = updatedBatch.discardedCount + currentlyFailed;
+    updatedBatch.passedCount = updatedBatch.readings.filter(r => 
+      r.result === 'P' || r.result === 'PRE_TESTED' || r.result === 'PRE TESTED'
+    ).length;
+    updatedBatch.failedCount = (updatedBatch.discardedCount || 0) + currentlyFailed;
 
     await updatedBatch.save(); // This save is now safer as it happens on a fresh document and the most intensive part (pull/inc) was atomic.
 
@@ -221,7 +231,9 @@ exports.approveBatch = async (req, res) => {
       return res.status(400).json({ message: "All cores must be tested before approval." });
     }
 
-    const allPassed = batch.readings.every(r => r.result === 'P');
+    const allPassed = batch.readings.every(r => 
+      r.result === 'P' || r.result === 'PRE_TESTED' || r.result === 'PRE TESTED'
+    );
     if (!allPassed) {
       return res.status(400).json({ message: "All remaining cores must have 'Pass' status. Discard failed cores first." });
     }
