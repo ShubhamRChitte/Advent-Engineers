@@ -2171,16 +2171,7 @@ export function CoreTestingForm({
               <Tag className="w-3 h-3" />
               Print Labels ({getPassedCores().length})
             </Button>
-            {!isReadOnly && !isPreTest && (getFilledRowsCount() >= calculateTotalRowsNeeded()) && (
-              <Button
-                size="sm"
-                className="gap-1 bg-[#003a70] hover:bg-[#002a50] text-white shadow-md border border-[#001a30] px-4 font-bold"
-                onClick={handleApprove}
-              >
-                <Check className="w-3 h-3" />
-                Approve Batch
-              </Button>
-            )}
+
             <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={() => handleSave()}>
               <Save className="w-3 h-3" />
               Save All
@@ -2900,16 +2891,7 @@ export function CoreTestingForm({
               <Tag className="w-3 h-3" />
               Print Labels ({getPassedCores().length})
             </Button>
-            {!isReadOnly && !isPreTest && (getFilledRowsCount() >= calculateTotalRowsNeeded()) && (
-              <Button
-                size="sm"
-                className="gap-1 bg-[#003a70] hover:bg-[#002a50] text-white shadow-md border border-[#001a30] px-4 font-bold"
-                onClick={handleApprove}
-              >
-                <Check className="w-3 h-3" />
-                Approve Batch
-              </Button>
-            )}
+
             <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={() => handleSave()}>
               <Save className="w-3 h-3" />
               Save All
@@ -3627,16 +3609,7 @@ export function CoreTestingForm({
             <Tag className="w-3 h-3" />
             Print Labels ({getPassedCores().length})
           </Button>
-          {!isReadOnly && !isPreTest && (getFilledRowsCount() >= calculateTotalRowsNeeded()) && (
-            <Button
-              size="sm"
-              className="gap-1 bg-[#003a70] hover:bg-[#002a50] text-white shadow-md border border-[#001a30] px-4 font-bold"
-              onClick={handleApprove}
-            >
-              <Check className="w-3 h-3" />
-              Approve Batch
-            </Button>
-          )}
+
           <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={() => handleSave()}>
             <Save className="w-3 h-3" />
             Save All
