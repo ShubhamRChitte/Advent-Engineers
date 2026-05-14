@@ -18,18 +18,17 @@ export function AdminReportViewPage() {
     const [reportData, setReportData] = useState<any>(null);
     const [unifiedReport, setUnifiedReport] = useState<any>(null);
     const [selectedCore, setSelectedCore] = useState<any>(null);
-    const [globalCoreType, setGlobalCoreType] = useState<'Metering' | 'Protection' | 'PS'>('Metering');
+    const [globalCoreType, setGlobalCoreType] = useState<'Metering' | 'Protection' | 'PS' | 'QA'>('Metering');
     const [initialCoreSet, setInitialCoreSet] = useState(false);
 
     useEffect(() => {
         if (unifiedReport?.reportData && unifiedReport.reportData.length > 0) {
             // Find if current type exists
             const coreExists = unifiedReport.reportData.some((c: any) => c.coreType === globalCoreType);
-            
             if (!coreExists || !initialCoreSet) {
                 // If current type doesn't exist or we haven't set an initial one yet,
                 // set to the first one available in the report.
-                const firstAvailableType = unifiedReport.reportData[0].coreType;
+                const firstAvailableType = unifiedReport.reportData[0].coreType as 'Metering' | 'Protection' | 'PS' | 'QA';
                 if (firstAvailableType) {
                     setGlobalCoreType(firstAvailableType);
                     setSelectedCore(unifiedReport.reportData[0]);
@@ -481,61 +480,7 @@ export function AdminReportViewPage() {
                 </div>
             </main>
 
-            {/* Print Only Helper Styles */}
-            <style dangerouslySetInnerHTML={{ __html: `
-                @media print {
-                    /* Reset everything for a clean sheet */
-                    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                    .no-print, .print\\:hidden, [class*="sticky"], [class*="fixed"], header, footer, button { 
-                        display: none !important; 
-                        height: 0 !important; 
-                        margin: 0 !important; 
-                        padding: 0 !important; 
-                    }
-                    
-                    html, body { 
-                        background: white !important; 
-                        margin: 0 !important; 
-                        padding: 0 !important; 
-                        width: 100% !important;
-                        height: auto !important;
-                    }
-                    
-                    main { 
-                        padding: 0 !important; 
-                        margin: 0 !important; 
-                        max-width: 100% !important; 
-                        display: block !important;
-                    }
-
-                    #printable-report {
-                        padding: 0 !important;
-                        margin: 0 !important;
-                    }
-                    
-                    .Card, .card { 
-                        border: none !important; 
-                        box-shadow: none !important; 
-                        margin: 0 !important; 
-                        padding: 0 !important; 
-                    }
-                    
-                    /* Force each stage to a new page */
-                    .print-break-before-page { 
-                        page-break-before: always !important; 
-                        margin-top: 0 !important;
-                        padding-top: 0 !important;
-                    }
-                    
-                    /* Remove any sticky/fixed headers space */
-                    main { margin-top: 0 !important; }
-                }
-                
-                /* Custom styles for stacked reports */
-                .report-section {
-                    position: relative;
-                }
-            `}} />
+            {/* Removed redundant inline print styles that conflict with UnifiedCoreReport.css */}
         </div>
     );
 }

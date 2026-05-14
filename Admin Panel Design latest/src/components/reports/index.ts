@@ -1,5 +1,5 @@
 /**
- * Reports Module - Barrel Export
+ * Reports Module — Barrel Export
  * 
  * Centralizes all report-related component exports.
  * Benefits:
@@ -9,12 +9,13 @@
  * - Prevents missing imports (compile-time error if component doesn't exist)
  * 
  * Usage:
- * import { ReportHeader, ReportFooter } from '@/components/reports';
+ * import { ReportHeader, UnifiedCoreReport } from '@/components/reports';
  */
 
 export { ReportHeader } from './ReportHeader';
+export { UnifiedCoreReport } from './UnifiedCoreReport';
+export { PrintableCoreReport } from './PrintableCoreReport';
 
-// Future report components can be added here:
-// export { ReportFooter } from './ReportFooter';
-// export { ReportTable } from './ReportTable';
-// export { PrintableReport } from './PrintableReport';
+// Re-export types
+export type { UnifiedCoreReportProps } from './UnifiedCoreReport';
+export type { PrintableCoreReportProps } from './PrintableCoreReport';
