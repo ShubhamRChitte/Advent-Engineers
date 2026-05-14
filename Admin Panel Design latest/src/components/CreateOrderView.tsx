@@ -105,7 +105,7 @@ export function CreateOrderView() {
       case 'ratedSecondaryCurrent':
          return !value ? 'Secondary Current is required' : null;
       case 'voltageRating':
-         return !value ? 'Voltage Rating is required' : null;
+         return !value ? 'Nominal System Voltage is required' : null;
       case 'ratio':
          return !value.trim() ? 'Ratio is required' : null;
       case 'indoorOutdoor':
@@ -277,7 +277,7 @@ export function CreateOrderView() {
     if (!formData.quantity || parseInt(formData.quantity) < 1) errors.quantity = 'Valid quantity required (>0)';
     if (!formData.deadline) errors.deadline = 'Deadline is required';
     if (!formData.ratedSecondaryCurrent) errors.ratedSecondaryCurrent = 'Secondary Current is required';
-    if (!formData.voltageRating) errors.voltageRating = 'Voltage Rating is required';
+    if (!formData.voltageRating) errors.voltageRating = 'Nominal System Voltage is required';
     if (!formData.ratio.trim()) errors.ratio = 'Ratio is required';
     
     if (formData.transformerType) {
@@ -637,7 +637,7 @@ export function CreateOrderView() {
               </div>
 
               <div>
-                <Label className={formErrors.voltageRating ? "text-red-600" : ""}>Voltage Rating *</Label>
+                <Label className={formErrors.voltageRating ? "text-red-600" : ""}>Nominal System Voltage *</Label>
                 <div className="flex gap-2">
                   <Select
                     value={!isCustomVoltage ? formData.voltageRating : 'Custom'}

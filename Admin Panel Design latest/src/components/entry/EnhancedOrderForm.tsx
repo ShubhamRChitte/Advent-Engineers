@@ -61,9 +61,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
       case 'isStandard':
          return !value ? 'IS Standard is required' : null;
       case 'voltageRating':
-         return !value ? 'Voltage Rating is required' : null;
-      case 'nominalVoltage':
-         return !value.trim() ? 'Nominal System Voltage is required' : null;
+         return !value ? 'Nominal System Voltage is required' : null;
       case 'burden':
          return !value.trim() ? 'Burden is required' : null;
       case 'ratedSecondaryCurrent':
@@ -213,9 +211,12 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
     if (!numberOfCores || parseInt(numberOfCores) < 1 || parseInt(numberOfCores) > 5) errors.numberOfCores = 'Number of cores must be 1-5';
     if (!transformerType) errors.transformerType = 'Type is required';
     
-    if (!nominalVoltage.trim()) errors.nominalVoltage = 'Nominal System Voltage is required';
     if (!burden.trim()) errors.burden = 'Burden is required';
-    if (!voltageRating) errors.voltageRating = 'Voltage Rating is required';
+    if (!voltageRating) errors.voltageRating = 'Nominal System Voltage is required';
+    
+    if (transformerType === 'CT' && primaryCurrents.length === 0) {
+      errors.primaryCurrents = 'Primary Current is required';
+    }
     
     if (Object.keys(errors).length > 0) {
       setFormErrors(prev => ({ ...prev, ...errors }));
@@ -417,7 +418,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                   </>
                 )}
                 <div className="flex flex-col">
-                  <Label className={formErrors.voltageRating ? "text-red-600" : ""}>Voltage Rating *</Label>
+                  <Label className={formErrors.voltageRating ? "text-red-600" : ""}>Nominal System Voltage *</Label>
                   <div className="flex gap-2">
                     <select
                       value={!isCustomVoltage ? voltageRating : 'Custom'}
@@ -658,7 +659,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
             <h3 className="pb-2 border-b-2 border-gray-200">Transformer Parameters</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Primary Current *</Label>
+                <Label className={formErrors.primaryCurrents ? "text-red-600" : ""}>Primary Current *</Label>
                 <div className="space-y-2">
                   {/* Selected Tags */}
                   <div className="flex flex-wrap gap-2">
@@ -728,17 +729,8 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                       </div>
                     )}
                   </div>
+                  {formErrors.primaryCurrents && <span className="text-xs text-red-600 font-semibold">{formErrors.primaryCurrents}</span>}
                 </div>
-              </div>
-              <div>
-                <Label className={formErrors.nominalVoltage ? "text-red-600" : ""}>Nominal System Voltage *</Label>
-                <Input
-                  placeholder="e.g., 33 kV"
-                  value={nominalVoltage}
-                  onChange={(e) => handleInputChange('nominalVoltage', e.target.value, setNominalVoltage)}
-                  className={`mt-1 ${formErrors.nominalVoltage ? "border-red-500 bg-red-50" : ""}`}
-                />
-                {formErrors.nominalVoltage && <span className="text-xs text-red-600 font-semibold">{formErrors.nominalVoltage}</span>}
               </div>
                <div>
                  <Label className={formErrors.burden ? "text-red-600" : ""}>Burden *</Label>

@@ -92,6 +92,21 @@ export function SecondaryMeteringReport({
     );
   });
 
+  const displayBurden = (() => {
+    const order = propOrder || transformer.fullOrder || transformer.orderId;
+    let rawBurden = order?.burden;
+    if (Array.isArray(rawBurden)) {
+      rawBurden = rawBurden[Math.min(coreIndex, rawBurden.length - 1)];
+    }
+    const val = rawBurden || transformer.burden || '30';
+    return String(val).replace(/VA/i, '').trim();
+  })();
+
+  const displaySTC = (() => {
+    const order = propOrder || transformer.fullOrder || transformer.orderId;
+    return order?.stc || transformer.stc || 'N/A';
+  })();
+
   const [testResults, setTestResults] = useState<{ ratioValue: string; rows: any[] }[]>(() => {
     const initial = dynamicRatios.map(ratio => ({
       ratioValue: ratio,
@@ -274,7 +289,8 @@ export function SecondaryMeteringReport({
             <tbody>
               <tr><td className="border-b border-black p-1.5" colSpan={2}><p><span className="font-bold italic">Specification :</span> {transformer.voltageRating || '33'} KV</p></td></tr>
               <tr><td className="border-b border-black p-1.5" colSpan={2}><p><span className="font-bold italic">CT Ratio :</span> {dynamicRatios.join('-')} A</p></td></tr>
-              <tr><td className="border-r border-b border-black p-1.5 w-1/2"><p><span className="font-bold italic">Burden :</span> {transformer.burden || '30'} VA</p></td><td className="border-b border-black p-1.5 w-1/2"><p><span className="font-bold italic">Class :</span> {accuracyClass}</p></td></tr>
+              <tr><td className="border-r border-b border-black p-1.5 w-1/2"><p><span className="font-bold italic">Burden :</span> {displayBurden} VA</p></td><td className="border-b border-black p-1.5 w-1/2"><p><span className="font-bold italic">Class :</span> {accuracyClass}</p></td></tr>
+              <tr><td className="p-1.5" colSpan={2}><p><span className="font-bold italic">STC :</span> {displaySTC}</p></td></tr>
             </tbody>
           </table>
         </div>

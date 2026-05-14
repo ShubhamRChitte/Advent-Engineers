@@ -323,8 +323,8 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
             <p className="font-medium mt-1">{transformer.uniqueId}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Voltage Class</p>
-            <p className="font-medium mt-1">{transformer.voltageClass}</p>
+            <p className="text-sm text-gray-500">Nominal System Voltage</p>
+            <p className="font-medium mt-1">{transformer.voltageRating || 'N/A'}</p>
           </div>
         </div>
       </Card>

@@ -357,7 +357,7 @@ export function CoreTestingForm({
         let dbFailedCores: any[] = [];
         if (!isPreTest) {
           const txnOrderId = getSafeOrderId(order);
-          
+
           // Use the dedicated order-specific endpoint which is more reliable
           try {
             const fcRes = await axios.get(`http://localhost:5001/api/failed-cores/order/${txnOrderId}`, {
@@ -474,13 +474,13 @@ export function CoreTestingForm({
           if (restoredFailedCores.length > 0) {
             setFailedCores(restoredFailedCores);
           }
-          
+
           // STRICT FINAL FILTER: absolutely guarantee no failed cores make it to the grid
           const sanitizedRowsToShow = finalRowsToShow.filter(row => {
             const id = row.internalCoreNo?.trim().toUpperCase();
             return !id || !dbFailedCoreIds.has(id);
           });
-          
+
           setRows(sanitizedRowsToShow);
         } else {
           if (!isReadOnly) setRows(initializeRows());
@@ -640,11 +640,10 @@ export function CoreTestingForm({
     { id: '1', bsatValue: '1.5', setMvValue: '7.04', leLimitValue: '1150' },
   ]);
 
-<<<<<<< Updated upstream
-=======
-  const [timerData, setTimerData] = useState<{ 
-    startTime: string | null; 
-    accumulatedTimeMs: number; 
+
+  const [timerData, setTimerData] = useState<{
+    startTime: string | null;
+    accumulatedTimeMs: number;
     allocatedMinutes: number;
     status: string;
   } | null>(null);
@@ -659,7 +658,7 @@ export function CoreTestingForm({
         coreType: coreType.toLowerCase(),
         action
       }, { withCredentials: true });
-      
+
       if (response.data.success) {
         setTimerData(response.data.data);
       }
@@ -673,7 +672,7 @@ export function CoreTestingForm({
     if (meteringConfigured || protectionConfigured || psConfigured) {
       handleTimerAction('start');
     }
-    
+
     return () => {
       // Pause when navigating away from this component (unmount)
       if (meteringConfigured || protectionConfigured || psConfigured) {
@@ -698,7 +697,7 @@ export function CoreTestingForm({
       const accumulated = timerData.accumulatedTimeMs || 0;
       const allocatedMs = timerData.allocatedMinutes * 60 * 1000;
       const now = Date.now();
-      
+
       const totalElapsed = accumulated + (now - start);
       setTimeLeft(allocatedMs - totalElapsed);
     }, 1000);
@@ -706,10 +705,7 @@ export function CoreTestingForm({
     return () => clearInterval(interval);
   }, [timerData]);
 
-  const handleBack = () => {
-    handleTimerAction('pause');
-    onBack();
-  };
+
 
   const formatTime = (ms: number) => {
     const isNegative = ms < 0;
@@ -726,11 +722,10 @@ export function CoreTestingForm({
     const isPaused = timerData?.status === "Paused";
 
     return (
-      <div className={`mb-4 px-4 py-2 rounded-lg border-2 flex items-center justify-between transition-all ${
-        isOver ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' : 
-        isPaused ? 'bg-amber-50 border-amber-300 text-amber-600' :
-        'bg-green-50 border-green-500 text-green-600'
-      }`}>
+      <div className={`mb-4 px-4 py-2 rounded-lg border-2 flex items-center justify-between transition-all ${isOver ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' :
+          isPaused ? 'bg-amber-50 border-amber-300 text-amber-600' :
+            'bg-green-50 border-green-500 text-green-600'
+        }`}>
         <div className="flex items-center gap-2 font-bold">
           {isPaused ? <Clock className="w-4 h-4" /> : <RefreshCw className={`w-4 h-4 ${!isOver ? 'animate-spin-slow' : ''}`} />}
           <span className="text-sm uppercase tracking-wider">
@@ -768,7 +763,7 @@ export function CoreTestingForm({
     }
   }, [meteringConfigured, protectionConfigured, psConfigured]);
 
->>>>>>> Stashed changes
+
   // Specification data - Different for Protection
   const [specs, setSpecs] = useState(
     isProtectionCore ? {
@@ -803,7 +798,6 @@ export function CoreTestingForm({
     }
   );
 
-  const protectionLimit = 600;
 
   const specsRef = useRef(specs);
   const bsatColumnsRef = useRef(bsatColumns);
@@ -999,7 +993,7 @@ export function CoreTestingForm({
 
   const calculateRemark = (row: CoreTestRow): string => {
     if (row.remark === 'PRE_TESTED') return 'PRE_TESTED';
-    
+
     const columns = isProtectionCore ? protectionBColumns : (isPSCore ? psBColumns : bsatColumns);
     if (columns.length === 0) return '';
 
@@ -1013,7 +1007,7 @@ export function CoreTestingForm({
         allFilled = false;
         continue;
       }
-      
+
       anyFilled = true;
       const numValue = parseFloat(value);
       const limit = parseFloat(column.leLimitValue);
@@ -1107,7 +1101,7 @@ export function CoreTestingForm({
     setIsReadyLoading(true);
     setActiveReplaceIndex(index);
     setIsReadyModalOpen(true);
-    
+
     try {
       // Search for specs in order details first, fallback to current component specs
       let coreSpecs = (order.coreDetails || []).find((c: any) => {
@@ -1115,7 +1109,7 @@ export function CoreTestingForm({
         const cType = c.coreType || "";
         // More robust detection: PS cores often have Iex limit, Protection cores have specific types.
         const looksLikePS = cType === 'PS' || c.class === 'PS' || desc.includes(' PS ') || desc.includes('PS');
-        
+
         if (coreType === 'PS') return looksLikePS;
         if (coreType === 'Protection') return cType === 'Protection' && !looksLikePS;
         if (coreType === 'Metering') return cType === 'Metering';
@@ -1137,7 +1131,7 @@ export function CoreTestingForm({
         withCredentials: true,
         headers: { 'Authorization': token ? `Bearer ${token}` : '' }
       });
-      
+
       console.log(`[FETCH_READY] Received ${res.data.length} matching cores.`);
       setMatchingReadyCores(res.data);
     } catch (err) {
@@ -1186,7 +1180,7 @@ export function CoreTestingForm({
           reason: "Replaced from Ready Stock",
           isReplacement: true,
           dynamicValues: failedRow.dynamicValues
-        }, { 
+        }, {
           withCredentials: true,
           headers: { 'Authorization': token ? `Bearer ${token}` : '' }
         });
@@ -1322,7 +1316,7 @@ export function CoreTestingForm({
       };
 
       console.log("Moving core to failed section:", payload);
-      await axios.post(`http://localhost:5001/api/failed-cores`, payload, { 
+      await axios.post(`http://localhost:5001/api/failed-cores`, payload, {
         withCredentials: true,
         headers: { 'Authorization': token ? `Bearer ${token}` : '' }
       });
@@ -1330,7 +1324,7 @@ export function CoreTestingForm({
       // 2. Update local UI state
       const nextRows = rows.filter((_, i) => i !== index);
       setRows(nextRows);
-      
+
       // 3. Persist the grid state immediately (crucial for permanent removal from this order)
       console.log("Persisting grid state after removal...");
       await handleSave(nextRows);
@@ -1369,12 +1363,14 @@ export function CoreTestingForm({
           vendorCoreNo: row.coreVendorNo,
           internalCoreNo: row.internalCoreNo,
           ...(isMetering || isProtectionCore || isPSCore
-            ? { measuredMa: (isMetering ? currentBsatCols : (isProtectionCore ? currentProtCols : currentPsCols)).map(col => {
+            ? {
+              measuredMa: (isMetering ? currentBsatCols : (isProtectionCore ? currentProtCols : currentPsCols)).map(col => {
                 const val = row.dynamicValues[col.id];
                 if (val === '' || val === undefined || val === null) return null;
                 const num = parseFloat(val);
                 return isNaN(num) ? null : num;
-              }) }
+              })
+            }
             : { value: (row.singleValue === '' || row.singleValue === undefined || row.singleValue === null) ? null : parseFloat(row.singleValue) }
           ),
           result: row.remark || "",
@@ -1430,6 +1426,7 @@ export function CoreTestingForm({
   };
 
   const handleBack = async () => {
+    handleTimerAction('pause');
     if (isPreTest && batchData?.batchId) {
       setIsSaving(true);
       // 1. Flush pending row saves
@@ -1470,8 +1467,8 @@ export function CoreTestingForm({
         vendorCoreNo: row.coreVendorNo,
         reason: "Failed testing",
         dynamicValues: row.dynamicValues
-      }, { 
-        withCredentials: true, 
+      }, {
+        withCredentials: true,
         headers: { 'Authorization': token ? `Bearer ${token}` : '' }
       });
 
@@ -1650,12 +1647,14 @@ export function CoreTestingForm({
             vendorCoreNo: row.coreVendorNo,
             internalCoreNo: row.internalCoreNo,
             ...(isMetering
-              ? { measuredMa: bsatColumns.map(col => {
+              ? {
+                measuredMa: bsatColumns.map(col => {
                   const val = row.dynamicValues[col.id];
                   if (val === '' || val === undefined || val === null) return null;
                   const num = parseFloat(val);
                   return isNaN(num) ? null : num;
-                }) }
+                })
+              }
               : { value: (row.singleValue === '' || row.singleValue === undefined || row.singleValue === null) ? null : parseFloat(row.singleValue) }
             ),
             result: row.remark || "",
@@ -1796,32 +1795,32 @@ export function CoreTestingForm({
           onSelect={handleReserveReadyCore}
         />
 
-      {/* Confirmation Modal for using ready core */}
-      <Dialog open={isConfirmUseModalOpen} onOpenChange={setIsConfirmUseModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Assignment</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to use pre-tested core <strong>{selectedReadyCore?.coreId || selectedReadyCore?.serialNumber}</strong> for this transformer?
-              This action will mark the current core as FAILED and assign the ready core as a replacement.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="bg-blue-50 p-4 rounded-md space-y-2">
-            <p className="text-sm font-semibold">Ready Core Details:</p>
-            <div className="text-xs space-y-1">
-              <p>Serial: {selectedReadyCore?.coreId || selectedReadyCore?.serialNumber}</p>
-              <p>Type: {selectedReadyCore?.coreType || selectedReadyCore?.specifications?.coreType || 'Core'}</p>
+        {/* Confirmation Modal for using ready core */}
+        <Dialog open={isConfirmUseModalOpen} onOpenChange={setIsConfirmUseModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Assignment</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to use pre-tested core <strong>{selectedReadyCore?.coreId || selectedReadyCore?.serialNumber}</strong> for this transformer?
+                This action will mark the current core as FAILED and assign the ready core as a replacement.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="bg-blue-50 p-4 rounded-md space-y-2">
+              <p className="text-sm font-semibold">Ready Core Details:</p>
+              <div className="text-xs space-y-1">
+                <p>Serial: {selectedReadyCore?.coreId || selectedReadyCore?.serialNumber}</p>
+                <p>Type: {selectedReadyCore?.coreType || selectedReadyCore?.specifications?.coreType || 'Core'}</p>
+              </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsConfirmUseModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleUseReadyCore} className="bg-green-600 hover:bg-green-700">Confirm & Use</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-};
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsConfirmUseModalOpen(false)}>Cancel</Button>
+              <Button onClick={handleUseReadyCore} className="bg-green-600 hover:bg-green-700">Confirm & Use</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -3525,12 +3524,10 @@ export function CoreTestingForm({
 
   // Metering/PS Core Template (Original)
   return (
-<<<<<<< Updated upstream
+
     <div className="space-y-4 p-2 sm:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
-=======
-    <div className="space-y-4">
       <TimerDisplay />
->>>>>>> Stashed changes
+
       {isReadOnly && (
         <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4" role="alert">
           <div className="flex items-center">
