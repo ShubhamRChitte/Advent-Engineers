@@ -11,6 +11,7 @@ import {
   Check,
   X,
   RefreshCw,
+  Clock,
   AlertTriangle,
   Tag,
   Edit,
@@ -640,8 +641,6 @@ export function CoreTestingForm({
     { id: '1', bsatValue: '1.5', setMvValue: '7.04', leLimitValue: '1150' },
   ]);
 
-<<<<<<< Updated upstream
-=======
   const [timerData, setTimerData] = useState<{ 
     startTime: string | null; 
     accumulatedTimeMs: number; 
@@ -706,10 +705,7 @@ export function CoreTestingForm({
     return () => clearInterval(interval);
   }, [timerData]);
 
-  const handleBack = () => {
-    handleTimerAction('pause');
-    onBack();
-  };
+
 
   const formatTime = (ms: number) => {
     const isNegative = ms < 0;
@@ -745,30 +741,8 @@ export function CoreTestingForm({
     );
   };
 
-  const protectionLimit = 600;
 
-  // Socket Listener for real-time inventory updates
-  useEffect(() => {
-    const handleStockUpdate = () => {
-      if (isReadyModalOpen && activeReplaceIndex !== null) {
-        fetchMatchingReadyCores(activeReplaceIndex);
-      }
-    };
 
-    socket.on('readyStockUpdated', handleStockUpdate);
-    return () => {
-      socket.off('readyStockUpdated', handleStockUpdate);
-    };
-  }, [isReadyModalOpen, activeReplaceIndex]);
-
-  // Handle "IN_PROGRESS" status update when tester enters the testing report
-  useEffect(() => {
-    if (isPreTest && (meteringConfigured || protectionConfigured || psConfigured)) {
-      updatePreTestBatchStatus("IN_PROGRESS");
-    }
-  }, [meteringConfigured, protectionConfigured, psConfigured]);
-
->>>>>>> Stashed changes
   // Specification data - Different for Protection
   const [specs, setSpecs] = useState(
     isProtectionCore ? {
@@ -1430,6 +1404,7 @@ export function CoreTestingForm({
   };
 
   const handleBack = async () => {
+    handleTimerAction('pause');
     if (isPreTest && batchData?.batchId) {
       setIsSaving(true);
       // 1. Flush pending row saves
@@ -3525,12 +3500,8 @@ export function CoreTestingForm({
 
   // Metering/PS Core Template (Original)
   return (
-<<<<<<< Updated upstream
     <div className="space-y-4 p-2 sm:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
-=======
-    <div className="space-y-4">
       <TimerDisplay />
->>>>>>> Stashed changes
       {isReadOnly && (
         <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4" role="alert">
           <div className="flex items-center">
