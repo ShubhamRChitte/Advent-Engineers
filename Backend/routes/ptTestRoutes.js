@@ -140,6 +140,26 @@ router.put('/transformer/:transformerId/approve', isAuthenticated, async (req, r
       });
     }
 
+    // 3. CHECK: Accuracy Test completeness (Check all cores)
+    const accuracyTestObj = ptTest.accuracyTest || {};
+    const accCoreKeys = Object.keys(accuracyTestObj);
+    const mandatoryAcc = ['ratioError100', 'phaseError100'];
+
+    const isAccComplete = accCoreKeys.length > 0 && accCoreKeys.every(coreKey => {
+      const coreData = accuracyTestObj[coreKey] || {};
+      // In PT, accuracyTest is nested by core then percentage ('120', '100', '80')
+      // We verify the '100' row is filled as a minimum requirement
+      const row100 = coreData['100'] || {};
+      return mandatoryAcc.every(f => row100[f] && row100[f].toString().trim() !== '' && row100[f].toString() !== 'N/A');
+    });
+
+    if (!isAccComplete) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Cannot approve. The Accuracy Test section is missing required core readings." 
+      });
+    }
+
     // Set approved flag on transformer's PT test
     const ptTestUpdate = { ...transformer.testHistory.pt_test, approved: true };
     await TransformerModel.findByIdAndUpdate(transformerId, {
@@ -301,10 +321,14 @@ router.get('/assigned-orders', isAuthenticated, async (req, res) => {
       const testerName = user.name || user.fullName;
 
       // 1. Find all transformers where this user is assigned for PT stage
-      // Only include transformers that have passed the pretest stage
+      // Only include transformers that have passed the pretest stage and are not yet approved for this stage
       const query = {
           "assignments.pt_tester": testerName,
-          currentStage: { $in: ['pt', 'final_print', 'dispatch', 'completed'] }
+          currentStage: { $in: ['pt', 'final_print', 'dispatch', 'completed'] },
+          $or: [
+            { "testHistory.pt_test.approved": { $exists: false } },
+            { "testHistory.pt_test.approved": { $ne: true, $ne: "true" } }
+          ]
       };
 
       const transformers = await TransformerModel.find(query).populate('orderId').lean();

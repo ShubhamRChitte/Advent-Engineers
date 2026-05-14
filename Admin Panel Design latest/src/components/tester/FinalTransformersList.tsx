@@ -351,7 +351,9 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
               return primary !== 'N/A' ? `${primary}/1` : 'N/A';
             })(),
             voltageClass: (order.voltageRating || order.nominalSystemVoltage) 
-              ? `${order.voltageRating || order.nominalSystemVoltage}kV` 
+              ? (String(order.voltageRating || order.nominalSystemVoltage).includes('kV') 
+                  ? (order.voltageRating || order.nominalSystemVoltage) 
+                  : `${order.voltageRating || order.nominalSystemVoltage}kV`)
               : 'N/A',
             cores: coresList,
             status: status,
@@ -363,9 +365,9 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
             testHistory: t.testHistory,
             orderId: order,
             currentStage: t.currentStage,
-            stc: (t as any).stc || (order as any).stc || 'N/A',
-            voltageRating: (order as any).nominalSystemVoltage || '33',
-            burden: (order as any).burden || '30',
+            stc: (t as any).stc || (order as any).stc || (order as any).STC || 'N/A',
+            voltageRating: order.voltageRating || order.nominalSystemVoltage || '33',
+            burden: (order as any).burden || transformer.burden || 'N/A',
             ratedPrimaryCurrent: (order as any).ratedPrimaryCurrent || (order.ratio && order.ratio[0] ? order.ratio[0].split('/')[0] : '800'),
             ratedSecondaryCurrent: (order as any).ratedSecondaryCurrent || (order.ratio && order.ratio[0] ? order.ratio[0].split('/')[1] : '1'),
             clientName: order.clientName || order.client || 'N/A'

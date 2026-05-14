@@ -68,15 +68,23 @@ export function FinalTestReport({
     if (hvBetweenCore === 'Fail') failures.push('HV Between Core: Fail');
     if (ovitTest === 'Fail') failures.push('OVIT: Fail');
 
-    const m1 = parseFloat(meggarPrimaryToSecondary);
-    const m2 = parseFloat(meggarPrimaryToEarth);
-    const m3 = parseFloat(meggarSecondaryToEarth);
-    const m4 = parseFloat(meggarCoreToCore);
+    const parseMeggar = (val: string) => {
+      if (!val) return null;
+      if (val.toLowerCase().includes('ok') || val.includes('>')) return 999999;
+      const parsed = parseFloat(val.replace(/[^0-9.]/g, ''));
+      return isNaN(parsed) ? null : parsed;
+    };
 
-    if (m1 > 1000) failures.push(`Meggar Pri-Sec > 1000 (${meggarPrimaryToSecondary})`);
-    if (m2 > 1000) failures.push(`Meggar Pri-Earth > 1000 (${meggarPrimaryToEarth})`);
-    if (m3 > 500) failures.push(`Meggar Sec-Earth > 500 (${meggarSecondaryToEarth})`);
-    if (m4 > 200) failures.push(`Meggar Core-Core > 200 (${meggarCoreToCore})`);
+    const m1 = parseMeggar(meggarPrimaryToSecondary);
+    const m2 = parseMeggar(meggarPrimaryToEarth);
+    const m3 = parseMeggar(meggarSecondaryToEarth);
+    const m4 = parseMeggar(meggarCoreToCore);
+
+    // Insulation resistance should be HIGH. Fail only if it is explicitly BELOW threshold.
+    if (m1 !== null && m1 < 1000) failures.push(`Meggar Pri-Sec < 1000 (${meggarPrimaryToSecondary})`);
+    if (m2 !== null && m2 < 1000) failures.push(`Meggar Pri-Earth < 1000 (${meggarPrimaryToEarth})`);
+    if (m3 !== null && m3 < 500) failures.push(`Meggar Sec-Earth < 500 (${meggarSecondaryToEarth})`);
+    if (m4 !== null && m4 < 200) failures.push(`Meggar Core-Core < 200 (${meggarCoreToCore})`);
 
     return failures;
   };

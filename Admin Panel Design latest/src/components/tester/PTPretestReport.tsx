@@ -315,8 +315,12 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
         const allData = { ...prev };
         let newData = { ...(allData[tId] || {}) };
         if (subField) {
+            // Apply numeric filter for preTesting/accuracy fields
+            const filteredValue = (section === 'preTesting' || section === 'accuracyTest') 
+                ? value.replace(/[^0-9.\-+]/g, '') 
+                : value;
             newData[section] = { ...newData[section] };
-            newData[section][field] = { ...newData[section][field], [subField]: value };
+            newData[section][field] = { ...newData[section][field], [subField]: filteredValue };
         } else if (section) {
             newData[section] = { ...newData[section], [field]: value };
         } else {
@@ -337,8 +341,9 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
         if (!newData.accuracyTest[core]) newData.accuracyTest[core] = {};
         if (!newData.accuracyTest[core][percentage]) newData.accuracyTest[core][percentage] = {};
         
+        const filteredValue = value.replace(/[^0-9.\-+]/g, '');
         newData.accuracyTest[core] = { ...newData.accuracyTest[core] };
-        newData.accuracyTest[core][percentage] = { ...newData.accuracyTest[core][percentage], [field]: value };
+        newData.accuracyTest[core][percentage] = { ...newData.accuracyTest[core][percentage], [field]: filteredValue };
         
         allData[tId] = newData;
         return allData;
@@ -550,8 +555,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
 
     if (!Array.isArray(cores) || cores.length === 0) return fallback;
 
-    const meteringClasses: string[] = [];
-    const protectionClasses: string[] = [];
+    const classStrings: string[] = [];
 
     const normalize = (v: unknown) => {
       if (v === null || v === undefined) return '';
@@ -560,31 +564,43 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
       return s;
     };
 
-    cores.forEach((core: any) => {
-      const coreType = typeof core === 'string' ? core : core?.coreType;
-      let coreClass = normalize(typeof core === 'string' ? '' : core?.accuracyClass);
+    cores.forEach((core: any, idx: number) => {
+      let coreClass = normalize(core?.accuracyClass);
+      const typeLc = String(core?.coreType || '').toLowerCase();
 
-      if (!coreType) return;
-      const typeLc = String(coreType).toLowerCase();
-
-      // Only fall back to order.accuracyClass for metering cores; do not reuse it for protection cores.
+      // Fallback for metering
       if (!coreClass && typeLc.includes('meter')) coreClass = normalize(fallback);
-      if (!coreClass) return;
-
-      if (typeLc.includes('meter')) meteringClasses.push(coreClass);
-      else if (typeLc.includes('protection')) protectionClasses.push(coreClass);
+      
+      if (coreClass) {
+        classStrings.push(coreClass);
+      }
     });
 
-    const ordered = [...meteringClasses, ...protectionClasses].map(normalize).filter(Boolean);
-    if (ordered.length === 0) return fallback;
+    if (classStrings.length === 0) return fallback;
 
-    // De-dup while preserving order: metering first, then protection.
-    const uniq: string[] = [];
-    ordered.forEach((c) => {
-      if (!uniq.includes(c)) uniq.push(c);
-    });
+    return classStrings.join(' / ');
+  })();
 
-    return uniq.join(' / ');
+  const ptRatioDisplay = (() => {
+    const params = order?.parameters || {};
+    const primaryV = order?.ratedPrimaryVoltage || params.ratedPrimaryVoltage;
+    const secondaryV = order?.ratedSecondaryVoltage || params.ratedSecondaryVoltage;
+    const coresCount = parseInt(order?.noOfCores || order?.numberOfCores || '1');
+
+    if (!primaryV || !secondaryV) return order?.ratio?.[0] || 'N/A';
+
+    const ratioParts = [primaryV];
+    for (let i = 0; i < coresCount; i++) {
+      ratioParts.push(secondaryV);
+    }
+
+    return ratioParts.join(' / ');
+  })();
+
+  const burdenDisplay = (() => {
+    const b = order?.burden;
+    if (Array.isArray(b)) return b.join(' / ');
+    return b || 'N/A';
   })();
 
   return (
@@ -760,15 +776,15 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
                                 </tr>
                                 <tr>
                                     <td className="border border-black p-1 pl-2 font-medium w-1/4">PT Ratio</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{order.ratio?.[0] || 'N/A'}</td>
+                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{ptRatioDisplay}</td>
                                     <td className="border border-black p-1 pl-2 font-medium w-1/4">Type 2</td>
                                     <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">O/C</td>
                                 </tr>
                                 <tr>
-                                    <td className="border border-black p-1 pl-2 font-medium w-1/4">Burden</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{order.burden || 'N/A'} VA</td>
+                                     <td className="border border-black p-1 pl-2 font-medium w-1/4">Burden</td>
+                                     <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{burdenDisplay} VA</td>
                                     <td className="border border-black p-1 pl-2 font-medium w-1/4">Class</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{order.accuracyClass || '0.2'}</td>
+                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{accuracyClassDisplay}</td>
                                 </tr>
                                 <tr>
                                     <td className="border border-black p-1 pl-2 font-medium w-1/4">Voltage Factor</td>

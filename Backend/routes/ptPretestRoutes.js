@@ -142,16 +142,25 @@ router.put('/transformer/:transformerId/approve', isAuthenticated, async (req, r
       return res.status(400).json({ success: false, message: "Cannot approve. Transformer doesn't have PT Pretesting data saved." });
     }
 
-    // 3. CHECK: Unified PT report completeness (Pre-test + Final test)
+    // 3. CHECK: Unified PT report completeness (Check all active cores)
     const ptTest = transformer.testHistory.pt_pretest_test;
-    const preTesting = ptTest.preTesting?.metering || {};
+    const preTestingObj = ptTest.preTesting || {};
+    const coreKeys = Object.keys(preTestingObj).filter(k => k !== 'testedBy' && k !== 'date');
+
+    if (coreKeys.length === 0) {
+      return res.status(400).json({ success: false, message: "Cannot approve. No core data found in Pre-Testing section." });
+    }
+
     const mandatoryPre = ['ratioError100', 'phaseError100'];
-    const isPreComplete = mandatoryPre.every(f => preTesting[f] && preTesting[f].toString().trim() !== '' && preTesting[f].toString() !== 'N/A');
+    const isPreComplete = coreKeys.every(coreKey => {
+      const coreData = preTestingObj[coreKey] || {};
+      return mandatoryPre.every(f => coreData[f] && coreData[f].toString().trim() !== '' && coreData[f].toString() !== 'N/A');
+    });
 
     if (!isPreComplete) {
       return res.status(400).json({ 
         success: false, 
-        message: "Cannot approve. The report is missing required data in Pre-Testing sections." 
+        message: "Cannot approve. The report is missing required data in one or more Pre-Testing cores." 
       });
     }
 
@@ -332,10 +341,15 @@ router.get('/assigned-orders', isAuthenticated, async (req, res) => {
       const user = req.user;
       const testerName = user.name || user.fullName;
 
-      // 1. Find all transformers where this user is assigned for PT stage
-      // Returning all (active and completed) so the frontend tabs can filter them
+      // 1. Find all transformers where this user is assigned for PT Pretest stage
+      // and which are currently at the 'pt_pretest' stage.
       const query = {
-          "assignments.pt_pretest_tester": testerName
+          "assignments.pt_pretest_tester": testerName,
+          currentStage: 'pt_pretest',
+          $or: [
+            { "testHistory.pt_pretest_test.approved": { $exists: false } },
+            { "testHistory.pt_pretest_test.approved": { $ne: true, $ne: "true" } }
+          ]
       };
 
       const transformers = await TransformerModel.find(query).populate('orderId').lean();
