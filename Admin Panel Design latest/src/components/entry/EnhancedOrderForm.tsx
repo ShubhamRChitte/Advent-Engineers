@@ -113,8 +113,6 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
   // Images state
   const [images, setImages] = useState<File[]>([]);
 
-  const [selectedCoreVendors, setSelectedCoreVendors] = useState<string[]>([]);
-
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -334,7 +332,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
               <h3 className="font-semibold mb-4  text-blue-700">Transformer Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label className={formErrors.transformerType ? "text-red-600" : ""}>Type *</Label>
+                  <Label className={formErrors['transformerType'] ? "text-red-600" : ""}>Type *</Label>
                   <select
                     value={transformerType}
                     onChange={(e) => {
@@ -346,33 +344,31 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                          setCoreConfigs(prev => prev.map(config => 
                            config.coreType === 'ps' ? { ...config, coreType: 'metering', accuracyClass: '', vendorNo: '' } : { ...config, vendorNo: '' }
                          ));
-                         setSelectedMeteringVendors([]);
-                         setSelectedProtectionVendors([]);
-                         setSelectedPSVendors([]);
+                         
                       }
                     }}
-                    className={`w-full mt-1 h-10 px-3 rounded-md border bg-white ${formErrors.transformerType ? "border-red-500 bg-red-50" : "border-gray-300"}`}
+                    className={`w-full mt-1 h-10 px-3 rounded-md border bg-white ${formErrors['transformerType'] ? "border-red-500 bg-red-50" : "border-gray-300"}`}
                   >
                     <option value="">Select Type</option>
                     <option value="CT">Current Transformer (CT)</option>
                     <option value="PT">Potential Transformer (PT)</option>
                   </select>
-                  {formErrors.transformerType && <span className="text-xs text-red-600 font-semibold">{formErrors.transformerType}</span>}
+                  {formErrors['transformerType'] && <span className="text-xs text-red-600 font-semibold">{formErrors['transformerType']}</span>}
                 </div>
                 {transformerType && (
                   <div>
-                    <Label className={formErrors.isStandard ? "text-red-600" : ""}>IS Standard *</Label>
+                    <Label className={formErrors['isStandard'] ? "text-red-600" : ""}>IS Standard *</Label>
                     <select
                       value={isStandard}
                       onChange={(e) => handleInputChange('isStandard', e.target.value, setIsStandard)}
-                      className={`w-full mt-1 h-10 px-3 rounded-md border bg-white ${formErrors.isStandard ? "border-red-500 bg-red-50" : "border-gray-300"}`}
+                      className={`w-full mt-1 h-10 px-3 rounded-md border bg-white ${formErrors['isStandard'] ? "border-red-500 bg-red-50" : "border-gray-300"}`}
                     >
                       <option value="">Select IS Standard</option>
                       <option value="16227">16227</option>
                       {transformerType === 'CT' && <option value="2705">2705</option>}
                       {transformerType === 'PT' && <option value="3156">3156</option>}
                     </select>
-                    {formErrors.isStandard && <span className="text-xs text-red-600 font-semibold">{formErrors.isStandard}</span>}
+                    {formErrors['isStandard'] && <span className="text-xs text-red-600 font-semibold">{formErrors['isStandard']}</span>}
                   </div>
                 )}
                 {transformerType && (
@@ -418,7 +414,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                   </>
                 )}
                 <div className="flex flex-col">
-                  <Label className={formErrors.voltageRating ? "text-red-600" : ""}>Nominal System Voltage *</Label>
+                  <Label className={formErrors['voltageRating'] ? "text-red-600" : ""}>Nominal System Voltage *</Label>
                   <div className="flex gap-2">
                     <select
                       value={!isCustomVoltage ? voltageRating : 'Custom'}
@@ -431,7 +427,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                           handleInputChange('voltageRating', e.target.value, setVoltageRating);
                         }
                       }}
-                      className={`w-full mt-1 h-10 px-3 rounded-md border bg-white ${formErrors.voltageRating ? "border-red-500 bg-red-50" : "border-gray-300"}`}
+                      className={`w-full mt-1 h-10 px-3 rounded-md border bg-white ${formErrors['voltageRating'] ? "border-red-500 bg-red-50" : "border-gray-300"}`}
                     >
                       <option value="">Select Voltage</option>
                       <option value="11">11</option>
@@ -458,17 +454,17 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
             <h3 className="pb-2 border-b-2 border-gray-200">Client Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className={formErrors.clientName ? "text-red-600" : ""}>Client Name *</Label>
+                <Label className={formErrors['clientName'] ? "text-red-600" : ""}>Client Name *</Label>
                 <Input
                   placeholder="Enter client name"
                   value={clientName}
                   onChange={(e) => handleInputChange('clientName', e.target.value, setClientName)}
-                  className={`mt-1 ${formErrors.clientName ? "border-red-500 bg-red-50" : ""}`}
+                  className={`mt-1 ${formErrors['clientName'] ? "border-red-500 bg-red-50" : ""}`}
                 />
-                {formErrors.clientName && <span className="text-xs text-red-600 font-semibold">{formErrors.clientName}</span>}
+                {formErrors['clientName'] && <span className="text-xs text-red-600 font-semibold">{formErrors['clientName']}</span>}
               </div>
               <div>
-                <Label className={formErrors.clientContact ? "text-red-600" : ""}>Client Contact Number *</Label>
+                <Label className={formErrors['clientContact'] ? "text-red-600" : ""}>Client Contact Number *</Label>
                 <Input
                   placeholder="Enter contact number"
                   value={clientContact}
@@ -487,10 +483,10 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                     const onlyNumbers = e.target.value.replace(/[^0-9]/g, '');
                     handleInputChange('clientContact', onlyNumbers, setClientContact);
                   }}
-                  className={`mt-1 ${formErrors.clientContact ? "border-red-500 bg-red-50" : ""}`}
+                  className={`mt-1 ${formErrors['clientContact'] ? "border-red-500 bg-red-50" : ""}`}
                   maxLength={10}
                 />
-                {formErrors.clientContact && <span className="text-xs text-red-600 font-semibold">{formErrors.clientContact}</span>}
+                {formErrors['clientContact'] && <span className="text-xs text-red-600 font-semibold">{formErrors['clientContact']}</span>}
               </div>
             </div>
           </div>
@@ -500,19 +496,19 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
             <h3 className="pb-2 border-b-2 border-gray-200">Order Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className={formErrors.quantity ? "text-red-600" : ""}>Quantity *</Label>
+                <Label className={formErrors['quantity'] ? "text-red-600" : ""}>Quantity *</Label>
                 <Input
                   type="number"
                   min="1"
                   placeholder="Enter quantity"
                   value={quantity}
                   onChange={(e) => handleInputChange('quantity', e.target.value, setQuantity)}
-                  className={`mt-1 ${formErrors.quantity ? "border-red-500 bg-red-50" : ""}`}
+                  className={`mt-1 ${formErrors['quantity'] ? "border-red-500 bg-red-50" : ""}`}
                 />
-                {formErrors.quantity && <span className="text-xs text-red-600 font-semibold">{formErrors.quantity}</span>}
+                {formErrors['quantity'] && <span className="text-xs text-red-600 font-semibold">{formErrors['quantity']}</span>}
               </div>
               <div>
-                <Label className={formErrors.numberOfCores ? "text-red-600" : ""}>Number of Cores *</Label>
+                <Label className={formErrors['numberOfCores'] ? "text-red-600" : ""}>Number of Cores *</Label>
                 <Input
                   type="number"
                   min="1"
@@ -531,9 +527,9 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                       return newTypes.slice(0, numCores);
                     });
                   }}
-                  className={`mt-1 ${formErrors.numberOfCores ? "border-red-500 bg-red-50" : ""}`}
+                  className={`mt-1 ${formErrors['numberOfCores'] ? "border-red-500 bg-red-50" : ""}`}
                 />
-                {formErrors.numberOfCores && <span className="text-xs text-red-600 font-semibold">{formErrors.numberOfCores}</span>}
+                {formErrors['numberOfCores'] && <span className="text-xs text-red-600 font-semibold">{formErrors['numberOfCores']}</span>}
               </div>
             </div>
           </div>
@@ -659,7 +655,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
             <h3 className="pb-2 border-b-2 border-gray-200">Transformer Parameters</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className={formErrors.primaryCurrents ? "text-red-600" : ""}>Primary Current *</Label>
+                <Label className={formErrors['primaryCurrents'] ? "text-red-600" : ""}>Primary Current *</Label>
                 <div className="space-y-2">
                   {/* Selected Tags */}
                   <div className="flex flex-wrap gap-2">
@@ -729,18 +725,18 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                       </div>
                     )}
                   </div>
-                  {formErrors.primaryCurrents && <span className="text-xs text-red-600 font-semibold">{formErrors.primaryCurrents}</span>}
+                  {formErrors['primaryCurrents'] && <span className="text-xs text-red-600 font-semibold">{formErrors['primaryCurrents']}</span>}
                 </div>
               </div>
                <div>
-                 <Label className={formErrors.burden ? "text-red-600" : ""}>Burden *</Label>
+                 <Label className={formErrors['burden'] ? "text-red-600" : ""}>Burden *</Label>
                  <Input
                    placeholder="e.g., 15 VA"
                    value={burden}
                    onChange={(e) => handleInputChange('burden', e.target.value, setBurden)}
-                   className={`mt-1 ${formErrors.burden ? "border-red-500 bg-red-50" : ""}`}
+                   className={`mt-1 ${formErrors['burden'] ? "border-red-500 bg-red-50" : ""}`}
                  />
-                 {formErrors.burden && <span className="text-xs text-red-600 font-semibold">{formErrors.burden}</span>}
+                 {formErrors['burden'] && <span className="text-xs text-red-600 font-semibold">{formErrors['burden']}</span>}
                </div>
                {transformerType === 'CT' && (
                  <div>
