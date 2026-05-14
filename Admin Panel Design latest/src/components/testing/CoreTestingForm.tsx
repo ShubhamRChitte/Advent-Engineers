@@ -740,7 +740,7 @@ export function CoreTestingForm({
     );
   };
 
-
+  const protectionLimit = 600;
 
   // Socket Listener for real-time inventory updates
   useEffect(() => {
@@ -3523,15 +3523,8 @@ export function CoreTestingForm({
 
   // Metering/PS Core Template (Original)
   return (
-<<<<<<< HEAD
     <div className="space-y-4 p-2 sm:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
       <TimerDisplay />
-=======
-
-    <div className="space-y-4 p-2 sm:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
-      <TimerDisplay />
-
->>>>>>> 0da926e31988395e9a153cf015935e53795c271a
       {isReadOnly && (
         <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4" role="alert">
           <div className="flex items-center">
