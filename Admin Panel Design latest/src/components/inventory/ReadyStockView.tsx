@@ -149,6 +149,32 @@ export default function ReadyStockView() {
     }
   };
 
+  const handleApproveBatch = async (batchId: string) => {
+    if (!window.confirm("Are you sure you want to approve this batch and move it to Ready Stock?")) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.post(`http://localhost:5001/api/pre-test-batches/${batchId}/approve`, {}, {
+        withCredentials: true,
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+      });
+      if (res.status === 200) {
+        toast.success("Batch approved and moved to Ready Stock!");
+        fetchData();
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to approve batch");
+    }
+  };
+
+  const isBatchFullyTested = (batch: PreTestBatch) => {
+    // Current failed = total failed - discarded (which were already replaced or removed)
+    // The total tested cores with readings = passedCount + currentlyFailed
+    const currentlyFailed = (batch.failedCount || 0) - (batch.discardedCount || 0);
+    const totalTested = (batch.passedCount || 0) + currentlyFailed;
+    return totalTested >= batch.numberOfCores && batch.numberOfCores > 0;
+  };
+
   const getCoreTypeColor = (type: string) => {
     switch (type) {
       case 'Metering': return 'bg-green-100 text-green-700 border-green-200';
@@ -287,6 +313,8 @@ export default function ReadyStockView() {
                     <td className="px-4 py-4 text-center">
                       {batch.status === 'COMPLETED' ? (
                         <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px]">COMPLETED</Badge>
+                      ) : isBatchFullyTested(batch) ? (
+                        <Badge className="bg-green-600 text-white border-none text-[10px] shadow-sm font-bold">TESTING FINISHED</Badge>
                       ) : batch.status === 'IN_PROGRESS' ? (
                         <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px]">IN_PROGRESS</Badge>
                       ) : batch.status === 'CONFIGURED' ? (
@@ -299,6 +327,16 @@ export default function ReadyStockView() {
                       {new Date(batch.createdAt).toLocaleDateString('en-GB')}
                     </td>
                     <td className="px-3 py-4 text-right flex items-center justify-end gap-1">
+                      {batch.status !== 'COMPLETED' && isBatchFullyTested(batch) && (
+                        <Button 
+                          size="sm" 
+                          className="h-8 px-3 text-[10px] font-bold bg-green-600 hover:bg-green-700 text-white shadow-sm border border-green-700"
+                          onClick={() => handleApproveBatch(batch.batchId)}
+                        >
+                          Approve
+                        </Button>
+                      )}
+                      
                       <Button 
                         variant="outline" 
                         size="sm" 
@@ -310,9 +348,8 @@ export default function ReadyStockView() {
                       >
                         {batch.status === 'COMPLETED' ? 'View' : 'Test'}
                       </Button>
-                      
-                      {/* Show delete if cores in batch becomes 0 */}
-                      {(availableCoresPerBatch[batch.batchId] || 0) === 0 && (
+                      {/* Show delete if cores in batch becomes 0 or total cores is 0 */}
+                      {((availableCoresPerBatch[batch.batchId] || 0) === 0 || batch.numberOfCores === 0) && (
                         <Button 
                           variant="ghost" 
                           size="sm" 

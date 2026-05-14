@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { Badge } from '../ui/badge';
 import {
   ArrowLeft,
   Save,
@@ -10,6 +11,7 @@ import {
   Plus,
   Check,
   X,
+  Clock,
   RefreshCw,
   Clock,
   AlertTriangle,
@@ -376,35 +378,47 @@ export function CoreTestingForm({
         // If data exists, map it; otherwise, use fresh initialization
         if (response.data && response.data.readings && response.data.readings.length > 0) {
           if (!isMeteringCheck && response.data.coreType !== coreType) {
-            console.warn(`Mismatch: Expected ${coreType}, got ${response.data.coreType}`);
+            console.warn(`Mismatch in loadExistingData: Expected coreType "${coreType}", but backend returned "${response.data.coreType}". Resetting rows to empty skeleton.`);
             setRows(initializeRows());
             return;
           }
+          console.log(`Successfully loaded ${response.data.readings?.length || 0} readings for ${coreType} batch ${batchData?.batchId || order.orderId}`);
 
 
           // Merge logic considering replacements and visibility
           const initializedSkeleton = initializeRows();
-          const mappedSavedRows = response.data.readings.map((r: any) => ({
-            date: r.date ? new Date(r.date).toLocaleDateString('en-GB') : getSystemDate(),
-            coreVendorNo: r.vendorCoreNo || '',
-            internalCoreNo: r.internalCoreNo || '',
-            dynamicValues: isMeteringCheck
-              ? Object.fromEntries(bsatColumns.map((col, i) => [col.id, r.measuredMa?.[i] != null ? String(r.measuredMa[i]) : '']))
-              : (isProtectionCore || isPSCore)
-                ? Object.fromEntries((isProtectionCore ? protectionBColumns : psBColumns).map((col, i) => [col.id, r.measuredMa?.[i] != null ? String(r.measuredMa[i]) : (r.value != null ? String(r.value) : '')]))
-                : {},
-            singleValue: r.value != null ? String(r.value) : '',
-            remark: r.result || '',
-            status: r.status || 'PENDING',
-            isReplacement: r.isReplacement || false,
-            replacedCoreId: r.replacedCoreId || null
-          }));
+          const mappedSavedRows = response.data.readings.map((r: any) => {
+            const dynamicValues: { [key: string]: string } = {};
+            if (Array.isArray(r.measuredMa) && r.measuredMa.length > 0) {
+              // Metering, or Protection/PS saved with new measuredMa format
+              r.measuredMa.forEach((val: any, i: number) => {
+                dynamicValues[String(i + 1)] = val != null ? String(val) : '';
+              });
+            } else if (r.value != null) {
+              // Legacy Core Tracking Protection/PS: saved as single `value` — restore into first column
+              dynamicValues['1'] = String(r.value);
+            }
+            return {
+              date: r.date ? new Date(r.date).toLocaleDateString('en-GB') : getSystemDate(),
+              coreVendorNo: r.vendorCoreNo || '',
+              internalCoreNo: r.internalCoreNo || '',
+              dynamicValues,
+              // Keep singleValue populated for forms that use it directly
+              singleValue: r.value != null ? String(r.value) : (dynamicValues['1'] || ''),
+              remark: r.result || '',
+              status: r.status || 'PENDING',
+              isReplacement: r.isReplacement || false,
+              replacedCoreId: r.replacedCoreId || null
+            };
+          });
 
           const finalRowsToShow: CoreTestRow[] = [];
           const restoredFailedCores: FailedCore[] = [];
 
           initializedSkeleton.forEach(skel => {
-            const baseReading = mappedSavedRows.find((s: any) => s.internalCoreNo === skel.internalCoreNo);
+            const baseReading = mappedSavedRows.find((s: any) => 
+              s.internalCoreNo?.trim().toUpperCase() === skel.internalCoreNo?.trim().toUpperCase()
+            );
             const sourceRow = baseReading || skel;
 
             const currentSourceId = sourceRow.internalCoreNo?.trim().toUpperCase() || '';
@@ -440,7 +454,9 @@ export function CoreTestingForm({
             let lastId = sourceRow.internalCoreNo;
             let furtherChild: any;
             do {
-              furtherChild = mappedSavedRows.find((s: any) => s.isReplacement && s.replacedCoreId === lastId);
+              furtherChild = mappedSavedRows.find((s: any) => 
+                s.isReplacement && s.replacedCoreId?.trim().toUpperCase() === lastId?.trim().toUpperCase()
+              );
               if (furtherChild) {
                 const furtherChildId = furtherChild.internalCoreNo?.trim().toUpperCase() || '';
                 if (dbFailedCoreIds.has(furtherChildId)) {
@@ -658,7 +674,7 @@ export function CoreTestingForm({
         coreType: coreType.toLowerCase(),
         action
       }, { withCredentials: true });
-
+      
       if (response.data.success) {
         setTimerData(response.data.data);
       }
@@ -672,7 +688,7 @@ export function CoreTestingForm({
     if (meteringConfigured || protectionConfigured || psConfigured) {
       handleTimerAction('start');
     }
-
+    
     return () => {
       // Pause when navigating away from this component (unmount)
       if (meteringConfigured || protectionConfigured || psConfigured) {
@@ -697,15 +713,13 @@ export function CoreTestingForm({
       const accumulated = timerData.accumulatedTimeMs || 0;
       const allocatedMs = timerData.allocatedMinutes * 60 * 1000;
       const now = Date.now();
-
+      
       const totalElapsed = accumulated + (now - start);
       setTimeLeft(allocatedMs - totalElapsed);
     }, 1000);
 
     return () => clearInterval(interval);
   }, [timerData]);
-
-
 
   const formatTime = (ms: number) => {
     const isNegative = ms < 0;
@@ -722,10 +736,11 @@ export function CoreTestingForm({
     const isPaused = timerData?.status === "Paused";
 
     return (
-      <div className={`mb-4 px-4 py-2 rounded-lg border-2 flex items-center justify-between transition-all ${isOver ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' :
-          isPaused ? 'bg-amber-50 border-amber-300 text-amber-600' :
-            'bg-green-50 border-green-500 text-green-600'
-        }`}>
+      <div className={`mb-4 px-4 py-2 rounded-lg border-2 flex items-center justify-between transition-all ${
+        isOver ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' : 
+        isPaused ? 'bg-amber-50 border-amber-300 text-amber-600' :
+        'bg-green-50 border-green-500 text-green-600'
+      }`}>
         <div className="flex items-center gap-2 font-bold">
           {isPaused ? <Clock className="w-4 h-4" /> : <RefreshCw className={`w-4 h-4 ${!isOver ? 'animate-spin-slow' : ''}`} />}
           <span className="text-sm uppercase tracking-wider">
@@ -1483,36 +1498,6 @@ export function CoreTestingForm({
     }
   };
 
-  const handleApprovePreTest = async () => {
-    if (!isPreTest || !batchData?.batchId) return;
-
-    if (getFilledRowsCount() < rows.length) {
-      alert("Please complete testing for all cores in the batch.");
-      return;
-    }
-
-    if (rows.some(r => r.remark === 'F')) {
-      alert("Please discard failed cores before approving the batch.");
-      return;
-    }
-
-    if (!window.confirm(`Are you sure you want to approve this batch of ${rows.length} cores? This will move them to Ready Stock.`)) {
-      return;
-    }
-
-    try {
-      const res = await axios.post(`http://localhost:5001/api/pre-test-batches/${batchData.batchId}/approve`, {}, {
-        withCredentials: true
-      });
-      if (res.status === 200) {
-        toast.success("Batch approved and moved to Ready Stock!");
-        onBack();
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to approve batch");
-    }
-  };
-
   const handleSave = async (rowsOverride?: CoreTestRow[]) => {
     if (isReadOnly) return;
     try {
@@ -1612,10 +1597,21 @@ export function CoreTestingForm({
             date: formattedDate,
             vendorCoreNo: row.coreVendorNo,
             internalCoreNo: row.internalCoreNo,
-            // For Protection/PS, use value; for Metering, use measuredMa
+            // Always serialize as measuredMa array so load can restore dynamicValues correctly
             ...(isMetering
               ? { measuredMa: bsatColumns.map(col => parseFloat(row.dynamicValues[col.id] || '0') || 0) }
-              : { value: parseFloat(row.singleValue || Object.values(row.dynamicValues)[0] || '0') }
+              : (() => {
+                  const activeCols = isPS ? psBColumns : protectionBColumns;
+                  const maArr = activeCols.length > 0
+                    ? activeCols.map(col => {
+                        const v = row.dynamicValues[col.id];
+                        return (v === '' || v == null) ? null : (parseFloat(v) || 0);
+                      })
+                    : [parseFloat(row.singleValue || Object.values(row.dynamicValues)[0] || '0') || null];
+                  // Also keep `value` for schema backward-compat
+                  const firstVal = maArr.find(v => v != null);
+                  return { measuredMa: maArr, value: firstVal ?? null };
+                })()
             ),
             result: row.remark || "F",
             isReplacement: !!row.isReplacement,
@@ -1645,9 +1641,8 @@ export function CoreTestingForm({
             date: formattedDate,
             vendorCoreNo: row.coreVendorNo,
             internalCoreNo: row.internalCoreNo,
-            ...(isMetering
-              ? {
-                measuredMa: bsatColumns.map(col => {
+            ...(isMetering || isProtectionCore || isPSCore
+              ? { measuredMa: (isMetering ? bsatColumns : (isProtectionCore ? protectionBColumns : psBColumns)).map(col => {
                   const val = row.dynamicValues[col.id];
                   if (val === '' || val === undefined || val === null) return null;
                   const num = parseFloat(val);
@@ -1710,12 +1705,17 @@ export function CoreTestingForm({
   };
 
   const getFilledRowsCount = () => {
-    // For Protection, PS, and Metering, check if any dynamic values are filled
     return rows.filter(row => {
       if (!row.internalCoreNo) return false;
-      if (row.remark === 'PRE_TESTED') return true;
-      const hasAnyValue = Object.values(row.dynamicValues).some(v => v !== '');
-      return hasAnyValue;
+      // If marked Pass/Fail or Replacement, it's completed
+      if (row.remark === 'P' || row.remark === 'F' || row.remark === 'PRE_TESTED' || row.remark === 'PRE TESTED') return true;
+      
+      // Otherwise check if any dynamic values are entered
+      const hasAnyValue = Object.values(row.dynamicValues || {}).some(v => v !== '' && v !== null);
+      // For legacy/simple protection cores
+      const hasSingleValue = row.singleValue !== '' && row.singleValue !== null;
+      
+      return hasAnyValue || hasSingleValue;
     }).length;
   };
 
@@ -1723,13 +1723,18 @@ export function CoreTestingForm({
     // P: only cores explicitly marked as 'P' (passed threshold test)
     // F: only cores explicitly marked as 'F' (failed threshold test)
     // Cores with empty remark = untested/incomplete — NOT counted in either P or F
-    const passed = rows.filter(row => row.remark === 'P').length;
+    // Replacement cores (PRE_TESTED) are also counted as passed.
+    const passed = rows.filter(row => 
+      row.remark === 'P' || row.remark === 'PRE_TESTED' || row.remark === 'PRE TESTED'
+    ).length;
     const failed = rows.filter(row => row.remark === 'F').length;
     return { passed, failed };
   };
 
   const getPassedCores = () => {
-    return rows.filter(row => row.remark === 'P' && row.internalCoreNo);
+    return rows.filter(row => 
+      (row.remark === 'P' || row.remark === 'PRE_TESTED' || row.remark === 'PRE TESTED') && row.internalCoreNo
+    );
   };
 
   const handlePrintReport = () => {
@@ -2087,7 +2092,6 @@ export function CoreTestingForm({
     // Protection Testing Form (after configuration)
     return (
       <div className="space-y-4">
-        <TimerDisplay />
         {isReadOnly && (
           <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4" role="alert">
             <div className="flex items-center">
@@ -2111,9 +2115,19 @@ export function CoreTestingForm({
               <ArrowLeft className="w-3 h-3" />
               Back
             </Button>
-            <h2 className="text-xl">Core Testing Report - Protection</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {order.jobId} - {order.clientName}
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold text-slate-800">Core Testing Report - Protection</h2>
+              {isPreTest && getFilledRowsCount() >= rows.length && rows.length > 0 && (
+                <Badge className="bg-green-600 text-white border-none shadow-sm animate-in fade-in zoom-in duration-300">
+                  <Check className="w-3 h-3 mr-1" />
+                  COMPLETED
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm text-slate-500 mt-1 font-medium flex items-center gap-2">
+              <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">{order.jobId}</span>
+              <span>•</span>
+              <span>{order.clientName}</span>
             </p>
           </div>
           <div className="flex gap-2">
@@ -2158,11 +2172,11 @@ export function CoreTestingForm({
               <Tag className="w-3 h-3" />
               Print Labels ({getPassedCores().length})
             </Button>
-            {!isReadOnly && (isPreTest ? true : getFilledRowsCount() >= calculateTotalRowsNeeded()) && (
+            {!isReadOnly && !isPreTest && (getFilledRowsCount() >= calculateTotalRowsNeeded()) && (
               <Button
                 size="sm"
                 className="gap-1 bg-[#003a70] hover:bg-[#002a50] text-white shadow-md border border-[#001a30] px-4 font-bold"
-                onClick={isPreTest ? handleApprovePreTest : handleApprove}
+                onClick={handleApprove}
               >
                 <Check className="w-3 h-3" />
                 Approve Batch
@@ -2807,7 +2821,6 @@ export function CoreTestingForm({
     // PS Testing Form (after configuration)
     return (
       <div className="space-y-4">
-        <TimerDisplay />
         {isReadOnly && (
           <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4" role="alert">
             <div className="flex items-center">
@@ -2831,9 +2844,19 @@ export function CoreTestingForm({
               <ArrowLeft className="w-3 h-3" />
               Back
             </Button>
-            <h2 className="text-xl">Core Testing Report - PS</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {order.jobId} - {order.clientName}
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold text-slate-800">Core Testing Report - PS</h2>
+              {isPreTest && getFilledRowsCount() >= rows.length && rows.length > 0 && (
+                <Badge className="bg-green-600 text-white border-none shadow-sm animate-in fade-in zoom-in duration-300">
+                  <Check className="w-3 h-3 mr-1" />
+                  COMPLETED
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm text-slate-500 mt-1 font-medium flex items-center gap-2">
+              <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">{order.jobId}</span>
+              <span>•</span>
+              <span>{order.clientName}</span>
             </p>
           </div>
           <div className="flex gap-2">
@@ -2878,11 +2901,11 @@ export function CoreTestingForm({
               <Tag className="w-3 h-3" />
               Print Labels ({getPassedCores().length})
             </Button>
-            {!isReadOnly && (isPreTest ? true : getFilledRowsCount() >= calculateTotalRowsNeeded()) && (
+            {!isReadOnly && !isPreTest && (getFilledRowsCount() >= calculateTotalRowsNeeded()) && (
               <Button
                 size="sm"
                 className="gap-1 bg-[#003a70] hover:bg-[#002a50] text-white shadow-md border border-[#001a30] px-4 font-bold"
-                onClick={isPreTest ? handleApprovePreTest : handleApprove}
+                onClick={handleApprove}
               >
                 <Check className="w-3 h-3" />
                 Approve Batch
@@ -3548,9 +3571,19 @@ export function CoreTestingForm({
             <ArrowLeft className="w-3 h-3" />
             Back
           </Button>
-          <h2 className="text-xl">Core Testing Report - {coreType}</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            {order.jobId} - {order.clientName}
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-slate-800">Core Testing Report - {coreType}</h2>
+            {isPreTest && getFilledRowsCount() >= rows.length && rows.length > 0 && (
+              <Badge className="bg-green-600 text-white border-none shadow-sm animate-in fade-in zoom-in duration-300">
+                <Check className="w-3 h-3 mr-1" />
+                COMPLETED
+              </Badge>
+            )}
+          </div>
+          <p className="text-sm text-slate-500 mt-1 font-medium flex items-center gap-2">
+            <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">{order.jobId}</span>
+            <span>•</span>
+            <span>{order.clientName}</span>
           </p>
         </div>
         <div className="flex gap-2">
@@ -3595,11 +3628,11 @@ export function CoreTestingForm({
             <Tag className="w-3 h-3" />
             Print Labels ({getPassedCores().length})
           </Button>
-          {!isReadOnly && (isPreTest ? true : getFilledRowsCount() >= calculateTotalRowsNeeded()) && (
+          {!isReadOnly && !isPreTest && (getFilledRowsCount() >= calculateTotalRowsNeeded()) && (
             <Button
               size="sm"
               className="gap-1 bg-[#003a70] hover:bg-[#002a50] text-white shadow-md border border-[#001a30] px-4 font-bold"
-              onClick={isPreTest ? handleApprovePreTest : handleApprove}
+              onClick={handleApprove}
             >
               <Check className="w-3 h-3" />
               Approve Batch
