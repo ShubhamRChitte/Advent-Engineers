@@ -501,11 +501,7 @@ export function FinalTestReport({
                           className="h-9"
                           placeholder="Enter value"
                           value={meggarPrimaryToSecondary}
-                          onKeyDown={(e) => {
-                            if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                            if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                          }}
-                          onChange={(e) => setMeggarPrimaryToSecondary(e.target.value.replace(/[^0-9+\-.]/g, ''))}
+                          onChange={(e) => setMeggarPrimaryToSecondary(e.target.value)}
                         />
                       </td>
                     </tr>
@@ -516,11 +512,7 @@ export function FinalTestReport({
                           className="h-9"
                           placeholder="Enter value"
                           value={meggarPrimaryToEarth}
-                          onKeyDown={(e) => {
-                            if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                            if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                          }}
-                          onChange={(e) => setMeggarPrimaryToEarth(e.target.value.replace(/[^0-9+\-.]/g, ''))}
+                          onChange={(e) => setMeggarPrimaryToEarth(e.target.value)}
                         />
                       </td>
                     </tr>
@@ -531,11 +523,7 @@ export function FinalTestReport({
                           className="h-9"
                           placeholder="Enter value"
                           value={meggarSecondaryToEarth}
-                          onKeyDown={(e) => {
-                            if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                            if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                          }}
-                          onChange={(e) => setMeggarSecondaryToEarth(e.target.value.replace(/[^0-9+\-.]/g, ''))}
+                          onChange={(e) => setMeggarSecondaryToEarth(e.target.value)}
                         />
                       </td>
                     </tr>
@@ -546,11 +534,7 @@ export function FinalTestReport({
                           className="h-9"
                           placeholder="Enter value"
                           value={meggarCoreToCore}
-                          onKeyDown={(e) => {
-                            if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                            if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                          }}
-                          onChange={(e) => setMeggarCoreToCore(e.target.value.replace(/[^0-9+\-.]/g, ''))}
+                          onChange={(e) => setMeggarCoreToCore(e.target.value)}
                         />
                       </td>
                     </tr>

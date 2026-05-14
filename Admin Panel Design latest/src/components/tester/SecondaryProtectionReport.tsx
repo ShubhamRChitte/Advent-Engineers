@@ -340,14 +340,34 @@ export function SecondaryProtectionReport({
   };
 
   const getBurdenValue = () => {
-    let rawBurden = transformer.orderId?.burden;
+    const order = propOrder || (transformer as any).fullOrder || transformer.orderId;
+    let rawBurden = order?.burden;
     if (Array.isArray(rawBurden)) {
       // Find the burden that corresponds to this core, or use the first one
       const coreIndex = parseInt(coreId.split('-').pop() || '1') - 1;
       rawBurden = rawBurden[Math.min(coreIndex, rawBurden.length - 1)];
     }
-    return parseBurden(rawBurden || '30'); // Default to 30VA if entirely missing
+    // Fallback to transformer.burden, then '0'
+    const finalBurden = rawBurden || transformer.burden || '0';
+    return parseBurden(finalBurden); 
   };
+
+  const displayBurden = (() => {
+    const order = propOrder || (transformer as any).fullOrder || transformer.orderId;
+    let rawBurden = order?.burden;
+    if (Array.isArray(rawBurden)) {
+      const coreIdx = parseInt(coreId.split('-').pop() || '1') - 1;
+      rawBurden = rawBurden[Math.min(coreIdx, rawBurden.length - 1)];
+    }
+    const val = rawBurden || transformer.burden;
+    if (!val) return 'N/A';
+    return String(val).replace(/VA/i, '').trim();
+  })();
+
+  const displaySTC = (() => {
+    const order = propOrder || (transformer as any).fullOrder || transformer.orderId;
+    return order?.stc || transformer.stc || 'N/A';
+  })();
   const handleInputChange = (index: number, field: keyof ProtectionTestRow, value: string) => {
     if (readOnly) return;
 
@@ -768,7 +788,7 @@ export function SecondaryProtectionReport({
               </tr>
               <tr>
                 <td className="border-r border-b border-black p-1.5 w-1/2">
-                  <p><span className="font-bold italic">Burden :</span> {transformer.burden || '30'} VA</p>
+                  <p><span className="font-bold italic">Burden :</span> {displayBurden} VA</p>
                 </td>
                 <td className="border-b border-black p-1.5 w-1/2">
                   <p><span className="font-bold italic">Class :</span> {protectionClass || '5P'}</p>
@@ -776,7 +796,7 @@ export function SecondaryProtectionReport({
               </tr>
               <tr>
                 <td className="p-1.5" colSpan={2}>
-                  <p><span className="font-bold italic">STC :</span> {transformer.stc || 'N/A'}</p>
+                  <p><span className="font-bold italic">STC :</span> {displaySTC}</p>
                 </td>
               </tr>
             </tbody>

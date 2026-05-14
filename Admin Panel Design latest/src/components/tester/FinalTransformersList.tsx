@@ -49,6 +49,8 @@ interface Order {
   clientName?: string;
   quantity?: number;
   transformerQuantity?: number;
+  voltageRating?: string;
+  createdAt?: string;
 }
 
 interface FinalTransformersListProps {
@@ -348,7 +350,9 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
               }
               return primary !== 'N/A' ? `${primary}/1` : 'N/A';
             })(),
-            voltageClass: order.nominalSystemVoltage ? `${order.nominalSystemVoltage}kV` : 'N/A',
+            voltageClass: (order.voltageRating || order.nominalSystemVoltage) 
+              ? `${order.voltageRating || order.nominalSystemVoltage}kV` 
+              : 'N/A',
             cores: coresList,
             status: status,
             isFilled: isFilled,
