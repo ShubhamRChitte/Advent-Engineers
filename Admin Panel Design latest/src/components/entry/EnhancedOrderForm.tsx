@@ -107,6 +107,12 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
   const [burden, setBurden] = useState('');
   const [stc, setStc] = useState('');
 
+  // PT Specific Voltage Parameters
+  const [ratedPrimaryVoltage, setRatedPrimaryVoltage] = useState('');
+  const [isCustomPrimaryVoltage, setIsCustomPrimaryVoltage] = useState(false);
+  const [ratedSecondaryVoltage, setRatedSecondaryVoltage] = useState('');
+  const [isCustomSecondaryVoltage, setIsCustomSecondaryVoltage] = useState(false);
+
   // Additional parameters
   const [additionalParams, setAdditionalParams] = useState<AdditionalParameter[]>([]);
 
@@ -217,6 +223,11 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
     if (transformerType === 'CT' && primaryCurrents.length === 0) {
       errors.primaryCurrents = 'Primary Current is required';
     }
+
+    if (transformerType === 'PT') {
+      if (!ratedPrimaryVoltage) errors.ratedPrimaryVoltage = 'Primary Voltage is required';
+      if (!ratedSecondaryVoltage) errors.ratedSecondaryVoltage = 'Secondary Voltage is required';
+    }
     
     if (Object.keys(errors).length > 0) {
       setFormErrors(prev => ({ ...prev, ...errors }));
@@ -259,6 +270,8 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
         nominalVoltage,
         burden,
         stc,
+        ratedPrimaryVoltage: transformerType === 'PT' ? ratedPrimaryVoltage : undefined,
+        ratedSecondaryVoltage: transformerType === 'PT' ? ratedSecondaryVoltage : undefined,
       },
       images,
       coreVendors: {
@@ -612,26 +625,28 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
 
 
 
-                        <div className="mt-2">
-                          <Label>Secondary Current *</Label>
-                          <select
-                            value={coreConfigs[index]?.secondaryCurrent || '1'}
-                            onChange={(e) => handleCoreSecondaryCurrentChange(index, e.target.value)}
-                            className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
-                          >
-                            <option value="1">1</option>
-                            <option value="5">5</option>
-                            <option value="Custom">Custom...</option>
-                          </select>
-                          {coreConfigs[index]?.secondaryCurrent !== '1' && coreConfigs[index]?.secondaryCurrent !== '5' && (
-                            <Input
-                              className="mt-1"
-                              placeholder="Enter Custom Sec. Current"
-                              value={coreConfigs[index].secondaryCurrent === 'Custom' ? '' : coreConfigs[index].secondaryCurrent}
+                        {transformerType !== 'PT' && (
+                          <div className="mt-2">
+                            <Label>Secondary Current *</Label>
+                            <select
+                              value={coreConfigs[index]?.secondaryCurrent || '1'}
                               onChange={(e) => handleCoreSecondaryCurrentChange(index, e.target.value)}
-                            />
-                          )}
-                        </div>
+                              className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                            >
+                              <option value="1">1</option>
+                              <option value="5">5</option>
+                              <option value="Custom">Custom...</option>
+                            </select>
+                            {coreConfigs[index]?.secondaryCurrent !== '1' && coreConfigs[index]?.secondaryCurrent !== '5' && (
+                              <Input
+                                className="mt-1"
+                                placeholder="Enter Custom Sec. Current"
+                                value={coreConfigs[index].secondaryCurrent === 'Custom' ? '' : coreConfigs[index].secondaryCurrent}
+                                onChange={(e) => handleCoreSecondaryCurrentChange(index, e.target.value)}
+                              />
+                            )}
+                          </div>
+                        )}
 
                         {transformerType === 'CT' && (
                           <div className="mt-2 relative">
@@ -658,80 +673,148 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
           <div className="space-y-4">
             <h3 className="pb-2 border-b-2 border-gray-200">Transformer Parameters</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className={formErrors.primaryCurrents ? "text-red-600" : ""}>Primary Current *</Label>
-                <div className="space-y-2">
-                  {/* Selected Tags */}
-                  <div className="flex flex-wrap gap-2">
-                    {primaryCurrents.map((p, idx) => (
-                      <span key={idx} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                        {p}
-                        <button onClick={() => handleRemovePrimaryCurrent(idx)} className="hover:text-blue-900"><X className="w-3 h-3" /></button>
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Selection Controls */}
-                  <div className="flex gap-2">
-                    {!isCustomPrimaryCurrent ? (
+              {transformerType === 'PT' && (
+                <>
+                  <div className="flex flex-col">
+                    <Label>Rated Primary Voltage *</Label>
+                    <div className="flex gap-2">
                       <select
-                        value=""
+                        value={!isCustomPrimaryVoltage ? ratedPrimaryVoltage : 'Custom'}
                         onChange={(e) => {
-                          if (e.target.value === 'custom') setIsCustomPrimaryCurrent(true);
-                          else if (e.target.value) handleAddPrimaryCurrent(e.target.value);
+                          if (e.target.value === 'Custom') {
+                            setIsCustomPrimaryVoltage(true);
+                            setRatedPrimaryVoltage('');
+                          } else {
+                            setIsCustomPrimaryVoltage(false);
+                            setRatedPrimaryVoltage(e.target.value);
+                          }
                         }}
-                        className="w-full h-10 px-3 rounded-md border border-gray-300 bg-white"
+                        className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
                       >
-                        <option value="">Add Primary Current...</option>
-                        {[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000].map(val => (
-                           <option key={val} value={val.toString()}>{val}</option>
-                        ))}
-                        <option value="custom">Custom...</option>
+                        <option value="">Select Primary Voltage</option>
+                        <option value="11KV/√3">11KV/√3</option>
+                        <option value="22KV/√3">22KV/√3</option>
+                        <option value="33KV/√3">33KV/√3</option>
+                        <option value="Custom">Custom...</option>
                       </select>
-                    ) : (
-                      <div className="flex gap-2 w-full">
+                      {isCustomPrimaryVoltage && (
                         <Input
-                          autoFocus
-                          placeholder="Enter primary current"
-                          value={customPrimaryCurrentInput}
-                          onChange={(e) => setCustomPrimaryCurrentInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
+                          className="mt-1"
+                          placeholder="Custom Primary Voltage"
+                          value={ratedPrimaryVoltage}
+                          onChange={e => setRatedPrimaryVoltage(e.target.value)}
+                        />
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <Label>Rated Secondary Voltage *</Label>
+                    <div className="flex gap-2">
+                      <select
+                        value={!isCustomSecondaryVoltage ? ratedSecondaryVoltage : 'Custom'}
+                        onChange={(e) => {
+                          if (e.target.value === 'Custom') {
+                            setIsCustomSecondaryVoltage(true);
+                            setRatedSecondaryVoltage('');
+                          } else {
+                            setIsCustomSecondaryVoltage(false);
+                            setRatedSecondaryVoltage(e.target.value);
+                          }
+                        }}
+                        className="w-full mt-1 h-10 px-3 rounded-md border border-gray-300 bg-white"
+                      >
+                        <option value="">Select Secondary Voltage</option>
+                        <option value="110V/√3">110V/√3</option>
+                        <option value="Custom">Custom...</option>
+                      </select>
+                      {isCustomSecondaryVoltage && (
+                        <Input
+                          className="mt-1"
+                          placeholder="Custom Secondary Voltage"
+                          value={ratedSecondaryVoltage}
+                          onChange={e => setRatedSecondaryVoltage(e.target.value)}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+              {transformerType !== 'PT' && (
+                <div>
+                  <Label className={formErrors.primaryCurrents ? "text-red-600" : ""}>Primary Current *</Label>
+                  <div className="space-y-2">
+                    {/* Selected Tags */}
+                    <div className="flex flex-wrap gap-2">
+                      {primaryCurrents.map((p, idx) => (
+                        <span key={idx} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                          {p}
+                          <button onClick={() => handleRemovePrimaryCurrent(idx)} className="hover:text-blue-900"><X className="w-3 h-3" /></button>
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Selection Controls */}
+                    <div className="flex gap-2">
+                      {!isCustomPrimaryCurrent ? (
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            if (e.target.value === 'custom') setIsCustomPrimaryCurrent(true);
+                            else if (e.target.value) handleAddPrimaryCurrent(e.target.value);
+                          }}
+                          className="w-full h-10 px-3 rounded-md border border-gray-300 bg-white"
+                        >
+                          <option value="">Add Primary Current...</option>
+                          {[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000].map(val => (
+                             <option key={val} value={val.toString()}>{val}</option>
+                          ))}
+                          <option value="custom">Custom...</option>
+                        </select>
+                      ) : (
+                        <div className="flex gap-2 w-full">
+                          <Input
+                            autoFocus
+                            placeholder="Enter primary current"
+                            value={customPrimaryCurrentInput}
+                            onChange={(e) => setCustomPrimaryCurrentInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (customPrimaryCurrentInput.trim()) {
+                                  handleAddPrimaryCurrent(customPrimaryCurrentInput);
+                                  setCustomPrimaryCurrentInput('');
+                                  setIsCustomPrimaryCurrent(false);
+                                }
+                              }
+                            }}
+                            className="flex-1"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => {
                               if (customPrimaryCurrentInput.trim()) {
                                 handleAddPrimaryCurrent(customPrimaryCurrentInput);
                                 setCustomPrimaryCurrentInput('');
                                 setIsCustomPrimaryCurrent(false);
                               }
-                            }
-                          }}
-                          className="flex-1"
-                        />
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            if (customPrimaryCurrentInput.trim()) {
-                              handleAddPrimaryCurrent(customPrimaryCurrentInput);
-                              setCustomPrimaryCurrentInput('');
-                              setIsCustomPrimaryCurrent(false);
-                            }
-                          }}
-                        >
-                          Add
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => { setIsCustomPrimaryCurrent(false); setCustomPrimaryCurrentInput(''); }}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
+                            }}
+                          >
+                            Add
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => { setIsCustomPrimaryCurrent(false); setCustomPrimaryCurrentInput(''); }}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    {formErrors.primaryCurrents && <span className="text-xs text-red-600 font-semibold">{formErrors.primaryCurrents}</span>}
                   </div>
-                  {formErrors.primaryCurrents && <span className="text-xs text-red-600 font-semibold">{formErrors.primaryCurrents}</span>}
                 </div>
-              </div>
+              )}
                <div>
                  <Label className={formErrors.burden ? "text-red-600" : ""}>Burden *</Label>
                  <Input

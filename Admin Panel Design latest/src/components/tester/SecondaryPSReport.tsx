@@ -648,13 +648,14 @@ export function SecondaryPSReport({
     if (Array.isArray(rawBurden)) {
       rawBurden = rawBurden[Math.min(coreIndex, rawBurden.length - 1)];
     }
-    const val = rawBurden || (transformer as any).burden || '30';
+    const val = rawBurden || (transformer as any).burden;
+    if (!val) return 'N/A';
     return String(val).replace(/VA/i, '').trim();
   })();
 
   const displaySTC = (() => {
     const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
-    return order?.stc || (transformer as any).stc || 'N/A';
+    return order?.stc || order?.STC || (transformer as any).stc || 'N/A';
   })();
 
   const [psData, setPsData] = useState<PSRow[]>(() => {

@@ -343,11 +343,10 @@ export function SecondaryProtectionReport({
     const order = propOrder || (transformer as any).fullOrder || transformer.orderId;
     let rawBurden = order?.burden;
     if (Array.isArray(rawBurden)) {
-      // Find the burden that corresponds to this core, or use the first one
-      const coreIndex = parseInt(coreId.split('-').pop() || '1') - 1;
-      rawBurden = rawBurden[Math.min(coreIndex, rawBurden.length - 1)];
+      // Use coreIndex if possible, else coreId suffix
+      const coreIdx = (coreNumber && coreNumber > 0) ? (coreNumber - 1) : (parseInt(coreId.split('-').pop() || '1') - 1);
+      rawBurden = rawBurden[Math.min(coreIdx, rawBurden.length - 1)];
     }
-    // Fallback to transformer.burden, then '0'
     const finalBurden = rawBurden || transformer.burden || '0';
     return parseBurden(finalBurden); 
   };
@@ -356,7 +355,7 @@ export function SecondaryProtectionReport({
     const order = propOrder || (transformer as any).fullOrder || transformer.orderId;
     let rawBurden = order?.burden;
     if (Array.isArray(rawBurden)) {
-      const coreIdx = parseInt(coreId.split('-').pop() || '1') - 1;
+      const coreIdx = (coreNumber && coreNumber > 0) ? (coreNumber - 1) : (parseInt(coreId.split('-').pop() || '1') - 1);
       rawBurden = rawBurden[Math.min(coreIdx, rawBurden.length - 1)];
     }
     const val = rawBurden || transformer.burden;
@@ -366,7 +365,7 @@ export function SecondaryProtectionReport({
 
   const displaySTC = (() => {
     const order = propOrder || (transformer as any).fullOrder || transformer.orderId;
-    return order?.stc || transformer.stc || 'N/A';
+    return order?.stc || order?.STC || transformer.stc || 'N/A';
   })();
   const handleInputChange = (index: number, field: keyof ProtectionTestRow, value: string) => {
     if (readOnly) return;

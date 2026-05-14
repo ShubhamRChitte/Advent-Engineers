@@ -100,6 +100,8 @@ const OrderSchema = new Schema(
       type: String,
       required: false
     },
+    ratedPrimaryVoltage: { type: String },
+    ratedSecondaryVoltage: { type: String },
     instructions: {
       type: String,
       trim: true

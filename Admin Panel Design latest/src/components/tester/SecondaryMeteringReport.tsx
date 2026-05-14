@@ -98,13 +98,14 @@ export function SecondaryMeteringReport({
     if (Array.isArray(rawBurden)) {
       rawBurden = rawBurden[Math.min(coreIndex, rawBurden.length - 1)];
     }
-    const val = rawBurden || transformer.burden || '30';
+    const val = rawBurden || transformer.burden;
+    if (!val) return 'N/A';
     return String(val).replace(/VA/i, '').trim();
   })();
 
   const displaySTC = (() => {
     const order = propOrder || transformer.fullOrder || transformer.orderId;
-    return order?.stc || transformer.stc || 'N/A';
+    return order?.stc || order?.STC || transformer.stc || 'N/A';
   })();
 
   const [testResults, setTestResults] = useState<{ ratioValue: string; rows: any[] }[]>(() => {

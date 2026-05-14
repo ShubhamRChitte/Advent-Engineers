@@ -155,6 +155,8 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
         mountingDetails: orderData.parameters?.mountingDetails || 'N/A',
         overallDimension: orderData.parameters?.overallDimensions || 'N/A', // Schema: overallDimension (singular)
         stc: orderData.parameters?.stc || '',
+        ratedPrimaryVoltage: orderData.parameters?.ratedPrimaryVoltage || '',
+        ratedSecondaryVoltage: orderData.parameters?.ratedSecondaryVoltage || '',
 
         images: orderData.images || [],
 
