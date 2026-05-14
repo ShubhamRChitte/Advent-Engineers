@@ -126,7 +126,7 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
 
                 // 4. Count only readings that match Expected IDs
                 const completedRows = savedData.readings.filter((r: any) =>
-                  (r.result || r.remark) && expectedIds.has(r.internalCoreNo)
+                  (r.result || r.remark) && (expectedIds.has(r.internalCoreNo) || expectedIds.has(r.internalCoreNo?.split(' ')[0]))
                 ).length;
 
                 savedCount = completedRows;
