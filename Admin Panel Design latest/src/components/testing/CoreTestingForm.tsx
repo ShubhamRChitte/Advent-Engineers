@@ -1751,39 +1751,7 @@ export function CoreTestingForm({
 
   const { passed, failed } = getPassFailCount();
 
-  // Handle Order Approval (BATCH)
-  const handleApprove = async () => {
-    if (isReadOnly) return;
-    // Check if all rows have a remark (test completed)
-    if (getFilledRowsCount() !== rows.length) {
-      alert('Please complete all test rows before approving.');
-      return;
-    }
 
-    if (!window.confirm(`Are you sure you want to approve this batch of ${rows.length} cores? This will move them to the Secondary stage.`)) {
-      return;
-    }
-
-    try {
-      // Collect Internal Core IDs to approve
-      const internalCoreNos = rows.map(r => r.internalCoreNo);
-
-      // Send Batch Approval
-      const response = await axios.put(`http://localhost:5001/api/core-tests/approve-batch`, {
-        jobId: order.jobId,
-        internalCoreNos
-      }, { withCredentials: true });
-
-      if (response.status === 200) {
-        alert('Batch approved and moved to Secondary Testing!');
-        onBack(); // Return to the dashboard/previous view
-      }
-    } catch (error: any) {
-      console.error('Approval Error:', error);
-      const msg = error.response?.data?.message || 'Failed to approve batch.';
-      alert(msg);
-    }
-  };
 
   const renderReadyStockModals = () => {
     console.log(`[RENDER_MODALS] Rendering modals. isReadyModalOpen: ${isReadyModalOpen}, matchingReadyCores: ${matchingReadyCores.length}`);
