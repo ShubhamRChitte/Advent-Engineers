@@ -200,20 +200,20 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
   const handleSubmit = () => {
     // Explicit Validation Check before submission
     const errors: Record<string, string> = {};
-    if (!clientName.trim()) errors.clientName = 'Client Name is required';
-    if (!clientContact.trim()) errors.clientContact = 'Contact No is required';
-    else if (!/^[0-9]+$/.test(clientContact.trim())) errors.clientContact = 'character cannot add only the digits are requires';
-    else if (clientContact.trim().length !== 10) errors.clientContact = 'your contact no must be 10 digits';
+    if (!clientName.trim()) errors['clientName'] = 'Client Name is required';
+    if (!clientContact.trim()) errors['clientContact'] = 'Contact No is required';
+    else if (!/^[0-9]+$/.test(clientContact.trim())) errors['clientContact'] = 'character cannot add only the digits are requires';
+    else if (clientContact.trim().length !== 10) errors['clientContact'] = 'your contact no must be 10 digits';
     
-    if (!quantity || parseInt(quantity) < 1) errors.quantity = 'Valid quantity required (>0)';
-    if (!numberOfCores || parseInt(numberOfCores) < 1 || parseInt(numberOfCores) > 5) errors.numberOfCores = 'Number of cores must be 1-5';
-    if (!transformerType) errors.transformerType = 'Type is required';
+    if (!quantity || parseInt(quantity) < 1) errors['quantity'] = 'Valid quantity required (>0)';
+    if (!numberOfCores || parseInt(numberOfCores) < 1 || parseInt(numberOfCores) > 5) errors['numberOfCores'] = 'Number of cores must be 1-5';
+    if (!transformerType) errors['transformerType'] = 'Type is required';
     
-    if (!burden.trim()) errors.burden = 'Burden is required';
-    if (!voltageRating) errors.voltageRating = 'Nominal System Voltage is required';
+    if (!burden.trim()) errors['burden'] = 'Burden is required';
+    if (!voltageRating) errors['voltageRating'] = 'Nominal System Voltage is required';
     
     if (transformerType === 'CT' && primaryCurrents.length === 0) {
-      errors.primaryCurrents = 'Primary Current is required';
+      errors['primaryCurrents'] = 'Primary Current is required';
     }
     
     if (Object.keys(errors).length > 0) {
