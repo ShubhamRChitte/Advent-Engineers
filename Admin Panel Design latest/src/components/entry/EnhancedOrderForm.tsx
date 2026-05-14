@@ -87,8 +87,6 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
 
   const [voltageRating, setVoltageRating] = useState(transformer?.voltageRating || '');
   const [isCustomVoltage, setIsCustomVoltage] = useState(false);
-  const [isCustomSecCurrent, setIsCustomSecCurrent] = useState(false);
-
 
   const [indoorOutdoor, setIndoorOutdoor] = useState('');
   const [insulationType, setInsulationType] = useState('');
@@ -103,7 +101,6 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
   const [primaryCurrents, setPrimaryCurrents] = useState<string[]>([]);
   const [isCustomPrimaryCurrent, setIsCustomPrimaryCurrent] = useState(false);
   const [customPrimaryCurrentInput, setCustomPrimaryCurrentInput] = useState('');
-  const [nominalVoltage, setNominalVoltage] = useState('');
   const [burden, setBurden] = useState('');
   const [stc, setStc] = useState('');
 
@@ -254,7 +251,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
         };
       }),
       parameters: {
-        nominalVoltage,
+        nominalVoltage: voltageRating,
         burden,
         stc,
       },
