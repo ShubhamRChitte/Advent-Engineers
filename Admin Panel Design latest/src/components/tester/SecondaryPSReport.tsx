@@ -642,6 +642,21 @@ export function SecondaryPSReport({
     return orderCores[coreIndex]?.accuracyClass || 'PS';
   });
 
+  const displayBurden = (() => {
+    const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
+    let rawBurden = order?.burden;
+    if (Array.isArray(rawBurden)) {
+      rawBurden = rawBurden[Math.min(coreIndex, rawBurden.length - 1)];
+    }
+    const val = rawBurden || (transformer as any).burden || '30';
+    return String(val).replace(/VA/i, '').trim();
+  })();
+
+  const displaySTC = (() => {
+    const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
+    return order?.stc || (transformer as any).stc || 'N/A';
+  })();
+
   const [psData, setPsData] = useState<PSRow[]>(() => {
     const initial = dynamicRatios.map((ratio: string) => ({
       ratioValue: ratio,
@@ -1138,7 +1153,7 @@ export function SecondaryPSReport({
               </tr>
               <tr>
                 <td className="border-r border-b border-black p-1.5 w-1/2">
-                  <p><span className="font-bold italic">Burden :</span> {(transformer as any).burden || '30'} VA</p>
+                  <p><span className="font-bold italic">Burden :</span> {displayBurden} VA</p>
                 </td>
                 <td className="border-b border-black p-1.5 w-1/2">
                   <p><span className="font-bold italic">Class :</span> {accuracyClass || 'PS'}</p>
@@ -1146,7 +1161,7 @@ export function SecondaryPSReport({
               </tr>
               <tr>
                 <td className="p-1.5" colSpan={2}>
-                  <p><span className="font-bold italic">STC :</span> {(transformer as any).stc || 'N/A'}</p>
+                  <p><span className="font-bold italic">STC :</span> {displaySTC}</p>
                 </td>
               </tr>
             </tbody>

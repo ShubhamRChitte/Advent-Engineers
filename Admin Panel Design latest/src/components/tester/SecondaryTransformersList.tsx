@@ -354,7 +354,9 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
             }
             return primary !== 'N/A' ? `${primary}/1` : 'N/A';
           })(),
-          voltageClass: order.nominalSystemVoltage ? `${order.nominalSystemVoltage}kV` : 'N/A',
+          voltageClass: (order.voltageRating || order.nominalSystemVoltage) 
+            ? `${order.voltageRating || order.nominalSystemVoltage}kV` 
+            : 'N/A',
           cores: coresList,
           status: status,
           ratios: t.ratios || (Array.isArray(order.ratio) ? order.ratio : (order.ratio ? [order.ratio] : ['N/A'])),
@@ -366,7 +368,8 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
           jobId: order.jobId,
           clientName: order.clientName,
           currentStage: t.currentStage,
-          fullOrder: order
+          fullOrder: order,
+          voltageRating: order.voltageRating
         };
       });
 
