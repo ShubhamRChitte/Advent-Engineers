@@ -213,7 +213,11 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
       else if (testType.includes('PT')) type = 'pt';
 
       const id = transformer._id || transformer.id;
-      window.location.href = `/admin/report/${id}?type=${type}`;
+      // Explicitly persist the order context right before leaving so Back button restores here
+      sessionStorage.setItem('admin_selectedOrderId', order._id || order.id);
+      localStorage.setItem('admin_activeView', 'view-orders');
+      const from = encodeURIComponent(window.location.href);
+      window.location.href = `/admin/report/${id}?type=${type}&from=${from}`;
     }
   };
 
@@ -225,7 +229,11 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
 
     if (transformer) {
       const id = transformer._id || transformer.id;
-      window.location.href = `/admin/report/${id}?type=all`;
+      // Explicitly persist the order context right before leaving
+      sessionStorage.setItem('admin_selectedOrderId', order._id || order.id);
+      localStorage.setItem('admin_activeView', 'view-orders');
+      const from = encodeURIComponent(window.location.href);
+      window.location.href = `/admin/report/${id}?type=all&from=${from}`;
     }
   };
 

@@ -3,7 +3,7 @@ import { FailedCoresManager } from '../components/testing/FailedCoresManager';
 import { FailedCore } from '../components/testing/CoreTestingForm';
 import axios from 'axios';
 import { Loader2 } from 'lucide-react';
-import { PrintableFailedCoreReport } from '../components/reports/PrintableFailedCoreReport';
+import { FailedCoreSummaryReport } from '../components/testing/FailedCoreSummaryReport';
 
 export function FailedCoresPage() {
     const [failedCores, setFailedCores] = useState<FailedCore[]>([]);
@@ -68,18 +68,21 @@ export function FailedCoresPage() {
 
     return (
         <div className="p-6 max-w-[1600px] mx-auto">
-            {/* PRINT VIEW */}
-            <div className="print:block hidden">
-                <PrintableFailedCoreReport data={failedCores} />
-            </div>
+            {/*
+              PRINT REPORT — must live OUTSIDE the print:hidden wrapper.
+              FailedCoreSummaryReport has self-contained @media print CSS that uses
+              `body * { visibility: hidden }` + `#print-section { position: absolute }`
+              to overlay the page on print. If it were inside print:hidden (display:none),
+              that CSS cannot rescue it — display:none on a parent removes children from
+              layout entirely regardless of child visibility rules.
+            */}
+            <FailedCoreSummaryReport data={failedCores} />
 
-            {/* NORMAL UI */}
+            {/* NORMAL UI — hidden on print so only the report above shows */}
             <div className="print:hidden">
                 <FailedCoresManager
                     failedCores={failedCores}
                     onBack={() => {
-                        // In a dedicated page, "Back" might mean go to Dashboard or just do nothing/refresh
-                        // For now, we can just log or refresh
                         fetchFailedCores();
                     }}
                 />

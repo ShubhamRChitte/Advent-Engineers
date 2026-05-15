@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { FailedCore } from './CoreTestingForm';
 import adventLogo from '../../assets/advent_logo.jpg';
 
@@ -10,88 +9,52 @@ interface FailedCoreSummaryReportProps {
     reportId?: string;
 }
 
-function parseFailureReason(reason: string) {
-    if (!reason) return [{ parameter: 'Generic Failure', measured: '-', limit: '-' }];
-
-    const lines = reason.split(/[\n;]|\. /).filter(l => l.trim().length > 0);
-    
-    return lines.map(line => {
-        const exceedsMatch = line.match(/(.*?)\((.*?)\)\s+exceeds\s+(.*)/i);
-        if (exceedsMatch) {
-            return {
-                parameter: exceedsMatch[1]?.trim(),
-                measured: exceedsMatch[2]?.trim(),
-                limit: exceedsMatch[3]?.trim()
-            };
-        }
-
-        const failedMatch = line.match(/(.*?)\s+failed\s+(.*)/i);
-        if (failedMatch) {
-            return {
-                parameter: failedMatch[1]?.trim(),
-                measured: 'FAIL',
-                limit: failedMatch[2]?.trim()
-            };
-        }
-
-        return {
-            parameter: line.trim(),
-            measured: '-',
-            limit: '-'
-        };
-    });
-}
-
-export function FailedCoreSummaryReport({ 
-    data, 
-    totalTested = 0, 
-    totalPassed = 0,
-    clientName = "—",
-    reportId: customReportId 
+export function FailedCoreSummaryReport({
+    data,
+    clientName = '—',
+    reportId: customReportId,
 }: FailedCoreSummaryReportProps) {
-    
     const reportDate = new Date().toLocaleDateString('en-GB');
-    const reportId = customReportId || `FCR-2026-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
 
+    // Derive a document ID
+    const firstJobId = data?.[0]?.jobId || '';
+    const jobSuffix = firstJobId.split('-').pop() || '000';
+    const docId = customReportId || `AE-FCR-${new Date().getFullYear()}-${jobSuffix}`;
+
+    // KPI counts
     const totalFailed = data?.length || 0;
     const meteringCount = data?.filter(c => c.coreType?.toUpperCase() === 'METERING').length || 0;
     const protectionCount = data?.filter(c => c.coreType?.toUpperCase() === 'PROTECTION').length || 0;
-
-    const displayTotalTested = totalTested || (totalFailed + totalPassed) || 63;
-    const displayTotalPassed = totalPassed || (displayTotalTested - totalFailed) || 47;
+    const specialCount = data?.filter(
+        c => c.coreType?.toUpperCase() !== 'METERING' && c.coreType?.toUpperCase() !== 'PROTECTION'
+    ).length || 0;
 
     return (
         <div id="print-section">
             <style>{`
-                /* Screen View */
+                /* =====================================================
+                   Failed Core Summary Report — Enterprise Print Styles
+                   ===================================================== */
+                :root {
+                    --fcr-brand-red: #E31E24;
+                    --fcr-brand-blue: #231F61;
+                    --fcr-primary-text: #2D3748;
+                    --fcr-secondary-text: #606F7B;
+                    --fcr-border-thin: 1px solid #E2E8F0;
+                    --fcr-table-header-bg: #F0F4F8;
+                    --fcr-zebra-bg: #F8FAFC;
+                }
+
                 @media screen {
                     #print-section {
-                        background: #f8fafc;
-                        padding: 20px;
-                        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-                    }
-                    .a4-page {
-                        width: 100%;
-                        max-width: 1100px;
-                        margin: 0 auto 20px auto;
-                        padding: 20px;
-                        background: white;
-                        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-                        border-radius: 8px;
-                    }
-                    .table-wrapper {
-                        overflow-x: auto;
-                    }
-                    .report-table {
-                        min-width: 900px;
+                        display: none;
                     }
                 }
 
-                /* Print View */
                 @media print {
                     @page {
                         size: A4 portrait;
-                        margin: 10mm;
+                        margin: 15mm 12mm;
                     }
                     body * {
                         visibility: hidden;
@@ -100,358 +63,465 @@ export function FailedCoreSummaryReport({
                         visibility: visible;
                     }
                     #print-section {
+                        display: block;
                         position: absolute;
                         left: 0;
                         top: 0;
                         width: 100%;
                         padding: 0;
                         background: white;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
                     }
-                    .a4-page {
-                        width: 190mm;
-                        min-height: 277mm; 
+                    .fcr-sum-page-wrapper {
+                        width: 100%;
                         margin: 0;
                         padding: 0;
+                        box-shadow: none;
                         page-break-after: always;
                     }
-                    .a4-page:last-child {
-                        page-break-after: auto;
+                    .fcr-sum-enterprise-table thead {
+                        display: table-header-group;
+                    }
+                    .fcr-sum-enterprise-table tr {
+                        page-break-inside: avoid;
                     }
                 }
 
-                /* General Styles */
-                .a4-page {
+                /* ---- General Layout ---- */
+                .fcr-sum-page-wrapper {
                     box-sizing: border-box;
-                    color: black;
-                    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                    color: var(--fcr-primary-text);
+                    font-family: 'Segoe UI', Arial, sans-serif;
+                    line-height: 1.4;
+                    position: relative;
                 }
-                
-                .page-header {
-                    display: grid;
-                    grid-template-columns: 100px 1fr 100px;
-                    align-items: center;
-                    padding-bottom: 15px;
-                    border-bottom: 1px solid #ccc;
-                    margin-bottom: 20px;
+
+                /* Watermark */
+                .fcr-sum-watermark {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%) rotate(-45deg);
+                    font-size: 110px;
+                    font-weight: 800;
+                    color: rgba(35, 31, 97, 0.015);
+                    pointer-events: none;
+                    white-space: nowrap;
+                    letter-spacing: 12px;
+                    text-transform: uppercase;
+                    z-index: 1;
                 }
-                .logo-container {
-                    display: flex;
-                    align-items: center;
-                }
-                .logo-icon {
-                    width: 85px;
-                    height: auto;
-                    max-height: 85px;
-                    object-fit: contain;
-                }
-                .company-info {
-                    text-align: center;
-                }
-                .company-name {
-                    font-size: 26px;
-                    font-weight: 700;
-                    letter-spacing: 1px;
-                    margin: 0;
-                    margin-bottom: 2px;
-                }
-                .company-sub {
-                    font-size: 14px;
-                    color: #4b5563;
-                    margin: 0;
-                    margin-top: 4px;
-                }
-                .header-meta {
-                    display: flex;
-                    justify-content: space-between;
-                    font-size: 11px;
-                    margin-bottom: 20px;
-                }
-                .meta-col {
+
+                .fcr-sum-content {
+                    position: relative;
+                    z-index: 2;
                     display: flex;
                     flex-direction: column;
-                    gap: 3px;
+                    min-height: 257mm;
                 }
-                .meta-row {
+
+                /* ---- Header ---- */
+                .fcr-sum-report-header {
+                    border-bottom: 1px solid #D2D6DC;
+                    padding-bottom: 18px;
+                    margin-bottom: 20px;
+                }
+
+                .fcr-sum-header-top {
+                    display: grid;
+                    grid-template-columns: 80px 1fr 80px;
+                    align-items: center;
+                    width: 100%;
+                }
+
+                .fcr-sum-logo-container {
                     display: flex;
+                    align-items: center;
+                    justify-content: flex-start;
                 }
-                .meta-label {
-                    font-weight: bold;
+
+                .fcr-sum-company-logo {
                     width: 65px;
+                    height: 65px;
+                    object-fit: contain;
+                    display: block;
                 }
-                .meta-value {
-                    font-weight: 500;
+
+                .fcr-sum-brand-text-area {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    text-align: center;
                 }
-                .meta-label-right {
-                    font-weight: bold;
-                    width: 65px;
+
+                .fcr-sum-brand-text-area h1 {
+                    color: var(--fcr-brand-blue);
+                    font-size: 26px;
+                    font-weight: 800;
+                    letter-spacing: 0.5px;
+                    line-height: 1.1;
+                    text-transform: uppercase;
+                    margin: 0;
+                }
+
+                .fcr-sum-brand-text-area p {
+                    font-size: 11px;
+                    color: var(--fcr-brand-red);
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.6px;
+                    margin-top: 4px;
+                }
+
+                /* Metadata Grid */
+                .fcr-sum-metadata-grid {
+                    display: grid;
+                    grid-template-columns: repeat(4, 1fr);
+                    gap: 15px;
+                    margin-top: 20px;
+                    padding-top: 12px;
+                    border-top: var(--fcr-border-thin);
+                }
+
+                .fcr-sum-meta-item {
+                    display: flex;
+                    flex-direction: column;
+                }
+
+                .fcr-sum-meta-label {
+                    font-size: 10px;
+                    text-transform: uppercase;
+                    color: var(--fcr-secondary-text);
+                    font-weight: 600;
+                    margin-bottom: 2px;
+                }
+
+                .fcr-sum-meta-value {
+                    font-size: 12px;
+                    font-weight: 700;
+                    color: var(--fcr-primary-text);
+                }
+
+                /* ---- Section Title ---- */
+                .fcr-sum-section-title {
+                    font-size: 12px;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    margin-bottom: 12px;
+                    letter-spacing: 0.5px;
+                    display: flex;
+                    align-items: center;
+                    color: var(--fcr-brand-blue);
+                }
+
+                .fcr-sum-section-title::after {
+                    content: '';
+                    flex-grow: 1;
+                    height: 1px;
+                    background-color: #E2E8F0;
+                    margin-left: 10px;
+                }
+
+                /* ---- KPI Cards ---- */
+                .fcr-sum-dashboard-section {
+                    margin-bottom: 25px;
+                }
+
+                .fcr-sum-kpi-grid {
+                    display: grid;
+                    grid-template-columns: repeat(5, 1fr);
+                    gap: 10px;
+                }
+
+                .fcr-sum-kpi-card {
+                    border: var(--fcr-border-thin);
+                    border-radius: 4px;
+                    padding: 12px 10px;
+                    background-color: var(--fcr-zebra-bg);
                     text-align: left;
                 }
 
-                .main-title-box {
-                    border: 1.5px solid #e2e8f0;
-                    text-align: center;
-                    padding: 10px;
-                    margin-bottom: 20px;
-                }
-                .main-title-text {
-                    font-size: 18px;
-                    font-weight: bold;
-                }
-                .main-title-sub {
-                    font-size: 11px; 
-                    color: #64748b;
+                .fcr-sum-kpi-val {
+                    color: var(--fcr-brand-blue);
+                    font-size: 22px;
+                    font-weight: 700;
+                    line-height: 1;
+                    margin-bottom: 4px;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
                 }
 
-                /* Summary Strip Styles */
-                .summary-strip {
-                    display: flex;
-                    justify-content: center;
-                    gap: 20px;
-                    margin-bottom: 20px;
+                .fcr-sum-kpi-val--red {
+                    color: var(--fcr-brand-red) !important;
                 }
-                .summary-box {
-                    background: #f8fafc;
-                    border: 1px solid #e2e8f0;
-                    padding: 10px 20px;
-                    border-radius: 6px;
-                    display: flex;
-                    align-items: center;
-                    gap: 20px;
-                }
-                .summary-stat {
-                    text-align: center;
-                }
-                .summary-stat-label {
-                    font-size: 9px;
-                    color: #64748b;
+
+                .fcr-sum-kpi-lbl {
+                    font-size: 9.5px;
+                    font-weight: 600;
+                    color: var(--fcr-secondary-text);
                     text-transform: uppercase;
-                    font-weight: bold;
-                }
-                .summary-stat-value {
-                    font-size: 18px;
-                    font-weight: bold;
-                }
-                .summary-stat-value.red { color: #dc2626 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                .summary-stat-value.green { color: #059669 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                .divider {
-                    width: 1px;
-                    height: 30px;
-                    background: #e2e8f0;
+                    letter-spacing: 0.2px;
                 }
 
-                /* Table Styling */
-                table {
-                    page-break-inside: auto;
-                    table-layout: fixed;
+                /* ---- Enterprise Table ---- */
+                .fcr-sum-table-container {
+                    margin-bottom: 30px;
+                    flex-grow: 1;
+                }
+
+                .fcr-sum-enterprise-table {
                     width: 100%;
-                }
-                
-                tr {
-                    page-break-inside: avoid;
+                    border-collapse: collapse;
+                    font-size: 11px;
+                    border: var(--fcr-border-thin);
+                    border-radius: 4px;
+                    overflow: hidden;
+                    table-layout: fixed;
                 }
 
-                td {
+                .fcr-sum-enterprise-table th {
+                    background-color: var(--fcr-table-header-bg);
+                    color: var(--fcr-brand-blue);
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    font-size: 10px;
+                    padding: 10px 12px;
+                    border: var(--fcr-border-thin);
+                    text-align: left;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+
+                .fcr-sum-enterprise-table td {
+                    padding: 10px 12px;
+                    border: var(--fcr-border-thin);
+                    vertical-align: top;
+                    color: var(--fcr-primary-text);
                     word-wrap: break-word;
                 }
 
-                .report-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    table-layout: fixed;
-                    margin-top: 10px;
+                .fcr-sum-enterprise-table tbody tr:nth-child(even) {
+                    background-color: var(--fcr-zebra-bg);
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
                 }
-                
-                .report-table td, .report-table th {
-                    padding: 6px;
-                    border: 1px solid #d1d5db;
+
+                .fcr-sum-col-date   { width: 85px; font-weight: 600; }
+                .fcr-sum-col-vendor { width: 130px; }
+                .fcr-sum-col-id     { width: 140px; font-family: monospace; font-size: 11px; font-weight: 600; }
+                .fcr-sum-col-type   { width: 90px; text-transform: uppercase; }
+                .fcr-sum-col-obs    { width: auto; line-height: 1.3; }
+                .fcr-sum-col-remark {
+                    width: 85px;
                     text-align: center;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    color: var(--fcr-brand-red);
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+
+                /* ---- Footer Signatures ---- */
+                .fcr-sum-report-footer {
+                    margin-top: auto;
+                    padding-top: 15px;
+                }
+
+                .fcr-sum-signature-row {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 30px;
+                    margin-bottom: 20px;
+                }
+
+                .fcr-sum-signature-box {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    text-align: center;
+                }
+
+                .fcr-sum-sig-line {
+                    width: 100%;
+                    border-top: 1px dashed var(--fcr-secondary-text);
+                    margin-bottom: 6px;
+                }
+
+                .fcr-sum-sig-title {
                     font-size: 11px;
-                    vertical-align: middle;
+                    font-weight: 700;
+                    color: var(--fcr-primary-text);
                 }
 
-                .report-table th {
-                    background: #f3f4f6;
-                    font-weight: bold;
+                .fcr-sum-sig-name {
+                    font-size: 11px;
+                    color: var(--fcr-secondary-text);
+                    margin-top: 1px;
                 }
 
-                .footer-sig {
-                    margin-top: 30px;
+                .fcr-sum-sig-name--bold {
+                    font-weight: 700;
+                    color: var(--fcr-primary-text) !important;
+                }
+
+                /* ---- Legal Bar ---- */
+                .fcr-sum-document-legal {
                     display: flex;
                     justify-content: space-between;
-                    padding: 0 40px;
-                    page-break-inside: avoid;
+                    align-items: center;
+                    font-size: 9px;
+                    color: var(--fcr-secondary-text);
+                    border-top: var(--fcr-border-thin);
+                    padding-top: 8px;
                 }
-                .sig-box {
-                    text-align: center;
-                    width: 200px;
-                }
-                .sig-title {
-                    font-weight: bold;
-                    font-size: 13px;
-                    margin-bottom: 40px;
-                }
-                .sig-name {
-                    font-size: 12px;
-                    color: #444;
-                }
-                .sig-company {
-                    font-weight: bold;
-                    font-size: 12px;
-                    font-style: italic;
-                    margin-top: 2px;
-                }
+
+                .fcr-sum-legal-left   { font-weight: 600; }
+                .fcr-sum-legal-right  { font-weight: 600; }
             `}</style>
 
-            <div className="a4-page">
-                <div className="page-header">
-                    <div className="logo-container">
-                        <img src={adventLogo} alt="Advent Engineers Logo" className="logo-icon" />
-                    </div>
-                    <div className="company-info">
-                        <div className="company-name">ADVENT ENGINEERS</div>
-                        <div className="company-sub">Excellence in Transformer Core Testing</div>
-                    </div>
-                    <div></div>
-                </div>
+            <div className="fcr-sum-page-wrapper">
+                {/* Watermark */}
+                <div className="fcr-sum-watermark">ADVENT</div>
 
-                <div className="header-meta">
-                    <div className="meta-col">
-                        <div className="meta-row">
-                            <div className="meta-label">Date:</div>
-                            <div className="meta-value">{reportDate}</div>
-                        </div>
-                        <div className="meta-row">
-                            <div className="meta-label">Document:</div>
-                            <div className="meta-value">Failed Core Summary</div>
-                        </div>
-                        {clientName !== "—" && (
-                            <div className="meta-row">
-                                <div className="meta-label">Client:</div>
-                                <div className="meta-value">{clientName}</div>
+                <div className="fcr-sum-content">
+                    {/* ===== HEADER ===== */}
+                    <header className="fcr-sum-report-header">
+                        <div className="fcr-sum-header-top">
+                            <div className="fcr-sum-logo-container">
+                                <img src={adventLogo} alt="Advent Engineers Logo" className="fcr-sum-company-logo" />
                             </div>
-                        )}
-                    </div>
-                    <div className="meta-col">
-                        <div className="meta-row">
-                            <div className="meta-label-right">Record ID:</div>
-                            <div className="meta-value">{reportId}</div>
+                            <div className="fcr-sum-brand-text-area">
+                                <h1>ADVENT ENGINEERS</h1>
+                                <p>Excellence in Transformer Core Testing</p>
+                            </div>
+                            <div></div>
                         </div>
-                    </div>
-                </div>
 
-                <div className="main-title-box">
-                    <div className="main-title-text">
-                        Failed Core Summary Report
-                    </div>
-                    <div className="main-title-sub">(Non-Conforming Unit Details)</div>
-                </div>
+                        <div className="fcr-sum-metadata-grid">
+                            <div className="fcr-sum-meta-item">
+                                <span className="fcr-sum-meta-label">Document ID</span>
+                                <span className="fcr-sum-meta-value">{docId}</span>
+                            </div>
+                            <div className="fcr-sum-meta-item">
+                                <span className="fcr-sum-meta-label">Batch Reference</span>
+                                <span className="fcr-sum-meta-value">{firstJobId || '—'}</span>
+                            </div>
+                            <div className="fcr-sum-meta-item">
+                                <span className="fcr-sum-meta-label">Report Date</span>
+                                <span className="fcr-sum-meta-value">{reportDate}</span>
+                            </div>
+                            <div className="fcr-sum-meta-item">
+                                <span className="fcr-sum-meta-label">Classification</span>
+                                <span className="fcr-sum-meta-value">
+                                    {clientName !== '—' ? clientName : 'Quality Controlled'}
+                                </span>
+                            </div>
+                        </div>
+                    </header>
 
-                <div className="summary-strip">
-                    <div className="summary-box">
-                        <div className="summary-stat">
-                            <div className="summary-stat-label">Total Tested</div>
-                            <div className="summary-stat-value">{displayTotalTested}</div>
+                    {/* ===== KPI SECTION ===== */}
+                    <section className="fcr-sum-dashboard-section">
+                        <div className="fcr-sum-section-title">Audit Metrics &amp; Distributions</div>
+                        <div className="fcr-sum-kpi-grid">
+                            <div className="fcr-sum-kpi-card">
+                                <div className="fcr-sum-kpi-val">{totalFailed}</div>
+                                <div className="fcr-sum-kpi-lbl">Total Failed Units</div>
+                            </div>
+                            <div className="fcr-sum-kpi-card">
+                                <div className="fcr-sum-kpi-val">{meteringCount}</div>
+                                <div className="fcr-sum-kpi-lbl">Metering Cores</div>
+                            </div>
+                            <div className="fcr-sum-kpi-card">
+                                <div className="fcr-sum-kpi-val">{protectionCount}</div>
+                                <div className="fcr-sum-kpi-lbl">Protection Cores</div>
+                            </div>
+                            <div className="fcr-sum-kpi-card">
+                                <div className="fcr-sum-kpi-val">{specialCount}</div>
+                                <div className="fcr-sum-kpi-lbl">Special Cores</div>
+                            </div>
+                            <div className="fcr-sum-kpi-card">
+                                <div className="fcr-sum-kpi-val fcr-sum-kpi-val--red">100%</div>
+                                <div className="fcr-sum-kpi-lbl">Rejection Rate</div>
+                            </div>
                         </div>
-                        <div className="divider" />
-                        <div className="summary-stat">
-                            <div className="summary-stat-label">Total Failed</div>
-                            <div className="summary-stat-value red">{totalFailed}</div>
-                        </div>
-                        <div className="divider" />
-                        <div className="summary-stat">
-                            <div className="summary-stat-label">Passed</div>
-                            <div className="summary-stat-value green">{displayTotalPassed}</div>
-                        </div>
-                    </div>
-                    <div className="summary-box">
-                        <div className="summary-stat">
-                            <div className="summary-stat-label">Metering</div>
-                            <div className="summary-stat-value" style={{ fontSize: '14px' }}>{meteringCount}</div>
-                        </div>
-                        <div className="divider" style={{ height: '20px' }} />
-                        <div className="summary-stat">
-                            <div className="summary-stat-label">Protection</div>
-                            <div className="summary-stat-value" style={{ fontSize: '14px' }}>{protectionCount}</div>
-                        </div>
-                    </div>
-                </div>
+                    </section>
 
-                <div className="table-wrapper">
-                    <table className="report-table">
-                        <thead>
-                            <tr>
-                                <th style={{ width: '5%' }}>Sr.</th>
-                                <th style={{ width: '12%' }}>Date</th>
-                                <th style={{ width: '15%' }}>Core ID</th>
-                                <th style={{ width: '15%' }}>Vendor</th>
-                                <th style={{ width: '12%' }}>Type</th>
-                                <th style={{ width: '17%' }}>Parameter</th>
-                                <th style={{ width: '10%' }}>Measured</th>
-                                <th style={{ width: '8%' }}>Limit</th>
-                                <th style={{ width: '6%' }}>Result</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {data && data.length > 0 ? data.map((core, i) => {
-                                const failures = parseFailureReason(core.failureReason);
-                                
-                                return failures.map((f, fIdx) => (
-                                    <tr key={`${i}-${fIdx}`}>
-                                        {fIdx === 0 && (
-                                            <>
-                                                <td rowSpan={failures.length}>{i + 1}</td>
-                                                <td rowSpan={failures.length}>
-                                                    {core.failedAt ? new Date(core.failedAt).toLocaleDateString('en-GB') : '-'}
-                                                </td>
-                                                <td rowSpan={failures.length} style={{ fontWeight: 'bold' }}>
-                                                    {core.internalCoreNo}
-                                                </td>
-                                                <td rowSpan={failures.length}>
-                                                    {core.coreVendorNo || core.vendorCoreNo || '-'}
-                                                </td>
-                                                <td rowSpan={failures.length}>
-                                                    {core.coreType}
-                                                </td>
-                                            </>
-                                        )}
-                                        <td style={{ fontStyle: 'italic' }}>
-                                            {f.parameter}
-                                        </td>
-                                        <td style={{ color: '#dc2626', fontWeight: 'bold' }}>
-                                            {f.measured}
-                                        </td>
-                                        <td>
-                                            {f.limit}
-                                        </td>
-                                        <td style={{ color: '#dc2626', fontWeight: 'bold' }}>
-                                            FAIL
+                    {/* ===== DATA TABLE ===== */}
+                    <section className="fcr-sum-table-container">
+                        <div className="fcr-sum-section-title">Detailed Core Failure Ledger</div>
+                        <table className="fcr-sum-enterprise-table">
+                            <thead>
+                                <tr>
+                                    <th className="fcr-sum-col-date">Test Date</th>
+                                    <th className="fcr-sum-col-vendor">Vendor Core No.</th>
+                                    <th className="fcr-sum-col-id">Internal Core ID</th>
+                                    <th className="fcr-sum-col-type">Core Type</th>
+                                    <th className="fcr-sum-col-obs">Failure Reason / Metric Observation</th>
+                                    <th className="fcr-sum-col-remark">Remark</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {data && data.length > 0 ? (
+                                    data.map((item, i) => (
+                                        <tr key={i}>
+                                            <td className="fcr-sum-col-date">
+                                                {item.failedAt
+                                                    ? new Date(item.failedAt).toLocaleDateString('en-GB')
+                                                    : item.createdAt
+                                                        ? new Date(item.createdAt).toLocaleDateString('en-GB')
+                                                        : '-'}
+                                            </td>
+                                            <td className="fcr-sum-col-vendor">
+                                                {item.vendorCoreNo || item.coreVendorNo || 'NOT-RECORDED-YET'}
+                                            </td>
+                                            <td className="fcr-sum-col-id">{item.internalCoreNo}</td>
+                                            <td className="fcr-sum-col-type">{item.coreType || '-'}</td>
+                                            <td className="fcr-sum-col-obs">{item.failureReason || '-'}</td>
+                                            <td className="fcr-sum-col-remark">
+                                                {(item as any).remark || 'Rejected'}
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={6} style={{ textAlign: 'center', fontStyle: 'italic', color: '#94a3b8', height: '40px' }}>
+                                            No failed core records available.
                                         </td>
                                     </tr>
-                                ));
-                            }) : (
-                                <tr>
-                                    <td colSpan={9} style={{ fontStyle: 'italic', color: '#64748b', height: '40px' }}>No failed core records available.</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                )}
+                            </tbody>
+                        </table>
+                    </section>
 
-                <div className="footer-sig">
-                    <div className="sig-box">
-                        <div className="sig-title">Tested By</div>
-                        <div className="sig-name">Rahul Sharma</div>
-                        <div className="sig-company">Testing Engineer</div>
-                    </div>
-                    <div className="sig-box">
-                        <div className="sig-title">Authorized Signatory</div>
-                        <div className="sig-name">(Signature & Stamp)</div>
-                        <div className="sig-company">For Advent Engineers</div>
-                    </div>
-                </div>
-                
-                <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '9px', color: '#94a3b8', textTransform: 'uppercase' }}>
-                    This is an official engineering record generated by Advent QA Systems.
+                    {/* ===== FOOTER ===== */}
+                    <footer className="fcr-sum-report-footer">
+                        <div className="fcr-sum-signature-row">
+                            <div className="fcr-sum-signature-box">
+                                <div className="fcr-sum-sig-line"></div>
+                                <div className="fcr-sum-sig-title">Tested By</div>
+                                <div className="fcr-sum-sig-name">Quality Lab Tech</div>
+                            </div>
+                            <div className="fcr-sum-signature-box">
+                                <div className="fcr-sum-sig-line"></div>
+                                <div className="fcr-sum-sig-title">Verified By</div>
+                                <div className="fcr-sum-sig-name">QA Line Inspector</div>
+                            </div>
+                            <div className="fcr-sum-signature-box">
+                                <div className="fcr-sum-sig-line"></div>
+                                <div className="fcr-sum-sig-title">Authorised Signatory</div>
+                                <div className="fcr-sum-sig-name fcr-sum-sig-name--bold">Rahul Sharma</div>
+                            </div>
+                        </div>
+
+                        <div className="fcr-sum-document-legal">
+                            <div className="fcr-sum-legal-left">
+                                Advent Engineers © {new Date().getFullYear()} | Quality Control System Audit Data
+                            </div>
+                            <div>Page 1 of 1</div>
+                            <div className="fcr-sum-legal-right">Generated: {reportDate}</div>
+                        </div>
+                    </footer>
                 </div>
             </div>
         </div>

@@ -50,7 +50,47 @@ export function ReportPage() {
     };
 
     const handlePrint = () => {
-        window.print();
+        const printContent = document.querySelector('.print-root') as HTMLElement
+            || document.getElementById('print-section')
+            || document.querySelector('[class*="ucr-page"]')?.parentElement as HTMLElement;
+
+        const printWindow = window.open('', '_blank', 'width=900,height=700');
+        if (!printWindow) {
+            window.print();
+            return;
+        }
+        // Collect all stylesheets from the current page
+        const styles = Array.from(document.styleSheets)
+            .map(sheet => {
+                try {
+                    return Array.from(sheet.cssRules).map(r => r.cssText).join('\n');
+                } catch { return ''; }
+            }).join('\n');
+
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Advent Engineers – Core Test Report</title>
+                <meta charset="utf-8" />
+                <style>
+                    ${styles}
+                    @page { size: A4 portrait; margin: 8mm; }
+                    body { margin: 0; padding: 0; background: white; }
+                    .print\\:hidden, .no-print, button { display: none !important; }
+                </style>
+            </head>
+            <body>
+                ${printContent ? printContent.outerHTML : document.body.innerHTML}
+                <script>
+                    window.onload = function() {
+                        setTimeout(function() { window.print(); window.close(); }, 500);
+                    };
+                <\/script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
     };
 
     if (loading) {

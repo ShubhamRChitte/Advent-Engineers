@@ -128,7 +128,8 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
 
   const handleOpenReport = (transformer: any, type: 'core' | 'secondary' | 'primary' | 'final' | 'heating' | 'pt' | 'all') => {
     const id = transformer._id || transformer.id;
-    window.location.href = `/admin/report/${id}?type=${type}`;
+    const from = encodeURIComponent(window.location.href);
+    window.location.href = `/admin/report/${id}?type=${type}&from=${from}`;
   };
 
   const filteredUnits = transformerUnits.filter((unit) => {

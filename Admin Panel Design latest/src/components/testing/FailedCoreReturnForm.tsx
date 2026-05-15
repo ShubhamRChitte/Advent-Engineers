@@ -18,7 +18,7 @@ interface FailedCore {
     vendorCoreNo?: string;
     coreVendorNo?: string;
     failureReason: string;
-    orderNumber: string;
+    orderNumber?: string;   // optional — not present in all FailedCore sources
     jobId: string;
     clientName: string;
 }

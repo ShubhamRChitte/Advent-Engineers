@@ -11,7 +11,6 @@ import {
 import { FailedCore } from './CoreTestingForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { FailedCoreReturnForm } from './FailedCoreReturnForm';
-import { FailedCoreSummaryReport } from './FailedCoreSummaryReport';
 
 interface FailedCoresManagerProps {
   failedCores: FailedCore[];
@@ -97,7 +96,157 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
   };
 
   const handlePrint = () => {
-    window.print();
+    const reportDate = new Date().toLocaleDateString('en-GB');
+    const firstJobId = localCores[0]?.jobId || '';
+    const jobSuffix = firstJobId.split('-').pop() || '000';
+    const docId = `AE-FCR-${new Date().getFullYear()}-${jobSuffix}`;
+
+    const totalFailed = localCores.length;
+    const meteringCount = localCores.filter(c => c.coreType?.toUpperCase() === 'METERING').length;
+    const protectionCount = localCores.filter(c => c.coreType?.toUpperCase() === 'PROTECTION').length;
+    const specialCount = localCores.filter(
+      c => c.coreType?.toUpperCase() !== 'METERING' && c.coreType?.toUpperCase() !== 'PROTECTION'
+    ).length;
+
+    const rows = localCores.map((item, i) => {
+      const date = item.failedAt
+        ? new Date(item.failedAt).toLocaleDateString('en-GB')
+        : item.createdAt
+          ? new Date(item.createdAt).toLocaleDateString('en-GB')
+          : '-';
+      const vendor = item.vendorCoreNo || item.coreVendorNo || 'NOT-RECORDED-YET';
+      return `
+        <tr style="background:${i % 2 === 0 ? '#fff' : '#F8FAFC'}">
+          <td style="padding:10px 12px;border:1px solid #E2E8F0;font-weight:600;">${date}</td>
+          <td style="padding:10px 12px;border:1px solid #E2E8F0;">${vendor}</td>
+          <td style="padding:10px 12px;border:1px solid #E2E8F0;font-family:monospace;font-weight:600;">${item.internalCoreNo}</td>
+          <td style="padding:10px 12px;border:1px solid #E2E8F0;text-transform:uppercase;">${item.coreType || '-'}</td>
+          <td style="padding:10px 12px;border:1px solid #E2E8F0;">${item.failureReason || '-'}</td>
+          <td style="padding:10px 12px;border:1px solid #E2E8F0;text-align:center;font-weight:700;color:#E31E24;">Rejected</td>
+        </tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Failed Core Report — ${docId}</title>
+  <style>
+    @page { size: A4 portrait; margin: 15mm 12mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #2D3748; font-size: 12px; background: #fff; }
+
+    .watermark {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%) rotate(-45deg);
+      font-size: 110px; font-weight: 800;
+      color: rgba(35,31,97,0.015); pointer-events: none;
+      white-space: nowrap; letter-spacing: 12px; z-index: 0;
+    }
+    .content { position: relative; z-index: 1; }
+
+    /* Header */
+    .header { border-bottom: 1px solid #D2D6DC; padding-bottom: 18px; margin-bottom: 20px; }
+    .header-top { display: grid; grid-template-columns: 80px 1fr 80px; align-items: center; }
+    .brand h1 { color: #231F61; font-size: 26px; font-weight: 800; text-align: center; text-transform: uppercase; }
+    .brand p  { font-size: 11px; color: #E31E24; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 0.6px; margin-top: 4px; }
+    .meta-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 15px; margin-top: 20px; padding-top: 12px; border-top: 1px solid #E2E8F0; }
+    .meta-label { font-size: 10px; text-transform: uppercase; color: #606F7B; font-weight: 600; display: block; margin-bottom: 2px; }
+    .meta-value { font-size: 12px; font-weight: 700; }
+
+    /* Section Title */
+    .section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #231F61; margin-bottom: 12px; display: flex; align-items: center; letter-spacing: 0.5px; }
+    .section-title::after { content:''; flex-grow:1; height:1px; background:#E2E8F0; margin-left:10px; }
+
+    /* KPI */
+    .kpi-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; margin-bottom: 25px; }
+    .kpi-card { border: 1px solid #E2E8F0; border-radius: 4px; padding: 12px 10px; background: #F8FAFC; }
+    .kpi-val { font-size: 22px; font-weight: 700; color: #231F61; }
+    .kpi-val.red { color: #E31E24; }
+    .kpi-lbl { font-size: 9.5px; font-weight: 600; color: #606F7B; text-transform: uppercase; }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; margin-bottom: 30px; }
+    th { background: #F0F4F8; color: #231F61; font-weight: 700; text-transform: uppercase; font-size: 10px; padding: 10px 12px; border: 1px solid #E2E8F0; text-align: left; }
+    td { padding: 10px 12px; border: 1px solid #E2E8F0; vertical-align: top; word-wrap: break-word; }
+    col.c1 { width: 85px; } col.c2 { width: 130px; } col.c3 { width: 140px; }
+    col.c4 { width: 90px; }  col.c5 { width: auto; }  col.c6 { width: 85px; }
+
+    /* Footer */
+    .sig-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 30px; margin-top: 20px; margin-bottom: 20px; }
+    .sig-box { text-align: center; }
+    .sig-line { border-top: 1px dashed #606F7B; margin-bottom: 6px; }
+    .sig-title { font-size: 11px; font-weight: 700; }
+    .sig-name { font-size: 11px; color: #606F7B; }
+    .sig-name.bold { font-weight: 700; color: #2D3748; }
+    .legal { display: flex; justify-content: space-between; font-size: 9px; color: #606F7B; border-top: 1px solid #E2E8F0; padding-top: 8px; }
+  </style>
+</head>
+<body>
+<div class="watermark">ADVENT</div>
+<div class="content">
+
+  <div class="header">
+    <div class="header-top">
+      <div></div>
+      <div class="brand">
+        <h1>ADVENT ENGINEERS</h1>
+        <p>Excellence in Transformer Core Testing</p>
+      </div>
+      <div></div>
+    </div>
+    <div class="meta-grid">
+      <div><span class="meta-label">Document ID</span><span class="meta-value">${docId}</span></div>
+      <div><span class="meta-label">Batch Reference</span><span class="meta-value">${firstJobId || '—'}</span></div>
+      <div><span class="meta-label">Report Date</span><span class="meta-value">${reportDate}</span></div>
+      <div><span class="meta-label">Classification</span><span class="meta-value">Quality Controlled</span></div>
+    </div>
+  </div>
+
+  <div class="section-title">Audit Metrics &amp; Distributions</div>
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-val">${totalFailed}</div><div class="kpi-lbl">Total Failed Units</div></div>
+    <div class="kpi-card"><div class="kpi-val">${meteringCount}</div><div class="kpi-lbl">Metering Cores</div></div>
+    <div class="kpi-card"><div class="kpi-val">${protectionCount}</div><div class="kpi-lbl">Protection Cores</div></div>
+    <div class="kpi-card"><div class="kpi-val">${specialCount}</div><div class="kpi-lbl">Special Cores</div></div>
+    <div class="kpi-card"><div class="kpi-val red">100%</div><div class="kpi-lbl">Rejection Rate</div></div>
+  </div>
+
+  <div class="section-title">Detailed Core Failure Ledger</div>
+  <table>
+    <colgroup><col class="c1"/><col class="c2"/><col class="c3"/><col class="c4"/><col class="c5"/><col class="c6"/></colgroup>
+    <thead>
+      <tr>
+        <th>Test Date</th><th>Vendor Core No.</th><th>Internal Core ID</th>
+        <th>Core Type</th><th>Failure Reason / Metric Observation</th><th style="text-align:center;">Remark</th>
+      </tr>
+    </thead>
+    <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:#94a3b8;font-style:italic;">No failed core records.</td></tr>'}</tbody>
+  </table>
+
+  <div class="sig-row">
+    <div class="sig-box"><div class="sig-line"></div><div class="sig-title">Tested By</div><div class="sig-name">Quality Lab Tech</div></div>
+    <div class="sig-box"><div class="sig-line"></div><div class="sig-title">Verified By</div><div class="sig-name">QA Line Inspector</div></div>
+    <div class="sig-box"><div class="sig-line"></div><div class="sig-title">Authorised Signatory</div><div class="sig-name bold">Rahul Sharma</div></div>
+  </div>
+  <div class="legal">
+    <span>Advent Engineers © ${new Date().getFullYear()} | Quality Control System Audit Data</span>
+    <span>Page 1 of 1</span>
+    <span>Generated: ${reportDate}</span>
+  </div>
+
+</div>
+<script>window.onload = function(){ window.print(); window.close(); };</script>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) {
+      alert('Please allow pop-ups for this site to print the report.');
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
   };
 
   const handleReturnToVendor = async (coreId?: string) => {
@@ -647,10 +796,6 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
         />
       )}
 
-      {/* Hidden Print Report - Auto-rendered on window.print() */}
-      <div className="hidden print:block">
-        <FailedCoreSummaryReport data={localCores} />
-      </div>
     </div>
   );
 }

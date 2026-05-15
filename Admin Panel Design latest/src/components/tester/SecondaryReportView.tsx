@@ -21,10 +21,41 @@ export function SecondaryReportView({
 }: SecondaryReportViewProps) {
     const history = transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory];
     
-    // Determine which reports have data
-    const hasMetering = history?.metering_results?.length > 0;
-    const hasProtection = history?.protection_results?.length > 0;
-    const hasPS = history?.ps_results?.length > 0;
+    // Extract all UNIQUE core IDs per type from the saved results
+    const uniqueMeteringCores: string[] = (() => {
+        const results = history?.metering_results || [];
+        const seen = new Set<string>();
+        results.forEach((r: any) => {
+            const id = r.internalCoreNo || r.coreId;
+            if (id) seen.add(id);
+        });
+        return Array.from(seen);
+    })();
+
+    const uniqueProtectionCores: string[] = (() => {
+        const results = history?.protection_results || [];
+        const seen = new Set<string>();
+        results.forEach((r: any) => {
+            const id = r.internalCoreNo || r.coreId;
+            if (id) seen.add(id);
+        });
+        return Array.from(seen);
+    })();
+
+    const uniquePSCores: string[] = (() => {
+        const results = history?.ps_results || [];
+        const seen = new Set<string>();
+        results.forEach((r: any) => {
+            const id = r.internalCoreNo || r.coreId;
+            if (id) seen.add(id);
+        });
+        return Array.from(seen);
+    })();
+
+    // Determine which tabs have data
+    const hasMetering = uniqueMeteringCores.length > 0;
+    const hasProtection = uniqueProtectionCores.length > 0;
+    const hasPS = uniquePSCores.length > 0;
     const hasQA = stage === 'final' && (
         history?.polarityResult || 
         history?.meggarPrimaryToSecondary || 
@@ -60,7 +91,7 @@ export function SecondaryReportView({
         }
     };
 
-    // Find the correct core indices from the order details
+    // Find the correct core indices from the order details (for fallback)
     const order = transformer.fullOrder || transformer.orderId;
     const coreDetails = order?.coreDetails || [];
     
@@ -83,12 +114,17 @@ export function SecondaryReportView({
             <div className="flex items-center gap-2 mb-4 no-print overflow-x-auto pb-2 print:hidden backdrop-blur-sm sticky top-16 z-40">
                 {availableTypes.map((type) => {
                     const isSelected = activeTab === type;
+                    // Show count badge for multi-core types
+                    const coreCount = type === 'Metering' ? uniqueMeteringCores.length
+                        : type === 'Protection' ? uniqueProtectionCores.length
+                        : type === 'PS' ? uniquePSCores.length
+                        : 0;
                     return (
                         <button
                             key={type}
                             onClick={() => setActiveTab(type)}
                             className={`
-                                px-8 py-3 rounded-t-xl font-semibold text-sm transition-all border-b-4 whitespace-nowrap
+                                px-8 py-3 rounded-t-xl font-semibold text-sm transition-all border-b-4 whitespace-nowrap relative
                                 ${isSelected
                                     ? 'bg-white border-[#003a70] text-[#003a70] shadow-[0_-4px_10px_rgba(0,0,0,0.05)]'
                                     : 'bg-gray-100 border-transparent text-gray-500 hover:bg-gray-200 hover:text-gray-700'
@@ -96,6 +132,13 @@ export function SecondaryReportView({
                             `}
                         >
                             {type === 'QA' ? 'QA Test' : `${type} Test`}
+                            {coreCount > 1 && (
+                                <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full font-bold ${
+                                    isSelected ? 'bg-[#003a70] text-white' : 'bg-gray-300 text-gray-700'
+                                }`}>
+                                    {coreCount}
+                                </span>
+                            )}
                             {isSelected && <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-[#003a70] animate-pulse"></span>}
                         </button>
                     );
@@ -104,40 +147,119 @@ export function SecondaryReportView({
 
             {/* Report Content Container */}
             <div className="bg-white rounded-b-xl shadow-2xl border-none overflow-hidden print:shadow-none print:bg-white">
+                
+                {/* METERING: Render one report block per unique core */}
                 {activeTab === 'Metering' && (
-                    <SecondaryMeteringReport
-                        transformer={transformer}
-                        coreNumber={meteringCoreIndex !== -1 ? meteringCoreIndex + 1 : undefined}
-                        coreId={history?.metering_results?.[0]?.internalCoreNo || history?.metering_results?.[0]?.coreId || "Metering Core"}
-                        testerName={history?.tester || 'Verified Administrator'}
-                        onBack={onBack}
-                        readOnly={true}
-                        stage={stage}
-                    />
+                    <div className="divide-y divide-gray-200 print:divide-y-0">
+                        {uniqueMeteringCores.length > 0 ? (
+                            uniqueMeteringCores.map((coreId, idx) => (
+                                <div key={coreId} className="print:break-before-auto">
+                                    {uniqueMeteringCores.length > 1 && (
+                                        <div className="bg-blue-50 px-4 py-2 border-b border-blue-200 print:hidden">
+                                            <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">
+                                                Metering Core {idx + 1} — {coreId}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <SecondaryMeteringReport
+                                        transformer={transformer}
+                                        coreNumber={meteringCoreIndex !== -1 ? meteringCoreIndex + 1 : idx + 1}
+                                        coreId={coreId}
+                                        testerName={history?.tester || 'Verified Administrator'}
+                                        onBack={onBack}
+                                        readOnly={true}
+                                        stage={stage}
+                                    />
+                                </div>
+                            ))
+                        ) : (
+                            <SecondaryMeteringReport
+                                transformer={transformer}
+                                coreNumber={meteringCoreIndex !== -1 ? meteringCoreIndex + 1 : undefined}
+                                coreId={history?.metering_results?.[0]?.internalCoreNo || history?.metering_results?.[0]?.coreId || "Metering Core"}
+                                testerName={history?.tester || 'Verified Administrator'}
+                                onBack={onBack}
+                                readOnly={true}
+                                stage={stage}
+                            />
+                        )}
+                    </div>
                 )}
 
+                {/* PROTECTION: Render one report block per unique core */}
                 {activeTab === 'Protection' && (
-                    <SecondaryProtectionReport
-                        transformer={transformer}
-                        coreNumber={protectionCoreIndex !== -1 ? protectionCoreIndex + 1 : undefined}
-                        coreId={history?.protection_results?.[0]?.internalCoreNo || history?.protection_results?.[0]?.coreId || "Protection Core"}
-                        testerName={history?.tester || 'Verified Administrator'}
-                        onBack={onBack}
-                        readOnly={true}
-                        stage={stage}
-                    />
+                    <div className="divide-y divide-gray-200 print:divide-y-0">
+                        {uniqueProtectionCores.length > 0 ? (
+                            uniqueProtectionCores.map((coreId, idx) => (
+                                <div key={coreId} className="print:break-before-auto">
+                                    {uniqueProtectionCores.length > 1 && (
+                                        <div className="bg-amber-50 px-4 py-2 border-b border-amber-200 print:hidden">
+                                            <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">
+                                                Protection Core {idx + 1} — {coreId}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <SecondaryProtectionReport
+                                        transformer={transformer}
+                                        coreNumber={protectionCoreIndex !== -1 ? protectionCoreIndex + 1 : idx + 1}
+                                        coreId={coreId}
+                                        testerName={history?.tester || 'Verified Administrator'}
+                                        onBack={onBack}
+                                        readOnly={true}
+                                        stage={stage}
+                                    />
+                                </div>
+                            ))
+                        ) : (
+                            <SecondaryProtectionReport
+                                transformer={transformer}
+                                coreNumber={protectionCoreIndex !== -1 ? protectionCoreIndex + 1 : undefined}
+                                coreId={history?.protection_results?.[0]?.internalCoreNo || history?.protection_results?.[0]?.coreId || "Protection Core"}
+                                testerName={history?.tester || 'Verified Administrator'}
+                                onBack={onBack}
+                                readOnly={true}
+                                stage={stage}
+                            />
+                        )}
+                    </div>
                 )}
 
+                {/* PS: Render one report block per unique core */}
                 {activeTab === 'PS' && (
-                    <SecondaryPSReport
-                        transformer={transformer}
-                        coreNumber={psCoreIndex !== -1 ? psCoreIndex + 1 : undefined}
-                        coreId={history?.ps_results?.[0]?.internalCoreNo || history?.ps_results?.[0]?.coreId || "PS Core"}
-                        testerName={history?.tester || 'Verified Administrator'}
-                        onBack={onBack}
-                        readOnly={true}
-                        stage={stage}
-                    />
+                    <div className="divide-y divide-gray-200 print:divide-y-0">
+                        {uniquePSCores.length > 0 ? (
+                            uniquePSCores.map((coreId, idx) => (
+                                <div key={coreId} className="print:break-before-auto">
+                                    {uniquePSCores.length > 1 && (
+                                        <div className="bg-purple-50 px-4 py-2 border-b border-purple-200 print:hidden">
+                                            <span className="text-xs font-bold text-purple-700 uppercase tracking-wider">
+                                                PS Core {idx + 1} — {coreId}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <SecondaryPSReport
+                                        transformer={transformer}
+                                        coreNumber={psCoreIndex !== -1 ? psCoreIndex + 1 : idx + 1}
+                                        coreId={coreId}
+                                        testerName={history?.tester || 'Verified Administrator'}
+                                        onBack={onBack}
+                                        readOnly={true}
+                                        stage={stage}
+                                    />
+                                </div>
+                            ))
+                        ) : (
+                            <SecondaryPSReport
+                                transformer={transformer}
+                                coreNumber={psCoreIndex !== -1 ? psCoreIndex + 1 : undefined}
+                                coreId={history?.ps_results?.[0]?.internalCoreNo || history?.ps_results?.[0]?.coreId || "PS Core"}
+                                testerName={history?.tester || 'Verified Administrator'}
+                                onBack={onBack}
+                                readOnly={true}
+                                stage={stage}
+                            />
+                        )}
+                    </div>
                 )}
 
                 {activeTab === 'QA' && (

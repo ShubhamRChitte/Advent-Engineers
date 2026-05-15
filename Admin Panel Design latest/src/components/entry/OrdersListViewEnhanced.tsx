@@ -54,6 +54,11 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav }:
 
   const setSelectedOrder = (order: Order | null) => {
     _setSelectedOrder(order);
+    if (order) {
+      sessionStorage.setItem('admin_selectedOrderId', order._id);
+    } else {
+      sessionStorage.removeItem('admin_selectedOrderId');
+    }
   };
 
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
@@ -81,6 +86,18 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav }:
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  // Restore selected order after returning from report page
+  useEffect(() => {
+    const savedId = sessionStorage.getItem('admin_selectedOrderId');
+    if (savedId && orders.length > 0 && !selectedOrder) {
+      const match = orders.find(o => o._id === savedId);
+      if (match) {
+        sessionStorage.removeItem('admin_selectedOrderId');
+        _setSelectedOrder(match);
+      }
+    }
+  }, [orders, selectedOrder]);
 
   // Handle auto-scroll and highlight when navigating from notifications
   useEffect(() => {

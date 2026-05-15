@@ -4,6 +4,7 @@ import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Printer, ArrowLeft, Loader2, Database } from 'lucide-react';
 import { SecondaryReportView } from '../components/tester/SecondaryReportView';
+import { CTTestReportView } from '../components/tester/CTTestReportView';
 import { PTReportView } from '../components/tester/PTReportView';
 import { PrintableCoreReport } from '../components/reports/PrintableCoreReport';
 
@@ -139,11 +140,70 @@ export function AdminReportViewPage() {
 
 
     const handlePrint = () => {
-        window.print();
+        const printContent = document.getElementById('printable-report');
+        if (!printContent) {
+            window.print();
+            return;
+        }
+        const printWindow = window.open('', '_blank', 'width=900,height=700');
+        if (!printWindow) {
+            alert('Please allow pop-ups for this site to print reports.');
+            return;
+        }
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Advent Engineers – Test Report</title>
+                <meta charset="utf-8" />
+                <style>
+                    *, *::before, *::after { box-sizing: border-box; }
+                    @page { size: A4 portrait; margin: 10mm; }
+                    body { margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Arial, sans-serif; background: white; color: black; }
+                    .no-print, .print\\:hidden, [class*="no-print"], button, .sticky { display: none !important; }
+                    table { border-collapse: collapse; width: 100%; }
+                    td, th { border: 1px solid #000; padding: 4px; font-size: 11px; }
+                    .report-header-grid { display: grid; grid-template-columns: 1fr 1fr; border: 1.5px solid #000; }
+                    .header-left { padding: 10px; border-right: 1.5px solid #000; display: flex; flex-direction: column; justify-content: center; }
+                    .header-right { display: grid; grid-template-rows: repeat(5, 1fr); }
+                    .header-field { display: grid; grid-template-columns: 100px 1fr; border-bottom: 1px solid #000; font-size: 11px; }
+                    .header-field:last-child { border-bottom: none; }
+                    .field-label { padding: 4px 8px; border-right: 1px solid #000; text-align: right; font-weight: 600; }
+                    .field-value { padding: 4px 8px; font-weight: 500; }
+                    .report-title-banner { border: 1.5px solid #000; text-align: center; padding: 6px; font-weight: bold; font-size: 18px; text-transform: uppercase; }
+                    .description-banner { border: 1.5px solid #000; border-top: none; text-align: center; padding: 4px; font-weight: bold; font-size: 14px; }
+                    .nested-table { width: 100%; border-collapse: collapse; border: 1.5px solid #000; table-layout: fixed; }
+                    .nested-table td, .nested-table th { border: 1px solid #000; padding: 4px; text-align: center; font-size: 11px; height: 24px; }
+                    .bg-yellow { background-color: #f1f5f9 !important; }
+                    .footer-sig { margin-top: 40px; display: flex; justify-content: space-between; padding: 0 40px; }
+                    .sig-item { text-align: center; width: 200px; }
+                    .sig-line { border-top: 1.5px solid #000; margin-top: 60px; padding-top: 5px; font-weight: bold; font-size: 13px; }
+                    input { border: none; text-align: center; font-size: 11px; background: transparent; width: 100%; }
+                    .text-red-600, .text-\\[\\#003a70\\] { color: black !important; }
+                    .text-2xl { font-size: 1.5rem; }
+                    .font-bold { font-weight: 700; }
+                    .italic { font-style: italic; }
+                    .divide-y > div + div { border-top: 2px solid #ccc; margin-top: 16px; padding-top: 16px; }
+                    @media print {
+                        .divide-y > div + div { border-top: none; page-break-before: auto; }
+                    }
+                </style>
+            </head>
+            <body>
+                ${printContent.innerHTML}
+                <script>
+                    window.onload = function() {
+                        setTimeout(function() { window.print(); window.close(); }, 400);
+                    };
+                <\/script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
     };
 
     const handleBack = () => {
-        window.history.back();
+        window.location.href = window.location.origin;
     };
 
     const renderCoreReport = () => {
@@ -323,35 +383,17 @@ export function AdminReportViewPage() {
                     {renderCoreReport()}
                 </div>
                 
-                <div className="pt-12 border-t-4 border-double border-gray-300 report-section print:border-none print:pt-0 print:break-before-page">
-                    <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2 print:hidden">
-                        <span className="w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center text-sm">2</span>
-                        Secondary Test Results
-                    </h2>
-                    <SecondaryReportView 
-                        transformer={transformer} 
-                        onBack={() => { }} 
-                        stage="secondary" 
-                        activeTab={globalCoreType}
-                        onTabChange={setGlobalCoreType}
-                    />
-                </div>
-                
-                <div className="pt-12 border-t-4 border-double border-gray-300 report-section print:border-none print:pt-0 print:break-before-page">
-                    <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2 print:hidden">
-                        <span className="w-8 h-8 bg-orange-600 text-white rounded-full flex items-center justify-center text-sm">3</span>
-                        Primary Test Results
-                    </h2>
-                    <SecondaryReportView 
-                        transformer={transformer} 
-                        onBack={() => { }} 
-                        stage="primary" 
-                        activeTab={globalCoreType}
-                        onTabChange={setGlobalCoreType}
-                    />
+                <div className="report-section print:break-before-page">
+                    <h2 className="text-xl font-bold mb-4 text-gray-700 print:hidden">Secondary Test Results</h2>
+                    <CTTestReportView transformer={transformer} stage="secondary" />
                 </div>
 
-                <div className="pt-12 border-t-4 border-double border-gray-300 report-section print:border-none print:pt-0 print:break-before-page">
+                <div className="report-section print:break-before-page" style={{ marginTop: 32 }}>
+                    <h2 className="text-xl font-bold mb-4 text-gray-700 print:hidden">Primary Test Results</h2>
+                    <CTTestReportView transformer={transformer} stage="primary" />
+                </div>
+
+                <div className="pt-12 border-t-4 border-double border-gray-300 report-section print:break-before-page">
                     <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2 print:hidden">
                         <span className="w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center text-sm">4</span>
                         Heating Test Report
@@ -360,20 +402,11 @@ export function AdminReportViewPage() {
                         {renderHeatingReport()}
                     </Card>
                 </div>
-                
+
                 {transformer.testHistory?.final_test && (
-                    <div className="pt-12 border-t-4 border-double border-gray-300 report-section print:border-none print:pt-0 print:break-before-page">
-                        <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2 print:hidden">
-                            <span className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center text-sm">5</span>
-                            Final Test Report
-                        </h2>
-                        <SecondaryReportView 
-                            transformer={transformer} 
-                            onBack={() => { }} 
-                            stage="final" 
-                            activeTab={globalCoreType}
-                            onTabChange={setGlobalCoreType}
-                        />
+                    <div className="report-section print:break-before-page" style={{ marginTop: 32 }}>
+                        <h2 className="text-xl font-bold mb-4 text-gray-700 print:hidden">Final Test Results</h2>
+                        <CTTestReportView transformer={transformer} stage="final" />
                     </div>
                 )}
             </div>
@@ -385,17 +418,11 @@ export function AdminReportViewPage() {
         
         switch (testType) {
             case 'core': return <div className="max-w-[850px] mx-auto mt-6 print:mt-0 print:max-w-none">{renderCoreReport()}</div>;
-            case 'secondary': 
+            case 'secondary':
             case 'primary':
             case 'final':
                 return <div className="max-w-[1000px] mx-auto mt-6 print:mt-0 print:max-w-none">
-                    <SecondaryReportView 
-                        transformer={currentTransformer} 
-                        onBack={handleBack} 
-                        stage={testType as any} 
-                        activeTab={globalCoreType}
-                        onTabChange={setGlobalCoreType}
-                    />
+                    <CTTestReportView transformer={currentTransformer} stage={testType as 'secondary' | 'primary' | 'final'} />
                 </div>;
             case 'heating':
                 return <div className="max-w-[1000px] mx-auto mt-6 print:mt-0 print:max-w-none">
