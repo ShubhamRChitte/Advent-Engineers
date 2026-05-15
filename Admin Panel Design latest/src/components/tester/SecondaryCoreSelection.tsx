@@ -26,9 +26,9 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
       try {
         // Re-fetch to get updated testHistory (test status, core IDs)
         // Note: We used localhost:3002 in other files.
-        const response = await fetch(`http://localhost:5001/api/transformers/${initialTransformer.uniqueId}`);
-        if (response.ok) {
-          const freshData = await response.json();
+        const response = await axios.get(`http://localhost:5001/api/transformers/${initialTransformer.uniqueId}`, { withCredentials: true });
+        if (response.status === 200) {
+          const freshData = response.data;
           console.log("SecondaryCoreSelection: Fetched fresh data", freshData);
 
           // Merge fresh DB data with existing UI-only fields (like availableCoreIdsPool)

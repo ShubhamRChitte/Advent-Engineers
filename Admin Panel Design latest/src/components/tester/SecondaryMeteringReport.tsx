@@ -156,8 +156,8 @@ export function SecondaryMeteringReport({
     if (readOnly) return;
     setTestResults(prev => {
       const updated = [...prev];
-      const ratioBlock = { ...updated[ratioIdx] };
-      const updatedRows = [...ratioBlock.rows];
+      const ratioBlock = { ...updated[ratioIdx] } as { ratioValue: string; rows: any[] };
+      const updatedRows = [...(ratioBlock.rows || [])];
       const updatedRow = { ...updatedRows[rowIndex], [field]: value };
 
       const v100 = validateMeteringUI(accuracyClass, updatedRow.current, updatedRow.r100, updatedRow.p100, dbLimits);
@@ -253,7 +253,10 @@ export function SecondaryMeteringReport({
         .footer-sig { margin-top: 40px; display: flex; justify-content: space-between; padding: 0 40px; }
         .sig-item { text-align: center; width: 200px; }
         .sig-line { border-top: 1.5px solid #000; margin-top: 60px; padding-top: 5px; font-weight: bold; font-size: 13px; }
-        @media print { @page { size: A4 portrait; margin: 10mm; } #print-section { width: 100% !important; margin: 0 !important; padding: 0 !important; } .no-print { display: none; } }
+        @media print {
+          @page { size: A4 portrait; margin: 10mm; }
+          .no-print { display: none !important; }
+        }
       `}</style>
 
       {!readOnly && (
@@ -269,7 +272,7 @@ export function SecondaryMeteringReport({
         </div>
       )}
 
-      <div id="print-section">
+      <div id="printable-report">
         <div className="report-header-grid">
           <div className="header-left"><h1 className="text-2xl font-bold italic text-red-600 leading-tight">ADVENT ENGINEERS</h1></div>
           <div className="header-right">

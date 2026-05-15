@@ -1061,15 +1061,8 @@ export function SecondaryPSReport({
         }
 
         @media print {
-          @page {
-            size: A4 portrait;
-            margin: 10mm;
-          }
-          #print-section {
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
+          @page { size: A4 portrait; margin: 10mm; }
+          .no-print { display: none !important; }
         }
       `}</style>
       {!readOnly && (
@@ -1093,7 +1086,7 @@ export function SecondaryPSReport({
         </div>
       )}
 
-      <div id="print-section">
+      <div id="printable-report">
         {/* Header Grid */}
         <div className="report-header-grid">
           <div className="header-left">
