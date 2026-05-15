@@ -10,7 +10,7 @@ export function PrintableFailedCoreReport({ data }: PrintableFailedCoreReportPro
     if (!data || data.length === 0) return null;
 
     return (
-        <div id="printable-failed-core-report" className="print-only">
+        <div id="printable-report" className="print-only">
             {/* HEADER AREA */}
             <div className="page-header">
                 <div className="logo-container">
