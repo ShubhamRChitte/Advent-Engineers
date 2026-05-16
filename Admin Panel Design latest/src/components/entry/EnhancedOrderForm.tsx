@@ -111,14 +111,8 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
   const [primaryCurrents, setPrimaryCurrents] = useState<string[]>(initialData?.primaryCurrents || []);
   const [isCustomPrimaryCurrent, setIsCustomPrimaryCurrent] = useState(false);
   const [customPrimaryCurrentInput, setCustomPrimaryCurrentInput] = useState('');
-<<<<<<< Updated upstream
-  const [burden, setBurden] = useState('');
-  const [stc, setStc] = useState('');
-=======
-  const [nominalVoltage, setNominalVoltage] = useState(initialData?.nominalSystemVoltage?.toString() || '');
   const [burden, setBurden] = useState(initialData?.burden?.toString() || '');
   const [stc, setStc] = useState(initialData?.stc || '');
->>>>>>> Stashed changes
 
   // PT Specific Voltage Parameters
   const [ratedPrimaryVoltage, setRatedPrimaryVoltage] = useState(initialData?.ratedPrimaryVoltage || '');
