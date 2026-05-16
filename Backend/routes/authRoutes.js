@@ -194,6 +194,52 @@ router.get("/all-employees", async (req, res) => {
     }
 });
 
+// Update Employee
+router.put("/update-employee/:id", async (req, res) => {
+    try {
+        const { UserModel } = require("../models/UserModel");
+        const bcrypt = require("bcryptjs");
+        const { id } = req.params;
+        const updateData = { ...req.body };
+
+        // If password is provided, hash it
+        if (updateData.password) {
+            updateData.password = await bcrypt.hash(updateData.password, 10);
+        } else {
+            delete updateData.password; // Don't overwrite with empty
+        }
+
+        const updatedUser = await UserModel.findByIdAndUpdate(id, updateData, { new: true }).select("-password");
+        
+        if (!updatedUser) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        res.status(200).json({ success: true, message: "Employee updated successfully", user: updatedUser });
+    } catch (error) {
+        console.error("Update Employee Error:", error);
+        res.status(500).json({ success: false, message: "Server error", error: error.message });
+    }
+});
+
+// Delete Employee
+router.delete("/delete-employee/:id", async (req, res) => {
+    try {
+        const { UserModel } = require("../models/UserModel");
+        const { id } = req.params;
+        const deletedUser = await UserModel.findByIdAndDelete(id);
+
+        if (!deletedUser) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        res.status(200).json({ success: true, message: "Employee deleted successfully" });
+    } catch (error) {
+        console.error("Delete Employee Error:", error);
+        res.status(500).json({ success: false, message: "Server error", error: error.message });
+    }
+});
+
 // DEBUG: Get all users WITH passwords (hashes)
 router.get("/debug-users", async (req, res) => {
     try {

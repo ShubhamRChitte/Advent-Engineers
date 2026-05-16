@@ -28,20 +28,22 @@ interface EnhancedOrderFormProps {
   allVendors: any[];
   onSubmit: (orderData: any) => void;
   onBack: () => void;
+  initialData?: any;
 }
 
-export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, isEntryOperator = false }: EnhancedOrderFormProps & { isEntryOperator?: boolean }) {
-  const [clientName, setClientName] = useState('');
-  const [clientContact, setClientContact] = useState('');
-  const [quantity, setQuantity] = useState('1');
-  const [isStandard, setIsStandard] = useState('');
+export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, isEntryOperator = false, initialData }: EnhancedOrderFormProps & { isEntryOperator?: boolean }) {
+  const isEditMode = !!initialData;
+  const [clientName, setClientName] = useState(initialData?.clientName || '');
+  const [clientContact, setClientContact] = useState(initialData?.clientContactNo || initialData?.clientContact || '');
+  const [quantity, setQuantity] = useState(initialData?.quantity?.toString() || '1');
+  const [isStandard, setIsStandard] = useState(initialData?.isStandard || '');
 
   // Form Errors state
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Initialize from transformer prop if available, else empty
-  const [transformerType, setTransformerType] = useState(transformer?.type || '');
-  const [numberOfCores, setNumberOfCores] = useState(transformer?.cores.toString() || '1');
+  const [transformerType, setTransformerType] = useState(initialData?.transformerType || transformer?.type || '');
+  const [numberOfCores, setNumberOfCores] = useState(initialData?.noOfCores?.toString() || transformer?.cores.toString() || '1');
 
   // Real-time Validation Engine
   const validateEnhancedField = (field: string, value: string): string | null => {
@@ -85,29 +87,43 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
     }
   };
 
-  const [voltageRating, setVoltageRating] = useState(transformer?.voltageRating || '');
+  const [voltageRating, setVoltageRating] = useState(initialData?.voltageRating || transformer?.voltageRating || '');
   const [isCustomVoltage, setIsCustomVoltage] = useState(false);
 
-  const [indoorOutdoor, setIndoorOutdoor] = useState('');
-  const [insulationType, setInsulationType] = useState('');
-  const [tankType, setTankType] = useState('');
+  const [indoorOutdoor, setIndoorOutdoor] = useState(initialData?.indoorOutdoor || '');
+  const [insulationType, setInsulationType] = useState(initialData?.insulationType || '');
+  const [tankType, setTankType] = useState(initialData?.tankType || '');
 
   // Core configurations
-  const [coreConfigs, setCoreConfigs] = useState<{ coreType: string; accuracyClass: string; vendorNo: string; secondaryCurrent: string }[]>(() =>
-    Array.from({ length: parseInt(numberOfCores) || 1 }, () => ({ coreType: 'metering', accuracyClass: '', vendorNo: '', secondaryCurrent: '1' }))
-  );
+  const [coreConfigs, setCoreConfigs] = useState<{ coreType: string; accuracyClass: string; vendorNo: string; secondaryCurrent: string }[]>(() => {
+    if (initialData?.coreDetails) {
+      return initialData.coreDetails.map((c: any) => ({
+        coreType: c.coreType?.toLowerCase() || 'metering',
+        accuracyClass: c.accuracyClass || '',
+        vendorNo: c.vendorNo || '',
+        secondaryCurrent: c.secondaryCurrent || '1'
+      }));
+    }
+    return Array.from({ length: parseInt(numberOfCores) || 1 }, () => ({ coreType: 'metering', accuracyClass: '', vendorNo: '', secondaryCurrent: '1' }));
+  });
 
   // Transformer Parameters
-  const [primaryCurrents, setPrimaryCurrents] = useState<string[]>([]);
+  const [primaryCurrents, setPrimaryCurrents] = useState<string[]>(initialData?.primaryCurrents || []);
   const [isCustomPrimaryCurrent, setIsCustomPrimaryCurrent] = useState(false);
   const [customPrimaryCurrentInput, setCustomPrimaryCurrentInput] = useState('');
+<<<<<<< Updated upstream
   const [burden, setBurden] = useState('');
   const [stc, setStc] = useState('');
+=======
+  const [nominalVoltage, setNominalVoltage] = useState(initialData?.nominalSystemVoltage?.toString() || '');
+  const [burden, setBurden] = useState(initialData?.burden?.toString() || '');
+  const [stc, setStc] = useState(initialData?.stc || '');
+>>>>>>> Stashed changes
 
   // PT Specific Voltage Parameters
-  const [ratedPrimaryVoltage, setRatedPrimaryVoltage] = useState('');
+  const [ratedPrimaryVoltage, setRatedPrimaryVoltage] = useState(initialData?.ratedPrimaryVoltage || '');
   const [isCustomPrimaryVoltage, setIsCustomPrimaryVoltage] = useState(false);
-  const [ratedSecondaryVoltage, setRatedSecondaryVoltage] = useState('');
+  const [ratedSecondaryVoltage, setRatedSecondaryVoltage] = useState(initialData?.ratedSecondaryVoltage || '');
   const [isCustomSecondaryVoltage, setIsCustomSecondaryVoltage] = useState(false);
 
   // Additional parameters
@@ -320,8 +336,8 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
       </div>
 
       <div>
-        <h2>Order Form - Transformer Details</h2>
-        <p className="text-gray-500 mt-1">Complete all required information for the order</p>
+        <h2>{isEditMode ? 'Edit Order' : 'Order Form - Transformer Details'}</h2>
+        <p className="text-gray-500 mt-1">{isEditMode ? `Updating parameters for ${initialData.jobId}` : 'Complete all required information for the order'}</p>
       </div>
 
       <Card className="p-6">
@@ -927,7 +943,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
               onClick={handleSubmit}
               className={`flex-1 ${isEntryOperator ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'}`}
             >
-              {isEntryOperator ? "Submit for Approval" : "Continue to Assign Testing"}
+              {isEditMode ? "Update Order" : (isEntryOperator ? "Submit for Approval" : "Continue to Assign Testing")}
             </Button>
           </div>
         </div>

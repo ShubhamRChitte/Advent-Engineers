@@ -147,6 +147,8 @@ export function NotificationsModule({ onNavigateToOrder, isActive }: Notificatio
         </div>
       </div>
 
+      {/* ✅ Removed Admin Review Panel for Retest Approvals as per user request */}
+
       {/* ✅ Add Strict Approval Requests Dashboard right here at the top of Notifications */}
       <StrictApprovalDashboard />
 
