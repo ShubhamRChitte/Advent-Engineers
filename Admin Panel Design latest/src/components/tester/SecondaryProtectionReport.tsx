@@ -5,6 +5,8 @@ import { Input } from '../ui/input';
 import { ArrowLeft, Save, Printer, AlertTriangle } from 'lucide-react';
 import { Transformer } from './SecondaryTransformersList';
 import { toast } from 'sonner';
+import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
+import { ImageWithFallback } from '../figma/ImageWithFallback';
 
 interface SecondaryProtectionReportProps {
   transformer: Transformer;
@@ -531,269 +533,121 @@ export function SecondaryProtectionReport({
   };
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-6 p-4 bg-gray-50 flex justify-center">
       <style>{`
-        #print-section {
-          background: white;
-          padding: 5mm 10mm;
-          min-height: 297mm;
-          width: 100%;
-          box-sizing: border-box;
-          color: black;
-          font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        }
-        
-        .report-header-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          border: 1.5px solid #000;
-          margin-bottom: 0;
-        }
-        
-        .header-left {
-          padding: 10px;
-          border-right: 1.5px solid #000;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-        }
-        
-        .header-right {
-          display: grid;
-          grid-template-rows: repeat(5, 1fr);
-        }
-        
-        .header-field {
-          display: grid;
-          grid-template-columns: 100px 1fr;
-          border-bottom: 1px solid #000;
-          font-size: 11px;
-        }
-        
-        .header-field:last-child {
-          border-bottom: none;
-        }
-        
-        .report-header-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          border: 1.5px solid #000;
-          margin-bottom: 0;
-        }
-        
-        .header-left {
-          padding: 10px;
-          border-right: 1.5px solid #000;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-        }
-        
-        .header-right {
-          display: grid;
-          grid-template-rows: repeat(5, 1fr);
-        }
-        
-        .header-field {
-          display: grid;
-          grid-template-columns: 100px 1fr;
-          border-bottom: 1px solid #000;
-          font-size: 11px;
-        }
-        
-        .header-field:last-child {
-          border-bottom: none;
-        }
-        
-        .field-label {
-          padding: 4px 8px;
-          border-right: 1px solid #000;
-          text-align: right;
-          font-weight: 600;
-        }
-        
-        .field-value {
-          padding: 4px 8px;
-          font-weight: 500;
-        }
-        
-        .report-title-banner {
-          background-color: #ffffff !important; /* White */
-          border-left: 1.5px solid #000;
-          border-right: 1.5px solid #000;
-          border-bottom: 2px solid #000;
-          text-align: center;
-          padding: 6px;
-          font-weight: bold;
-          font-size: 18px;
-          text-transform: uppercase;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
-        
-        .description-banner {
-          background-color: #f8fafc !important; /* Minimalist Light Gray */
-          border-left: 1.5px solid #000;
-          border-right: 1.5px solid #000;
-          border-bottom: 1px solid #000;
-          text-align: center;
-          padding: 4px;
-          font-weight: bold;
-          font-size: 14px;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
+        .report-wrapper { background: white; width: 210mm; min-height: 297mm; padding: 15mm; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: black; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; box-sizing: border-box; }
+        .report-header-top { display: flex; align-items: center; justify-content: center; position: relative; padding-bottom: 10px; border-bottom: 2px solid #000; margin-bottom: 5px; }
+        .header-logo { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 120px; height: 60px; display: flex; align-items: center; }
+        .header-titles { text-align: center; }
+        .header-titles h1 { font-size: 24px; font-weight: bold; color: #1e3a8a; margin: 0; letter-spacing: 1px; }
+        .header-titles p { font-size: 12px; color: #4b5563; margin: 0; }
+        .report-metadata { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+        .meta-column { width: 48%; }
+        .meta-field { display: flex; margin-bottom: 4px; font-size: 12px; }
+        .meta-label { font-weight: 600; width: 80px; }
+        .meta-value { flex: 1; }
+        .report-main-title { text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
+        .section-container { border: 1px solid #000; margin-bottom: 15px; }
+        .section-title { padding: 4px; text-align: center; font-weight: bold; font-size: 13px; border-bottom: 1px solid #000; }
+        .spec-table { width: 100%; border-collapse: collapse; }
+        .spec-table td { border-bottom: 1px solid #000; padding: 4px 8px; font-size: 12px; }
+        .spec-table tr:last-child td { border-bottom: none; }
+        .nested-table { width: 100%; border-collapse: collapse; table-layout: fixed; border-top: 1px solid #000; }
+        .nested-table th, .nested-table td { border: 1px solid #000; padding: 4px; text-align: center; font-size: 11px; }
+        .nested-table th { font-weight: bold; }
 
-        .nested-table {
-          width: 100%;
-          border-collapse: collapse;
-          border: 1.5px solid #000;
-          table-layout: fixed;
-        }
-        
-        .nested-table td, .nested-table th {
-          border: 1px solid #000;
-          padding: 4px;
-          text-align: center;
-          font-size: 11px;
-          height: 24px;
-        }
-        
-        .bg-yellow { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .bg-blue { background-color: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .bg-green { background-color: #ffffff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .bg-cyan { background-color: #ffffff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-
-        .footer-sig {
-          margin-top: 40px;
-          display: flex;
-          justify-content: space-between;
-          padding: 0 40px;
-        }
-        
-        .sig-item {
-          text-align: center;
-          width: 200px;
-        }
-        
-        .sig-line {
-          border-top: 1.5px solid #000;
-          margin-top: 60px;
-          padding-top: 5px;
-          font-weight: bold;
-          font-size: 13px;
-        }
-
+        .input-cell { padding: 0 !important; }
+        .input-field { width: 100%; height: 24px; text-align: center; border: none; background: transparent; font-size: 11px; outline: none; }
+        .input-field:focus { background-color: #fef08a; }
+        .footer-sig { margin-top: 60px; display: flex; justify-content: space-between; padding: 0 40px; page-break-inside: avoid; }
+        .sig-block { text-align: center; width: 200px; display: flex; flex-direction: column; align-items: center; }
+        .sig-name { font-size: 12px; font-weight: bold; min-height: 18px; margin-bottom: 5px; }
+        .sig-line { width: 100%; border-top: 1px dashed #000; padding-top: 5px; font-weight: bold; font-size: 12px; }
+        .bg-yellow { background-color: #f9fafb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         @media print {
           @page { size: A4 portrait; margin: 10mm; }
+          body { background: white; margin: 0; padding: 0; }
+          .print-container { width: 100% !important; margin: 0 !important; padding: 0 !important; }
+          .report-wrapper { box-shadow: none; width: 100%; min-height: auto; padding: 0; margin: 0; border: none; }
+          .bg-gray-50 { background: white !important; }
           .no-print { display: none !important; }
+          .overflow-x-auto { overflow: visible !important; }
+          table { page-break-inside: avoid; width: 100% !important; }
+          tr { page-break-inside: avoid; page-break-after: auto; }
         }
       `}</style>
-      {!readOnly && (
-        <div className="flex items-center justify-between no-print">
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
-              <ArrowLeft className="w-4 h-4" /> Back
-            </Button>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDatabaseSave}
-              className="gap-2"
-            >
-              <Save className="w-4 h-4" /> Save
-            </Button>
-            {hasFailures && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleMarkAsFailed}
-                className="gap-2"
-              >
-                <AlertTriangle className="w-4 h-4" /> Mark as Failed Core
+      
+      <div className="print-container w-[210mm]">
+        {!readOnly && (
+          <div className="flex items-center justify-between no-print mb-4 w-full">
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
+                <ArrowLeft className="w-4 h-4" /> Back
               </Button>
-            )}
-            <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
-              <Printer className="w-4 h-4" /> Print
-            </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2">
+                <Save className="w-4 h-4" /> Save
+              </Button>
+              {hasFailures && (
+                <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2">
+                  <AlertTriangle className="w-4 h-4" /> Add to Failed Cores
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
+                <Printer className="w-4 h-4" /> Print
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div id="printable-report">
-        {/* Header Grid */}
-        <div className="report-header-grid">
-          <div className="header-left">
-            <h1 className="text-2xl font-bold italic text-red-600 leading-tight">ADVENT ENGINEERS</h1>
+        <div id="printable-report" className="report-wrapper">
+          <div className="report-header-top">
+            <div className="header-logo">
+              <ImageWithFallback src={logoImage} alt="Advent Logo" className="max-w-full max-h-full object-contain" />
+            </div>
+            <div className="header-titles">
+              <h1>ADVENT ENGINEERS</h1>
+              <p>Excellence in Transformer Core Testing</p>
+            </div>
           </div>
-          <div className="header-right">
-            <div className="header-field">
-              <span className="field-label">Date :</span>
-              <span className="field-value">
-                {stage && transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate
+
+          <div className="report-metadata">
+            <div className="meta-column">
+              <div className="meta-field"><span className="meta-label">Date</span><span className="meta-value">: {stage && transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate
                   ? new Date(transformer.testHistory[`${stage}_test` as keyof typeof transformer.testHistory].reportDate).toLocaleDateString('en-GB')
-                  : new Date().toLocaleDateString('en-GB')}
-              </span>
+                  : new Date().toLocaleDateString('en-GB')}</span></div>
+              <div className="meta-field"><span className="meta-label">Order No</span><span className="meta-value">: {transformer.jobId || transformer.uniqueId}</span></div>
+              <div className="meta-field"><span className="meta-label">Client</span><span className="meta-value">: {transformer.clientName || 'N/A'}</span></div>
             </div>
-            <div className="header-field">
-              <span className="field-label">Order No :</span>
-              <span className="field-value">{transformer.jobId || transformer.uniqueId}</span>
-            </div>
-            <div className="header-field">
-              <span className="field-label">Client :</span>
-              <span className="field-value">{transformer.clientName || 'N/A'}</span>
-            </div>
-            <div className="header-field">
-              <span className="field-label">Unit No :</span>
-              <span className="field-value">{transformer.uniqueId}</span>
-            </div>
-            <div className="header-field">
-              <span className="field-label">Class :</span>
-              <span className="field-value">{protectionClass || '5P'}</span>
+            <div className="meta-column">
+              <div className="meta-field"><span className="meta-label">Unit No</span><span className="meta-value">: {transformer.uniqueId}</span></div>
+              <div className="meta-field"><span className="meta-label">Class</span><span className="meta-value">: {protectionClass || '5P'}</span></div>
             </div>
           </div>
-        </div>
 
+          <div className="report-main-title">PROTECTION CORE TEST REPORT</div>
 
-        <div className="description-banner">
-          Secondary Verification - {coreId}
-        </div>
-
-        {/* Testing Record Table */}
-        <div className="mt-4 border-[1.5px] border-black text-black">
-          <div className="bg-gray-100 p-1 text-center font-bold text-xs border-b-[1.5px] border-black uppercase">
-            Testing Record of Current Transformer
+          <div className="section-container">
+            <div className="section-title bg-gray-100">Secondary Winding Verification - {coreId}</div>
+            <table className="spec-table">
+              <tbody>
+                <tr>
+                  <td colSpan={2}><span className="font-bold mr-2">Specification :</span> {transformer.voltageRating || '33'} KV {transformer.clientName || 'N/A'}</td>
+                </tr>
+                <tr>
+                  <td colSpan={2}><span className="font-bold mr-2">CT Ratio :</span> {ratiosToUse.join('-')} A</td>
+                </tr>
+                <tr>
+                  <td style={{ width: '50%', borderRight: '1px solid #000' }}><span className="font-bold mr-2">Burden :</span> {displayBurden} VA</td>
+                  <td style={{ width: '50%' }}><span className="font-bold mr-2">Class :</span> {protectionClass || '5P'}</td>
+                </tr>
+                <tr>
+                  <td colSpan={2}><span className="font-bold mr-2">STC :</span> {displaySTC}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <table className="w-full text-[11px] border-collapse">
-            <tbody>
-              <tr>
-                <td className="border-b border-black p-1.5" colSpan={2}>
-                  <p><span className="font-bold italic">Specification :</span> {transformer.voltageRating || '33'} KV {transformer.clientName || 'N/A'}</p>
-                </td>
-              </tr>
-              <tr>
-                <td className="border-b border-black p-1.5" colSpan={2}>
-                  <p><span className="font-bold italic">CT Ratio :</span> {ratiosToUse.join('-')} A</p>
-                </td>
-              </tr>
-              <tr>
-                <td className="border-r border-b border-black p-1.5 w-1/2">
-                  <p><span className="font-bold italic">Burden :</span> {displayBurden} VA</p>
-                </td>
-                <td className="border-b border-black p-1.5 w-1/2">
-                  <p><span className="font-bold italic">Class :</span> {protectionClass || '5P'}</p>
-                </td>
-              </tr>
-              <tr>
-                <td className="p-1.5" colSpan={2}>
-                  <p><span className="font-bold italic">STC :</span> {displaySTC}</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
 
         <div className="mt-4">
 
@@ -1009,15 +863,15 @@ export function SecondaryProtectionReport({
           </div>
         </div>
 
-        {/* Footer Signatures */}
-        <div className="footer-sig">
-          <div className="sig-item">
-            <div className="sig-line">Tested by</div>
-            <div className="text-xs mt-1 font-bold">{testerName || 'Tester'}</div>
-          </div>
-          <div className="sig-item">
-            <div className="sig-line">Authorised Signatory</div>
-            <div className="text-[10px] mt-1 italic italic-bold text-gray-500">Stamp & Signature</div>
+          <div className="footer-sig">
+            <div className="sig-block">
+              <div className="sig-name">{testerName || 'Tester'}</div>
+              <div className="sig-line">Tested By</div>
+            </div>
+            <div className="sig-block">
+              <div className="sig-name italic text-gray-500 font-normal mt-1">Stamp & Signature</div>
+              <div className="sig-line">Authorised Signatory</div>
+            </div>
           </div>
         </div>
       </div>
