@@ -981,6 +981,46 @@ export function SecondaryPSReport({
           .overflow-x-auto { overflow: visible !important; }
           table { page-break-inside: avoid; width: 100% !important; }
           tr { page-break-inside: avoid; page-break-after: auto; }
+
+          /* Strip browser default input box appearance for print — make inputs look like plain text */
+          .nested-table input {
+            -webkit-appearance: none !important;
+            appearance: none !important;
+            border: none !important;
+            outline: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            padding: 2px 0 !important;
+            margin: 0 !important;
+            height: 28px !important;
+            min-height: 28px !important;
+            line-height: 28px !important;
+            display: block !important;
+            width: 100% !important;
+            font-size: 11px !important;
+            font-weight: bold !important;
+            text-align: center !important;
+            color: inherit !important;
+          }
+
+          /* Fix PS table rowSpan row heights so the 2-row structure stays aligned */
+          .nested-table tbody td[rowspan="2"] {
+            height: 56px !important;
+            min-height: 56px !important;
+            vertical-align: middle !important;
+          }
+          .nested-table tbody td:not([rowspan]) {
+            height: 28px !important;
+            min-height: 28px !important;
+            vertical-align: middle !important;
+          }
+          .nested-table tbody td .flex {
+            display: flex !important;
+            align-items: center !important;
+            height: 28px !important;
+            min-height: 28px !important;
+          }
         }
       `}</style>
 

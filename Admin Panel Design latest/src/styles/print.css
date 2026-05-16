@@ -291,11 +291,59 @@
     print-color-adjust: exact;
   }
 
-  /* Specific Card Print Fix */
-  #printable-report.bg-white {
-    background-color: white !important;
+  /* ------------------------------------------------
+     8. PS / PROTECTION TABLE ROW HEIGHT FIX
+     Overrides the global input reset above for the
+     nested-table structure that uses rowSpan across 2-3 rows.
+     Must come AFTER the generic input reset to win specificity.
+     ------------------------------------------------ */
+
+  /* Force inputs in the PS/Protection nested table to hold their height
+     so rowSpan cells don't collapse */
+  #printable-report .nested-table input {
+    height: 28px !important;
+    min-height: 28px !important;
+    line-height: 28px !important;
+    display: block !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    font-size: 11px !important;
+    font-weight: bold !important;
+    text-align: center !important;
+  }
+
+  /* Rowspan cells: height = number_of_rows × 28px */
+  #printable-report .nested-table tbody td[rowspan="2"] {
+    height: 56px !important;
+    min-height: 56px !important;
+    vertical-align: middle !important;
+  }
+  #printable-report .nested-table tbody td[rowspan="3"] {
+    height: 84px !important;
+    min-height: 84px !important;
+    vertical-align: middle !important;
+  }
+  /* Non-rowspan data cells (the Vk: / 1.1Vk: sub-rows) */
+  #printable-report .nested-table tbody td:not([rowspan]) {
+    height: 28px !important;
+    min-height: 28px !important;
+    vertical-align: middle !important;
+  }
+  /* Flex wrappers inside Vk cells */
+  #printable-report .nested-table tbody td .flex {
+    display: flex !important;
+    align-items: center !important;
+    height: 28px !important;
+    min-height: 28px !important;
   }
 }
+
 
 /* 
    SCREEN STYLES (Default) 
