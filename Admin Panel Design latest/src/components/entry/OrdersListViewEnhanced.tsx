@@ -73,6 +73,11 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav, o
   const [activeTab, setActiveTab] = useState<string>('all');
   const [selectedOrder, _setSelectedOrder] = useState<Order | null>(null);
   
+  // True when we know we need to restore from sessionStorage — prevents the Orders List flash
+  const [isRestoring, setIsRestoring] = useState<boolean>(
+    () => !!sessionStorage.getItem('admin_selectedOrderId')
+  );
+
   const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(null);
   const scrollAttempted = useRef(false);
 
@@ -133,14 +138,18 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav, o
   // Restore selected order after returning from report page
   useEffect(() => {
     const savedId = sessionStorage.getItem('admin_selectedOrderId');
-    if (savedId && orders.length > 0 && !selectedOrder) {
+    if (savedId && orders.length > 0) {
       const match = orders.find(o => o._id === savedId);
       if (match) {
         sessionStorage.removeItem('admin_selectedOrderId');
         _setSelectedOrder(match);
       }
+      // Whether we found a match or not, we're done restoring
+      setIsRestoring(false);
+    } else if (!savedId) {
+      setIsRestoring(false);
     }
-  }, [orders, selectedOrder]);
+  }, [orders]);
 
   // Handle auto-scroll and highlight when navigating from notifications
   useEffect(() => {
@@ -254,6 +263,15 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav, o
     'In Testing': orders.filter((o) => (o.status || '').includes('Testing') && !(o.status || '').includes('Completed')).length,
     Completed: orders.filter((o) => (o.status || '').toUpperCase() === 'COMPLETED' || (o.status || '') === 'PT Testing Completed' || (o.status || '') === 'Final Testing Completed').length,
   };
+
+  if (isRestoring) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[300px] space-y-3 text-gray-400">
+        <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+        <p className="text-sm font-medium">Returning to order...</p>
+      </div>
+    );
+  }
 
   if (selectedOrder) {
     return (
