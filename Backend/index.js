@@ -140,6 +140,8 @@ app.use('/api/failed-cores', require('./routes/failedCoreRoutes')); // Failed Co
 app.use('/api/return-forms', require('./routes/returnFormRoutes')); // New Return Form Routes
 app.use('/api/pt-tests', require('./routes/ptTestRoutes')); // PT Testing Routes
 app.use('/api/pt-pretests', require('./routes/ptPretestRoutes')); // PT Pretesting Routes
+app.use('/api/pt-timer', require('./routes/ptTimerRoutes')); // PT Delay Timer Tracking
+app.use('/api/ct-timer', require('./routes/ctTimerRoutes')); // CT Delay Timer Tracking
 app.use('/api/heating-record', heatingRecordRoutes); // Heating Record Routes
 app.use('/api/pt-heating-record', ptHeatingRecordRoutes); // PT Heating Record Routes
 app.use('/api/accuracy-limits', require('./routes/accuracyLimits.cjs')); // Accuracy Limits Management

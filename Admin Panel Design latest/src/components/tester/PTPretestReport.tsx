@@ -6,6 +6,8 @@ import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
 import { Save, AlertCircle, ArrowLeft, AlertTriangle, Edit3, Printer, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePTTimer } from '../../utils/usePTTimer';
+import { PTTimerBadge } from './PTTimerBadge';
 
 export function validatePTMeteringUI(accClass: string, ratioErrorStr: string, phaseErrorStr: string, meteringLimits: any) {
   if (!meteringLimits) return { isPass: undefined, reason: null };
@@ -98,6 +100,17 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
   const [coreClassesMap, setCoreClassesMap] = useState<Record<string, string>>({});
 
   const [dbMeteringLimits, setDbMeteringLimits] = useState<any>(null);
+
+  // ── PT Delay Timer (tracking-only, non-blocking) ─────────────────────────
+  const { timeLeftMs, isOverdue, expectedMinutes, endTimer } = usePTTimer({
+    transformerId: transformer?._id || '',
+    orderId:       order?._id || '',
+    jobId:         order?.jobId || '',
+    stage:         'pt_pretest',
+    testerName:    user?.name || user?.fullName || 'PT Tester',
+    role:          'pt-pretester',
+    enabled:       !isReadOnly && !!transformer?._id
+  });
   const [dbProtectionLimits, setDbProtectionLimits] = useState<any>(null);
 
   useEffect(() => {
@@ -383,6 +396,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
 
         if (responses.every(r => r.data.success)) {
             toast.success(`Successfully submitted ${payloads.length} PT core test reports.`);
+            endTimer(); // Record timer end for delay tracking
             setIsReadOnly(true);
             setTimeout(() => onBack(), 1500);
         }
@@ -432,6 +446,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
       
       await axios.put(`http://localhost:5001/api/pt-pretests/transformer/${activeTabId}/approve`, {}, { withCredentials: true });
       toast.success("Unit approved and sent to Final PT Testing!");
+      endTimer(); // Record timer end for delay tracking
       
       setTimeout(() => onBack(), 1500);
     } catch (e: any) {
@@ -588,7 +603,16 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
   })();
 
   return (
+    <>
     <div className="max-w-4xl mx-auto space-y-6">
+        {!isReadOnly && (
+          <PTTimerBadge 
+            timeLeftMs={timeLeftMs} 
+            isOverdue={isOverdue} 
+            expectedMinutes={expectedMinutes} 
+            title="PT Pretest"
+          />
+        )}
         <style>{`
           @media print {
             @page {
@@ -799,13 +823,10 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
                                 <tbody>
                                     {activeCores.map((core) => {
                                         const isProtection = core.startsWith('protection');
-                                        const coreNum = core.replace(/[a-z]/gi, '');
-                                        const suffix = coreNum === '1' || coreNum === '' ? '' : ` ${coreNum}`;
-
                                         const label = isProtection 
-                                            ? `Protection${suffix} 30%` 
+                                            ? `Protection 30%` 
                                             : core.startsWith('metering') 
-                                                ? `Metering${suffix} 30%` 
+                                                ? `Metering 30%` 
                                                 : `${core} 30%`;
                                         
                                         const validations = preTestValidations?.[core];
@@ -872,6 +893,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
             </div>
         )}
     </div>
-  );
+
+  </> );
 }
 

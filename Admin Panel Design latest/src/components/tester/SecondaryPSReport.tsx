@@ -587,6 +587,7 @@ interface SecondaryPSReportProps {
   secondaryCurrent?: string;
   order?: any;
   onRefresh?: () => void;
+  onCompleteTimer?: () => Promise<void>;
 }
 
 export function SecondaryPSReport({ 
@@ -601,7 +602,8 @@ export function SecondaryPSReport({
   primaryCurrent: manualPrimary,
   secondaryCurrent: manualSecondary,
   order: propOrder,
-  onRefresh
+  onRefresh,
+  onCompleteTimer
 }: SecondaryPSReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
     (!isNaN(parseInt(coreId.replace(/[^0-9]/g, ''))) ? parseInt(coreId.replace(/[^0-9]/g, '')) - 1 : 0);
@@ -836,6 +838,8 @@ export function SecondaryPSReport({
         payload,
         { withCredentials: true }
       );
+
+      if (onCompleteTimer) await onCompleteTimer();
 
       console.log("handleDatabaseSave (PS): Response received", response);
       toast.success("Secondary PS Test results saved successfully!");

@@ -19,6 +19,7 @@ interface SecondaryProtectionReportProps {
   secondaryCurrent?: string;
   order?: any;
   onRefresh?: () => void;
+  onCompleteTimer?: () => Promise<void>;
 }
 
 interface ProtectionTestRow {
@@ -109,6 +110,7 @@ export function SecondaryProtectionReport({
   secondaryCurrent: manualSecondary,
   order: propOrder,
   onRefresh,
+  onCompleteTimer,
 }: SecondaryProtectionReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
     (!isNaN(parseInt(coreId.replace(/[^0-9]/g, ''))) ? parseInt(coreId.replace(/[^0-9]/g, '')) - 1 : 0);
@@ -487,6 +489,8 @@ export function SecondaryProtectionReport({
         payload,
         { withCredentials: true }
       );
+
+      if (onCompleteTimer) await onCompleteTimer();
 
       console.log("handleDatabaseSave: Response received", response);
       toast.success("Protection data saved to database successfully!");

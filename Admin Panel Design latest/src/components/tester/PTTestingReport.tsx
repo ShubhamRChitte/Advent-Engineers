@@ -7,6 +7,8 @@ import { Input } from '../ui/input';
 import { Save, AlertCircle, ArrowLeft, AlertTriangle, Edit3, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { PTFinalPrintReport } from './PTFinalPrintReport';
+import { usePTTimer } from '../../utils/usePTTimer';
+import { PTTimerBadge } from './PTTimerBadge';
 
 export function validatePTMeteringUI(accClass: string, ratioErrorStr: string, phaseErrorStr: string, meteringLimits: any) {
   if (!meteringLimits) return { isPass: undefined, reason: null };
@@ -101,6 +103,17 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
   const [dbMeteringLimits, setDbMeteringLimits] = useState<any>(null);
   const [pretestData, setPretestData] = useState<Record<string, any>>({}); // Locked pretest data from pretester
   const [dbProtectionLimits, setDbProtectionLimits] = useState<any>(null);
+
+  // ── PT Delay Timer (tracking-only, non-blocking) ─────────────────────────
+  const { timeLeftMs, isOverdue, expectedMinutes, endTimer } = usePTTimer({
+    transformerId: transformer?._id || '',
+    orderId:       order?._id || '',
+    jobId:         order?.jobId || '',
+    stage:         'pt',
+    testerName:    user?.name || user?.fullName || 'PT Tester',
+    role:          'pt-tester',
+    enabled:       !isReadOnly && !!transformer?._id
+  });
 
   useEffect(() => {
     const fetchLimits = async () => {
@@ -431,6 +444,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
 
         if (responses.every(r => r.data.success)) {
             toast.success(`Successfully submitted ${payloads.length} PT core test reports.`);
+            endTimer(); // Record timer end for delay tracking
             setIsReadOnly(true);
             setTimeout(() => onBack(), 1500);
         }
@@ -621,7 +635,16 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
   })();
 
   return (
+    <>
     <div className="max-w-4xl mx-auto space-y-6">
+        {!isReadOnly && (
+          <PTTimerBadge 
+            timeLeftMs={timeLeftMs} 
+            isOverdue={isOverdue} 
+            expectedMinutes={expectedMinutes} 
+            title="PT Final Test"
+          />
+        )}
         <style>{`
           @media print {
             @page {
@@ -1002,5 +1025,6 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
             </div>
         )}
     </div>
-  );
+
+  </> );
 }

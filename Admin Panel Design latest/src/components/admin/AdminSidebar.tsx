@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, PlusCircle, List, FileText, Bell, AlertTriangle, Warehouse } from 'lucide-react';
+import { LayoutDashboard, Users, PlusCircle, List, FileText, Bell, AlertTriangle, Warehouse, Timer } from 'lucide-react';
 import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { useState, useEffect } from 'react';
@@ -47,6 +47,8 @@ export function AdminSidebar({ activeView, setActiveView }: AdminSidebarProps) {
     { id: 'customer-reports', label: 'Customer Reports', icon: FileText },
     { id: 'ready-stock', label: 'Ready Stock', icon: Warehouse },
     { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'pt-delay-tracker', label: 'PT Delay Tracker', icon: Timer },
+    { id: 'ct-delay-tracker', label: 'CT Delay Tracker', icon: Timer },
   ];
 
   return (

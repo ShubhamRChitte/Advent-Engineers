@@ -19,6 +19,7 @@ interface SecondaryMeteringReportProps {
   secondaryCurrent?: string;
   order?: any;
   onRefresh?: () => void;
+  onCompleteTimer?: () => Promise<void>;
 }
 
 export function SecondaryMeteringReport({
@@ -34,6 +35,7 @@ export function SecondaryMeteringReport({
   secondaryCurrent: manualSecondary,
   order: propOrder,
   onRefresh,
+  onCompleteTimer,
 }: SecondaryMeteringReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
     (!isNaN(parseInt(coreId.replace(/[^0-9]/g, ''))) ? parseInt(coreId.replace(/[^0-9]/g, '')) - 1 : 0);
@@ -192,6 +194,7 @@ export function SecondaryMeteringReport({
         }))
       };
       await axios.post(`http://localhost:5001/transformer-${stage}-metering-tests`, payload, { withCredentials: true });
+      if (onCompleteTimer) await onCompleteTimer();
       toast.success("Data saved successfully!");
       if (onRefresh) onRefresh();
     } catch (error) {

@@ -14,8 +14,8 @@ interface AfterPrimaryPSReportProps {
   testerName: string;
   onBack: () => void;
   primaryCurrent?: string;
-  secondaryCurrent?: string;
   order?: any;
+  onCompleteTimer?: () => Promise<void>;
 }
 
 export function AfterPrimaryPSReport({
@@ -26,6 +26,7 @@ export function AfterPrimaryPSReport({
   primaryCurrent,
   secondaryCurrent,
   order,
+  onCompleteTimer,
 }: AfterPrimaryPSReportProps) {
 
   return (
@@ -40,6 +41,7 @@ export function AfterPrimaryPSReport({
       primaryCurrent={primaryCurrent}
       secondaryCurrent={secondaryCurrent}
       order={order}
+      onCompleteTimer={onCompleteTimer}
     />
   );
 }

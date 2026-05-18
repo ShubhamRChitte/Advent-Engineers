@@ -5,18 +5,34 @@ import { ArrowLeft, Save, Download, Printer, AlertTriangle } from 'lucide-react'
 import { FinalTransformer } from './FinalTransformersList';
 import { toast } from 'sonner';
 import axios from 'axios';
+import { useCTTimer } from '../../utils/useCTTimer';
+import { CTTimerBadge } from './CTTimerBadge';
 
 interface FinalTestReportProps {
   transformer: FinalTransformer;
   testerName: string;
   onBack: () => void;
+  onApprove?: () => void;
 }
 
 export function FinalTestReport({
   transformer,
   testerName,
   onBack,
+  onApprove,
 }: FinalTestReportProps) {
+  // ── CT Delay Timer (tracking-only, non-blocking) ─────────────────────────
+  const { timeLeftMs, isOverdue, expectedMinutes, endTimer } = useCTTimer({
+    transformerId: transformer?.uniqueId || '',
+    orderId:       (transformer as any)?.orderId?._id || (transformer as any)?.orderId || '',
+    jobId:         (transformer as any)?.jobId || '',
+    stage:         'final',
+    testerName:    testerName || 'Final Tester',
+    role:          'final-tester',
+    coreCount:     transformer?.cores?.length || 1,
+    enabled:       !!transformer?.uniqueId
+  });
+
   const testDate = transformer.testHistory?.final_test?.reportDate
     ? new Date(transformer.testHistory.final_test.reportDate).toLocaleDateString('en-GB')
     : new Date().toLocaleDateString('en-GB');
@@ -105,6 +121,7 @@ export function FinalTestReport({
     }
     const success = await handleSave();
     if (success && onApprove) {
+      endTimer(); // Record CT final timer end
       onApprove();
     }
   };
@@ -210,6 +227,7 @@ export function FinalTestReport({
 
       if (res.data.success) {
         toast.success("Final report data saved successfully!");
+        endTimer(); // Record CT final timer end
         if (onBack) onBack();
       } else {
         toast.error(res.data.message || 'Failed to save final test record.');
@@ -225,7 +243,14 @@ export function FinalTestReport({
   };
 
   return (
+    <>
     <div className="space-y-6">
+      <CTTimerBadge 
+        timeLeftMs={timeLeftMs} 
+        isOverdue={isOverdue} 
+        expectedMinutes={expectedMinutes} 
+        title="Final Testing"
+      />
       <style>{`
         #print-section {
           background: white;
@@ -678,5 +703,6 @@ export function FinalTestReport({
         </div>
       </div>
     </div>
-  );
+
+  </>);
 }

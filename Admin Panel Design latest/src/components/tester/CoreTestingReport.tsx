@@ -7,6 +7,8 @@ import { CheckCircle } from 'lucide-react';
 import { exportCoreTestingReport } from '../../utils/pdfExport';
 import axios from 'axios';
 import { PrintableCoreReport } from '../reports/PrintableCoreReport';
+import { useCTTimer } from '../../utils/useCTTimer';
+import { CTTimerBadge } from './CTTimerBadge';
 
 interface Order {
   _id: string;
@@ -52,6 +54,18 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
 
   const [coreTests, setCoreTests] = useState<CoreTestData[]>([]);
   const [isApproving, setIsApproving] = useState(false);
+
+  // ── CT Delay Timer (tracking-only, non-blocking) ─────────────────────────
+  const { timeLeftMs, isOverdue, expectedMinutes, endTimer } = useCTTimer({
+    transformerId: order._id || '',
+    orderId:       order._id || '',
+    jobId:         order.jobId || '',
+    stage:         'core',
+    testerName:    'Core Tester',
+    role:          'core-tester',
+    coreCount:     order.coresRequired || 1,
+    enabled:       !!order._id
+  });
 
   // Auto-generate rows based on Assignments
   useEffect(() => {
@@ -152,9 +166,9 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
 
       if (response.data.success) {
         toast.success(response.data.message || 'Batch approved & forwarded successfully!');
-        // Optional: Redirect back or refresh
+        endTimer(); // Record CT core timer end
         setTimeout(() => {
-          onBack(); // Go back to list as this order/batch is done
+          onBack();
         }, 1000);
       }
     } catch (error: any) {
@@ -166,7 +180,14 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
   };
 
   return (
+    <>
     <div className="space-y-6">
+      <CTTimerBadge 
+        timeLeftMs={timeLeftMs} 
+        isOverdue={isOverdue} 
+        expectedMinutes={expectedMinutes} 
+        title="Core Testing"
+      />
       <style>{`
         #print-section {
           background: white;
@@ -420,5 +441,6 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
         </div>
       </Card>
     </div>
-  );
+
+  </>);
 }

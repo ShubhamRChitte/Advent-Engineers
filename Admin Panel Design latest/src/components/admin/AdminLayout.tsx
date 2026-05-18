@@ -12,6 +12,8 @@ import { NotificationsModule } from './NotificationsModule';
 import { FailedCoresPage } from '../../pages/FailedCoresPage';
 import ReadyStockView from '../inventory/ReadyStockView';
 import { CustomerReportsPage } from './CustomerReportsPage';
+import { PTDelayDashboard } from './PTDelayDashboard';
+import { CTDelayDashboard } from './CTDelayDashboard';
 
 interface AdminLayoutProps {
   user: User;
@@ -73,6 +75,10 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
         return <FailedCoresPage />;
       case 'ready-stock':
         return <ReadyStockView />;
+      case 'pt-delay-tracker':
+        return <PTDelayDashboard />;
+      case 'ct-delay-tracker':
+        return <CTDelayDashboard />;
       default:
         return <AdminDashboard setActiveView={setActiveView} />;
     }

@@ -47,6 +47,15 @@ export function AfterPrimaryCoreSelection({
 
   const [transformer, setTransformer] = useState<AfterPrimaryTransformer>(initialTransformer);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Sync when parent passes updated testHistory (e.g., after saving a report and navigating back)
+  useEffect(() => {
+    setTransformer(prev => ({
+      ...prev,
+      testHistory: initialTransformer.testHistory
+    }));
+  }, [initialTransformer.testHistory]);
+
   // Fetch latest transformer data to ensure status is up-to-date
   useEffect(() => {
     const fetchTransformerData = async () => {
@@ -94,16 +103,16 @@ export function AfterPrimaryCoreSelection({
     const history = transformer.testHistory?.primary_test;
     if (!history) return 'pending';
 
-    const expectedRatios = transformer.ratios && transformer.ratios.length > 0 ? transformer.ratios : ['200/1'];
+    const hasValue = (v: any) => v !== undefined && v !== null && v !== '';
 
     if (core.coreType === 'metering') {
       const results = history.metering_results || [];
       const coreResults = results.filter((r: any) => r.internalCoreNo === core.coreId || r.coreId === core.coreId);
-      if (coreResults.length < expectedRatios.length) return 'pending';
+      if (coreResults.length === 0) return 'pending';
       for (const res of coreResults) {
         if (!res.rows || res.rows.length === 0) return 'pending';
         for (const row of res.rows) {
-          if (!row.r100 || !row.p100 || !row.r25 || !row.p25) return 'pending';
+          if (!hasValue(row.r100) || !hasValue(row.p100) || !hasValue(row.r25) || !hasValue(row.p25)) return 'pending';
         }
       }
       return 'completed';
@@ -112,9 +121,10 @@ export function AfterPrimaryCoreSelection({
     if (core.coreType === 'ps') {
       const results = history.ps_results || [];
       const coreResults = results.filter((r: any) => r.internalCoreNo === core.coreId || r.coreId === core.coreId);
-      if (coreResults.length < expectedRatios.length) return 'pending';
+      if (coreResults.length === 0) return 'pending';
       for (const res of coreResults) {
-        if (!res.turnRatioError || !res.resistance || !res.vk || !res.vkVal || !res.iexVk || !res.iex11Vk) return 'pending';
+        // Only require the 3 core measurement fields
+        if (!hasValue(res.turnRatioError) || !hasValue(res.vk) || !hasValue(res.iexVk)) return 'pending';
       }
       return 'completed';
     }
@@ -122,9 +132,11 @@ export function AfterPrimaryCoreSelection({
     if (core.coreType === 'protection') {
       const results = history.protection_results || [];
       const coreResults = results.filter((r: any) => r.internalCoreNo === core.coreId || r.coreId === core.coreId);
-      if (coreResults.length < expectedRatios.length) return 'pending';
+      if (coreResults.length === 0) return 'pending';
       for (const res of coreResults) {
-        if (!res.burden100_1 || !res.burden100_2 || !res.resistance || !res.secondaryLimitingVtg || !res.excitationCurrent || !res.compositeError) return 'pending';
+        // Require key protection fields
+        if (!hasValue(res.ratioError100) || !hasValue(res.resistance) ||
+            (!hasValue(res.secondaryLimitingVtg) && !hasValue(res.secondaryLimitingVoltage))) return 'pending';
       }
       return 'completed';
     }
@@ -246,7 +258,14 @@ export function AfterPrimaryCoreSelection({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={onBack} 
+          className="gap-2"
+          disabled={!isAllCoresCompleted}
+          title={!isAllCoresCompleted ? "You must complete all cores before going back" : ""}
+        >
           <ArrowLeft className="w-4 h-4" />
           Back to Transformers
         </Button>

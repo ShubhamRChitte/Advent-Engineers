@@ -11,14 +11,23 @@ interface SecondaryCoreSelectionProps {
   transformer: Transformer;
   onCoreSelect: (coreNumber: number, coreType: string, enteredCoreId: string, uniqueId: string, accuracyClass?: string) => void;
   onBack: () => void;
-  onRefreshOrders?: () => void; // Added
+  onRefreshOrders?: () => void;
+  onEndTimer?: () => Promise<void>;
 }
 
-export function SecondaryCoreSelection({ transformer: initialTransformer, onCoreSelect, onBack, onRefreshOrders }: SecondaryCoreSelectionProps) {
+export function SecondaryCoreSelection({ transformer: initialTransformer, onCoreSelect, onBack, onRefreshOrders, onEndTimer }: SecondaryCoreSelectionProps) {
   const [enteredCoreId, setEnteredCoreId] = useState('');
   const [selectedCore, setSelectedCore] = useState<number | null>(null);
   // Maintain local state for transformer to allow refreshing data
   const [transformer, setTransformer] = useState<Transformer>(initialTransformer);
+
+  // Sync when parent passes updated testHistory (e.g., after saving a report and navigating back)
+  useEffect(() => {
+    setTransformer(prev => ({
+      ...prev,
+      testHistory: initialTransformer.testHistory
+    }));
+  }, [initialTransformer.testHistory]);
 
   // Fetch latest data on mount to ensure testHistory is fresh
   useEffect(() => {
@@ -147,8 +156,9 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
 
       if (response.data.success) {
         toast.success("Transformer Approved successfully!");
-        if (onRefreshOrders) onRefreshOrders(); // Refresh the parent's orders list
-        onBack(); // Go back to the list as it's now completed
+        if (onEndTimer) await onEndTimer(); // Stop the CT timer on approval
+        if (onRefreshOrders) onRefreshOrders();
+        onBack();
       }
     } catch (err) {
       console.error("Approval failed", err);
@@ -176,23 +186,24 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
 
     if (coreResults.length === 0) return false;
 
+    const hasValue = (v: any) => v !== undefined && v !== null && v !== '';
+
     if (core.coreType === 'metering') {
       return coreResults.every((res: any) =>
         res.rows && res.rows.length > 0 && res.rows.every((row: any) =>
-          row.r100 && row.p100 && row.r25 && row.p25
+          hasValue(row.r100) && hasValue(row.p100) && hasValue(row.r25) && hasValue(row.p25)
         )
       );
     } else if (core.coreType === 'protection') {
       return coreResults.every((res: any) =>
-        res.ratioError100 &&
-        (res.protectionClass === '10P' || res.protectionClass === '15P' ? true : res.phaseError) &&
-        res.resistance &&
-        (res.secondaryLimitingVoltage || res.secondaryLimitingVtg) && res.excitationCurrent && res.compositeError && res.alf
+        hasValue(res.ratioError100) &&
+        hasValue(res.resistance) &&
+        (hasValue(res.secondaryLimitingVoltage) || hasValue(res.secondaryLimitingVtg))
       );
     } else if (core.coreType === 'ps') {
+      // A PS record is complete if the key measurement fields are present
       return coreResults.every((res: any) =>
-        res.turnRatioError && res.resistance && res.vk &&
-        res.vkVal && res.iexVk && res.iex11Vk
+        hasValue(res.turnRatioError) && hasValue(res.vk) && hasValue(res.iexVk)
       );
     }
     return true;
@@ -276,6 +287,7 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
       }, { withCredentials: true });
 
       toast.success("Strict Approval Requested! Reasons: " + finalReason);
+      if (onEndTimer) await onEndTimer(); // Stop the CT timer on strict approval
       if (onRefreshOrders) onRefreshOrders();
       onBack();
     } catch (error) {
@@ -295,6 +307,8 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
           size="sm"
           onClick={onBack}
           className="gap-2"
+          disabled={!isAllCoresCompleted}
+          title={!isAllCoresCompleted ? "You must complete all cores before going back" : ""}
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Transformers
@@ -359,33 +373,28 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
                 id.endsWith(typeSuffix) || id.includes(typeSuffix);
             });
 
-            // 2. Strict Check: Are there results AND are they fully filled?
+            // 2. Check: Are there saved results for this core?
             let isCompleted = false;
             if (coreResults.length > 0) {
+              const hasValue = (v: any) => v !== undefined && v !== null && v !== '';
               if (core.coreType === 'metering') {
-                // Metering: Check r100, p100, r25, p25 for all rows
                 isCompleted = coreResults.every((res: any) =>
                   res.rows && res.rows.length > 0 && res.rows.every((row: any) =>
-                    row.r100 && row.p100 && row.r25 && row.p25
+                    hasValue(row.r100) && hasValue(row.p100) && hasValue(row.r25) && hasValue(row.p25)
                   )
                 );
               } else if (core.coreType === 'protection') {
-                // Protection: Check all main test fields
                 isCompleted = coreResults.every((res: any) =>
-                  res.ratioError100 &&
-                  (res.protectionClass === '10P' || res.protectionClass === '15P' ? true : res.phaseError) &&
-                  res.resistance &&
-                  (res.secondaryLimitingVoltage || res.secondaryLimitingVtg) &&
-                  res.excitationCurrent && res.compositeError && res.alf
+                  hasValue(res.ratioError100) &&
+                  hasValue(res.resistance) &&
+                  (hasValue(res.secondaryLimitingVoltage) || hasValue(res.secondaryLimitingVtg))
                 );
               } else if (core.coreType === 'ps') {
-                // PS: Check all ps fields
                 isCompleted = coreResults.every((res: any) =>
-                  res.turnRatioError && res.resistance && res.vk &&
-                  res.vkVal && res.iexVk && res.iex11Vk
+                  hasValue(res.turnRatioError) && hasValue(res.vk) && hasValue(res.iexVk)
                 );
               } else {
-                isCompleted = true; // Fallback for unknown types
+                isCompleted = true;
               }
             }
 

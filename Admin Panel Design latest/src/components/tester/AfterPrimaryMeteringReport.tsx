@@ -14,8 +14,8 @@ interface AfterPrimaryMeteringReportProps {
   testerName: string;
   onBack: () => void;
   primaryCurrent?: string;
-  secondaryCurrent?: string;
   order?: any;
+  onCompleteTimer?: () => Promise<void>;
 }
 
 export function AfterPrimaryMeteringReport({
@@ -26,6 +26,7 @@ export function AfterPrimaryMeteringReport({
   primaryCurrent,
   secondaryCurrent,
   order,
+  onCompleteTimer,
 }: AfterPrimaryMeteringReportProps) {
 
   return (
@@ -40,6 +41,7 @@ export function AfterPrimaryMeteringReport({
       primaryCurrent={primaryCurrent}
       secondaryCurrent={secondaryCurrent}
       order={order}
+      onCompleteTimer={onCompleteTimer}
     />
   );
 }

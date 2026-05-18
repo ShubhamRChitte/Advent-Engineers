@@ -9,7 +9,9 @@ import { SecondaryPSReport } from './SecondaryPSReport';
 import { SecondaryProtectionReport } from './SecondaryProtectionReport';
 import { SecondaryReportsDashboard } from './reports/SecondaryReportsDashboard';
 import { OrderReportsView } from '../entry/OrderReportsView';
-import { Tabs, TabsList, TabsTrigger } from '../ui/tabs'; // Import Tabs components
+import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
+import { useCTTimer } from '../../utils/useCTTimer';
+import { CTTimerBadge } from './CTTimerBadge';
 
 interface Order {
   _id: string;
@@ -40,13 +42,18 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
   const [selectedAccuracyClass, setSelectedAccuracyClass] = useState<string | undefined>(undefined);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
-  const [timerData, setTimerData] = useState<{ 
-    startTime: string | null; 
-    accumulatedTimeMs: number; 
-    allocatedMinutes: number;
-    timerStatus: string; // The backend uses timerStatus
-  } | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  // ── CT Delay Timer ──────────────────────────────────────────────────
+  const { timeLeftMs: ctTimeLeftMs, isOverdue: ctIsOverdue, expectedMinutes: ctExpectedMinutes, endTimer: ctEndTimer, completeCore: ctCompleteCore } = useCTTimer({
+    transformerId: selectedTransformer?._id || selectedTransformer?.uniqueId || '',
+    orderId:       selectedOrder?._id || '',
+    jobId:         selectedOrder?.jobId || '',
+    stage:         'secondary',
+    testerName:    userName || 'Secondary Tester',
+    role:          'secondary-tester',
+    coreCount:     selectedTransformer?.cores?.length || 1,
+    enabled:       !!selectedTransformer && currentView !== 'orders' && currentView !== 'transformers',
+    autoStart:     true
+  });
 
   const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
 
@@ -61,17 +68,6 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
   };
 
   const handleStartTest = async (transformer: Transformer) => {
-    try {
-      const response = await axios.post(`http://localhost:5001/api/transformers/${transformer.uniqueId}/update-timer`, {
-        action: 'start',
-        stage: 'secondary_test'
-      }, { withCredentials: true });
-      if (response.data.success) {
-        setTimerData(response.data.data);
-      }
-    } catch (err) {
-      console.error("Failed to start timer:", err);
-    }
     setSelectedTransformer(transformer);
     setCurrentView('core-selection');
   };
@@ -94,82 +90,25 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
 
   const handleBackToTransformers = async () => {
     if (selectedTransformer) {
+      setCurrentView('transformers');
+      setSelectedTransformer(null);
+      setSelectedCoreNumber(0);
+      setEnteredCoreId('');
+    }
+  };
+
+  const handleBackFromReport = async () => {
+    // Re-fetch fresh transformer data so SecondaryCoreSelection sees latest test results
+    if (selectedTransformer?.uniqueId) {
       try {
-        const response = await axios.post(`http://localhost:5001/api/transformers/${selectedTransformer.uniqueId}/update-timer`, {
-          action: 'pause',
-          stage: 'secondary_test'
-        }, { withCredentials: true });
-        if (response.data.success) {
-          setTimerData(response.data.data);
+        const res = await axios.get(`http://localhost:5001/api/transformers/${selectedTransformer.uniqueId}`, { withCredentials: true });
+        if (res.data) {
+          setSelectedTransformer(prev => prev ? { ...prev, testHistory: res.data.testHistory } : prev);
         }
       } catch (err) {
-        console.error("Failed to pause timer:", err);
+        console.error('[SecondaryModule] Failed to refresh transformer after report:', err);
       }
     }
-    setCurrentView('transformers');
-    setSelectedTransformer(null);
-    setSelectedCoreNumber(0);
-    setEnteredCoreId('');
-  };
-
-  useEffect(() => {
-    if (!timerData) return;
-
-    if (timerData.timerStatus !== "In Progress" || !timerData.startTime) {
-      const allocatedMs = (timerData.allocatedMinutes || 15) * 60 * 1000;
-      const elapsed = timerData.accumulatedTimeMs || 0;
-      setTimeLeft(allocatedMs - elapsed);
-      return;
-    }
-
-    const interval = setInterval(() => {
-      const start = new Date(timerData.startTime!).getTime();
-      const accumulated = timerData.accumulatedTimeMs || 0;
-      const allocatedMs = (timerData.allocatedMinutes || 15) * 60 * 1000;
-      const now = Date.now();
-      
-      const totalElapsed = accumulated + (now - start);
-      setTimeLeft(allocatedMs - totalElapsed);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [timerData]);
-
-  const formatTime = (ms: number) => {
-    const isNegative = ms < 0;
-    const absMs = Math.abs(ms);
-    const totalSeconds = Math.floor(absMs / 1000);
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    return `${isNegative ? '-' : ''}${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
-
-  const TimerDisplay = () => {
-    if (timeLeft === null || !['core-selection', 'report'].includes(currentView)) return null;
-    const isOver = timeLeft < 0;
-    const isPaused = timerData?.timerStatus === "Paused";
-
-    return (
-      <div className={`mb-4 px-4 py-2 rounded-lg border-2 flex items-center justify-between transition-all ${
-        isOver ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' : 
-        isPaused ? 'bg-amber-50 border-amber-300 text-amber-600' :
-        'bg-green-50 border-green-500 text-green-600'
-      }`}>
-        <div className="flex items-center gap-2 font-bold">
-          {isPaused ? <Clock className="w-4 h-4" /> : <RefreshCw className={`w-4 h-4 ${!isOver ? 'animate-spin-slow' : ''}`} />}
-          <span className="text-sm uppercase tracking-wider">
-            Secondary Testing Time {isPaused ? '(Paused)' : 'Limit'}
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-medium opacity-80">Remaining:</span>
-          <span className="text-2xl font-mono font-black tabular-nums">{formatTime(timeLeft)}</span>
-        </div>
-      </div>
-    );
-  };
-
-  const handleBackFromReport = () => {
     setCurrentView('core-selection');
     setSelectedCoreNumber(0);
     setEnteredCoreId('');
@@ -177,7 +116,16 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
   };
 
   return (
+    <>
     <div className="space-y-6">
+      {(currentView === 'core-selection' || currentView === 'report') && (
+        <CTTimerBadge 
+          timeLeftMs={ctTimeLeftMs} 
+          isOverdue={ctIsOverdue} 
+          expectedMinutes={ctExpectedMinutes} 
+          title="Secondary Testing"
+        />
+      )}
 
       {/* Top Navigation Bar */}
       <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm">
@@ -189,7 +137,6 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
 
       {/* Main Content Area */}
       <div className="min-h-[600px]">
-        <TimerDisplay />
 
         {currentView === 'orders' && (
           <SecondaryOrdersList
@@ -224,6 +171,7 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
             onCoreSelect={handleCoreSelect}
             onBack={handleBackToTransformers}
             onRefreshOrders={triggerRefresh}
+            onEndTimer={ctEndTimer}
           />
         )}
 
@@ -239,6 +187,7 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
                 stage="secondary"
                 accuracyClass={selectedAccuracyClass}
                 onRefresh={triggerRefresh}
+                onCompleteTimer={() => ctCompleteCore(enteredCoreId)}
               />
             )}
             {selectedCoreType === 'ps' && (
@@ -251,6 +200,7 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
                 stage="secondary"
                 accuracyClass={selectedAccuracyClass}
                 onRefresh={triggerRefresh}
+                onCompleteTimer={() => ctCompleteCore(enteredCoreId)}
               />
             )}
             {selectedCoreType === 'protection' && (
@@ -263,12 +213,15 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
                 stage="secondary"
                 accuracyClass={selectedAccuracyClass}
                 onRefresh={triggerRefresh}
+                onCompleteTimer={() => ctCompleteCore(enteredCoreId)}
               />
             )}
           </div>
         )}
       </div>
     </div>
+
+  </>
   );
 }
 

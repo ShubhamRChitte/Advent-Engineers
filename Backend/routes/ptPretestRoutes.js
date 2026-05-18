@@ -180,7 +180,7 @@ router.put('/transformer/:transformerId/approve', isAuthenticated, async (req, r
     if (allApproved) {
       await OrderModel.findByIdAndUpdate(orderId, {
         $set: { 
-          status: 'PT Pretesting Completed', // Explicit stage completion
+          status: 'PT Testing Assigned', // Hand off to Final PT Testing dashboard (Active Orders)
           'completionStages.pt_pretest': true,
           currentStage: 'pt' // Move the order to final pt dashboard
         }

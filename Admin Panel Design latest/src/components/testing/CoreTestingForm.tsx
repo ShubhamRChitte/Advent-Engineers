@@ -40,10 +40,8 @@ import { ReportHeader } from '../reports';
 import { CoreReportPrint } from './CoreReportPrint';
 import { getSafeOrderId, getSafeClientName, getSafeBatchId } from '../../utils/orderUtils';
 import axios from 'axios';
-
-
-
-interface CoreTestingFormProps {
+import { useCTTimer } from '../../utils/useCTTimer';
+import { CTTimerBadge } from '../tester/CTTimerBadge';interface CoreTestingFormProps {
   order: CoreTestingOrder;
   coreType: 'Metering' | 'PS' | 'Protection';
   onBack: () => void;
@@ -656,103 +654,29 @@ export function CoreTestingForm({
     { id: '1', bsatValue: '1.5', setMvValue: '7.04', leLimitValue: '1150' },
   ]);
 
-  const [timerData, setTimerData] = useState<{ 
-    startTime: string | null; 
-    accumulatedTimeMs: number; 
-    allocatedMinutes: number;
-    status: string;
-  } | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const isConfigured = isMetering ? meteringConfigured :
+                       isPSCore ? psConfigured :
+                       protectionConfigured;
 
-  const handleTimerAction = async (action: 'start' | 'pause' | 'complete') => {
-    if (isReadOnly || isPreTest) return;
-    try {
-      const txnOrderId = getSafeOrderId(order);
-      const response = await axios.post(`http://localhost:5001/api/orders/${txnOrderId}/update-timer`, {
-        stage: 'core',
-        coreType: coreType.toLowerCase(),
-        action
-      }, { withCredentials: true });
-      
-      if (response.data.success) {
-        setTimerData(response.data.data);
-      }
-    } catch (err) {
-      console.error(`Timer ${action} failed`, err);
-    }
-  };
+  const { timeLeftMs, isOverdue, expectedMinutes, endTimer } = useCTTimer({
+    transformerId: order._id,
+    orderId: order._id,
+    jobId: order.jobId || 'N/A',
+    stage: 'core',
+    testerName: user?.fullName || user?.name || 'Tester',
+    role: 'core-tester',
+    coreCount: calculateTotalRowsNeeded(),
+    enabled: isConfigured && !isReadOnly && !isPreTest
+  });
 
-  useEffect(() => {
-    // Only start timer if we are in the actual testing screens (configured)
-    if (meteringConfigured || protectionConfigured || psConfigured) {
-      handleTimerAction('start');
-    }
-    
-    return () => {
-      // Pause when navigating away from this component (unmount)
-      if (meteringConfigured || protectionConfigured || psConfigured) {
-        handleTimerAction('pause');
-      }
-    };
-  }, [meteringConfigured, protectionConfigured, psConfigured, coreType]);
-
-  useEffect(() => {
-    if (!timerData) return;
-
-    // If paused, just set the static time left
-    if (timerData.status !== "In Progress" || !timerData.startTime) {
-      const allocatedMs = timerData.allocatedMinutes * 60 * 1000;
-      const elapsed = timerData.accumulatedTimeMs || 0;
-      setTimeLeft(allocatedMs - elapsed);
-      return;
-    }
-
-    const interval = setInterval(() => {
-      const start = new Date(timerData.startTime!).getTime();
-      const accumulated = timerData.accumulatedTimeMs || 0;
-      const allocatedMs = timerData.allocatedMinutes * 60 * 1000;
-      const now = Date.now();
-      
-      const totalElapsed = accumulated + (now - start);
-      setTimeLeft(allocatedMs - totalElapsed);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [timerData]);
-
-  const formatTime = (ms: number) => {
-    const isNegative = ms < 0;
-    const absMs = Math.abs(ms);
-    const totalSeconds = Math.floor(absMs / 1000);
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    return `${isNegative ? '-' : ''}${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
-
-  const TimerDisplay = () => {
-    if (timeLeft === null) return null;
-    const isOver = timeLeft < 0;
-    const isPaused = timerData?.status === "Paused";
-
-    return (
-      <div className={`mb-4 px-4 py-2 rounded-lg border-2 flex items-center justify-between transition-all ${
-        isOver ? 'bg-red-50 border-red-500 text-red-600 animate-pulse' : 
-        isPaused ? 'bg-amber-50 border-amber-300 text-amber-600' :
-        'bg-green-50 border-green-500 text-green-600'
-      }`}>
-        <div className="flex items-center gap-2 font-bold">
-          {isPaused ? <Clock className="w-4 h-4" /> : <RefreshCw className={`w-4 h-4 ${!isOver ? 'animate-spin-slow' : ''}`} />}
-          <span className="text-sm uppercase tracking-wider">
-            {coreType} Testing Time {isPaused ? '(Paused)' : 'Limit'}
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-medium opacity-80">Remaining:</span>
-          <span className="text-2xl font-mono font-black tabular-nums">{formatTime(timeLeft)}</span>
-        </div>
-      </div>
-    );
-  };
+  const TimerDisplay = () => (
+    <CTTimerBadge 
+      timeLeftMs={timeLeftMs} 
+      isOverdue={isOverdue} 
+      expectedMinutes={expectedMinutes} 
+      title={`Core Testing`}
+    />
+  );
 
   const protectionLimit = 600;
 
@@ -1439,7 +1363,6 @@ export function CoreTestingForm({
   };
 
   const handleBack = async () => {
-    handleTimerAction('pause');
     if (isPreTest && batchData?.batchId) {
       setIsSaving(true);
       // 1. Flush pending row saves
@@ -1696,6 +1619,9 @@ export function CoreTestingForm({
       } else {
         toast.success(`${coreType} Data Saved Successfully!`);
       }
+
+      // Hide and complete the old timer upon successful save
+      endTimer();
 
     } catch (error: any) {
       console.error("Save Error:", error);
@@ -2090,7 +2016,8 @@ export function CoreTestingForm({
 
     // Protection Testing Form (after configuration)
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 p-2 sm:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
+        <TimerDisplay />
         {isReadOnly && (
           <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4" role="alert">
             <div className="flex items-center">
@@ -2135,7 +2062,9 @@ export function CoreTestingForm({
                 variant="outline"
                 size="sm"
                 className="gap-1 border-blue-300 text-blue-600 hover:bg-blue-50"
-                onClick={() => setProtectionConfigured(false)}
+                onClick={() => {
+                  setProtectionConfigured(false);
+                }}
               >
                 <Edit className="w-3 h-3" />
                 Edit Config
@@ -2810,7 +2739,8 @@ export function CoreTestingForm({
 
     // PS Testing Form (after configuration)
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 p-2 sm:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
+        <TimerDisplay />
         {isReadOnly && (
           <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4" role="alert">
             <div className="flex items-center">
@@ -2855,7 +2785,9 @@ export function CoreTestingForm({
                 variant="outline"
                 size="sm"
                 className="gap-1 border-blue-300 text-blue-600 hover:bg-blue-50"
-                onClick={() => setPsConfigured(false)}
+                onClick={() => {
+                  setPsConfigured(false);
+                }}
               >
                 <Edit className="w-3 h-3" />
                 Edit Config
@@ -3573,7 +3505,9 @@ export function CoreTestingForm({
               variant="outline"
               size="sm"
               className="gap-1 border-blue-300 text-blue-600 hover:bg-blue-50"
-              onClick={() => setMeteringConfigured(false)}
+              onClick={() => {
+                setMeteringConfigured(false);
+              }}
             >
               <Edit className="w-3 h-3" />
               Edit Config
