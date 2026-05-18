@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Search, LogOut } from 'lucide-react';
 import { Button } from './ui/button';
 import { User } from '../App';
 import { NotificationsPanel } from './NotificationsPanel';
 import { QuickActionsMenu } from './QuickActionsMenu';
+import { LogoutConfirmModal } from './LogoutConfirmModal';
 
 interface HeaderProps {
   user: User;
@@ -10,6 +12,7 @@ interface HeaderProps {
 }
 
 export function Header({ user, onLogout }: HeaderProps) {
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4">
       <div className="flex items-center justify-between">
@@ -40,12 +43,18 @@ export function Header({ user, onLogout }: HeaderProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={onLogout}
+            onClick={() => setShowLogoutModal(true)}
             className="ml-2"
           >
             <LogOut className="w-4 h-4 mr-2" />
             Logout
           </Button>
+
+          <LogoutConfirmModal
+            isOpen={showLogoutModal}
+            onCancel={() => setShowLogoutModal(false)}
+            onConfirm={() => { setShowLogoutModal(false); onLogout(); }}
+          />
         </div>
       </div>
     </header>
