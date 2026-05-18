@@ -654,19 +654,9 @@ export function CoreTestingForm({
     { id: '1', bsatValue: '1.5', setMvValue: '7.04', leLimitValue: '1150' },
   ]);
 
-<<<<<<< HEAD
   const isConfigured = isMetering ? meteringConfigured :
                        isPSCore ? psConfigured :
                        protectionConfigured;
-=======
-  const [timerData, setTimerData] = useState<{
-    startTime: string | null;
-    accumulatedTimeMs: number;
-    allocatedMinutes: number;
-    status: string;
-  } | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
->>>>>>> a8f7b1a4dce0445a30d54091cfb909338e20d5d5
 
   const { timeLeftMs, isOverdue, expectedMinutes, endTimer } = useCTTimer({
     transformerId: order._id,
