@@ -36,11 +36,38 @@ interface Order {
   _id: string;     // Backend MongoDB ID
   orderId: string;
   clientName: string;
+  clientContactNo?: string;
   transformerName: string;
   transformerType: string;
   quantity: number;
   orderDate: string;
   status: string;
+  
+  // Technical Specs
+  noOfCores?: number;
+  coreDetails?: Array<{
+    coreType: string;
+    accuracyClass: string;
+    vendorNo: string;
+    secondaryCurrent: string;
+  }>;
+  primaryCurrents?: string[];
+  nominalSystemVoltage?: number;
+  burden?: number;
+  stc?: string;
+  voltageRating?: string;
+  ratedPrimaryVoltage?: string;
+  ratedSecondaryVoltage?: string;
+  indoorOutdoor?: string;
+  insulationType?: string;
+  tankType?: string;
+  isStandard?: string;
+  images?: Array<{ url: string; public_id: string }>;
+  coreVendors?: {
+    metering?: Array<{ serialNo: number; name: string }>;
+    protection?: Array<{ serialNo: number; name: string }>;
+    ps?: Array<{ serialNo: number; name: string }>;
+  };
 }
 
 interface OrderDetailViewProps {
@@ -213,7 +240,11 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
       else if (testType.includes('PT')) type = 'pt';
 
       const id = transformer._id || transformer.id;
-      window.location.href = `/admin/report/${id}?type=${type}`;
+      // Explicitly persist the order context right before leaving so Back button restores here
+      sessionStorage.setItem('admin_selectedOrderId', order._id || order.id);
+      localStorage.setItem('admin_activeView', 'view-orders');
+      const from = encodeURIComponent(window.location.href);
+      window.location.href = `/admin/report/${id}?type=${type}&from=${from}`;
     }
   };
 
@@ -225,7 +256,11 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
 
     if (transformer) {
       const id = transformer._id || transformer.id;
-      window.location.href = `/admin/report/${id}?type=all`;
+      // Explicitly persist the order context right before leaving
+      sessionStorage.setItem('admin_selectedOrderId', order._id || order.id);
+      localStorage.setItem('admin_activeView', 'view-orders');
+      const from = encodeURIComponent(window.location.href);
+      window.location.href = `/admin/report/${id}?type=all&from=${from}`;
     }
   };
 
@@ -299,6 +334,12 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
               <p className="text-sm text-gray-500">Order ID</p>
               <p className="font-medium font-mono">{order.orderId}</p>
             </div>
+            {order.clientContactNo && (
+              <div>
+                <p className="text-sm text-gray-500">Contact</p>
+                <p className="font-medium">{order.clientContactNo}</p>
+              </div>
+            )}
             <div className="flex items-start gap-2">
               <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
               <div>
@@ -333,8 +374,137 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
           </div>
         </div>
 
+        {/* Technical Specifications Section */}
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-blue-600" />
+            Technical Specifications
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Common Specs */}
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Standard</p>
+                <p className="font-medium">{order.isStandard || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Installation</p>
+                <p className="font-medium">{order.indoorOutdoor || 'N/A'}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Insulation</p>
+                <p className="font-medium">{order.insulationType || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Tank Type</p>
+                <p className="font-medium">{order.tankType || 'N/A'}</p>
+              </div>
+            </div>
+
+            {/* CT Specific */}
+            {!isPT && (
+              <>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Primary Currents</p>
+                    <p className="font-medium">{order.primaryCurrents?.join(', ') || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">STC</p>
+                    <p className="font-medium">{order.stc || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">System Voltage</p>
+                    <p className="font-medium">{(order.voltageRating || order.nominalSystemVoltage) ? `${order.voltageRating || order.nominalSystemVoltage}kV` : 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Total Burden</p>
+                    <p className="font-medium">{order.burden ? `${order.burden}VA` : 'N/A'}</p>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* PT Specific */}
+            {isPT && (
+              <>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Primary Voltage</p>
+                    <p className="font-medium">{order.ratedPrimaryVoltage || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Secondary Voltage</p>
+                    <p className="font-medium">{order.ratedSecondaryVoltage || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Nominal Voltage</p>
+                    <p className="font-medium">{order.voltageRating || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Burden</p>
+                    <p className="font-medium">{order.burden ? `${order.burden}VA` : 'N/A'}</p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Core Configuration Details */}
+          {order.coreDetails && order.coreDetails.length > 0 && (
+            <div className="mt-8">
+              <h4 className="text-sm font-bold text-gray-700 mb-3">Core Configurations ({order.noOfCores} Cores)</h4>
+              <div className="bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-gray-100 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-2 font-semibold text-gray-600">Core #</th>
+                      <th className="px-4 py-2 font-semibold text-gray-600">Type</th>
+                      <th className="px-4 py-2 font-semibold text-gray-600">Accuracy Class</th>
+                      {!isPT && <th className="px-4 py-2 font-semibold text-gray-600">Secondary Current</th>}
+                      {!isPT && <th className="px-4 py-2 font-semibold text-gray-600">Vendor No</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {order.coreDetails.map((core, idx) => (
+                      <tr key={idx} className="border-b border-gray-200 last:border-0 hover:bg-gray-100/50">
+                        <td className="px-4 py-2 font-medium">Core {idx + 1}</td>
+                        <td className="px-4 py-2 text-blue-700 font-medium capitalize">{core.coreType}</td>
+                        <td className="px-4 py-2 font-mono">{core.accuracyClass || 'N/A'}</td>
+                        {!isPT && <td className="px-4 py-2">{core.secondaryCurrent ? `${core.secondaryCurrent}A` : 'N/A'}</td>}
+                        {!isPT && (
+                          <td className="px-4 py-2 text-gray-500">
+                            {(() => {
+                              const coreType = core.coreType.toLowerCase();
+                              // Count how many cores of this type appeared before this one to find its serialNo in coreVendors
+                              const typeIndex = order.coreDetails?.slice(0, idx).filter(c => c.coreType.toLowerCase() === coreType).length || 0;
+                              
+                              const coreTypeKey = coreType as keyof NonNullable<Order['coreVendors']>;
+                              const vendorList = order.coreVendors?.[coreTypeKey];
+                              const vendorEntry = vendorList?.find(v => v.serialNo === typeIndex + 1);
+                              return vendorEntry ? vendorEntry.name : (core.vendorNo || 'N/A');
+                            })()}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Search and Actions */}
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 mt-8">
           <div className="flex-1 relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input

@@ -185,6 +185,60 @@ export function PTFinalPrintReport({
   const finalTesting = reportData?.finalTesting || {};
   const accuracyTest = reportData?.accuracyTest || {};
 
+  const accuracyClassDisplay = (() => {
+    const cores = order?.coreDetails || order?.coreConfigs || [];
+    const fallback = order?.accuracyClass || '0.2';
+
+    if (!Array.isArray(cores) || cores.length === 0) return fallback;
+
+    const classStrings: string[] = [];
+
+    const normalize = (v: unknown) => {
+      if (v === null || v === undefined) return '';
+      const s = String(v).trim();
+      if (!s || s.toLowerCase() === 'n/a') return '';
+      return s;
+    };
+
+    cores.forEach((core: any, idx: number) => {
+      let coreClass = normalize(core?.accuracyClass);
+      const typeLc = String(core?.coreType || '').toLowerCase();
+
+      // Fallback for metering
+      if (!coreClass && typeLc.includes('meter')) coreClass = normalize(fallback);
+      
+      if (coreClass) {
+        classStrings.push(coreClass);
+      }
+    });
+
+    if (classStrings.length === 0) return fallback;
+
+    return classStrings.join(' / ');
+  })();
+
+  const ptRatioDisplay = (() => {
+    const params = order?.parameters || {};
+    const primaryV = order?.ratedPrimaryVoltage || params.ratedPrimaryVoltage;
+    const secondaryV = order?.ratedSecondaryVoltage || params.ratedSecondaryVoltage;
+    const coresCount = parseInt(order?.noOfCores || order?.numberOfCores || '1');
+
+    if (!primaryV || !secondaryV) return order?.ratio?.[0] || 'N/A';
+
+    const ratioParts = [primaryV];
+    for (let i = 0; i < coresCount; i++) {
+      ratioParts.push(secondaryV);
+    }
+
+    return ratioParts.join(' / ');
+  })();
+
+  const burdenDisplay = (() => {
+    const b = order?.burden;
+    if (Array.isArray(b)) return b.join(' / ');
+    return b || 'N/A';
+  })();
+
   const getCoreLabel = (core: string) => {
     const num = core.replace(/[a-z]/gi, '');
     const suffix = num === '1' || num === '' ? '' : ` ${num}`;
@@ -256,15 +310,15 @@ export function PTFinalPrintReport({
               </tr>
               <tr>
                 <td style={{ fontWeight: 'bold' }}>PT Ratio</td>
-                <td style={{ background: '#fafafa' }}>{order?.ratio?.[0] || 'N/A'}</td>
+                <td style={{ background: '#fafafa' }}>{ptRatioDisplay}</td>
                 <td style={{ fontWeight: 'bold' }}>Type 2</td>
                 <td style={{ background: '#fafafa' }}>{order?.insulationType || 'N/A'}</td>
               </tr>
               <tr>
                 <td style={{ fontWeight: 'bold' }}>Burden</td>
-                <td style={{ background: '#fafafa' }}>{order?.burden || 'N/A'} VA</td>
+                <td style={{ background: '#fafafa' }}>{burdenDisplay} VA</td>
                 <td style={{ fontWeight: 'bold' }}>Class</td>
-                <td style={{ background: '#fafafa' }}>{order?.accuracyClass || '0.2'}</td>
+                <td style={{ background: '#fafafa' }}>{accuracyClassDisplay}</td>
               </tr>
               <tr>
                 <td style={{ fontWeight: 'bold' }}>Voltage Factor</td>

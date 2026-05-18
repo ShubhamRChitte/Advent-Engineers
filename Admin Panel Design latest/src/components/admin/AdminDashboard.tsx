@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Users, Package, ClipboardCheck, TrendingUp, AlertCircle, CheckCircle2, PlusCircle, List, ArrowRight } from 'lucide-react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { AdminReviewPanel } from './AdminReviewPanel';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
 import { EfficiencyMonitor } from './EfficiencyMonitor';
 
 interface AdminDashboardProps {
@@ -61,11 +60,9 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
         <p className="text-gray-500 mt-1">Welcome back! Here's your testing system summary.</p>
       </div>
 
-      <AdminReviewPanel />
-
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => {
+        {stats.filter(stat => stat.label !== 'Tests Completed').map((stat) => {
           const Icon = ICON_MAP[stat.icon] || AlertCircle;
 
           return (
@@ -133,6 +130,9 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
               <Legend />
               <Line type="monotone" dataKey="core" stroke="#3b82f6" strokeWidth={2} name="Core Tests" />
               <Line type="monotone" dataKey="secondary" stroke="#8b5cf6" strokeWidth={2} name="Secondary Tests" />
+              <Line type="monotone" dataKey="primary" stroke="#f97316" strokeWidth={2} name="Primary Tests" />
+              <Line type="monotone" dataKey="heating" stroke="#f59e0b" strokeWidth={2} name="Heating Tests" />
+              <Line type="monotone" dataKey="pt" stroke="#ec4899" strokeWidth={2} name="PT Tests" />
               <Line type="monotone" dataKey="final" stroke="#10b981" strokeWidth={2} name="Final Tests" />
             </LineChart>
           </ResponsiveContainer>
@@ -142,11 +142,18 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
           <h3 className="text-lg font-bold mb-4">Order Status Distribution</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={orderData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="value" fill="#ef4444" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} />
+              <YAxis axisLine={false} tickLine={false} fontSize={12} />
+              <Tooltip 
+                cursor={{ fill: '#f8fafc' }}
+                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+              />
+              <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={40}>
+                {orderData.map((entry: any, index: number) => (
+                  <Cell key={`cell-${index}`} fill={entry.color || '#ef4444'} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </Card>

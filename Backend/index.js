@@ -33,6 +33,9 @@ const { HeatingRecordModel } = require('./models/HeatingRecordModel');
 const { CoreVendorModel } = require("./models/CoreVendorModel");
 const notificationRoutes = require('./routes/notificationRoutes');
 const { NotificationModel } = require('./models/NotificationModel');
+const { FailedCoreModel } = require("./models/FailedCoreModel");
+const { FailedTransformerModel } = require("./models/FailedTransformerModel");
+const { ReadyTransformerModel } = require("./models/ReadyTransformerModel");
 
 
 const app = express();
@@ -129,11 +132,11 @@ app.use((req, res, next) => {
 
 // Routes
 app.use('/auth', authRoutes);
+app.use('/api/transformers', require('./routes/transformerRoutes')); // Move above taskRoutes to avoid shadowing
 app.use('/api', taskRoutes); // Mounted at /api
 app.use('/api', meteringTestRoutes); // Mounted at /api/metering-tests
 app.use('/api', protectionTestRoutes); // Mounted at /api/protection-tests
 app.use('/api/core-tests', require('./routes/coreTestRoutes')); // Generic Route
-app.use('/api/transformers', require('./routes/transformerRoutes')); // New Transformer Approval Routes
 app.use('/api/final', require('./routes/finalTestRoutes')); // New Final Test Routes
 app.use('/api/dashboard', require('./routes/dashboardRoutes')); // New Dashboard Stats Route
 app.use('/api/failed-cores', require('./routes/failedCoreRoutes')); // Failed Core Management
@@ -395,21 +398,112 @@ const updateOrder = async (req, res) => {
     const { orderId } = req.params;
     const updates = req.body;
 
-    // Prevent updating critical fields if needed, or allow full update
+    // 1. Get the existing order first to compare quantity
+    const existingOrder = await OrderModel.findById(orderId);
+    if (!existingOrder) return res.status(404).json({ message: "Order not found" });
+
+    const oldQuantity = existingOrder.quantity || 0;
+    const newQuantity = updates.quantity ? parseInt(updates.quantity) : oldQuantity;
+
+    // 2. Perform the update
     const order = await OrderModel.findByIdAndUpdate(
       orderId,
       { $set: updates },
       { new: true }
     );
 
-    if (!order) return res.status(404).json({ message: "Order not found" });
+    // 3. Sync Transformers if quantity changed
+    if (newQuantity !== oldQuantity) {
+      console.log(`[UpdateOrder] Quantity changed from ${oldQuantity} to ${newQuantity}. Syncing transformers...`);
+      
+      if (newQuantity > oldQuantity) {
+        // Generate missing transformers (from oldQuantity + 1 to newQuantity)
+        for (let i = oldQuantity + 1; i <= newQuantity; i++) {
+          const uniqueId = `TR-${order.jobId}-${String(i).padStart(3, '0')}`;
+          
+          // Check if already exists just in case
+          const existing = await TransformerModel.findOne({ uniqueId });
+          if (existing) continue;
+
+          // Determine start stage
+          let startStage = order.transformerType === 'PT' ? 'pt_pretest' : 'core';
+          
+          const newTransformer = new TransformerModel({
+            orderId: order._id,
+            uniqueId: uniqueId,
+            jobId: order.jobId,
+            currentStage: startStage,
+            testHistory: {
+              core_test: { status: 'Pending' },
+              secondary_test: { status: 'Pending' },
+              primary_test: { status: 'Pending' },
+              final_test: { status: 'Pending' }
+            },
+            assignments: {} 
+          });
+          
+          // Apply assignments from order.assignments if possible
+          if (order.assignments && order.assignments.length > 0) {
+            order.assignments.forEach(assign => {
+              const from = parseInt(assign.unitRange.from);
+              const to = parseInt(assign.unitRange.to) || newQuantity;
+              if (i >= from && i <= to) {
+                newTransformer.assignments[`${assign.stage}_tester`] = assign.testerName;
+              }
+            });
+          }
+
+          await newTransformer.save();
+        }
+
+        // Send notification for new units
+        if (order.assignments && order.assignments.length > 0) {
+          const startStage = order.transformerType === 'PT' ? 'pt_pretest' : 'core';
+          const uniqueTesters = [...new Set(order.assignments.filter(a => a.stage === startStage).map(a => a.testerName))];
+          
+          for (const tester of uniqueTesters) {
+            await new NotificationModel({
+              recipientRole: startStage,
+              recipientName: tester,
+              message: `Updated order: ${newQuantity - oldQuantity} new units added for ${order.clientName} (Job: ${order.jobId})`,
+              orderId: order._id,
+              jobId: order.jobId,
+              type: "ASSIGNMENT"
+            }).save();
+          }
+        }
+      } else {
+        // Decrease quantity: Delete transformers from the end
+        for (let i = oldQuantity; i > newQuantity; i--) {
+          const uniqueId = `TR-${order.jobId}-${String(i).padStart(3, '0')}`;
+          
+          // Delete from TransformerModel
+          await TransformerModel.deleteOne({ uniqueId });
+          
+          // Cleanup test records
+          await MeteringCoreTestModel.deleteMany({ uniqueId });
+          await ProtectionCoreTestModel.deleteMany({ uniqueId });
+          await SecondaryMeteringTestModel.deleteMany({ uniqueId });
+          
+          // Cleanup HeatingRecord blocks
+          await HeatingRecordModel.updateMany(
+            { orderId: order._id },
+            { $pull: { blocks: { transformerId: uniqueId } } }
+          );
+
+          await FailedCoreModel.deleteMany({ uniqueId });
+          await FailedTransformerModel.deleteMany({ uniqueId });
+        }
+      }
+    }
 
     res.status(200).json({
       success: true,
-      message: "Order updated successfully",
+      message: "Order updated successfully and transformers synced",
       order
     });
   } catch (error) {
+    console.error("Update Order Error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -429,16 +523,36 @@ const deleteOrder = async (req, res) => {
     if (order.images && order.images.length > 0) {
       const deletePromises = order.images.map(img => {
         if (img.public_id) {
-          return cloudinary.uploader.destroy(img.public_id);
+          return cloudinary.uploader.destroy(img.public_id).catch(err => {
+            console.error(`[DeleteOrder] Cloudinary cleanup failed for ${img.public_id}:`, err);
+            return null; // Continue even if image deletion fails
+          });
         }
         return Promise.resolve();
       });
       await Promise.all(deletePromises);
-      console.log(`[DeleteOrder] Cleaned up ${order.images.length} images from Cloudinary for order ${orderId}`);
+      console.log(`[DeleteOrder] Cleaned up images from Cloudinary for order ${orderId}`);
     }
 
-    // 3. Delete Associated Transformers
+    // 3. Delete Associated Transformers and Test Records
+    // Delete transformers (this is the most important for testers)
     await TransformerModel.deleteMany({ orderId: order._id });
+    
+    // Delete Notifications (removes alerts from dashboards)
+    await NotificationModel.deleteMany({ orderId: order._id });
+
+    // Delete Failed core/transformer records
+    await FailedCoreModel.deleteMany({ orderId: order._id });
+    await FailedTransformerModel.deleteMany({ orderId: order._id });
+
+    // Delete Ready stock items
+    await ReadyTransformerModel.deleteMany({ orderId: order._id });
+
+    // Delete specific test models that might have separate linkage
+    await SecondaryMeteringTestModel.deleteMany({ orderId: order._id });
+    await MeteringCoreTestModel.deleteMany({ orderId: order._id });
+    await ProtectionCoreTestModel.deleteMany({ orderId: order._id });
+    await HeatingRecordModel.deleteMany({ orderId: order._id });
 
     // 4. Delete the Order itself
     await OrderModel.findByIdAndDelete(orderId);

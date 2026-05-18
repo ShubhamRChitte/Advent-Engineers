@@ -17,6 +17,8 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  Trash2,
+  Edit2
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import '../../styles/animations.css';
@@ -25,6 +27,7 @@ interface Order {
   _id: string;
   orderId: string;
   clientName: string;
+  clientContactNo?: string;
   transformerName: string;
   transformerType: string;
   quantity: number;
@@ -33,6 +36,27 @@ interface Order {
   priority: string;
   currentStage: string;
   deadline?: string;
+  
+  // Technical Specs
+  noOfCores?: number;
+  coreDetails?: any[];
+  primaryCurrents?: string[];
+  nominalSystemVoltage?: number;
+  burden?: number;
+  stc?: string;
+  voltageRating?: string;
+  ratedPrimaryVoltage?: string;
+  ratedSecondaryVoltage?: string;
+  indoorOutdoor?: string;
+  insulationType?: string;
+  tankType?: string;
+  isStandard?: string;
+  images?: any[];
+  coreVendors?: {
+    metering?: Array<{ serialNo: number; name: string }>;
+    protection?: Array<{ serialNo: number; name: string }>;
+    ps?: Array<{ serialNo: number; name: string }>;
+  };
 }
 
 interface OrdersListViewEnhancedProps {
@@ -43,17 +67,27 @@ interface OrdersListViewEnhancedProps {
   onClearNav?: () => void;
 }
 
-export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav }: OrdersListViewEnhancedProps) {
+export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav, onEditOrder }: OrdersListViewEnhancedProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<string>('all');
   const [selectedOrder, _setSelectedOrder] = useState<Order | null>(null);
   
+  // True when we know we need to restore from sessionStorage — prevents the Orders List flash
+  const [isRestoring, setIsRestoring] = useState<boolean>(
+    () => !!sessionStorage.getItem('admin_selectedOrderId')
+  );
+
   const [highlightedOrderId, setHighlightedOrderId] = useState<string | null>(null);
   const scrollAttempted = useRef(false);
 
   const setSelectedOrder = (order: Order | null) => {
     _setSelectedOrder(order);
+    if (order) {
+      sessionStorage.setItem('admin_selectedOrderId', order._id);
+    } else {
+      sessionStorage.removeItem('admin_selectedOrderId');
+    }
   };
 
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
@@ -62,6 +96,7 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav }:
 
   const fetchOrders = async () => {
     try {
+      setLoading(true);
       const response = await axios.get('http://localhost:5001/api/admin/orders', {
         withCredentials: true
       });
@@ -78,9 +113,43 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav }:
     }
   };
 
+  const handleDelete = async (orderId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this order? All associated transformer units will also be deleted.")) return;
+
+    try {
+      const response = await axios.delete(`http://localhost:5001/api/orders/${orderId}`, {
+        withCredentials: true
+      });
+      if (response.data.success) {
+        toast.success("Order deleted successfully");
+        fetchOrders();
+      }
+    } catch (error) {
+      console.error("Error deleting order:", error);
+      toast.error("Failed to delete order");
+    }
+  };
+
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  // Restore selected order after returning from report page
+  useEffect(() => {
+    const savedId = sessionStorage.getItem('admin_selectedOrderId');
+    if (savedId && orders.length > 0) {
+      const match = orders.find(o => o._id === savedId);
+      if (match) {
+        sessionStorage.removeItem('admin_selectedOrderId');
+        _setSelectedOrder(match);
+      }
+      // Whether we found a match or not, we're done restoring
+      setIsRestoring(false);
+    } else if (!savedId) {
+      setIsRestoring(false);
+    }
+  }, [orders]);
 
   // Handle auto-scroll and highlight when navigating from notifications
   useEffect(() => {
@@ -194,6 +263,15 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav }:
     'In Testing': orders.filter((o) => (o.status || '').includes('Testing') && !(o.status || '').includes('Completed')).length,
     Completed: orders.filter((o) => (o.status || '').toUpperCase() === 'COMPLETED' || (o.status || '') === 'PT Testing Completed' || (o.status || '') === 'Final Testing Completed').length,
   };
+
+  if (isRestoring) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[300px] space-y-3 text-gray-400">
+        <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+        <p className="text-sm font-medium">Returning to order...</p>
+      </div>
+    );
+  }
 
   if (selectedOrder) {
     return (
@@ -361,15 +439,41 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav }:
                                   </Button>
                                 )}
 
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setSelectedOrder(order)}
-                                  className="gap-1"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                  View
-                                </Button>
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setSelectedOrder(order)}
+                                    className="gap-1"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                    View
+                                  </Button>
+                                  
+                                  {(!userRole || userRole === 'admin') && (
+                                    <>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (onEditOrder) onEditOrder(order);
+                                        }}
+                                      >
+                                        <Edit2 className="w-4 h-4" />
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-red-600 border-red-200 hover:bg-red-50"
+                                        onClick={(e) => handleDelete(order._id, e)}
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
                                 <Button
                                   variant="outline"
                                   size="sm"

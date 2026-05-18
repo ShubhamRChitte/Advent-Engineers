@@ -562,6 +562,8 @@ import { Input } from '../ui/input';
 import { ArrowLeft, Save, Printer, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Transformer } from './SecondaryTransformersList';
+import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
+import { ImageWithFallback } from '../figma/ImageWithFallback';
 
 interface PSRow {
   ratioValue: string;
@@ -650,13 +652,14 @@ export function SecondaryPSReport({
     if (Array.isArray(rawBurden)) {
       rawBurden = rawBurden[Math.min(coreIndex, rawBurden.length - 1)];
     }
-    const val = rawBurden || (transformer as any).burden || '30';
+    const val = rawBurden || (transformer as any).burden;
+    if (!val) return 'N/A';
     return String(val).replace(/VA/i, '').trim();
   })();
 
   const displaySTC = (() => {
     const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
-    return order?.stc || (transformer as any).stc || 'N/A';
+    return order?.stc || order?.STC || (transformer as any).stc || 'N/A';
   })();
 
   const [psData, setPsData] = useState<PSRow[]>(() => {
@@ -941,242 +944,174 @@ export function SecondaryPSReport({
   };
 
   return (
-    <div className="space-y-6 p-4 bg-white">
+    <div className="space-y-6 p-4 bg-gray-50 flex justify-center">
       <style>{`
-        #print-section {
-          background: white;
-          padding: 5mm 10mm;
-          min-height: 297mm;
-          width: 100%;
-          box-sizing: border-box;
-          color: black;
-          font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        }
-        
-        .report-header-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          border: 1.5px solid #000;
-          margin-bottom: 0;
-        }
-        
-        .header-left {
-          padding: 10px;
-          border-right: 1.5px solid #000;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-        }
-        
-        .header-right {
-          display: grid;
-          grid-template-rows: repeat(5, 1fr);
-        }
-        
-        .header-field {
-          display: grid;
-          grid-template-columns: 100px 1fr;
-          border-bottom: 1px solid #000;
-          font-size: 11px;
-        }
-        
-        .header-field:last-child {
-          border-bottom: none;
-        }
-        
-        .field-label {
-          padding: 4px 8px;
-          border-right: 1px solid #000;
-          text-align: right;
-          font-weight: 600;
-        }
-        
-        .field-value {
-          padding: 4px 8px;
-          font-weight: 500;
-        }
-        
-        .report-title-banner {
-          background-color: #ffffff !important; /* White */
-          border-left: 1.5px solid #000;
-          border-right: 1.5px solid #000;
-          border-bottom: 2px solid #000;
-          text-align: center;
-          padding: 6px;
-          font-weight: bold;
-          font-size: 18px;
-          text-transform: uppercase;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
-        
-        .description-banner {
-          background-color: #f8fafc !important; /* Minimalist Light Gray */
-          border-left: 1.5px solid #000;
-          border-right: 1.5px solid #000;
-          border-bottom: 1px solid #000;
-          text-align: center;
-          padding: 4px;
-          font-weight: bold;
-          font-size: 14px;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
+        .report-wrapper { background: white; width: 210mm; min-height: 297mm; padding: 15mm; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: black; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; box-sizing: border-box; }
+        .report-header-top { display: flex; align-items: center; justify-content: center; position: relative; padding-bottom: 10px; border-bottom: 2px solid #000; margin-bottom: 5px; }
+        .header-logo { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 120px; height: 60px; display: flex; align-items: center; }
+        .header-titles { text-align: center; }
+        .header-titles h1 { font-size: 24px; font-weight: bold; color: #1e3a8a; margin: 0; letter-spacing: 1px; }
+        .header-titles p { font-size: 12px; color: #4b5563; margin: 0; }
+        .report-metadata { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+        .meta-column { width: 48%; }
+        .meta-field { display: flex; margin-bottom: 4px; font-size: 12px; }
+        .meta-label { font-weight: 600; width: 80px; }
+        .meta-value { flex: 1; }
+        .report-main-title { text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
+        .section-container { border: 1px solid #000; margin-bottom: 15px; }
+        .section-title { padding: 4px; text-align: center; font-weight: bold; font-size: 13px; border-bottom: 1px solid #000; }
+        .spec-table { width: 100%; border-collapse: collapse; }
+        .spec-table td { border-bottom: 1px solid #000; padding: 4px 8px; font-size: 12px; }
+        .spec-table tr:last-child td { border-bottom: none; }
+        .nested-table { width: 100%; border-collapse: collapse; table-layout: fixed; border-top: 1px solid #000; }
+        .nested-table th, .nested-table td { border: 1px solid #000; padding: 4px; text-align: center; font-size: 11px; }
+        .nested-table th { font-weight: bold; }
 
-        .nested-table {
-          width: 100%;
-          border-collapse: collapse;
-          border: 1.5px solid #000;
-          table-layout: fixed;
-        }
-        
-        .nested-table td, .nested-table th {
-          border: 1px solid #000;
-          padding: 4px;
-          text-align: center;
-          font-size: 11px;
-          height: 24px;
-        }
-        
-        .bg-yellow { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .bg-blue { background-color: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .bg-green { background-color: #ffffff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .bg-cyan { background-color: #ffffff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-
-        .footer-sig {
-          margin-top: 40px;
-          display: flex;
-          justify-content: space-between;
-          padding: 0 40px;
-        }
-        
-        .sig-item {
-          text-align: center;
-          width: 200px;
-        }
-        
-        .sig-line {
-          border-top: 1.5px solid #000;
-          margin-top: 60px;
-          padding-top: 5px;
-          font-weight: bold;
-          font-size: 13px;
-        }
-
+        .input-cell { padding: 0 !important; }
+        .input-field { width: 100%; height: 24px; text-align: center; border: none; background: transparent; font-size: 11px; outline: none; }
+        .input-field:focus { background-color: #fef08a; }
+        .footer-sig { margin-top: 60px; display: flex; justify-content: space-between; padding: 0 40px; page-break-inside: avoid; }
+        .sig-block { text-align: center; width: 200px; display: flex; flex-direction: column; align-items: center; }
+        .sig-name { font-size: 12px; font-weight: bold; min-height: 18px; margin-bottom: 5px; }
+        .sig-line { width: 100%; border-top: 1px dashed #000; padding-top: 5px; font-weight: bold; font-size: 12px; }
+        .bg-yellow { background-color: #f9fafb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         @media print {
-          @page {
-            size: A4 portrait;
-            margin: 10mm;
-          }
-          #print-section {
-            width: 100% !important;
+          @page { size: A4 portrait; margin: 10mm; }
+          body { background: white; margin: 0; padding: 0; }
+          .print-container { width: 100% !important; margin: 0 !important; padding: 0 !important; }
+          .report-wrapper { box-shadow: none; width: 100%; min-height: auto; padding: 0; margin: 0; border: none; }
+          .bg-gray-50 { background: white !important; }
+          .no-print { display: none !important; }
+          .overflow-x-auto { overflow: visible !important; }
+          table { page-break-inside: avoid; width: 100% !important; }
+          tr { page-break-inside: avoid; page-break-after: auto; }
+
+          /* Strip browser default input box appearance for print — make inputs look like plain text */
+          .nested-table input {
+            -webkit-appearance: none !important;
+            appearance: none !important;
+            border: none !important;
+            outline: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            padding: 2px 0 !important;
             margin: 0 !important;
-            padding: 0 !important;
+            height: 28px !important;
+            min-height: 28px !important;
+            line-height: 28px !important;
+            display: block !important;
+            width: 100% !important;
+            font-size: 11px !important;
+            font-weight: bold !important;
+            text-align: center !important;
+            color: inherit !important;
+          }
+
+          /* Fix PS table rowSpan row heights so the 2-row structure stays aligned */
+          .nested-table tbody td[rowspan="2"] {
+            height: 56px !important;
+            min-height: 56px !important;
+            vertical-align: middle !important;
+          }
+          .nested-table tbody td:not([rowspan]) {
+            height: 28px !important;
+            min-height: 28px !important;
+            vertical-align: middle !important;
+          }
+          .nested-table tbody td .flex {
+            display: flex !important;
+            align-items: center !important;
+            height: 28px !important;
+            min-height: 28px !important;
           }
         }
       `}</style>
-      {!readOnly && (
-        <div className="flex items-center justify-between no-print">
-          <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
-            <ArrowLeft className="w-4 h-4" /> Back
-          </Button>
-          <div className="flex gap-2">
-            {hasFailures && (
-              <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
-                <AlertTriangle className="w-4 h-4" /> Add to Failed Cores
+
+      <div className="print-container w-[210mm]">
+        {!readOnly && (
+          <div className="flex items-center justify-between no-print mb-4 w-full">
+            <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
+              <ArrowLeft className="w-4 h-4" /> Back
+            </Button>
+            <div className="flex gap-2">
+              {hasFailures && (
+                <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
+                  <AlertTriangle className="w-4 h-4" /> Add to Failed Cores
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2">
+                <Save className="w-4 h-4" /> Save
               </Button>
-            )}
-            <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2">
-              <Save className="w-4 h-4" /> Save
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
-              <Printer className="w-4 h-4" /> Print
-            </Button>
+              <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
+                <Printer className="w-4 h-4" /> Print
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div id="print-section">
-        {/* Header Grid */}
-        <div className="report-header-grid">
-          <div className="header-left">
-            <h1 className="text-2xl font-bold italic text-red-600 leading-tight">ADVENT ENGINEERS</h1>
+        <div id="printable-report" className="report-wrapper">
+          <div className="report-header-top">
+            <div className="header-logo">
+              <ImageWithFallback src={logoImage} alt="Advent Logo" className="max-w-full max-h-full object-contain" />
+            </div>
+            <div className="header-titles">
+              <h1>ADVENT ENGINEERS</h1>
+              <p>Excellence in Transformer Core Testing</p>
+            </div>
           </div>
-          <div className="header-right">
-            <div className="header-field">
-              <span className="field-label">Date :</span>
-              <span className="field-value">
-                {stage && transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate
+
+          <div className="report-metadata">
+            <div className="meta-column">
+              <div className="meta-field"><span className="meta-label">Date</span><span className="meta-value">: {stage && transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate
                   ? new Date(transformer.testHistory[`${stage}_test` as keyof typeof transformer.testHistory].reportDate).toLocaleDateString('en-GB')
-                  : new Date().toLocaleDateString('en-GB')}
-              </span>
+                  : new Date().toLocaleDateString('en-GB')}</span></div>
+              <div className="meta-field"><span className="meta-label">Order No</span><span className="meta-value">: {(transformer as any).jobId || (transformer as any).uniqueId}</span></div>
+              <div className="meta-field"><span className="meta-label">Client</span><span className="meta-value">: {(transformer as any).clientName || 'N/A'}</span></div>
             </div>
-            <div className="header-field">
-              <span className="field-label">Order No :</span>
-              <span className="field-value">{(transformer as any).jobId || (transformer as any).uniqueId}</span>
-            </div>
-            <div className="header-field">
-              <span className="field-label">Client :</span>
-              <span className="field-value">{(transformer as any).clientName || 'N/A'}</span>
-            </div>
-            <div className="header-field">
-              <span className="field-label">Unit No :</span>
-              <span className="field-value">{transformer.uniqueId}</span>
-            </div>
-            <div className="header-field">
-              <span className="field-label">Class :</span>
-              <span className="field-value">{accuracyClass || 'PS'}</span>
+            <div className="meta-column">
+              <div className="meta-field"><span className="meta-label">Unit No</span><span className="meta-value">: {transformer.uniqueId}</span></div>
+              <div className="meta-field"><span className="meta-label">Class</span><span className="meta-value">: {accuracyClass || 'PS'}</span></div>
             </div>
           </div>
-        </div>
 
-        {/* Banners */}
-        <div className="report-title-banner">
-          PS CORE TEST REPORT
-        </div>
-        <div className="description-banner">
-          Secondary Winding Verification - {coreId}
-        </div>
+          <div className="report-main-title">PS CORE TEST REPORT</div>
 
-        {/* Testing Record Table */}
-        <div className="mt-4 border-[1.5px] border-black">
-          <div className="bg-gray-100 p-1 text-center font-bold text-xs border-b-[1.5px] border-black uppercase">
-            Testing Record of Current Transformer
+          <div className="section-container">
+            <div className="section-title bg-gray-100">Secondary Winding Verification - {coreId}</div>
+            <table className="spec-table">
+              <tbody>
+                <tr>
+                  <td colSpan={2}><span className="font-bold mr-2">Specification :</span> {(transformer as any).voltageRating || '33'} KV {(transformer as any).clientName || 'N/A'}</td>
+                </tr>
+                <tr>
+                  <td colSpan={2}><span className="font-bold mr-2">CT Ratio :</span> {dynamicRatios.join('-')} A</td>
+                </tr>
+                <tr>
+                  <td style={{ width: '50%', borderRight: '1px solid #000' }}><span className="font-bold mr-2">Burden :</span> {displayBurden} VA</td>
+                  <td style={{ width: '50%' }}><span className="font-bold mr-2">Class :</span> {accuracyClass || 'PS'}</td>
+                </tr>
+                <tr>
+                  <td colSpan={2}><span className="font-bold mr-2">STC :</span> {displaySTC}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <table className="w-full text-[11px] border-collapse">
-            <tbody>
-              <tr>
-                <td className="border-b border-black p-1.5" colSpan={2}>
-                  <p><span className="font-bold italic">Specification :</span> {(transformer as any).voltageRating || '33'} KV {(transformer as any).clientName || 'N/A'}</p>
-                </td>
-              </tr>
-              <tr>
-                <td className="border-b border-black p-1.5" colSpan={2}>
-                  <p><span className="font-bold italic">CT Ratio :</span> {dynamicRatios.join('-')} A</p>
-                </td>
-              </tr>
-              <tr>
-                <td className="border-r border-b border-black p-1.5 w-1/2">
-                  <p><span className="font-bold italic">Burden :</span> {displayBurden} VA</p>
-                </td>
-                <td className="border-b border-black p-1.5 w-1/2">
-                  <p><span className="font-bold italic">Class :</span> {accuracyClass || 'PS'}</p>
-                </td>
-              </tr>
-              <tr>
-                <td className="p-1.5" colSpan={2}>
-                  <p><span className="font-bold italic">STC :</span> {displaySTC}</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
 
         <div className="mt-4">
 
           <div className="overflow-x-auto">
             <table className="nested-table">
               <thead>
+                <tr className="bg-white">
+                  <th className="border border-gray-400 p-2" colSpan={5}></th>
+                  <th className="border border-gray-400 p-2 text-right" colSpan={2}>
+                    <div className="flex justify-end items-center gap-2">
+                      <span className="font-bold text-sm">PS core no.</span>
+                      <span className="border-b border-gray-600 px-2 min-w-[60px] text-blue-700 font-medium">{coreId}</span>
+                    </div>
+                  </th>
+                </tr>
                 <tr className="bg-yellow">
                   <th className="w-[160px]" rowSpan={2}>PS Core Ratio</th>
                   <th className="w-[120px]" rowSpan={2}>Turn Ratio Error at 100%</th>
@@ -1239,7 +1174,7 @@ export function SecondaryPSReport({
                           />
                         )}
                       </td>
-                      <td className="border border-gray-400 p-1 bg-white border-b-0 h-8">
+                      <td className="border border-gray-400 p-1 bg-white">
                         <div className="flex items-center w-full h-full min-h-[24px]">
                           <span className="font-bold text-[#0070c0] mr-2 whitespace-nowrap text-xs">Vk :</span>
                           {readOnly ? (
@@ -1318,8 +1253,8 @@ export function SecondaryPSReport({
                         })()}
                       </td>
                     </tr>
-                    <tr className="border-b border-gray-400">
-                      <td className="border border-gray-400 p-1 bg-white h-8 border-t-0">
+                    <tr>
+                      <td className="border border-gray-400 p-1 bg-white">
                         <div className="flex items-center w-full h-full min-h-[24px]">
                           <span className="font-bold text-[#0070c0] mr-2 whitespace-nowrap text-xs">1.1Vk :</span>
                           {readOnly ? (
@@ -1345,28 +1280,20 @@ export function SecondaryPSReport({
             </table>
           </div>
 
-          {/* Footer Signatures */}
           <div className="footer-sig">
-            <div className="sig-item">
-              <div className="sig-line">Tested by</div>
-              <div className="text-xs mt-1 font-bold">{testerName || 'Tester'}</div>
+            <div className="sig-block">
+              <div className="sig-name">{testerName || 'Tester'}</div>
+              <div className="sig-line">Tested By</div>
             </div>
-            <div className="sig-item">
+            <div className="sig-block">
+              <div className="sig-name italic text-gray-500 font-normal mt-1">Stamp & Signature</div>
               <div className="sig-line">Authorised Signatory</div>
-              <div className="text-[10px] mt-1 italic italic-bold text-gray-500">Stamp & Signature</div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Render redundant save button at bottom if needed, or remove it since it's at the top. We'll leave it for convenience. */}
-      <div className="flex gap-3 no-print pt-4">
-        {!readOnly && (
-          <Button onClick={handleDatabaseSave} variant="outline" size="sm" className="gap-2" disabled={hasFailures}>
-            <Save className="w-4 h-4" /> Save
-          </Button>
-        )}
       </div>
+
     </div>
   );
 }

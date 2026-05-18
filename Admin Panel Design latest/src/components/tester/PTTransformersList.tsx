@@ -22,6 +22,7 @@ export interface Transformer {
   status: 'pending' | 'in-progress' | 'completed' | 'approved';
   testHistory?: any;
   currentStage: string;
+  voltageClass?: string;
 }
 
 interface Order {
@@ -205,7 +206,10 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
             cores: coresList,
             status: currentStatus,
             hasPtTest,
-            testHistory: t.testHistory
+            testHistory: t.testHistory,
+            voltageClass: (order.voltageRating || order.nominalSystemVoltage) 
+              ? `${order.voltageRating || order.nominalSystemVoltage}kV` 
+              : 'N/A'
           };
         });
 
@@ -341,6 +345,7 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
                 <tr>
                   <th className="p-4 text-sm font-semibold text-gray-600">Transformer Name</th>
                   <th className="p-4 text-sm font-semibold text-gray-600">Unique ID</th>
+                  <th className="p-4 text-sm font-semibold text-gray-600">Voltage Class</th>
                   <th className="p-4 text-sm font-semibold text-gray-600">Cores</th>
                   <th className="p-4 text-sm font-semibold text-gray-600">Status</th>
                   <th className="p-4 text-sm font-semibold text-gray-600 text-center">Action</th>
@@ -351,6 +356,7 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
                   <tr key={transformer._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                     <td className="p-4 font-medium">{transformer.name}</td>
                     <td className="p-4">{transformer.uniqueId}</td>
+                    <td className="p-4">{transformer.voltageClass}</td>
                     <td className="p-4">
                       <div className="flex flex-wrap gap-1">
                         {transformer.cores.map((core) => (

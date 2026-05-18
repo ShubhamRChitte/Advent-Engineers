@@ -46,9 +46,10 @@ export function EmployeeManagement() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
 
   // Form State
-  const [formData, setFormData] = useState({
+  const initialFormState = {
     fullName: '',
     emailId: '',
     mobileNumber: '',
@@ -58,6 +59,7 @@ export function EmployeeManagement() {
     dateOfJoining: '',
     employmentType: '',
     assignedLab: '',
+    activeStatus: true,
     voltageExperience: '', // Comma separated for input
     transformerSkills: {
       canTestCT: false,
@@ -72,7 +74,9 @@ export function EmployeeManagement() {
       insulationResistanceTest: false,
       tanDeltaTest: false
     }
-  });
+  };
+
+  const [formData, setFormData] = useState(initialFormState);
 
   // Fetch Employees
   const fetchEmployees = async () => {
@@ -113,10 +117,54 @@ export function EmployeeManagement() {
     }));
   };
 
+  const handleEdit = (employee: Employee) => {
+    setEditingEmployee(employee);
+    setFormData({
+      fullName: employee.fullName || '',
+      emailId: employee.emailId || '',
+      mobileNumber: employee.mobileNumber || '',
+      password: '', // Don't show password
+      designation: employee.designation || '',
+      department: employee.department || '',
+      dateOfJoining: employee.dateOfJoining ? new Date(employee.dateOfJoining).toISOString().split('T')[0] : '',
+      employmentType: employee.employmentType || '',
+      assignedLab: employee.assignedLab || '',
+      activeStatus: employee.activeStatus !== undefined ? employee.activeStatus : true,
+      voltageExperience: employee.voltageExperience ? employee.voltageExperience.join(', ') : '',
+      transformerSkills: employee.transformerSkills || { canTestCT: false, canTestPT: false },
+      testCapabilities: employee.testCapabilities || { ratioTest: false, polarityTest: false, burdenTest: false, accuracyTest: false, excitationTest: false, insulationResistanceTest: false, tanDeltaTest: false }
+    });
+    setIsAddDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this employee?')) return;
+
+    try {
+      const response = await fetch(`http://localhost:5001/auth/delete-employee/${id}`, {
+        method: 'DELETE'
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Employee deleted');
+        fetchEmployees();
+      } else {
+        toast.error(data.message || 'Failed to delete');
+      }
+    } catch (error) {
+      toast.error('Error deleting employee');
+    }
+  };
+
   const handleSubmit = async () => {
-    if (!formData.fullName || !formData.password || !formData.designation || !formData.department || !formData.mobileNumber || !formData.dateOfJoining || !formData.employmentType) {
-      toast.error('Please fill in all required fields');
-      return;
+    const requiredFields = ['fullName', 'designation', 'department', 'mobileNumber', 'dateOfJoining', 'employmentType'];
+    if (!editingEmployee) requiredFields.push('password');
+
+    for (const field of requiredFields) {
+      if (!formData[field as keyof typeof formData]) {
+        toast.error(`Please fill in ${field}`);
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -131,8 +179,14 @@ export function EmployeeManagement() {
         voltageExperience: voltageArray
       };
 
-      const response = await fetch('http://localhost:5001/auth/add-employee', {
-        method: 'POST',
+      const url = editingEmployee 
+        ? `http://localhost:5001/auth/update-employee/${editingEmployee._id}`
+        : 'http://localhost:5001/auth/add-employee';
+      
+      const method = editingEmployee ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
@@ -140,16 +194,13 @@ export function EmployeeManagement() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success(`Employee added! ID: ${data.employeeId}`);
+        toast.success(editingEmployee ? 'Employee updated!' : `Employee added! ID: ${data.employeeId}`);
         setIsAddDialogOpen(false);
-        setFormData({
-          fullName: '', emailId: '', mobileNumber: '', password: '', designation: '', department: '', dateOfJoining: '', employmentType: '', assignedLab: '', voltageExperience: '',
-          transformerSkills: { canTestCT: false, canTestPT: false },
-          testCapabilities: { ratioTest: false, polarityTest: false, burdenTest: false, accuracyTest: false, excitationTest: false, insulationResistanceTest: false, tanDeltaTest: false }
-        });
+        setEditingEmployee(null);
+        setFormData(initialFormState);
         fetchEmployees();
       } else {
-        toast.error(data.message || 'Failed to add employee');
+        toast.error(data.message || 'Operation failed');
       }
     } catch (error) {
       toast.error('Error submitting form');
@@ -174,14 +225,25 @@ export function EmployeeManagement() {
           <h2 className="text-2xl font-bold tracking-tight">Employee Management</h2>
           <p className="text-muted-foreground">Manage system users and their roles</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+          setIsAddDialogOpen(open);
+          if (!open) {
+            setEditingEmployee(null);
+            setFormData(initialFormState);
+          }
+        }}>
           <DialogTrigger asChild>
             <Button className="bg-red-600 hover:bg-red-700"><UserPlus className="mr-2 h-4 w-4" /> Add Employee</Button>
           </DialogTrigger>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Add New Employee</DialogTitle>
-              <DialogDescription>Enter the details for the new employee. Employee ID will be auto-generated to format EMP001.</DialogDescription>
+              <DialogTitle>{editingEmployee ? 'Edit Employee' : 'Add New Employee'}</DialogTitle>
+              <DialogDescription>
+                {editingEmployee 
+                  ? `Updating details for ${editingEmployee.fullName} (${editingEmployee.employeeId})`
+                  : 'Enter the details for the new employee. Employee ID will be auto-generated to format EMP001.'
+                }
+              </DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
               {/* Basic Info */}
@@ -190,7 +252,7 @@ export function EmployeeManagement() {
                 <Input id="fullName" value={formData.fullName} onChange={handleInputChange} placeholder="John Doe" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password *</Label>
+                <Label htmlFor="password">Password {editingEmployee ? '(Leave blank to keep current)' : '*'}</Label>
                 <Input id="password" type="password" value={formData.password} onChange={handleInputChange} placeholder="Secret" />
               </div>
               <div className="space-y-2">
@@ -205,7 +267,7 @@ export function EmployeeManagement() {
               {/* Work Info */}
               <div className="space-y-2">
                 <Label htmlFor="designation">Designation *</Label>
-                <Select onValueChange={(v: string) => handleSelectChange('designation', v)}>
+                <Select value={formData.designation} onValueChange={(v: string) => handleSelectChange('designation', v)}>
                   <SelectTrigger><SelectValue placeholder="Select Designation" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Admin">Admin</SelectItem>
@@ -216,7 +278,7 @@ export function EmployeeManagement() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="department">Department *</Label>
-                <Select onValueChange={(v: string) => handleSelectChange('department', v)}>
+                <Select value={formData.department} onValueChange={(v: string) => handleSelectChange('department', v)}>
                   <SelectTrigger><SelectValue placeholder="Select Department" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Management">Management</SelectItem>
@@ -227,6 +289,7 @@ export function EmployeeManagement() {
                     <SelectItem value="Final Test">Final Test</SelectItem>
                     <SelectItem value="PT Test">PT Test</SelectItem>
                     <SelectItem value="PT Pretest">PT Pretest</SelectItem>
+                    <SelectItem value="Heating">Heating</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -238,7 +301,7 @@ export function EmployeeManagement() {
 
               <div className="space-y-2">
                 <Label htmlFor="employmentType">Employment Type *</Label>
-                <Select onValueChange={(v: string) => handleSelectChange('employmentType', v)}>
+                <Select value={formData.employmentType} onValueChange={(v: string) => handleSelectChange('employmentType', v)}>
                   <SelectTrigger><SelectValue placeholder="Select Type" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Permanent">Permanent</SelectItem>
@@ -247,6 +310,18 @@ export function EmployeeManagement() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Status Toggle for Edit */}
+              {editingEmployee && (
+                <div className="flex items-center space-x-2 py-2">
+                  <Checkbox 
+                    id="activeStatus" 
+                    checked={formData.activeStatus} 
+                    onCheckedChange={(c: boolean) => setFormData(prev => ({ ...prev, activeStatus: c }))} 
+                  />
+                  <Label htmlFor="activeStatus" className="font-semibold text-slate-700">Account Active</Label>
+                </div>
+              )}
 
               {/* Skills & Experience */}
               <div className="col-span-1 md:col-span-2 space-y-2 border-t pt-4">
@@ -288,7 +363,7 @@ export function EmployeeManagement() {
             </div>
             <div className="flex justify-end pt-4 border-t">
               <Button onClick={handleSubmit} className="bg-red-600 hover:bg-red-700 w-full md:w-auto" disabled={isLoading}>
-                {isLoading ? 'Adding Employee...' : 'Save & Add Employee'}
+                {isLoading ? (editingEmployee ? 'Updating...' : 'Adding...') : (editingEmployee ? 'Update Employee' : 'Save & Add Employee')}
               </Button>
             </div>
           </DialogContent>
@@ -308,11 +383,12 @@ export function EmployeeManagement() {
                 <th className="text-left pb-3 text-sm font-medium text-gray-500">Contact</th>
                 <th className="text-left pb-3 text-sm font-medium text-gray-500">Status</th>
                 <th className="text-left pb-3 text-sm font-medium text-gray-500">Joined</th>
+                <th className="text-right pb-3 text-sm font-medium text-gray-500">Actions</th>
               </tr>
             </thead>
             <tbody>
               {employees.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-8 text-gray-500">No employees found. Add one to get started.</td></tr>
+                <tr><td colSpan={7} className="text-center py-8 text-gray-500">No employees found. Add one to get started.</td></tr>
               ) : (
                 employees.map((employee) => (
                   <tr key={employee._id} className="border-b border-gray-100 hover:bg-slate-50 transition-colors">
@@ -346,6 +422,26 @@ export function EmployeeManagement() {
                     </td>
                     <td className="py-4 text-sm text-slate-500">
                       {new Date(employee.dateOfJoining).toLocaleDateString()}
+                    </td>
+                    <td className="py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-slate-400 hover:text-blue-600"
+                          onClick={() => handleEdit(employee)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-slate-400 hover:text-red-600"
+                          onClick={() => handleDelete(employee._id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))

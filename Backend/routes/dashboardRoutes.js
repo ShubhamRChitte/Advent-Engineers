@@ -134,13 +134,14 @@ router.get('/stats', async (req, res) => {
                 label: d.toLocaleString('default', { month: 'short' }),
                 core: 0,
                 secondary: 0,
-                final: 0
+                primary: 0,
+                final: 0,
+                pt: 0,
+                heating: 0
             });
         }
 
         // Fetch needed fields from all transformers
-        // Optimize: limit to last 6 months using updatedUpdatedAt if possible, but testHistory timestamps are nested.
-        // For now, fetch all and filter in JS (dataset size < 10k is fine)
         const allTransformers = await TransformerModel.find({})
             .select('testHistory currentStage')
             .lean();
@@ -148,19 +149,15 @@ router.get('/stats', async (req, res) => {
         allTransformers.forEach(t => {
             const history = t.testHistory || {};
 
-            // Helper to increment count if timestamp matches a month in our range
             const checkStage = (stageName, stageData) => {
                 if (stageData && (stageData.status === 'Completed' || stageData.timestamp)) {
-                    // If status is completed or we have a timestamp (assuming timestamp means completed or at least activity)
-                    // Ideally check status === 'Completed'
-                    if (stageData.status !== 'Completed') return;
+                    if (stageData.status !== 'Completed' && stageData.status !== 'Approved') return;
 
                     const ts = stageData.timestamp ? new Date(stageData.timestamp) : null;
                     if (ts) {
                         const m = ts.getMonth();
                         const y = ts.getFullYear();
 
-                        // Find matching month in our array
                         const monthEntry = months.find(entry => entry.monthVal === m && entry.yearVal === y);
                         if (monthEntry) {
                             monthEntry[stageName]++;
@@ -171,31 +168,69 @@ router.get('/stats', async (req, res) => {
 
             checkStage('core', history.core_test);
             checkStage('secondary', history.secondary_test);
+            checkStage('primary', history.primary_test);
             checkStage('final', history.final_test);
+            checkStage('pt', history.pt_test);
+            checkStage('heating', history.heating_test);
         });
 
         const testingData = months.map(m => ({
             month: m.label,
             core: m.core,
             secondary: m.secondary,
-            final: m.final
+            primary: m.primary,
+            final: m.final,
+            pt: m.pt,
+            heating: m.heating
         }));
 
-        // 3. Order Status Distribution (Dynamic)
-        const pendingOrders = await OrderModel.countDocuments({ status: 'Pending Approval' });
-        const coreOrders = await OrderModel.countDocuments({ currentStage: 'core', status: { $ne: 'Pending Approval' } });
-        // orders don't have 'currentStage' field, they have it? Yes, generatedTransformersForOrder updates it.
-        // Let's check OrderModel.
-        // Actually OrderModel has `currentStage` (string) in some previous code snippets I saw?
-        // Let's check OrderSchema... I didn't check OrderSchema, only Model.
-        // Assuming Order has 'status'.
-        const inProgress = await OrderModel.countDocuments({ status: 'In Progress' });
-        const completedOrders = await OrderModel.countDocuments({ status: 'Completed' });
+        // 3. Detailed Order Status Distribution (Dynamic)
+        // We will break down "In Progress" into specific stages
+        const pendingOrders = await OrderModel.countDocuments({ 
+            status: { $in: ['Pending Approval', 'Pending'] } 
+        });
+
+        const coreOrders = await OrderModel.countDocuments({ 
+            status: { $in: ['Core Testing In Progress', 'Core Testing Completed'] } 
+        });
+
+        const secondaryOrders = await OrderModel.countDocuments({ 
+            status: 'In Progress',
+            currentStage: 'secondary'
+        });
+
+        const primaryOrders = await OrderModel.countDocuments({ 
+            status: 'In Progress',
+            currentStage: 'primary'
+        });
+
+        const heatingOrders = await OrderModel.countDocuments({ 
+            status: 'In Progress',
+            currentStage: 'heating'
+        });
+
+        const finalOrders = await OrderModel.countDocuments({ 
+            status: 'In Progress',
+            currentStage: 'final'
+        });
+
+        const ptOrders = await OrderModel.countDocuments({ 
+            status: { $in: ['PT Testing In Progress', 'PT Testing Completed', 'PT Pretesting In Progress', 'PT Pretesting Completed'] } 
+        });
+
+        const completedOrders = await OrderModel.countDocuments({ 
+            status: { $in: ['Completed', 'COMPLETED'] } 
+        });
 
         const orderData = [
-            { name: 'Pending', value: pendingOrders },
-            { name: 'In Progress', value: inProgress },
-            { name: 'Completed', value: completedOrders },
+            { name: 'Pending', value: pendingOrders, color: '#94a3b8' },
+            { name: 'Core', value: coreOrders, color: '#3b82f6' },
+            { name: 'Secondary', value: secondaryOrders, color: '#8b5cf6' },
+            { name: 'Primary', value: primaryOrders, color: '#f97316' },
+            { name: 'Heating', value: heatingOrders, color: '#f59e0b' },
+            { name: 'Final', value: finalOrders, color: '#10b981' },
+            { name: 'PT', value: ptOrders, color: '#ec4899' },
+            { name: 'Completed', value: completedOrders, color: '#059669' },
         ];
 
 
