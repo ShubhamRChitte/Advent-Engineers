@@ -1022,6 +1022,7 @@ function VendorMultiSelect({ vendors, selectedIds, onChange, placeholder }: Vend
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleVendor(v._id);
+                    setIsOpen(false);
                   }}
                 >
                   <span>{v.vendor_no} - {v.vendor_name}</span>
