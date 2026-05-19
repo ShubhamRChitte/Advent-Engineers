@@ -266,25 +266,9 @@ export function SecondaryMeteringReport({
         .nested-table tr th:first-child, .nested-table tr td:first-child { border-left: none; }
         .nested-table tr th:last-child, .nested-table tr td:last-child { border-right: none; }
         .nested-table tr:last-child td { border-bottom: none; }
-        .input-cell { padding: 3px !important; }
-        .input-field {
-          width: 100%;
-          height: 26px;
-          text-align: center;
-          border: 1px solid #dcdcdc !important;
-          background-color: #ffffff !important;
-          font-size: 11px;
-          outline: none !important;
-          border-radius: 4px !important;
-          box-shadow: none !important;
-          box-sizing: border-box;
-          transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-        }
-        .input-field:focus {
-          border-color: #4a90e2 !important;
-          box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.15) !important;
-          background-color: #ffffff !important;
-        }
+        .input-cell { padding: 0 !important; }
+        .input-field { width: 100%; height: 24px; text-align: center; border: none; background: transparent; font-size: 11px; outline: none; }
+        .input-field:focus { background-color: #fef08a; }
         .footer-sig { margin-top: 60px; display: flex; justify-content: space-between; padding: 0 40px; page-break-inside: avoid; }
         .sig-block { text-align: center; width: 200px; display: flex; flex-direction: column; align-items: center; }
         .sig-name { font-size: 12px; font-weight: bold; min-height: 18px; margin-bottom: 5px; }
@@ -299,27 +283,6 @@ export function SecondaryMeteringReport({
           .overflow-x-auto { overflow: visible !important; }
           table { page-break-inside: avoid; width: 100% !important; }
           tr { page-break-inside: avoid; page-break-after: auto; }
-          .input-cell { padding: 0 !important; }
-          .nested-table input {
-            -webkit-appearance: none !important;
-            appearance: none !important;
-            border: none !important;
-            outline: none !important;
-            background: transparent !important;
-            box-shadow: none !important;
-            border-radius: 0 !important;
-            padding: 2px 0 !important;
-            margin: 0 !important;
-            height: 24px !important;
-            min-height: 24px !important;
-            line-height: 24px !important;
-            display: block !important;
-            width: 100% !important;
-            font-size: 11px !important;
-            font-weight: bold !important;
-            text-align: center !important;
-            color: inherit !important;
-          }
         }
       `}</style>
 

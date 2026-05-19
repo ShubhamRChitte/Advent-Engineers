@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   Printer,
   Search,
-  Undo2,
 } from 'lucide-react';
 import { FailedCore } from './CoreTestingForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
@@ -72,7 +71,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
     setShowReturnModal(true);
   };
 
-  const handleReturnSuccess = (_newForm: any) => {
+  const handleReturnSuccess = (newForm: any) => {
     // Update local state to reflect returned status
     const returnedIds = returnModalCores.map(c => (c as any)._id);
     setLocalCores(prev => prev.map(c => 
@@ -440,27 +439,15 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab: All Cores — Redesigned Clean Table */}
+        {/* Tab: All Cores */}
         <TabsContent value="all">
-          <Card className="p-0 overflow-hidden border border-gray-200">
-            <div className="px-5 py-4 border-b border-gray-100 bg-white flex items-center justify-between">
-              <h3 className="text-base font-semibold text-gray-800">All Failed Cores List</h3>
-              <span className="text-xs text-gray-400">{filteredCores.length} records</span>
-            </div>
+          <Card className="p-4">
+            <h3 className="text-lg font-bold mb-4">All Failed Cores List</h3>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
-                <colgroup>
-                  <col style={{ width: '40px' }} />
-                  <col style={{ width: '10%' }} />
-                  <col style={{ width: '18%' }} />
-                  <col style={{ width: '12%' }} />
-                  <col style={{ width: '18%' }} />
-                  <col style={{ width: '32%' }} />
-                  <col style={{ width: '10%' }} />
-                </colgroup>
+              <table className="w-full text-sm border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-3 py-3 text-center">
+                  <tr className="bg-gray-100 border-b border-gray-300">
+                    <th className="p-2 w-10">
                       <input
                         type="checkbox"
                         className="rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
@@ -468,92 +455,91 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                         onChange={() => toggleSelectAll(filteredCores)}
                       />
                     </th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Client</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Core Type</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Vendor</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Failure Reason</th>
-                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+                    <th className="p-2 text-left font-medium">Date</th>
+                    <th className="p-2 text-left font-medium">Order ID</th>
+                    <th className="p-2 text-left font-medium">Job ID</th>
+                    <th className="p-2 text-left font-medium">Client</th>
+                    <th className="p-2 text-left font-medium">Core Type</th>
+                    <th className="p-2 text-left font-medium">Internal Core No</th>
+                    <th className="p-2 text-left font-medium">Vendor No</th>
+                    <th className="p-2 text-left font-medium">Failure Stage</th>
+                    <th className="p-2 text-left font-medium">Failure Reason</th>
+                    <th className="p-2 text-left font-medium">Status</th>
+                    <th className="p-2 text-left font-medium">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredCores.length === 0 && (
-                    <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-400 italic text-sm">No failed cores found.</td></tr>
-                  )}
-                  {filteredCores.map((core, index) => {
-                    const reason = String(core.failureReason || '');
-                    const isLong = reason.length > 80;
-                    const truncated = isLong ? reason.slice(0, 78) + '…' : reason;
-
-                    const canReturn = (core as any).status !== "RETURNED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING";
-                    const isReturned = (core as any).status === "RETURNED";
-
-                    return (
-                      <tr key={index} className={`hover:bg-gray-50/70 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}>
-                        <td className="px-3 py-2.5 text-center align-middle">
-                          {!isReturned && core._id && (
-                            <input
-                              type="checkbox"
-                              className="rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
-                              checked={selectedCores.includes(core._id)}
-                              onChange={() => toggleSelectOne(core._id)}
-                            />
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5 text-sm text-gray-700 align-middle whitespace-nowrap">
-                          {core.failedAt ? new Date(core.failedAt).toLocaleDateString('en-GB') : (core.createdAt ? new Date(core.createdAt).toLocaleDateString('en-GB') : '-')}
-                        </td>
-                        <td className="px-3 py-2.5 text-sm text-gray-800 font-medium align-middle truncate" title={String(core.clientName || '')}>
-                          {String(core.clientName || '-')}
-                        </td>
-                        <td className="px-3 py-2.5 align-middle">
-                          <span className="inline-flex px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide bg-slate-100 text-slate-700">
-                            {String(core.coreType || '-')}
+                <tbody>
+                  {filteredCores.map((core, index) => (
+                    <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
+                      <td className="p-2">
+                        {(core as any).status !== "RETURNED" && core._id && (
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                            checked={selectedCores.includes(core._id)}
+                            onChange={() => toggleSelectOne(core._id)}
+                          />
+                        )}
+                      </td>
+                      <td className="p-2">{core.failedAt ? new Date(core.failedAt).toLocaleDateString('en-GB') : (core.createdAt ? new Date(core.createdAt).toLocaleDateString('en-GB') : '-')}</td>
+                      <td className="p-2 font-mono text-xs">{String(core.orderId || '')}</td>
+                      <td className="p-2 font-mono text-xs">{String(core.jobId || '')}</td>
+                      <td className="p-2">{String(core.clientName || '')}</td>
+                      <td className="p-2">{String(core.coreType || '')}</td>
+                      <td className="p-2 font-mono font-medium text-red-700">{String(core.internalCoreNo || '')}</td>
+                      <td className="p-2">{String(core.coreVendorNo || core.vendorCoreNo || '')}</td>
+                      <td className="p-2 whitespace-nowrap text-xs font-semibold text-gray-700">{String(core.failureStage || '').replace(/_/g, ' ').toUpperCase()}</td>
+                      <td className="p-2 text-xs text-red-600">{String(core.failureReason || '')}</td>
+                      <td className="p-2">
+                        {(core as any).status === "RETURNED" ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                            🔄 RETURNED
                           </span>
-                        </td>
-                        <td className="px-3 py-2.5 text-sm text-gray-700 align-middle truncate" title={String(core.coreVendorNo || core.vendorCoreNo || '')}>
-                          {String(core.coreVendorNo || core.vendorCoreNo || '-')}
-                        </td>
-                        <td className="px-3 py-2.5 align-middle">
-                          <div className="flex items-center min-w-0">
-                            <span className="text-sm text-gray-600 truncate leading-snug" title={reason}>
-                              {truncated || '-'}
-                            </span>
-                          </div>
-                        </td>
-                        {/* Compact Circular Icon Action Column */}
-                        <td className="px-3 py-2.5 text-center align-middle">
-                          <div className="flex items-center justify-center">
-                            {canReturn && (
-                              <button
-                                onClick={() => handleReturnToVendor(core._id)}
-                                className="flex items-center justify-center w-9 h-9 rounded-full text-gray-400 hover:text-[#f97316] hover:bg-[#f97316]/[0.08] transition-all duration-200 hover:scale-115 focus:outline-none bg-transparent border-0 cursor-pointer"
-                                title="Return Core"
-                              >
-                                <Undo2 className="w-5 h-5" />
-                              </button>
-                            )}
-                            {isReturned && (
-                              <button
-                                onClick={() => handleUndoReturn(core._id)}
-                                className="flex items-center justify-center w-9 h-9 rounded-full text-gray-400 hover:text-[#f97316] hover:bg-[#f97316]/[0.08] transition-all duration-200 hover:scale-115 focus:outline-none bg-transparent border-0 cursor-pointer"
-                                title="Undo Return"
-                              >
-                                <Undo2 className="w-5 h-5 transform -scale-x-100" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                        ) : (core as any).adminApprovalStatus === "PENDING" ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                            ⏳ REVIEW PENDING
+                          </span>
+                        ) : ((core as any).adminApprovalStatus === "APPROVED" || (core as any).status === "RETEST_APPROVED" || (core as any).retestStatus === "PENDING") ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                            🔄 RETESTING
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
+                            ❌ FAILED
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-2 flex gap-2">
+                        {(core as any).status !== "RETURNED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
+                            onClick={() => handleReturnToVendor(core._id)}
+                          >
+                            Return
+                          </Button>
+                        )}
+                        {(core as any).status === "RETURNED" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs border-gray-300 text-gray-700 hover:bg-gray-50"
+                            onClick={() => handleUndoReturn(core._id)}
+                          >
+                            Undo
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </Card>
         </TabsContent>
 
-        {/* Tab: Grouped by Vendor — Redesigned */}
+        {/* Tab: Grouped by Vendor */}
         <TabsContent value="vendor">
           <Card className="p-4">
             <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
@@ -561,34 +547,26 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
             </h3>
             <div className="space-y-4">
               {Object.entries(vendorGroups).map(([vendorNo, cores]) => (
-                <div key={vendorNo} className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-b border-gray-200">
+                <div key={vendorNo} className="border border-red-200 rounded-lg overflow-hidden">
+                  <div className="bg-red-100 p-3 flex items-center justify-between">
                     <div>
-                      <h4 className="font-semibold text-gray-800 text-sm">Vendor: {vendorNo}</h4>
-                      <p className="text-xs text-gray-500">{cores.length} failed cores</p>
+                      <h4 className="font-bold text-red-900">Vendor No: {vendorNo}</h4>
+                      <p className="text-sm text-red-700">Total Failed Cores: {cores.length}</p>
                     </div>
                     <Button 
                         size="sm" 
                         variant="outline" 
-                        className="border-red-300 text-red-600 hover:bg-red-50 text-xs"
+                        className="border-red-300 text-red-600 hover:bg-red-50"
                         onClick={() => handleOpenReturnModal(vendorNo, cores)}
                     >
                       Generate Return Form
                     </Button>
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
-                      <colgroup>
-                        <col style={{ width: '40px' }} />
-                        <col style={{ width: '12%' }} />
-                        <col style={{ width: '18%' }} />
-                        <col style={{ width: '14%' }} />
-                        <col style={{ width: '44%' }} />
-                        <col style={{ width: '12%' }} />
-                      </colgroup>
-                      <thead className="bg-gray-50/70 border-b border-gray-200">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                          <th className="px-3 py-2.5 text-center">
+                          <th className="p-2 w-10">
                             <input
                               type="checkbox"
                               className="rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
@@ -596,73 +574,82 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                               onChange={() => toggleSelectAll(cores)}
                             />
                           </th>
-                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Client</th>
-                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Core Type</th>
-                          <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Failure Reason</th>
-                          <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+                          <th className="p-2 text-left font-medium">Date</th>
+                          <th className="p-2 text-left font-medium">Order ID</th>
+                          <th className="p-2 text-left font-medium">Job ID</th>
+                          <th className="p-2 text-left font-medium">Client</th>
+                          <th className="p-2 text-left font-medium">Core Type</th>
+                          <th className="p-2 text-left font-medium">Internal Core No</th>
+                          <th className="p-2 text-left font-medium">Failure Stage</th>
+                          <th className="p-2 text-left font-medium">Failure Reason</th>
+                          <th className="p-2 text-left font-medium">Status</th>
+                          <th className="p-2 text-left font-medium">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {cores.map((core, idx) => {
-                          const reason = String(core.failureReason || '');
-                          const isLong = reason.length > 80;
-                          const truncated = isLong ? reason.slice(0, 78) + '…' : reason;
-                          const canReturn = (core as any).status !== "RETURNED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING";
-                          const isReturned = (core as any).status === "RETURNED";
-
-                          return (
-                            <tr key={idx} className={`hover:bg-gray-50/70 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}>
-                              <td className="px-3 py-2.5 text-center align-middle">
-                                {!isReturned && core._id && (
-                                  <input
-                                    type="checkbox"
-                                    className="rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
-                                    checked={selectedCores.includes(core._id)}
-                                    onChange={() => toggleSelectOne(core._id)}
-                                  />
-                                )}
-                              </td>
-                              <td className="px-3 py-2.5 text-sm text-gray-700 align-middle whitespace-nowrap">
-                                {core.failedAt ? new Date(core.failedAt).toLocaleDateString('en-GB') : (core.createdAt ? new Date(core.createdAt).toLocaleDateString('en-GB') : '-')}
-                              </td>
-                              <td className="px-3 py-2.5 text-sm text-gray-800 font-medium align-middle truncate">{String(core.clientName || '-')}</td>
-                              <td className="px-3 py-2.5 align-middle">
-                                <span className="inline-flex px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide bg-slate-100 text-slate-700">
-                                  {String(core.coreType || '-')}
+                      <tbody>
+                        {cores.map((core, idx) => (
+                          <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="p-2">
+                              {(core as any).status !== "RETURNED" && core._id && (
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                                  checked={selectedCores.includes(core._id)}
+                                  onChange={() => toggleSelectOne(core._id)}
+                                />
+                              )}
+                            </td>
+                            <td className="p-2">{core.failedAt ? new Date(core.failedAt).toLocaleDateString('en-GB') : (core.createdAt ? new Date(core.createdAt).toLocaleDateString('en-GB') : '-')}</td>
+                            <td className="p-2 font-mono text-xs">{String(core.orderId || '')}</td>
+                            <td className="p-2 font-mono text-xs">{String(core.jobId || '')}</td>
+                            <td className="p-2">{String(core.clientName || '')}</td>
+                            <td className="p-2">{String(core.coreType || '')}</td>
+                            <td className="p-2 font-mono font-medium text-red-700">{String(core.internalCoreNo || '')}</td>
+                            <td className="p-2 whitespace-nowrap text-xs font-semibold text-gray-700">{String(core.failureStage || '').replace(/_/g, ' ').toUpperCase()}</td>
+                            <td className="p-2 text-xs text-red-600">{String(core.failureReason || '')}</td>
+                            <td className="p-2">
+                              {(core as any).status === "RETURNED" ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                  🔄 RETURNED
                                 </span>
-                              </td>
-                              <td className="px-3 py-2.5 align-middle">
-                                <div className="flex items-center min-w-0">
-                                  <span className="text-sm text-gray-600 truncate leading-snug" title={reason}>{truncated || '-'}</span>
-                                </div>
-                              </td>
-                              {/* Compact Circular Icon Action Column */}
-                              <td className="px-3 py-2.5 text-center align-middle">
-                                <div className="flex items-center justify-center">
-                                  {canReturn && (
-                                    <button
-                                      onClick={() => handleReturnToVendor(core._id)}
-                                      className="flex items-center justify-center w-9 h-9 rounded-full text-gray-400 hover:text-[#f97316] hover:bg-[#f97316]/[0.08] transition-all duration-200 hover:scale-115 focus:outline-none bg-transparent border-0 cursor-pointer"
-                                      title="Return Core"
-                                    >
-                                      <Undo2 className="w-5 h-5" />
-                                    </button>
-                                  )}
-                                  {isReturned && (
-                                    <button
-                                      onClick={() => handleUndoReturn(core._id)}
-                                      className="flex items-center justify-center w-9 h-9 rounded-full text-gray-400 hover:text-[#f97316] hover:bg-[#f97316]/[0.08] transition-all duration-200 hover:scale-115 focus:outline-none bg-transparent border-0 cursor-pointer"
-                                      title="Undo Return"
-                                    >
-                                      <Undo2 className="w-5 h-5 transform -scale-x-100" />
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
+                              ) : (core as any).adminApprovalStatus === "PENDING" ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                  ⏳ REVIEW PENDING
+                                </span>
+                              ) : ((core as any).adminApprovalStatus === "APPROVED" || (core as any).status === "RETEST_APPROVED" || (core as any).retestStatus === "PENDING") ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                  🔄 RETESTING
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
+                                  ❌ FAILED
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-2 flex gap-2">
+                              {(core as any).status !== "RETURNED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING" && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
+                                  onClick={() => handleReturnToVendor(core._id)}
+                                >
+                                  Return
+                                </Button>
+                              )}
+                              {(core as any).status === "RETURNED" && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs border-gray-300 text-gray-700 hover:bg-gray-50"
+                                  onClick={() => handleUndoReturn(core._id)}
+                                >
+                                  Undo
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
@@ -753,27 +740,27 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                                 </span>
                               )}
                             </td>
-                            <td className="p-2 align-middle">
-                              <div className="flex items-center justify-center">
-                                {(core as any).status !== "RETURNED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING" && (
-                                  <button
-                                    onClick={() => handleReturnToVendor(core._id)}
-                                    className="flex items-center justify-center w-9 h-9 rounded-full text-gray-400 hover:text-[#f97316] hover:bg-[#f97316]/[0.08] transition-all duration-200 hover:scale-115 focus:outline-none bg-transparent border-0 cursor-pointer"
-                                    title="Return Core"
-                                  >
-                                    <Undo2 className="w-5 h-5" />
-                                  </button>
-                                )}
-                                {(core as any).status === "RETURNED" && (
-                                  <button
-                                    onClick={() => handleUndoReturn(core._id)}
-                                    className="flex items-center justify-center w-9 h-9 rounded-full text-gray-400 hover:text-[#f97316] hover:bg-[#f97316]/[0.08] transition-all duration-200 hover:scale-115 focus:outline-none bg-transparent border-0 cursor-pointer"
-                                    title="Undo Return"
-                                  >
-                                    <Undo2 className="w-5 h-5 transform -scale-x-100" />
-                                  </button>
-                                )}
-                              </div>
+                            <td className="p-2 flex gap-2">
+                              {(core as any).status !== "RETURNED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING" && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
+                                  onClick={() => handleReturnToVendor(core._id)}
+                                >
+                                  Return
+                                </Button>
+                              )}
+                              {(core as any).status === "RETURNED" && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs border-gray-300 text-gray-700 hover:bg-gray-50"
+                                  onClick={() => handleUndoReturn(core._id)}
+                                >
+                                  Undo
+                                </Button>
+                              )}
                             </td>
                           </tr>
                         ))}

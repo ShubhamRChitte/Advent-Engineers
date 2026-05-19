@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { LogoutConfirmModal } from '../LogoutConfirmModal';
 import { Bell, LogOut } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -14,7 +13,6 @@ interface AdminHeaderProps {
 
 export function AdminHeader({ user, onLogout, onNotificationClick }: AdminHeaderProps) {
   const [unreadCount, setUnreadCount] = useState<number>(0);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const fetchUnreadCount = async () => {
     try {
@@ -79,18 +77,12 @@ export function AdminHeader({ user, onLogout, onNotificationClick }: AdminHeader
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowLogoutModal(true)}
+            onClick={onLogout}
             className="border-gray-200 hover:bg-gray-50 hover:text-red-600 transition-colors"
           >
             <LogOut className="w-4 h-4 mr-2" />
             Logout
           </Button>
-
-          <LogoutConfirmModal
-            isOpen={showLogoutModal}
-            onCancel={() => setShowLogoutModal(false)}
-            onConfirm={() => { setShowLogoutModal(false); onLogout(); }}
-          />
         </div>
       </div>
     </header>

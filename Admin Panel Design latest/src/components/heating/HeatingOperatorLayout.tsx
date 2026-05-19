@@ -6,7 +6,6 @@ import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png'
 import { Zap, LogOut, Flame, Bell } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { LogoutConfirmModal } from '../LogoutConfirmModal';
 
 interface HeatingOperatorLayoutProps {
   user: User;
@@ -20,7 +19,6 @@ const menuItems = [
 
 export function HeatingOperatorLayout({ user, onLogout }: HeatingOperatorLayoutProps) {
   const [activeView, setActiveView] = useState<'ct-heating' | 'pt-heating'>('ct-heating');
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -88,16 +86,10 @@ export function HeatingOperatorLayout({ user, onLogout }: HeatingOperatorLayoutP
               </div>
             </div>
 
-            <Button variant="outline" size="sm" onClick={() => setShowLogoutModal(true)} className="border-gray-300 hover:bg-gray-50">
+            <Button variant="outline" size="sm" onClick={onLogout} className="border-gray-300 hover:bg-gray-50">
               <LogOut className="w-4 h-4 mr-2" />
               Logout
             </Button>
-
-            <LogoutConfirmModal
-              isOpen={showLogoutModal}
-              onCancel={() => setShowLogoutModal(false)}
-              onConfirm={() => { setShowLogoutModal(false); onLogout(); }}
-            />
           </div>
         </header>
 
