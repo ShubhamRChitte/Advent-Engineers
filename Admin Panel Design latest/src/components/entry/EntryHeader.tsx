@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Bell, LogOut } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { User } from '../../App';
+import { LogoutConfirmModal } from '../LogoutConfirmModal';
 
 interface EntryHeaderProps {
   user: User;
@@ -9,6 +11,7 @@ interface EntryHeaderProps {
 }
 
 export function EntryHeader({ user, onLogout }: EntryHeaderProps) {
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
       <div className="flex items-center justify-between">
@@ -35,10 +38,16 @@ export function EntryHeader({ user, onLogout }: EntryHeaderProps) {
             </div>
           </div>
 
-          <Button variant="outline" size="sm" onClick={onLogout} className="border-gray-300 hover:bg-gray-50">
+          <Button variant="outline" size="sm" onClick={() => setShowLogoutModal(true)} className="border-gray-300 hover:bg-gray-50">
             <LogOut className="w-4 h-4 mr-2" />
             Logout
           </Button>
+
+          <LogoutConfirmModal
+            isOpen={showLogoutModal}
+            onCancel={() => setShowLogoutModal(false)}
+            onConfirm={() => { setShowLogoutModal(false); onLogout(); }}
+          />
         </div>
       </div>
     </header>

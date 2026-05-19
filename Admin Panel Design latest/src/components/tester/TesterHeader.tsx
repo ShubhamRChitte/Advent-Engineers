@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Bell, LogOut } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { User } from '../../App';
+import { LogoutConfirmModal } from '../LogoutConfirmModal';
 
 interface TesterHeaderProps {
   user: User;
@@ -9,6 +11,7 @@ interface TesterHeaderProps {
 }
 
 export function TesterHeader({ user, onLogout }: TesterHeaderProps) {
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const getTesterType = () => {
     switch (user.role) {
       case 'core-tester':
@@ -48,10 +51,16 @@ export function TesterHeader({ user, onLogout }: TesterHeaderProps) {
             </div>
           </div>
 
-          <Button variant="outline" size="sm" onClick={onLogout} className="border-gray-300 hover:bg-gray-50">
+          <Button variant="outline" size="sm" onClick={() => setShowLogoutModal(true)} className="border-gray-300 hover:bg-gray-50">
             <LogOut className="w-4 h-4 mr-2" />
             Logout
           </Button>
+
+          <LogoutConfirmModal
+            isOpen={showLogoutModal}
+            onCancel={() => setShowLogoutModal(false)}
+            onConfirm={() => { setShowLogoutModal(false); onLogout(); }}
+          />
         </div>
       </div>
     </header>
