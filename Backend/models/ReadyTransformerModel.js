@@ -85,4 +85,4 @@ ReadyTransformerSchema.index({
 
 const ReadyTransformerModel = mongoose.model("ReadyTransformer", ReadyTransformerSchema);
 
-module.exports = { ReadyTransformerModel };
+module.exports = ReadyTransformerModel;

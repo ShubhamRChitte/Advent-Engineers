@@ -44,7 +44,7 @@ const STYLE = `
 
     /* Add page margins via padding on the root (since @page margin is 0) */
     .pt-final-print-root {
-      padding: 14mm 16mm !important;
+      padding: 6mm 12mm !important;
     }
 
     /* Hide the interactive dashboard section */
@@ -67,7 +67,7 @@ const STYLE = `
 
   @media print {
     body { margin: 0; }
-    .pt-final-print-root { padding: 10mm 12mm; }
+    .pt-final-print-root { padding: 6mm 12mm !important; }
     .pf-table { page-break-inside: avoid; }
     .pf-section-wrapper { page-break-inside: avoid; }
   }
@@ -76,12 +76,12 @@ const STYLE = `
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
   }
 
   .pf-table th, .pf-table td {
     border: 1px solid #000;
-    padding: 3px 6px;
+    padding: 2px 4px;
     vertical-align: middle;
     word-break: break-word;
   }
@@ -161,13 +161,13 @@ const STYLE = `
     border-collapse: collapse;
     border: 1px solid #000;
     background: #f5f5f5;
-    margin-top: 8px;
+    margin-top: 4px;
     font-size: 11px;
     page-break-inside: avoid;
   }
 
   .pf-footer td {
-    padding: 8px 12px;
+    padding: 4px 12px;
     vertical-align: bottom;
     border: none;
     width: 50%;

@@ -35,7 +35,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const { NotificationModel } = require('./models/NotificationModel');
 const { FailedCoreModel } = require("./models/FailedCoreModel");
 const { FailedTransformerModel } = require("./models/FailedTransformerModel");
-const { ReadyTransformerModel } = require("./models/ReadyTransformerModel");
+const ReadyTransformerModel = require("./models/ReadyTransformerModel");
 
 
 const app = express();
