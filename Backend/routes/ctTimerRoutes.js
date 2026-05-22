@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const { CTTimerModel } = require('../models/CTTimerModel');
 const { SettingsModel } = require('../models/SettingsModel');
+const { TransformerModel } = require('../models/TransformerModel');
 const { isAuthenticated } = require('../middlewares/authMiddleware');
 
 // ── Default time limits (minutes) ────────────────────────────────────────────
@@ -89,8 +91,28 @@ router.post('/start', isAuthenticated, async (req, res) => {
     };
     const role = roleMap[stage] || stage;
 
-    const cores = parseInt(coreCount, 10) || 1;
-    const expectedMinutes = await getExpectedMinutes(stage, cores);
+    let cores = parseInt(coreCount, 10) || 1;
+    if (stage === 'secondary') {
+      const orQuery = [];
+      if (mongoose.Types.ObjectId.isValid(transformerId)) {
+        orQuery.push({ _id: new mongoose.Types.ObjectId(transformerId) });
+      }
+      orQuery.push({ uniqueId: transformerId });
+      
+      const transformer = await TransformerModel.findOne({ $or: orQuery }).populate('orderId');
+      if (transformer) {
+        if (transformer.cores && Array.isArray(transformer.cores)) {
+          cores = transformer.cores.length;
+        } else if (transformer.orderId) {
+          cores = transformer.orderId.noOfCores || (transformer.orderId.coreDetails ? transformer.orderId.coreDetails.length : 1);
+        }
+      }
+    }
+
+    let expectedMinutes = await getExpectedMinutes(stage, cores);
+    if (stage === 'secondary') {
+      expectedMinutes = cores * 5;
+    }
 
     const record = await CTTimerModel.create({
       transformerId,
@@ -140,7 +162,8 @@ router.post('/end', isAuthenticated, async (req, res) => {
 
     const endTime      = new Date();
     const actualTimeMs = endTime - new Date(record.startTime);
-    const expectedMs   = (record.expectedMinutes || DEFAULT_LIMITS[stage] || 5) * 60 * 1000;
+    const expectedMinutesVal = record.expectedMinutes || (stage === 'secondary' ? (record.totalCores || record.coreCount || 1) * 5 : (DEFAULT_LIMITS[stage] || 5));
+    const expectedMs   = expectedMinutesVal * 60 * 1000;
     const delayMs      = Math.max(0, actualTimeMs - expectedMs);
 
     record.endTime      = endTime;
@@ -188,7 +211,8 @@ router.post('/complete-core', isAuthenticated, async (req, res) => {
     if (record.completedCores >= record.totalCores) {
       const endTime      = new Date();
       const actualTimeMs = endTime - new Date(record.startTime);
-      const expectedMs   = (record.expectedMinutes || DEFAULT_LIMITS[stage] || 5) * 60 * 1000;
+      const expectedMinutesVal = record.expectedMinutes || (stage === 'secondary' ? (record.totalCores || record.coreCount || 1) * 5 : (DEFAULT_LIMITS[stage] || 5));
+      const expectedMs   = expectedMinutesVal * 60 * 1000;
       const delayMs      = Math.max(0, actualTimeMs - expectedMs);
 
       record.endTime      = endTime;

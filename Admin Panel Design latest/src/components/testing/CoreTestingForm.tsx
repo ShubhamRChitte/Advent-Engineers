@@ -3934,18 +3934,20 @@ export function CoreTestingForm({
       </Card>
 
       {/* DEDICATED PRINT COMPONENT (HIDDEN ON SCREEN) */}
-      <CoreReportPrint
-        order={order}
-        coreType={coreType}
-        specs={specs}
-        rows={rows}
-        bsatColumns={isProtectionCore ? protectionBColumns : (isPSCore ? psBColumns : bsatColumns)}
-        testDate={testDate}
-        testBy={testBy}
-        authorizedSignatory={authorizedSignatory}
-        tataRef={tataRef}
-        materialType={isMetering ? coreTypeNano : (isProtectionCore ? protectionCoreTypeM4CRGO : (psCoreTypeM4CRGO || "M4CRGO"))}
-      />
+      <div className="print-only">
+        <CoreReportPrint
+          order={order}
+          coreType={coreType}
+          specs={specs}
+          rows={rows}
+          bsatColumns={isProtectionCore ? protectionBColumns : (isPSCore ? psBColumns : bsatColumns)}
+          testDate={testDate}
+          testBy={testBy}
+          authorizedSignatory={authorizedSignatory}
+          tataRef={tataRef}
+          materialType={isMetering ? coreTypeNano : (isProtectionCore ? protectionCoreTypeM4CRGO : (psCoreTypeM4CRGO || "M4CRGO"))}
+        />
+      </div>
 
       {renderReadyStockModals()}
     </div>
