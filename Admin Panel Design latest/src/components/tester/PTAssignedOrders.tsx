@@ -60,7 +60,11 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0, endpoint 
               return s !== 'pt testing completed' && s !== 'pt final testing completed';
           } else {
               // For Pre-Testing, once it's "Pre-Testing Completed", it's done for this tester
-              return !s.includes('pre-testing completed');
+              const isPreCompleted = s.includes('pre-testing completed') || 
+                                     s.includes('pt testing assigned') || 
+                                     s.includes('pt testing') || 
+                                     s.includes('final testing');
+              return !isPreCompleted;
           }
         }));
       } else {
@@ -73,7 +77,11 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0, endpoint 
           if (isFinalEndpoint) {
               return s === 'pt testing completed' || s === 'pt final testing completed';
           } else {
-              return s.includes('pre-testing completed');
+              const isPreCompleted = s.includes('pre-testing completed') || 
+                                     s.includes('pt testing assigned') || 
+                                     s.includes('pt testing') || 
+                                     s.includes('final testing');
+              return isPreCompleted;
           }
         }));
       }
@@ -234,8 +242,8 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0, endpoint 
                   // If we're in Final PT (pt-tests): Only mark as completed if it's FINAL completed.
                   // If we're in Pre-test (pt-pretest): Mark as completed if PRE-TEST is completed.
                   const isCompleted = isFinalEndpoint 
-                    ? (statusLower.includes('pt final testing completed') || statusLower === 'completed')
-                    : statusLower.includes('pt pre-testing completed');
+                    ? (statusLower.includes('pt final testing completed') || statusLower === 'completed' || statusLower === 'pt testing completed')
+                    : (statusLower.includes('pt pre-testing completed') || statusLower.includes('pt testing assigned') || statusLower.includes('pt testing') || statusLower.includes('final testing'));
 
                   return (
                     <tr key={order._id} className="border-b border-gray-100 hover:bg-gray-50">

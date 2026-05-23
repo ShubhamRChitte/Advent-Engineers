@@ -1,10 +1,9 @@
 import React from 'react';
 
-interface PTFinalPrintReportProps {
+interface PTPretestPrintReportProps {
   order: any;
   transformer: any;
   reportData: any;
-  pretestData: any;
   activeCores: string[];
   user: any;
 }
@@ -12,7 +11,6 @@ interface PTFinalPrintReportProps {
 const STYLE = `
   @page {
     size: A4 portrait;
-    /* Setting all margins to 0 removes browser headers/footers */
     margin: 0;
   }
 
@@ -26,8 +24,7 @@ const STYLE = `
 
     body * { visibility: hidden !important; }
 
-    /* Bring the print wrapper back on-screen */
-    .pt-print-wrapper {
+    .pt-pretest-print-wrapper {
       position: static !important;
       left: 0 !important;
       top: 0 !important;
@@ -35,36 +32,33 @@ const STYLE = `
       overflow: visible !important;
     }
 
-    /* Make the print root and all its children visible */
-    .pt-final-print-root,
-    .pt-final-print-root * {
+    .pt-pretest-print-root,
+    .pt-pretest-print-root * {
       visibility: visible !important;
     }
 
-    /* Add page margins via padding on the root (since @page margin is 0) */
-    .pt-final-print-root {
-      padding: 6mm 10mm !important;
+    .pt-pretest-print-root {
+      padding: 15mm 20mm !important;
     }
 
-    /* Hide interactive UI */
     .screen-only { display: none !important; }
     .no-print { display: none !important; }
   }
 
-  .pt-final-print-root {
+  .pt-pretest-print-root {
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 11px;
+    font-size: 13px;
     color: #000;
     background: #fff;
     width: 210mm;
     margin: 0 auto;
-    padding: 10px;
+    padding: 20px;
     box-sizing: border-box;
   }
 
   @media print {
     body { margin: 0; }
-    .pt-final-print-root { padding: 6mm 10mm !important; }
+    .pt-pretest-print-root { padding: 15mm 20mm !important; }
     .pf-table { page-break-inside: avoid; }
     .pf-section-wrapper { page-break-inside: avoid; }
   }
@@ -73,12 +67,12 @@ const STYLE = `
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
   }
 
   .pf-table th, .pf-table td {
     border: 1px solid #000;
-    padding: 3px 5px;
+    padding: 8px 8px;
     vertical-align: middle;
     word-break: break-word;
   }
@@ -89,35 +83,35 @@ const STYLE = `
     background: #e8e8e8;
     border: 1px solid #000;
     border-bottom: none;
-    padding: 4px;
-    font-size: 11px;
+    padding: 8px;
+    font-size: 14px;
     letter-spacing: 0.5px;
     text-transform: uppercase;
   }
 
   .pf-section-wrapper {
-    margin-bottom: 6px;
+    margin-bottom: 14px;
     page-break-inside: avoid;
   }
 
   .pf-header-title {
     text-align: center;
-    border-bottom: 1.5px solid #000;
-    padding-bottom: 4px;
-    margin-bottom: 6px;
+    border-bottom: 2px solid #000;
+    padding-bottom: 12px;
+    margin-bottom: 14px;
   }
 
   .pf-header-title h1 {
-    font-size: 17px;
+    font-size: 22px;
     font-weight: 900;
-    letter-spacing: 1.5px;
+    letter-spacing: 2px;
     text-transform: uppercase;
     color: #003a70;
-    margin: 0 0 2px 0;
+    margin: 0 0 4px 0;
   }
 
   .pf-header-title h2 {
-    font-size: 11px;
+    font-size: 14px;
     font-weight: bold;
     text-transform: uppercase;
     margin: 0;
@@ -126,15 +120,15 @@ const STYLE = `
   .pf-serial-row {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 6px;
+    margin-bottom: 14px;
     background: #f5f5f5;
     border: 1px solid #000;
   }
 
   .pf-serial-row td {
-    padding: 4px 8px;
+    padding: 8px 12px;
     font-weight: bold;
-    font-size: 11px;
+    font-size: 12px;
     border: none;
   }
 
@@ -149,38 +143,15 @@ const STYLE = `
   .pf-bg-header { background: #f0f0f0; font-weight: bold; text-align: center; }
   .pf-text-center { text-align: center; }
   .pf-text-right  { text-align: right; }
-
-  .pf-pass  { color: #166534; font-weight: bold; }
-  .pf-fail  { color: #991b1b; font-weight: bold; }
-
-  .pf-footer {
-    width: 100%;
-    border-collapse: collapse;
-    border: 1px solid #000;
-    background: #f5f5f5;
-    margin-top: 6px;
-    font-size: 10px;
-    page-break-inside: avoid;
-  }
-
-  .pf-footer td {
-    padding: 6px 10px;
-    vertical-align: bottom;
-    border: none;
-    width: 50%;
-  }
 `;
 
-export function PTFinalPrintReport({
+export function PTPretestPrintReport({
   order,
   transformer,
   reportData,
-  pretestData,
   activeCores,
   user,
-}: PTFinalPrintReportProps) {
-  const finalTesting = reportData?.finalTesting || {};
-  const accuracyTest = reportData?.accuracyTest || {};
+}: PTPretestPrintReportProps) {
 
   const accuracyClassDisplay = (() => {
     const cores = order?.coreDetails || order?.coreConfigs || [];
@@ -197,11 +168,10 @@ export function PTFinalPrintReport({
       return s;
     };
 
-    cores.forEach((core: any, idx: number) => {
+    cores.forEach((core: any) => {
       let coreClass = normalize(core?.accuracyClass);
       const typeLc = String(core?.coreType || '').toLowerCase();
 
-      // Fallback for metering
       if (!coreClass && typeLc.includes('meter')) coreClass = normalize(fallback);
       
       if (coreClass) {
@@ -245,23 +215,10 @@ export function PTFinalPrintReport({
     return core;
   };
 
-  const finalRows = [
-    { id: 1,  label: 'Leakage',                          field: 'leakage' },
-    { id: 2,  label: 'Terminal Marking',                  field: 'terminalMarking' },
-    { id: 3,  label: 'Polarity Testing',                  field: 'polarityTesting' },
-    { id: 4,  label: 'Insulation Resistance Test',        field: 'insulationResistance' },
-    { id: 5,  label: 'Primary to Secondary',              field: 'primaryToSecondary' },
-    { id: 6,  label: 'Primary to Earth',                  field: 'primaryToEarth' },
-    { id: 7,  label: 'Secondary to Earth',                field: 'secondaryToEarth' },
-    { id: 8,  label: 'H.V. Test on Secondary Winding',   field: 'hvSecondary' },
-    { id: 9,  label: 'H.V. Test on Primary Winding',     field: 'hvPrimary' },
-    { id: 10, label: 'Induced Over Voltage Test',         field: 'inducedOverVoltage' },
-  ];
-
   return (
     <>
       <style>{STYLE}</style>
-      <div className="pt-final-print-root">
+      <div className="pt-pretest-print-root">
 
         {/* ── HEADER ─────────────────────────────────────────── */}
         <div className="pf-header-title">
@@ -269,7 +226,7 @@ export function PTFinalPrintReport({
           <h2>Testing Record of Potential Transformer</h2>
         </div>
 
-        {/* Serial No / Date row - use table to avoid flex in print */}
+        {/* Serial No / Date row */}
         <table className="pf-serial-row">
           <colgroup>
             <col style={{ width: '70%' }} />
@@ -327,7 +284,7 @@ export function PTFinalPrintReport({
           </table>
         </div>
 
-        {/* ── PRE TESTING (read-only from pretester) ─────────── */}
+        {/* ── PRE TESTING ────────────────────────────────────── */}
         <div className="pf-section-wrapper">
           <div className="pf-section-header">Pre Testing</div>
           <table className="pf-table" style={{ marginBottom: 0 }}>
@@ -354,7 +311,7 @@ export function PTFinalPrintReport({
             <tbody>
               {activeCores.map((core) => {
                 const label = getCoreLabel(core);
-                const pre = pretestData?.[core] || reportData?.preTesting?.[core] || {};
+                const pre = reportData?.preTesting?.[core] || {};
                 return (
                   <tr key={core}>
                     <td style={{ fontWeight: 'bold', background: '#fafafa' }}>{label} 30%</td>
@@ -368,124 +325,13 @@ export function PTFinalPrintReport({
             </tbody>
           </table>
           {/* Pretester name */}
-          <div style={{ borderTop: '1px solid #000', borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #000', padding: '3px 8px', fontSize: 10, background: '#fafafa' }}>
+          <div style={{ borderTop: 'none', borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #000', padding: '8px 12px', fontSize: 12, background: '#fafafa', display: 'flex', alignItems: 'center' }}>
             <strong>Tested By (Pretester):</strong>&nbsp;
-            <span style={{ borderBottom: '1px solid #555', minWidth: 120, display: 'inline-block', padding: '0 4px' }}>
+            <span style={{ borderBottom: '1px solid #555', minWidth: 160, display: 'inline-block', padding: '0 4px', fontStyle: 'italic', color: '#003a70', fontWeight: 'bold' }}>
               {reportData?.preTesting?.testedBy || ''}
             </span>
           </div>
         </div>
-
-        {/* ── FINAL TESTING ───────────────────────────────────── */}
-        <div className="pf-section-wrapper">
-          <div className="pf-section-header">Final Testing</div>
-          <table className="pf-table" style={{ marginBottom: 0 }}>
-            <colgroup>
-              <col style={{ width: '8%' }} />
-              <col style={{ width: '60%' }} />
-              <col style={{ width: '32%' }} />
-            </colgroup>
-            <thead>
-              <tr>
-                <th className="pf-bg-header">Sr No.</th>
-                <th className="pf-bg-header">Parameters</th>
-                <th className="pf-bg-header">Readings</th>
-              </tr>
-            </thead>
-            <tbody>
-              {finalRows.map((row) => (
-                <tr key={row.id}>
-                  <td className="pf-text-center">{row.id}</td>
-                  <td style={{ paddingLeft: 12 }}>{row.label}</td>
-                  <td className="pf-text-center" style={{ fontWeight: 500 }}>
-                    {finalTesting[row.field] || ''}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* ── ACCURACY TESTING ────────────────────────────────── */}
-        <div className="pf-section-wrapper">
-          <div className="pf-section-header">Accuracy Test</div>
-          <table className="pf-table" style={{ marginBottom: 0 }}>
-            <colgroup>
-              <col style={{ width: '16%' }} />
-              <col style={{ width: '14%' }} />
-              <col style={{ width: '17.5%' }} />
-              <col style={{ width: '17.5%' }} />
-              <col style={{ width: '17.5%' }} />
-              <col style={{ width: '17.5%' }} />
-            </colgroup>
-            <thead>
-              <tr>
-                <td className="pf-bg-header" rowSpan={2}>Core</td>
-                <td className="pf-bg-header" rowSpan={2}>% of Primary<br />Current</td>
-                <td className="pf-bg-header" colSpan={2}>100% Burden</td>
-                <td className="pf-bg-header" colSpan={2}>25% Burden</td>
-              </tr>
-              <tr>
-                <td className="pf-bg-header">Ratio Error (%)</td>
-                <td className="pf-bg-header">Phase Error (min)</td>
-                <td className="pf-bg-header">Ratio Error (%)</td>
-                <td className="pf-bg-header">Phase Error (min)</td>
-              </tr>
-            </thead>
-            <tbody>
-              {activeCores.map((core) => {
-                const isProtection = core.startsWith('protection');
-                const percentages = isProtection ? ['100'] : ['120', '100', '80'];
-                const coreLabel = getCoreLabel(core);
-
-                return percentages.map((perc, idx) => {
-                  const acc = accuracyTest?.[core]?.[perc] || {};
-                  return (
-                    <tr key={`${core}-${perc}`}>
-                      {idx === 0 && (
-                        <td
-                          style={{ fontWeight: 'bold', textAlign: 'center', background: '#f0f0f0', textTransform: 'uppercase', verticalAlign: 'middle' }}
-                          rowSpan={percentages.length}
-                        >
-                          {coreLabel}
-                        </td>
-                      )}
-                      <td className="pf-text-center" style={{ background: '#fafafa', fontWeight: 600 }}>{perc}%</td>
-                      <td className="pf-text-center">{acc.ratioError100 || ''}</td>
-                      <td className="pf-text-center">{acc.phaseError100 || ''}</td>
-                      <td className="pf-text-center">{acc.ratioError25  || ''}</td>
-                      <td className="pf-text-center">{acc.phaseError25  || ''}</td>
-                    </tr>
-                  );
-                });
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* ── FOOTER – use table to avoid flex distortion in print ── */}
-        <table className="pf-footer">
-          <colgroup>
-            <col style={{ width: '50%' }} />
-            <col style={{ width: '50%' }} />
-          </colgroup>
-          <tbody>
-            <tr>
-              <td>
-                <strong>Tested By:</strong><br />
-                <span style={{ borderBottom: '1px solid #000', minWidth: 160, display: 'inline-block', paddingBottom: 2, marginTop: 6 }}>
-                  {reportData?.testedBy || user?.name || user?.fullName || ''}
-                </span><br />
-                <span style={{ fontSize: 9, color: '#555' }}>PT Tester</span>
-              </td>
-              <td style={{ textAlign: 'right' }}>
-                <strong>Signature:</strong><br />
-                <span style={{ borderBottom: '1px solid #000', minWidth: 160, height: 28, display: 'inline-block', marginTop: 6 }}></span><br />
-                <span style={{ fontSize: 9, color: '#555' }}>Authorized Signatory</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
 
       </div>
     </>

@@ -40,28 +40,28 @@ export function PTPretestDashboard({ setActiveView, stats, recentActivity, loadi
         <p className="text-gray-500 mt-1">Manage PT Pretesting for assigned transformers</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6 hover:shadow-lg transition-all cursor-pointer border-t-4 border-t-purple-600" onClick={() => setActiveView('testing')}>
-          <ClipboardCheck className="w-10 h-10 text-purple-600 mb-4" />
-          <h3 className="font-semibold text-gray-800">Assigned Orders</h3>
-          <p className="text-gray-500 text-sm mt-2">View and perform testing on assigned PT orders</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4 hover:shadow-lg transition-all cursor-pointer border-t-4 border-t-purple-600" onClick={() => setActiveView('testing')}>
+          <ClipboardCheck className="w-8 h-8 text-purple-600 mb-3" />
+          <h3 className="font-semibold text-gray-800 text-sm">Assigned Orders</h3>
+          <p className="text-gray-500 text-xs mt-1.5">View and perform testing on assigned PT orders</p>
         </Card>
 
-        <Card className="p-6 bg-white border-l-4 border-l-blue-500 shadow-sm">
-          <Activity className="w-10 h-10 text-blue-500 mb-4" />
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Active Units</h3>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.activeTests}</p>
-          <div className="flex items-center mt-2 text-xs text-blue-600">
+        <Card className="p-4 bg-white border-l-4 border-l-blue-500 shadow-sm">
+          <Activity className="w-8 h-8 text-blue-500 mb-3" />
+          <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Active Units</h3>
+          <p className="text-2xl font-bold text-gray-900 mt-0.5">{loading ? '...' : stats.activeTests}</p>
+          <div className="flex items-center mt-2 text-[11px] text-blue-600">
             <Clock className="w-3 h-3 mr-1" />
             Currently at PT Pretesting stage
           </div>
         </Card>
 
-        <Card className="p-6 bg-white border-l-4 border-l-green-500 shadow-sm">
-          <CheckCircle2 className="w-10 h-10 text-green-500 mb-4" />
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Units Completed</h3>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.completedTests}</p>
-          <div className="flex items-center mt-2 text-xs text-green-600">
+        <Card className="p-4 bg-white border-l-4 border-l-green-500 shadow-sm">
+          <CheckCircle2 className="w-8 h-8 text-green-500 mb-3" />
+          <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Units Completed</h3>
+          <p className="text-2xl font-bold text-gray-900 mt-0.5">{loading ? '...' : stats.completedTests}</p>
+          <div className="flex items-center mt-2 text-[11px] text-green-600">
             <Activity className="w-3 h-3 mr-1" />
             Verified this month
           </div>

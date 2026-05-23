@@ -4,7 +4,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
-import { Save, AlertCircle, ArrowLeft, AlertTriangle, Edit3, Printer } from 'lucide-react';
+import { Save, AlertCircle, ArrowLeft, AlertTriangle, Edit3, Printer, CheckCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PTFinalPrintReport } from './PTFinalPrintReport';
 import { usePTTimer } from '../../utils/usePTTimer';
@@ -96,6 +96,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
   const [hasAnyFailures, setHasAnyFailures] = useState(false);
 
   const [transformersData, setTransformersData] = useState<any[]>([]);
+  const [isApproving, setIsApproving] = useState(false);
   const [activeCores, setActiveCores] = useState<string[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [coreClassesMap, setCoreClassesMap] = useState<Record<string, string>>({});
@@ -454,11 +455,39 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
             toast.success(`Successfully submitted ${payloads.length} PT core test reports.`);
             endTimer(); // Record timer end for delay tracking
             setIsReadOnly(true);
-            setTimeout(() => onBack(), 1500);
         }
     } catch (err: any) {
         console.error("Submission error", err);
         toast.error(err.response?.data?.message || "Failed to submit test reports");
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!order._id) {
+      toast.error("Order ID needed for approval.");
+      return;
+    }
+
+    try {
+      setIsApproving(true);
+      const response = await axios.put(
+        `http://localhost:5001/api/pt-tests/${order._id}/approve`,
+        {},
+        { withCredentials: true }
+      );
+
+      if (response.data.success) {
+        toast.success(response.data.message || 'PT Testing approved successfully!');
+        endTimer(); // Record timer end
+        setTimeout(() => {
+          onBack();
+        }, 1000);
+      }
+    } catch (error: any) {
+      console.error("Approval Error:", error);
+      toast.error(error.response?.data?.message || "Failed to approve PT testing.");
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -748,6 +777,19 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                 {isReadOnly && (
                     <Button variant="outline" size="sm" onClick={() => setIsReadOnly(false)} className="gap-2">
                         <Edit3 className="w-4 h-4" /> Edit
+                    </Button>
+                )}
+
+                {isReadOnly && (order.status || '').toLowerCase() !== 'pt testing completed' && (order.status || '').toLowerCase() !== 'pt final testing completed' && (
+                    <Button 
+                        variant="default" 
+                        size="sm" 
+                        onClick={handleApprove}
+                        disabled={isApproving}
+                        className="gap-2 bg-green-600 hover:bg-green-700 text-white shadow-md transition-all hover:scale-105"
+                    >
+                        {isApproving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                        Approve & Complete
                     </Button>
                 )}
 
@@ -1042,6 +1084,28 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                     </div>
                 </div>
             </div>
+        )}
+        {/* Approve Section (Screen Only) */}
+        {isReadOnly && (order.status || '').toLowerCase() !== 'pt testing completed' && (order.status || '').toLowerCase() !== 'pt final testing completed' && (
+          <Card className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 no-print mt-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-green-900 font-bold mb-1">Approve & Complete testing</h3>
+                <p className="text-sm text-gray-700">
+                  Click approve to finalize the testing report and move the order to the Completed section.
+                </p>
+              </div>
+              <Button
+                onClick={handleApprove}
+                disabled={isApproving}
+                className="bg-green-600 hover:bg-green-700 gap-2 text-white"
+                size="lg"
+              >
+                {isApproving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
+                {isApproving ? 'Approving...' : 'Approve & Complete'}
+              </Button>
+            </div>
+          </Card>
         )}
     </div>
 

@@ -69,56 +69,56 @@ export function PTTesterDashboard({ setActiveView, stats, recentActivity, loadin
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Action Card */}
         <Card 
-            className="group p-6 bg-white border-2 border-purple-100 hover:border-purple-300 cursor-pointer shadow-sm hover:shadow-md transition-all duration-200" 
+            className="group p-4 bg-white border-2 border-purple-100 hover:border-purple-300 cursor-pointer shadow-sm hover:shadow-md transition-all duration-200" 
             onClick={() => setActiveView('testing')}
         >
-          <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-            <ClipboardCheck className="w-6 h-6 text-purple-600" />
+          <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+            <ClipboardCheck className="w-5 h-5 text-purple-600" />
           </div>
           
-          <h3 className="text-lg font-bold text-gray-800 mb-1">Assigned Orders</h3>
-          <p className="text-gray-500 text-sm mb-4">View and perform testing on assigned PT orders.</p>
+          <h3 className="text-base font-bold text-gray-800 mb-1">Assigned Orders</h3>
+          <p className="text-gray-500 text-xs mb-3">View and perform testing on assigned PT orders.</p>
           
-          <div className="flex items-center text-sm font-semibold text-purple-700 group-hover:gap-2 transition-all">
-            Start Testing <ArrowRight className="w-4 h-4 ml-1" />
+          <div className="flex items-center text-xs font-semibold text-purple-700 group-hover:gap-2 transition-all">
+            Start Testing <ArrowRight className="w-3.5 h-3.5 ml-1" />
           </div>
         </Card>
 
         {/* Stat Card 1 */}
-        <Card className="p-6 bg-white border border-gray-200 shadow-sm">
-          <div className="flex justify-between items-start mb-4">
-            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
-              <Activity className="w-5 h-5 text-blue-600" />
+        <Card className="p-4 bg-white border border-gray-200 shadow-sm">
+          <div className="flex justify-between items-start mb-3">
+            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+              <Activity className="w-4 h-4 text-blue-600" />
             </div>
-            <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Active</span>
+            <span className="bg-blue-50 text-blue-700 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Active</span>
           </div>
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Units Pending</h3>
+          <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Units Pending</h3>
           <div className="flex items-end gap-3">
-            <p className="text-3xl font-bold text-gray-900 tracking-tight">{loading ? '...' : stats.activeTests}</p>
+            <p className="text-2xl font-bold text-gray-900 tracking-tight">{loading ? '...' : stats.activeTests}</p>
           </div>
-          <div className="flex items-center mt-3 text-xs font-medium text-gray-500">
-            <Clock className="w-3.5 h-3.5 mr-1 text-blue-500" />
+          <div className="flex items-center mt-2.5 text-[11px] font-medium text-gray-500">
+            <Clock className="w-3 h-3 mr-1 text-blue-500" />
             Currently awaiting tests
           </div>
         </Card>
 
         {/* Stat Card 2 */}
-        <Card className="p-6 bg-white border border-gray-200 shadow-sm">
-          <div className="flex justify-between items-start mb-4">
-            <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5 text-green-600" />
+        <Card className="p-4 bg-white border border-gray-200 shadow-sm">
+          <div className="flex justify-between items-start mb-3">
+            <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center">
+              <CheckCircle2 className="w-4 h-4 text-green-600" />
             </div>
-            <span className="bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Done</span>
+            <span className="bg-green-50 text-green-700 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Done</span>
           </div>
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Units Completed</h3>
+          <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Units Completed</h3>
           <div className="flex items-end gap-3">
-            <p className="text-3xl font-bold text-gray-900 tracking-tight">{loading ? '...' : stats.completedTests}</p>
+            <p className="text-2xl font-bold text-gray-900 tracking-tight">{loading ? '...' : stats.completedTests}</p>
           </div>
-          <div className="flex items-center mt-3 text-xs font-medium text-gray-500">
-            <Activity className="w-3.5 h-3.5 mr-1 text-green-500" />
+          <div className="flex items-center mt-2.5 text-[11px] font-medium text-gray-500">
+            <Activity className="w-3 h-3 mr-1 text-green-500" />
             Successfully verified
           </div>
         </Card>

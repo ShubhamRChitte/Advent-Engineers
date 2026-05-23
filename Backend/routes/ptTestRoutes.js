@@ -96,6 +96,14 @@ router.put('/:orderId/approve', isAuthenticated, async (req, res) => {
        return res.status(400).json({ success: false, message: "Cannot approve. Not all transformers have testing data saved." });
     }
 
+    // Set approved flag on all transformers in the order
+    for (const transformer of allTransformers) {
+      const ptTestUpdate = { ...transformer.testHistory.pt_test, approved: true };
+      await TransformerModel.findByIdAndUpdate(transformer._id, {
+        $set: { 'testHistory.pt_test': ptTestUpdate }
+      });
+    }
+
     await OrderModel.findByIdAndUpdate(orderId, {
       $set: { 
         status: 'PT Testing Completed',
@@ -321,14 +329,10 @@ router.get('/assigned-orders', isAuthenticated, async (req, res) => {
       const testerName = user.name || user.fullName;
 
       // 1. Find all transformers where this user is assigned for PT stage
-      // Only include transformers that have passed the pretest stage and are not yet approved for this stage
+      // Only include transformers that have passed the pretest stage
       const query = {
           "assignments.pt_tester": testerName,
-          currentStage: { $in: ['pt', 'final_print', 'dispatch', 'completed'] },
-          $or: [
-            { "testHistory.pt_test.approved": { $exists: false } },
-            { "testHistory.pt_test.approved": { $ne: true, $ne: "true" } }
-          ]
+          currentStage: { $in: ['pt', 'final_print', 'dispatch', 'completed'] }
       };
 
       const transformers = await TransformerModel.find(query).populate('orderId').lean();

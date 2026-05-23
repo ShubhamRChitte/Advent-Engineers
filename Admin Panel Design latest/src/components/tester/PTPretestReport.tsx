@@ -4,10 +4,11 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
-import { Save, AlertCircle, ArrowLeft, AlertTriangle, Edit3, Printer, CheckCircle } from 'lucide-react';
+import { Save, AlertCircle, ArrowLeft, AlertTriangle, Edit3, Printer, CheckCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePTTimer } from '../../utils/usePTTimer';
 import { PTTimerBadge } from './PTTimerBadge';
+import { PTPretestPrintReport } from './PTPretestPrintReport';
 
 export function validatePTMeteringUI(accClass: string, ratioErrorStr: string, phaseErrorStr: string, meteringLimits: any) {
   if (!meteringLimits) return { isPass: undefined, reason: null };
@@ -86,6 +87,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
   const [loading, setLoading] = useState(false);
   const [reportsData, setReportsData] = useState<Record<string, any>>({});
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
   const [invalidConfig, setInvalidConfig] = useState(false);
 
   // Failure Modal State
@@ -403,7 +405,6 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
             toast.success(`Successfully submitted ${payloads.length} PT core test reports.`);
             endTimer(); // Record timer end for delay tracking
             setIsReadOnly(true);
-            setTimeout(() => onBack(), 1500);
         }
     } catch (err: any) {
         console.error("Submission error", err);
@@ -457,6 +458,35 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
     } catch (e: any) {
       console.error("Error approving transformer:", e);
       toast.error(e.response?.data?.message || "Failed to approve transformer.");
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!order._id) {
+      toast.error("Order ID needed for approval.");
+      return;
+    }
+
+    try {
+      setIsApproving(true);
+      const response = await axios.put(
+        `http://localhost:5001/api/pt-pretests/${order._id}/approve`,
+        {},
+        { withCredentials: true }
+      );
+
+      if (response.data.success) {
+        toast.success(response.data.message || 'PT Pretesting approved successfully!');
+        endTimer(); // Record timer end
+        setTimeout(() => {
+          onBack();
+        }, 1000);
+      }
+    } catch (error: any) {
+      console.error("Approval Error:", error);
+      toast.error(error.response?.data?.message || "Failed to approve PT pretesting.");
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -633,38 +663,19 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
           @media print {
             @page {
               size: A4 portrait;
-              margin: 10mm;
+              margin: 0;
             }
             body * {
-              visibility: hidden;
+              visibility: hidden !important;
             }
-            .print-container, .print-container * {
-              visibility: visible;
+            .pt-pretest-print-wrapper, .pt-pretest-print-wrapper * {
+              visibility: visible !important;
             }
-            .print-container {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100%;
-              background-color: white !important;
-            }
-            .print-page {
-              width: 100%;
-              box-sizing: border-box;
-              page-break-after: always;
-              background-color: white !important;
-            }
-            .print-page:last-child {
-              page-break-after: auto;
-            }
-            .no-print {
-              display: none !important;
-            }
-            table {
+            .pt-pretest-print-wrapper {
+              position: static !important;
+              left: 0 !important;
+              top: 0 !important;
               width: 100% !important;
-              border-collapse: collapse !important;
-            }
-            table th, table td {
               padding: 4px !important;
               font-size: 11px !important;
               border-color: #000 !important;
@@ -739,6 +750,19 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
                     </Button>
                 )}
 
+                {isReadOnly && (order.status || '').toLowerCase() !== 'pt testing assigned' && !(order.status || '').toLowerCase().includes('pt testing') && (
+                    <Button 
+                        variant="default" 
+                        size="sm" 
+                        onClick={handleApprove}
+                        disabled={isApproving}
+                        className="gap-2 bg-green-600 hover:bg-green-700 text-white shadow-md transition-all hover:scale-105"
+                    >
+                        {isApproving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                        Approve Order
+                    </Button>
+                )}
+
                 <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
                     <Printer className="w-4 h-4" /> Print
                 </Button>
@@ -763,16 +787,30 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
             </div>
         )}
 
-        {/* PRINTABLE REPORT FORMAT MULTI UNITS */}
-        <div className="print-container">
+        {/* Hidden print layout — only shown on window.print() */}
+        <div className="pt-pretest-print-wrapper" style={{ position: 'absolute', left: '-9999px', top: 0, width: '210mm', overflow: 'hidden' }}>
+            {transformersData.map((t) => (
+                <PTPretestPrintReport
+                    key={t._id}
+                    order={order}
+                    transformer={t}
+                    reportData={reportsData[t._id] || {}}
+                    activeCores={activeCores}
+                    user={user}
+                />
+            ))}
+        </div>
+
+        {/* INTERACTIVE REPORT FORMAT MULTI UNITS */}
+        <div className="print-container screen-only">
             {transformersData.map((transformer) => {
                 const reportData = reportsData[transformer._id] || {};
                 const vState = getTransformerValidations(transformer._id, reportData);
-                const { preTestValidations, accValidations: accuracyValidations } = vState;
+                const { preTestValidations } = vState;
                 const isActive = activeTabId === transformer._id;
 
                 return (
-                    <div key={transformer._id} className={`print-page bg-white p-8 rounded-lg border border-gray-300 shadow-sm max-w-[800px] mx-auto text-sm mb-12 print:max-w-none print:w-full print:mx-0 print:my-0 print:p-0 print:border-none print:shadow-none print:rounded-none ${isActive ? 'block' : 'hidden print:block'}`}>
+                    <div key={transformer._id} className={`print-page bg-white p-8 rounded-lg border border-gray-300 shadow-sm max-w-[800px] mx-auto text-sm mb-12 print:max-w-none print:w-full print:mx-0 print:my-0 print:p-0 print:border-none print:shadow-none print:rounded-none ${isActive ? 'block' : 'hidden'}`}>
                         
                         {/* Header Title */}
                         <div className="text-center mb-6 border-b-2 border-black pb-3 print:pt-4">
@@ -907,6 +945,28 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
                     </div>
                 </div>
             </div>
+        )}
+        {/* Approve Section (Screen Only) */}
+        {isReadOnly && (order.status || '').toLowerCase() !== 'pt testing assigned' && !(order.status || '').toLowerCase().includes('pt testing') && (
+          <Card className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 no-print mt-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-green-900 font-bold mb-1">Approve & Complete pretesting</h3>
+                <p className="text-sm text-gray-700">
+                  Click approve to finalize the pre-testing report and forward the order to the Final PT Testing section.
+                </p>
+              </div>
+              <Button
+                onClick={handleApprove}
+                disabled={isApproving}
+                className="bg-green-600 hover:bg-green-700 gap-2 text-white"
+                size="lg"
+              >
+                {isApproving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
+                {isApproving ? 'Approving...' : 'Approve & Complete'}
+              </Button>
+            </div>
+          </Card>
         )}
     </div>
 
