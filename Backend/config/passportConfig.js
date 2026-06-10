@@ -30,6 +30,14 @@ module.exports = (passport) => {
     );
 
     // 2. JWT Strategy (for API requests)
+    if (!process.env.JWT_SECRET) {
+        console.warn("\n=======================================================");
+        console.warn("WARNING: JWT_SECRET environment variable is missing!");
+        console.warn("Using an insecure fallback for development.");
+        console.warn("DO NOT USE THIS IN PRODUCTION!");
+        console.warn("=======================================================\n");
+    }
+
     const opts = {
         jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
         secretOrKey: process.env.JWT_SECRET || 'advent_engineers_secret_key'

@@ -14,7 +14,7 @@ export function FailedCoresPage() {
         try {
             setError(null);
             // Fetch data from the backend
-            const response = await axios.get('http://localhost:5001/api/failed-cores', {
+            const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores`, {
                 withCredentials: true
             });
 

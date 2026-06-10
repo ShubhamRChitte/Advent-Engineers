@@ -64,7 +64,7 @@ export function ClientOrdersView({
     const fetchClientOrders = async () => {
       try {
         // Encode client name to handle special chars like '&'
-        const response = await fetch(`http://localhost:5001/api/orders/client/${encodeURIComponent(client.name)}`);
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/client/${encodeURIComponent(client.name)}`);
         const data = await response.json();
 
         if (data.success && data.orders) {

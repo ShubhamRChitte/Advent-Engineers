@@ -38,7 +38,7 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
   useEffect(() => {
     const fetchVendors = async () => {
       try {
-        const response = await fetch('http://localhost:5001/api/core-vendors');
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/core-vendors`);
         const data = await response.json();
         if (data.success) {
           setAllVendors(data.data);
@@ -90,7 +90,7 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
         coreVendors: updatedData.coreVendors
       };
 
-      const response = await axios.put(`http://localhost:5001/api/orders/${editingOrder._id}`, payload, {
+      const response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${editingOrder._id}`, payload, {
         withCredentials: true
       });
 

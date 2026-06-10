@@ -49,7 +49,7 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
         console.log("Fetching transformers for order:", order.id, order.orderId);
         // Use the same endpoint as OrderDetailView
         // Note: order.id is used here. Ensure it's the correct ID (ObjectId).
-        const response = await axios.get(`http://localhost:5001/api/transformers/order/${order.id}`, {
+        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/order/${order.id}`, {
           withCredentials: true
         });
 

@@ -52,7 +52,7 @@ export function FinalCoreSelection({
   useEffect(() => {
     const fetchTransformerData = async () => {
       try {
-        const response = await axios.get(`http://localhost:5001/api/transformers/${initialTransformer.uniqueId}`, {
+        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${initialTransformer.uniqueId}`, {
           withCredentials: true
         });
         if (response.data) {
@@ -144,9 +144,9 @@ export function FinalCoreSelection({
         requestedBy: 'Final Tester'
       };
 
-      await axios.post('http://localhost:5001/api/strict-approvals/request', payload, { withCredentials: true });
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/strict-approvals/request`, payload, { withCredentials: true });
       
-      await axios.put(`http://localhost:5001/api/transformers/${transformer.uniqueId}/approve-stage`, {
+      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'final',
         nextStage: 'admin_review'
       }, { withCredentials: true });
@@ -162,7 +162,7 @@ export function FinalCoreSelection({
   const handleApproveTransformer = async () => {
     try {
       if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} as Finalized and move to Shipped stage?`)) return;
-      const response = await axios.put(`http://localhost:5001/api/transformers/${transformer.uniqueId}/approve-stage`, {
+      const response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'final',
         nextStage: 'shipped'
       }, { withCredentials: true });

@@ -35,7 +35,7 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
       try {
         // Re-fetch to get updated testHistory (test status, core IDs)
         // Note: We used localhost:3002 in other files.
-        const response = await axios.get(`http://localhost:5001/api/transformers/${initialTransformer.uniqueId}`, { withCredentials: true });
+        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${initialTransformer.uniqueId}`, { withCredentials: true });
         if (response.status === 200) {
           const freshData = response.data;
           console.log("SecondaryCoreSelection: Fetched fresh data", freshData);
@@ -149,7 +149,7 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
     try {
       if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Primary Testing?`)) return;
 
-      const response = await axios.put(`http://localhost:5001/api/transformers/${transformer.uniqueId}/approve-stage`, {
+      const response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'secondary',
         nextStage: 'primary'
       }, { withCredentials: true });
@@ -278,10 +278,10 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
         requestedBy: 'Tester'
       };
 
-      await axios.post('http://localhost:5001/api/strict-approvals/request', payload, { withCredentials: true });
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/strict-approvals/request`, payload, { withCredentials: true });
       
       // Update transformer status so it waits for admin
-      await axios.put(`http://localhost:5001/api/transformers/${transformer.uniqueId}/approve-stage`, {
+      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'secondary',
         nextStage: 'admin_review' // Sending to a pending admin review stage
       }, { withCredentials: true });

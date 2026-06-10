@@ -48,7 +48,7 @@ export function SecondaryMeteringReport({
   useEffect(() => {
     const fetchLimits = async () => {
       try {
-        const response = await axios.get('http://localhost:5001/api/accuracy-limits/metering', { withCredentials: true });
+        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/metering`, { withCredentials: true });
         setDbLimits(response.data);
       } catch (error) {
         console.error('Failed to fetch dynamic metering limits', error);
@@ -135,7 +135,7 @@ export function SecondaryMeteringReport({
   useEffect(() => {
     const fetchLatestData = async () => {
       try {
-        const res = await axios.get(`http://localhost:5001/api/transformers/${transformer.uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
         const stageKey = `${stage}_test`;
         const stageHistory = freshTransformer?.testHistory?.[stageKey];
@@ -227,7 +227,7 @@ export function SecondaryMeteringReport({
         failureStage: `${stage}_metering_test`,
         dynamicValues: testResults
       };
-      await axios.post('http://localhost:5001/api/failed-cores', payload, { withCredentials: true });
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores`, payload, { withCredentials: true });
       toast.success("Core marked as failed successfully.");
     } catch (error: any) {
       toast.error("Error adding to failed cores");

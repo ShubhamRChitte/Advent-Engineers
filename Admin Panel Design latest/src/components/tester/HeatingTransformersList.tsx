@@ -25,7 +25,7 @@ export function HeatingTransformersList({ order, onStartTest, onBack }: HeatingT
     setIsLoading(true);
     setError(null);
     try {
-      const resTrans = await axios.get(`http://localhost:5001/api/heating-record/transformers/${order._id}`, {
+      const resTrans = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record/transformers/${order._id}`, {
         withCredentials: true
       });
       const dbTransformers = resTrans.data.transformers || [];
@@ -72,7 +72,7 @@ export function HeatingTransformersList({ order, onStartTest, onBack }: HeatingT
 
     if (transformer.status === 'pending') {
       try {
-        await axios.put(`http://localhost:5001/api/heating-record/start/${transformer.uniqueId}`, {}, { withCredentials: true });
+        await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record/start/${transformer.uniqueId}`, {}, { withCredentials: true });
         await fetchData(); // Refresh list to show in-progress
       } catch (err) {
         console.error("Error starting heating", err);
@@ -83,7 +83,7 @@ export function HeatingTransformersList({ order, onStartTest, onBack }: HeatingT
 
   const handleApprove = async (transformer: Transformer) => {
       try {
-          await axios.post(`http://localhost:5001/api/heating-record/save/${transformer.uniqueId}`, {
+          await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record/save/${transformer.uniqueId}`, {
               isApproveCall: true
           }, { withCredentials: true });
           alert("Heating Approved! Transformer sent to Final Stage.");

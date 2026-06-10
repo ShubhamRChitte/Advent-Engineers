@@ -1,5 +1,0 @@
-Starting Inspection
-Connected to DB
-Found 1 Protection Tests
-[0] ID: 698352dfe03fb8179de6fb74, testedBy: "", valid: Empty String
-    Typeof: string

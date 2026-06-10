@@ -120,8 +120,8 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
     const fetchLimits = async () => {
       try {
         const [metRes, protRes] = await Promise.all([
-          axios.get('http://localhost:5001/api/accuracy-limits/metering?transformerType=PT', { withCredentials: true }),
-          axios.get('http://localhost:5001/api/accuracy-limits/protection?transformerType=PT', { withCredentials: true })
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/metering?transformerType=PT`, { withCredentials: true }),
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/protection?transformerType=PT`, { withCredentials: true })
         ]);
 
         if (Array.isArray(metRes.data)) {
@@ -221,7 +221,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
             let anyReadOnly = false;
 
             for (const t of responseList) {
-                const testRes = await axios.get(`http://localhost:5001/api/pt-tests/${t._id}`, {
+                const testRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-tests/${t._id}`, {
                     withCredentials: true
                 });
 
@@ -257,7 +257,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                     newReportsData[t._id] = savedData;
 
                     // Fetch pretest data from pretester to autofill (read-only)
-                    const pretestRes = await axios.get(`http://localhost:5001/api/pt-pretests/${t._id}`, { withCredentials: true }).catch(() => null);
+                    const pretestRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/${t._id}`, { withCredentials: true }).catch(() => null);
                     if (pretestRes?.data?.success && pretestRes.data.data) {
                         // Merge pretest data into the preTesting field (will be rendered read-only)
                         newReportsData[t._id].preTesting = {
@@ -289,7 +289,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                     });
 
                     // Fetch pretest data from pretester to autofill (read-only)
-                    const pretestResNew = await axios.get(`http://localhost:5001/api/pt-pretests/${t._id}`, { withCredentials: true }).catch(() => null);
+                    const pretestResNew = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/${t._id}`, { withCredentials: true }).catch(() => null);
                     let defaultPreTesting: any = {};
                     if (pretestResNew?.data?.success && pretestResNew.data.data?.preTesting) {
                         defaultPreTesting = pretestResNew.data.data.preTesting;
@@ -448,7 +448,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
 
         // Wait for all to submit sequentially or in parallel
         const responses = await Promise.all(payloads.map(payload => 
-            axios.post('http://localhost:5001/api/pt-tests/submit', payload, { withCredentials: true })
+            axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-tests/submit`, payload, { withCredentials: true })
         ));
 
         if (responses.every(r => r.data.success)) {
@@ -471,7 +471,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
     try {
       setIsApproving(true);
       const response = await axios.put(
-        `http://localhost:5001/api/pt-tests/${order._id}/approve`,
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-tests/${order._id}/approve`,
         {},
         { withCredentials: true }
       );
@@ -509,7 +509,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
         }));
 
         await Promise.all(payloads.map(payload => 
-            axios.post('http://localhost:5001/api/pt-tests/failed', payload, {
+            axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-tests/failed`, payload, {
                 withCredentials: true
             })
         ));

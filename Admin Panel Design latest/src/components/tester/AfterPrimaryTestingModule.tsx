@@ -111,7 +111,7 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
     // Re-fetch fresh transformer data so AfterPrimaryCoreSelection sees latest test results
     if (selectedTransformer?.uniqueId) {
       try {
-        const res = await axios.get(`http://localhost:5001/api/transformers/${selectedTransformer.uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${selectedTransformer.uniqueId}`, { withCredentials: true });
         if (res.data) {
           setSelectedTransformer(prev => prev ? { ...prev, testHistory: res.data.testHistory } : prev);
         }

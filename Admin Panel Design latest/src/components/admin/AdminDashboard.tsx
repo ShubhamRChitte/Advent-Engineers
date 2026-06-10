@@ -29,7 +29,7 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/dashboard/stats');
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/dashboard/stats`);
       const data = await response.json();
       if (data.success) {
         setStats(data.stats);

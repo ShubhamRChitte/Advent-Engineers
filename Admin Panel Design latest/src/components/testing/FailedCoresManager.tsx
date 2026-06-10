@@ -262,7 +262,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
     try {
       // API Call to backend
       const { default: axios } = await import('axios');
-      const res = await axios.put(`http://localhost:5001/api/failed-cores/${coreId}/return`, {}, { withCredentials: true });
+      const res = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores/${coreId}/return`, {}, { withCredentials: true });
 
       if (res.data.success) {
         alert("Core successfully marked as RETURNED to vendor.");
@@ -282,7 +282,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
 
     try {
       const { default: axios } = await import('axios');
-      const res = await axios.post(`http://localhost:5001/api/failed-cores/bulk-return`, { coreIds: selectedCores }, { withCredentials: true });
+      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores/bulk-return`, { coreIds: selectedCores }, { withCredentials: true });
       if (res.data.success) {
         alert(res.data.message);
         setLocalCores(prev => prev.map(c => c._id && selectedCores.includes(c._id) ? { ...c, status: "RETURNED" } : c));
@@ -299,7 +299,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
 
     try {
       const { default: axios } = await import('axios');
-      const res = await axios.put(`http://localhost:5001/api/failed-cores/${coreId}/undo-return`, {}, { withCredentials: true });
+      const res = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores/${coreId}/undo-return`, {}, { withCredentials: true });
       if (res.data.success) {
         alert("Core return undone successfully.");
         setLocalCores(prev => prev.map(c => c._id === coreId ? { ...c, status: "FAILED" } : c));

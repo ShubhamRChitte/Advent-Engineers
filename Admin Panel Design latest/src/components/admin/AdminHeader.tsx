@@ -17,7 +17,7 @@ export function AdminHeader({ user, onLogout, onNotificationClick }: AdminHeader
   const fetchUnreadCount = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5001/api/notifications/unread-count', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/notifications/unread-count`, {
         withCredentials: true,
         headers: {
           'Authorization': token ? `Bearer ${token}` : ''

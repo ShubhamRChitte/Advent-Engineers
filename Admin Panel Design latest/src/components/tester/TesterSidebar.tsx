@@ -27,7 +27,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
       if (!token) return;
       
       try {
-        const res = await axios.get('http://localhost:5001/api/failed-cores/count', { withCredentials: true });
+        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores/count`, { withCredentials: true });
         if (res.data.success) {
           setFailedCount(res.data.count);
         }

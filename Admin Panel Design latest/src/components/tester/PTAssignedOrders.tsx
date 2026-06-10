@@ -26,7 +26,7 @@ interface PTAssignedOrdersProps {
   endpoint?: string; // Added to support different endpoints
 }
 
-export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0, endpoint = 'http://localhost:5001/api/pt-tests/assigned-orders' }: PTAssignedOrdersProps) {
+export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0, endpoint = `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-tests/assigned-orders` }: PTAssignedOrdersProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');

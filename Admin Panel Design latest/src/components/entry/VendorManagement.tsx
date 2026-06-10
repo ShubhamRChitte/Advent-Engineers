@@ -24,7 +24,7 @@ export function VendorManagement() {
 
   const fetchVendors = async () => {
     try {
-      const res = await axios.get('http://localhost:5001/api/core-vendors', { withCredentials: true });
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/core-vendors`, { withCredentials: true });
       if (res.data.success) {
         setVendors(res.data.data);
       }
@@ -58,7 +58,7 @@ export function VendorManagement() {
         ...newVendor,
         vendor_no: parseInt(newVendor.vendor_no)
       };
-      await axios.post('http://localhost:5001/api/core-vendors', payload, { withCredentials: true });
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/core-vendors`, payload, { withCredentials: true });
       toast.success('Vendor registered successfully!');
       setNewVendor({ vendor_name: '', vendor_no: '', vendor_code: '' });
       setIsAddDialogOpen(false);
@@ -71,7 +71,7 @@ export function VendorManagement() {
 
   const handleDeleteVendor = async (id: string) => {
     try {
-      await axios.delete(`http://localhost:5001/api/core-vendors/${id}`, { withCredentials: true });
+      await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/core-vendors/${id}`, { withCredentials: true });
       setVendors(vendors.filter(v => v._id !== id));
       toast.success('Vendor deleted successfully!');
     } catch (error) {

@@ -39,7 +39,7 @@ export function AdminAnalyticsDashboard() {
 
   const fetchAnalytics = async () => {
     try {
-      const res = await axios.get('http://localhost:5001/api/dashboard/analytics/detailed', { withCredentials: true });
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/dashboard/analytics/detailed`, { withCredentials: true });
       setData(res.data);
     } catch (err) {
       console.error("Error fetching analytics:", err);

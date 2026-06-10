@@ -59,11 +59,11 @@ export default function ReadyStockView() {
     try {
       const token = localStorage.getItem('token');
       const [stockRes, batchesRes] = await Promise.all([
-        axios.get('http://localhost:5001/api/ready-transformers', { 
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/ready-transformers`, { 
           withCredentials: true,
           headers: { 'Authorization': token ? `Bearer ${token}` : '' }
         }),
-        axios.get('http://localhost:5001/api/pre-test-batches', { 
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches`, { 
           withCredentials: true,
           headers: { 'Authorization': token ? `Bearer ${token}` : '' }
         })
@@ -139,7 +139,7 @@ export default function ReadyStockView() {
   const handleDeleteBatch = async (batchId: string) => {
     if (!window.confirm("Are you sure you want to delete this batch? This action cannot be undone.")) return;
     try {
-      await axios.delete(`http://localhost:5001/api/pre-test-batches/${batchId}`, {
+      await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches/${batchId}`, {
         withCredentials: true
       });
       toast.success("Batch deleted successfully!");
@@ -154,7 +154,7 @@ export default function ReadyStockView() {
     
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post(`http://localhost:5001/api/pre-test-batches/${batchId}/approve`, {}, {
+      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches/${batchId}/approve`, {}, {
         withCredentials: true,
         headers: { 'Authorization': token ? `Bearer ${token}` : '' }
       });

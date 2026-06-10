@@ -58,7 +58,7 @@ export function CoreOrdersList({ onStartTesting, onViewReports, user, type = 'ac
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5001/api/assigneed_orders', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/assigneed_orders`, {
         params: { type },
         withCredentials: true
       });

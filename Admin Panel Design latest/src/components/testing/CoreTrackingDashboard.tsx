@@ -24,8 +24,8 @@ export function CoreTrackingDashboard({ user }: CoreTrackingDashboardProps) {
     const fetchStats = async () => {
       try {
         const [activeRes, historyRes] = await Promise.all([
-          axios.get('http://localhost:5001/api/assigneed_orders?type=active', { withCredentials: true }),
-          axios.get('http://localhost:5001/api/assigneed_orders?type=history', { withCredentials: true })
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/assigneed_orders?type=active`, { withCredentials: true }),
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/assigneed_orders?type=history`, { withCredentials: true })
         ]);
         // Use stats
         console.log(`Active: ${activeRes.data.length}, Completed: ${historyRes.data.length}`);

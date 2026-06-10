@@ -710,7 +710,7 @@ export function SecondaryPSReport({
   React.useEffect(() => {
     const fetchLimit = async () => {
       try {
-        const response = await axios.get('http://localhost:5001/api/accuracy-limits/ps', { withCredentials: true });
+        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/ps`, { withCredentials: true });
         if (response.data && response.data.length > 0) {
           setPsLimit(response.data[0]);
         }
@@ -725,7 +725,7 @@ export function SecondaryPSReport({
   React.useEffect(() => {
     const fetchLatestData = async () => {
       try {
-        const res = await axios.get(`http://localhost:5001/api/transformers/${(transformer as any).uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${(transformer as any).uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
 
         // Dynamic Path
@@ -935,7 +935,7 @@ export function SecondaryPSReport({
 
       console.log("[DEBUG] Frontend Failed Core Payload:", payload);
 
-      await axios.post(`http://localhost:5001/api/failed-cores`, payload, { withCredentials: true });
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores`, payload, { withCredentials: true });
       toast.success("Added to Failed Cores successfully!");
     } catch (error: any) {
       console.error("Mark as failed error:", error);

@@ -41,7 +41,7 @@ export function AfterPrimaryOrdersList({ onStartTesting }: AfterPrimaryOrdersLis
     try {
       // The backend /assigneed_orders route automatically filters by the user's role (after-primary-tester)
       // and finds orders in the 'primary' stage.
-      const response = await axios.get("http://localhost:5001/api/assigneed_orders", {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/assigneed_orders`, {
         withCredentials: true
       });
       setOrders(response.data);

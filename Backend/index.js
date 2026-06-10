@@ -5,6 +5,21 @@ require("dotenv").config({ override: true }); // trigger restart
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+
+// --- RATE LIMITERS ---
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500, // Limit each IP to 500 requests per windowMs
+  message: { success: false, message: 'Too many requests from this IP, please try again after 15 minutes' }
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // Limit each IP to 20 auth requests per windowMs
+  message: { success: false, message: 'Too many authentication attempts, please try again later' }
+});
 
 
 
@@ -95,13 +110,19 @@ const meteringTestRoutes = require('./routes/meteringTestRoutes');
 const protectionTestRoutes = require('./routes/protectionTestRoutes');
 
 // 1. CORS (Must be first)
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:3000', 'http://localhost:5001', 'http://127.0.0.1:3000'];
 app.use(cors({
   origin: function (origin, callback) {
-    return callback(null, true);
+    if (!origin || allowedOrigins.includes(origin) || origin.startsWith("http://localhost")) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true
 }));
 
+// 1.5 Security Headers
+app.use(helmet());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -131,7 +152,8 @@ app.use((req, res, next) => {
 // app.options('*', cors()); // Removed to fix PathError crash
 
 // Routes
-app.use('/auth', authRoutes);
+app.use('/auth', authLimiter, authRoutes);
+app.use('/api', globalLimiter); // Apply global limiter to all /api routes
 app.use('/api/transformers', require('./routes/transformerRoutes')); // Move above taskRoutes to avoid shadowing
 app.use('/api', taskRoutes); // Mounted at /api
 app.use('/api', meteringTestRoutes); // Mounted at /api/metering-tests
@@ -3703,14 +3725,31 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: function (origin, callback) {
-      // Allow requests with no origin (mobile apps, curl, etc.) and localhost dev ports
-      if (!origin || origin.startsWith("http://localhost")) {
+      if (!origin || allowedOrigins.includes(origin) || origin.startsWith("http://localhost")) {
         return callback(null, true);
       }
       callback(new Error("Not allowed by CORS"));
     },
     credentials: true
   }
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error("Global Error:", err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  
+  const isProduction = process.env.NODE_ENV === 'production';
+  const statusCode = err.status || 500;
+  
+  res.status(statusCode).json({
+    success: false,
+    message: isProduction ? "Internal Server Error" : err.message,
+    details: isProduction ? null : err.errors,
+    stack: isProduction ? null : err.stack
+  });
 });
 
 global.io = io; // Make io accessible globally

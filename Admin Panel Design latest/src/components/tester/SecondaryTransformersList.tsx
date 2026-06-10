@@ -88,9 +88,9 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
     const fetchLimits = async () => {
       try {
         const [mRes, psRes, pRes] = await Promise.all([
-          axios.get('http://localhost:5001/api/accuracy-limits/metering', { withCredentials: true }),
-          axios.get('http://localhost:5001/api/accuracy-limits/ps', { withCredentials: true }),
-          axios.get('http://localhost:5001/api/accuracy-limits/protection', { withCredentials: true })
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/metering`, { withCredentials: true }),
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/ps`, { withCredentials: true }),
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/protection`, { withCredentials: true })
         ]);
         setMeteringLimits(mRes.data);
         setPsLimits(psRes.data);
@@ -107,7 +107,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
     setError(null);
     try {
       const orderId = order._id;
-      const response = await axios.get(`http://localhost:5001/api/orders/${orderId}/transformers`, {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}/transformers`, {
         withCredentials: true
       });
 
@@ -389,7 +389,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
   const handleApproveTransformer = async (transformer: Transformer) => {
     try {
       if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Primary Testing?`)) return;
-      const response = await axios.put(`http://localhost:5001/api/transformers/${transformer.uniqueId}/approve-stage`, {
+      const response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'secondary',
         nextStage: 'primary'
       }, { withCredentials: true });
@@ -548,7 +548,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
                               const finalReason = reasons.length > 0 ? [...new Set(reasons)].join(' | ') : "Limits Exceeded";
                               
                               try {
-                                await axios.post('http://localhost:5001/api/strict-approvals/request', {
+                                await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/strict-approvals/request`, {
                                   orderId: order._id,
                                   jobId: order.jobId,
                                   unitId: transformer.uniqueId,
@@ -560,7 +560,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
                                   requestedBy: transformer.testHistory?.secondary_test?.tester || JSON.parse(localStorage.getItem('user') || '{}').name || 'Tester'
                                 }, { withCredentials: true });
 
-                                await axios.put(`http://localhost:5001/api/transformers/${transformer.uniqueId}/approve-stage`, { 
+                                await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}/approve-stage`, { 
                                   stage: 'secondary', 
                                   nextStage: 'admin_review' 
                                 }, { withCredentials: true });

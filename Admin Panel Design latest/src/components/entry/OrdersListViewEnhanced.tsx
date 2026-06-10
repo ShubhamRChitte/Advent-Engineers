@@ -97,7 +97,7 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav, o
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5001/api/admin/orders', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/admin/orders`, {
         withCredentials: true
       });
       const mappedOrders = response.data.map((order: any) => ({
@@ -118,7 +118,7 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav, o
     if (!window.confirm("Are you sure you want to delete this order? All associated transformer units will also be deleted.")) return;
 
     try {
-      const response = await axios.delete(`http://localhost:5001/api/orders/${orderId}`, {
+      const response = await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}`, {
         withCredentials: true
       });
       if (response.data.success) {
@@ -181,7 +181,7 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav, o
   const handleApprove = async (orderId: string, event: React.MouseEvent) => {
     event.stopPropagation();
     try {
-      const response = await axios.put(`http://localhost:5001/api/orders/${orderId}/approve`, {}, {
+      const response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}/approve`, {}, {
         withCredentials: true
       });
       if (response.data.success) {
