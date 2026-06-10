@@ -95,9 +95,9 @@ export function CTCustomerReport({ order, transformer, reportData, user }: CTCus
       <div className="ct-print-root ct-print-wrapper bg-white rounded-lg shadow-sm border border-gray-200"
            style={{ maxWidth: '210mm', margin: '0 auto', marginBottom: '3rem' }}>
         <CTPage1Overview {...page1Props} />
-        <div className="no-print" style={{ height: '20px', background: '#f8fafc', borderY: '1px dashed #e2e8f0', margin: '20px 0' }}></div>
+        <div className="no-print" style={{ height: '20px', background: '#f8fafc', borderTop: '1px dashed #e2e8f0', borderBottom: '1px dashed #e2e8f0', margin: '20px 0' }}></div>
         <CTPage2TestDetails reportNo={reportNo} date={testDate} {...sharedSig} />
-        <div className="no-print" style={{ height: '20px', background: '#f8fafc', borderY: '1px dashed #e2e8f0', margin: '20px 0' }}></div>
+        <div className="no-print" style={{ height: '20px', background: '#f8fafc', borderTop: '1px dashed #e2e8f0', borderBottom: '1px dashed #e2e8f0', margin: '20px 0' }}></div>
         <CTPage3Results 
           reportNo={reportNo} 
           date={testDate}

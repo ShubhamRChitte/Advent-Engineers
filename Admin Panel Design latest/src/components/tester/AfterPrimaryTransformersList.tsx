@@ -25,6 +25,7 @@ export interface Transformer {
   cores: CoreConfig[];
   status: 'pending' | 'in-progress' | 'completed';
   canApprove: boolean;
+  canRequestStrictApproval?: boolean;
   testHistory?: any;
   currentStage: string;
   stc?: string;
@@ -51,6 +52,8 @@ interface Order {
   nominalSystemVoltage?: number | string;
   coreDetails?: any[];
   accuracyClass?: string;
+  primaryCurrents?: string[];
+  createdAt?: string;
 }
 
 interface AfterPrimaryTransformersListProps {
@@ -370,10 +373,10 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                 } else {
                   primary = pArray.join('-');
                 }
-              } else if (order.ratedPrimaryCurrent) {
-                primary = order.ratedPrimaryCurrent.toString();
+              } else if (order.primaryCurrents && order.primaryCurrents[0]) {
+                primary = order.primaryCurrents[0].toString();
               } else if (order.ratio && order.ratio[0]) {
-                primary = order.ratio[0].split('/')[0].replace(/[\[\]"]/g, '');
+                primary = order.ratio?.[0]?.split('/')[0]?.replace(/[\[\]"]/g, '') || 'N/A';
               }
               
               // Final cleanup of primary string
@@ -387,7 +390,7 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                   return val || '1';
                 });
               } else if (order.ratio && Array.isArray(order.ratio) && order.ratio.length > 0) {
-                secondaries = order.ratio.map((r: string) => r.split('/')[1]).filter(s => s);
+                secondaries = order.ratio.map((r: string) => r.split('/')[1]).filter(s => s) as string[];
               }
 
               if (secondaries.length > 0) {

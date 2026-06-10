@@ -121,7 +121,7 @@ export function CTReportsList({ onBack }: CTReportsListProps) {
     if (selectedJobId) {
         let jobTransformers = groupByJob[selectedJobId] || [];
         if (selectedTester !== 'All') {
-            jobTransformers = jobTransformers.filter(t => t.testHistory?.final_test?.tester === selectedTester);
+            jobTransformers = jobTransformers.filter(t => t.testHistory?.final_test?.['tester'] === selectedTester);
         }
         const clientName = jobTransformers[0]?.orderId?.clientName || 'Unknown Client';
 
@@ -182,14 +182,14 @@ export function CTReportsList({ onBack }: CTReportsListProps) {
         return dates.length > 0 ? Math.max(...dates) : 0;
     };
 
-    const jobIds = Object.keys(groupByJob).sort((a, b) => getGroupLatestDate(groupByJob[b]) - getGroupLatestDate(groupByJob[a]));
+    const jobIds = Object.keys(groupByJob).sort((a, b) => getGroupLatestDate(groupByJob[b] || []) - getGroupLatestDate(groupByJob[a] || []));
     
     let filteredJobIds = jobIds;
 
     if (selectedTester !== 'All') {
         filteredJobIds = filteredJobIds.filter(jobId => {
             const jobTransformers = groupByJob[jobId] || [];
-            return jobTransformers.some(tf => tf.testHistory?.final_test?.tester === selectedTester);
+            return jobTransformers.some(tf => tf.testHistory?.final_test?.['tester'] === selectedTester);
         });
     }
 
@@ -203,7 +203,7 @@ export function CTReportsList({ onBack }: CTReportsListProps) {
     }
 
     // Extract unique testers
-    const allTesters = Array.from(new Set(reports.map(t => t.testHistory?.final_test?.tester).filter(Boolean))).sort() as string[];
+    const allTesters = Array.from(new Set(reports.map(t => t.testHistory?.final_test?.['tester']).filter(Boolean))).sort() as string[];
 
     return (
         <div className="space-y-6">
@@ -269,7 +269,7 @@ export function CTReportsList({ onBack }: CTReportsListProps) {
                     {filteredJobIds.map(jobId => {
                         let transformers = groupByJob[jobId] || [];
                         if (selectedTester !== 'All') {
-                            transformers = transformers.filter(t => t.testHistory?.final_test?.tester === selectedTester);
+                            transformers = transformers.filter(t => t.testHistory?.final_test?.['tester'] === selectedTester);
                         }
                         const count = transformers.length;
                         const orderData = transformers[0]?.orderId || {};

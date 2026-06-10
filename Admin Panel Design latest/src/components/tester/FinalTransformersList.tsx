@@ -4,6 +4,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { ArrowLeft, PlayCircle, Loader2, FileText } from 'lucide-react';
 import axios from 'axios';
+import { toast } from 'sonner';
 
 interface CoreConfig {
   coreNumber: number;
@@ -19,10 +20,12 @@ export interface FinalTransformer {
   rating: string;
   voltageClass: string;
   cores: CoreConfig[];
-  status: 'pending' | 'in-progress' | 'completed';
+  status: 'pending' | 'in-progress' | 'completed' | 'locked';
   ratios: string[];
   testHistory?: any;
   jobId?: string;
+  canApprove?: boolean;
+  canRequestStrictApproval?: boolean;
   clientName?: string;
   orderId?: any;
   currentStage: string;
@@ -44,6 +47,7 @@ interface Order {
   assignedUnitIds?: string[]; // Granular filtering
   transformerName?: string;
   ratio?: string[];
+  primaryCurrents?: string[];
   nominalSystemVoltage?: number | string;
   coreDetails?: any[];
   clientName?: string;
@@ -51,6 +55,7 @@ interface Order {
   transformerQuantity?: number;
   voltageRating?: string;
   createdAt?: string;
+  deadline?: string;
 }
 
 interface FinalTransformersListProps {
@@ -100,7 +105,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
 
         // Map DB data + Order Specs to UI Model
         const mappedTransformers: FinalTransformer[] = dbTransformers.map((t: any) => {
-          let status: 'pending' | 'in-progress' | 'completed' = 'pending';
+          let status: 'pending' | 'in-progress' | 'completed' | 'locked' = 'pending';
 
           if (t.currentStage === 'final') {
             if (t.testHistory?.final_test?.status === 'Completed') status = 'completed';
@@ -325,10 +330,8 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                 } else {
                   primary = pArray.join('-');
                 }
-              } else if (order.ratedPrimaryCurrent) {
-                primary = order.ratedPrimaryCurrent.toString();
               } else if (order.ratio && order.ratio[0]) {
-                primary = order.ratio[0].split('/')[0].replace(/[\[\]"]/g, '');
+                primary = order.ratio?.[0]?.split('/')[0]?.replace(/[\[\]"]/g, '') || 'N/A';
               }
               
               // Final cleanup of primary string
@@ -342,7 +345,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                   return val || '1';
                 });
               } else if (order.ratio && Array.isArray(order.ratio) && order.ratio.length > 0) {
-                secondaries = order.ratio.map((r: string) => r.split('/')[1]).filter(s => s);
+                secondaries = order.ratio.map((r: string) => r.split('/')[1]).filter(s => s) as string[];
               }
 
               if (secondaries.length > 0) {
@@ -367,7 +370,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
             currentStage: t.currentStage,
             stc: (t as any).stc || (order as any).stc || (order as any).STC || 'N/A',
             voltageRating: order.voltageRating || order.nominalSystemVoltage || '33',
-            burden: (order as any).burden || transformer.burden || 'N/A',
+            burden: (order as any).burden || t.burden || 'N/A',
             ratedPrimaryCurrent: (order as any).ratedPrimaryCurrent || (order.ratio && order.ratio[0] ? order.ratio[0].split('/')[0] : '800'),
             ratedSecondaryCurrent: (order as any).ratedSecondaryCurrent || (order.ratio && order.ratio[0] ? order.ratio[0].split('/')[1] : '1'),
             clientName: order.clientName || order.client || 'N/A'

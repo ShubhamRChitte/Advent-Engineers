@@ -62,7 +62,7 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
     || (selectedTransformer as any)?.coreDetails?.length
     || 1;
   const { timeLeftMs: ctTimeLeftMs, isOverdue: ctIsOverdue, expectedMinutes: ctExpectedMinutes, endTimer: ctEndTimer } = useCTTimer({
-    transformerId: selectedTransformer?._id || selectedTransformer?.uniqueId || '',
+    transformerId: (selectedTransformer as any)?._id || selectedTransformer?.uniqueId || '',
     orderId:       selectedOrder?._id || '',
     jobId:         selectedOrder?.jobId || '',
     stage:         'after_primary',

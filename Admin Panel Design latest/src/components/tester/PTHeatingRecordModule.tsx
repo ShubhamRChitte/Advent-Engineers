@@ -165,7 +165,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
           serialNumber: b.serialNumber || '',
           jobNo: order.jobId,
           leftInputs: ensureLeftInputs(b.leftInputs),
-          startDate: b.startDate || new Date().toISOString().split('T')[0],
+          startDate: b.startDate || new Date().toISOString().split('T')[0] || '',
           processSteps: b.processSteps && b.processSteps.length > 0
             ? b.processSteps.map((s: any) => ({
               process: s.process,
@@ -180,7 +180,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
           preparedBy: b.preparedBy || user.name || '',
           productionManager: b.productionManager || '',
           verifiedBy: b.verifiedBy || '',
-          date: b.date || new Date().toISOString().split('T')[0]
+          date: b.date || new Date().toISOString().split('T')[0] || ''
         }));
         setRecords(uiBlocks);
         setIsEditingRecord(true);
@@ -192,7 +192,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
     }
 
     // Default: initialize fresh block
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0] || '';
     const block: HeatingRecordBlock = {
       id: Math.random().toString(36).substr(2, 9),
       transformerId: '',
@@ -238,7 +238,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
 
   const addRecordBlock = () => {
     if (!selectedOrder) return;
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0] || '';
     setRecords(prev => [...prev, {
       id: Math.random().toString(36).substr(2, 9),
       transformerId: '',
@@ -264,11 +264,11 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
       // Strict future date validation
       let finalizedValue = value;
       if (field === 'startDate' || field === 'completionDate') {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0] || '';
         if (value && value > today) finalizedValue = today;
       }
 
-      updatedSteps[processIndex] = { ...updatedSteps[processIndex], [field]: finalizedValue };
+      updatedSteps[processIndex] = { ...updatedSteps[processIndex], [field]: finalizedValue } as ProcessStep;
       return { ...block, processSteps: updatedSteps };
     }));
   };
@@ -280,7 +280,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
       // Strict future date validation
       let finalizedValue = value;
       if (field === 'startDate' || field === 'date') {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0] || '';
         if (value && value > today) finalizedValue = today;
       }
 
@@ -351,7 +351,6 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
           setRecords([]);
           setIsEditingRecord(false);
         }}
-        onAddBlock={addRecordBlock}
         onSave={handleSave}
         onUpdateProcessStep={updateProcessStep}
         onUpdateBlockField={updateBlockField}

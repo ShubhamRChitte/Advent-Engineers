@@ -100,14 +100,14 @@ export function AfterPrimaryReportsDashboard() {
                                     )}
                                     <div>
                                         <h3 className="font-semibold text-lg">{jobId}</h3>
-                                        <p className="text-sm text-gray-500">{groupedReports[jobId].length} Transformers Completed</p>
+                                        <p className="text-sm text-gray-500">{groupedReports[jobId]?.length || 0} Transformers Completed</p>
                                     </div>
                                 </div>
                             </div>
 
                             {expandedJobs[jobId] && (
                                 <div className="bg-gray-50 p-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {groupedReports[jobId].map((tf, idx) => (
+                                    {groupedReports[jobId]?.map((tf, idx) => (
                                         <div
                                             key={tf.uniqueId || idx}
                                             onClick={() => setSelectedTransformer(tf)}

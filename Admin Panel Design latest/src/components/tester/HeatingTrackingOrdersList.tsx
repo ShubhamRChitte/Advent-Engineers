@@ -139,7 +139,7 @@ export function HeatingTrackingOrdersList({ onStartTesting, user }: HeatingTrack
                     </td>
                     <td className="p-4 text-sm text-center font-medium">{order.quantity}</td>
                     <td className="p-4 text-sm">
-                      {new Date(order.createdAt || order.deadline).toLocaleDateString()}
+                      {new Date(order.createdAt || order.deadline || new Date().toISOString()).toLocaleDateString()}
                     </td>
                     <td className="p-4 text-center">
                       <Button

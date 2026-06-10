@@ -4,7 +4,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Search, Zap, Layers, Gauge } from 'lucide-react';
-import transformerImg from 'figma:asset/0db9fabb1635e2b66d423ee0e091febb037691be.pn';
+import transformerImg from 'figma:asset/0db9fabb1635e2b66d423ee0e091febb037691be.png';
 
 interface Transformer {
   id: string;

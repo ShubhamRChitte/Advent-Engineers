@@ -12,7 +12,7 @@ import {
 } from './UnifiedHeatingRecord';
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 
-interface Order {
+export interface Order {
   _id: string;
   jobId: string;
   clientName: string;
@@ -20,6 +20,18 @@ interface Order {
   nominalSystemVoltage: string | number;
   voltageRating?: string;
   quantity: number;
+  createdAt?: string;
+  deadline?: string;
+}
+
+export interface Transformer {
+  _id: string;
+  uniqueId: string;
+  name: string;
+  rating: string;
+  status: 'pending' | 'in-progress' | 'completed' | 'approved';
+  isFilled: boolean;
+  testHistory?: any;
 }
 
 interface HeatingTrackingModuleProps {
@@ -114,7 +126,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
             serialNumber: t.uniqueId,
             jobNo: t.jobId,
             leftInputs: existingRecord.leftInputs || Array(8).fill(null).map(() => ({ col1: "", col2: "" })),
-            startDate: existingRecord.startDate || new Date().toISOString().split('T')[0],
+            startDate: existingRecord.startDate || new Date().toISOString().split('T')[0] || '',
             processSteps: existingRecord.processSteps?.length > 0 ? existingRecord.processSteps.map((s: any) => {
                 // Determine values from new schema fields first, then fallback to old ones if they exist
                 let sDate = s.startDate || '';
@@ -150,7 +162,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
             preparedBy: existingRecord.preparedBy || user.name || '',
             productionManager: existingRecord.productionManager || '',
             verifiedBy: existingRecord.verifiedBy || '',
-            date: existingRecord.date || new Date().toISOString().split('T')[0]
+            date: existingRecord.date || new Date().toISOString().split('T')[0] || ''
         });
     } else {
         // Create new fresh block
@@ -161,12 +173,12 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
             serialNumber: t.uniqueId,
             jobNo: t.jobId,
             leftInputs: Array(8).fill(null).map(() => ({ col1: "", col2: "" })),
-            startDate: new Date().toISOString().split('T')[0],
+            startDate: new Date().toISOString().split('T')[0] || '',
             processSteps: getStepsForVoltage(voltageStr),
             preparedBy: user.name || '',
             productionManager: '',
             verifiedBy: '',
-            date: new Date().toISOString().split('T')[0],
+            date: new Date().toISOString().split('T')[0] || '',
         };
         setRecord(newBlock);
     }
@@ -205,7 +217,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
   const updateProcessStep = (_blockId: string, processIndex: number, field: keyof ProcessStep, value: string) => {
     if (!record) return;
     let newSteps = [...record.processSteps];
-    newSteps[processIndex] = { ...newSteps[processIndex], [field]: value };
+    newSteps[processIndex] = { ...newSteps[processIndex], [field]: value } as ProcessStep;
     
     // Ripple Forward Logic
     const isStartTimeChange = (field === 'startDate' || field === 'startTime');
@@ -214,8 +226,9 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
     if (isStartTimeChange || isEndTimeChange) {
       for (let i = processIndex; i < newSteps.length; i++) {
         const step = newSteps[i];
-        const hoursMatch = step.duration.match(/(\d+)/);
-        const hours = hoursMatch ? parseInt(hoursMatch[1]) : 0;
+        if (!step) continue;
+        const hoursMatch = step?.duration?.match(/(\d+)/);
+        const hours = hoursMatch ? parseInt(hoursMatch[1] || '0') : 0;
 
         // If we are at the step that was edited
         if (i === processIndex) {
@@ -235,6 +248,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
         } else {
           // Rippling subsequent steps: Start = Previous step's completion
           const prevStep = newSteps[i - 1];
+          if (!prevStep) continue;
           if (prevStep.completionDate && prevStep.completionTime) {
             const start = new Date(`${prevStep.completionDate}T${prevStep.completionTime}`);
             const end = new Date(start.getTime() + hours * 60 * 60 * 1000);

@@ -24,6 +24,7 @@ interface CompletedTransformer {
             signature?: string;
             [key: string]: any;
         };
+        pt_pretest_test?: any;
     };
     coreDetails?: any[];
 }
@@ -128,7 +129,7 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
     if (selectedJobId) {
         let jobTransformers = groupByJob[selectedJobId] || [];
         if (selectedTester !== 'All') {
-            jobTransformers = jobTransformers.filter(t => (t.testHistory?.pt_test?.tester || t.testHistory?.pt_test?.testedBy) === selectedTester);
+            jobTransformers = jobTransformers.filter(t => (t.testHistory?.pt_test?.['tester'] || t.testHistory?.pt_test?.testedBy) === selectedTester);
         }
         // Extract client name from the first transformer's populated order if available
         const clientName = jobTransformers[0]?.orderId?.clientName || 'Unknown Client';
@@ -136,7 +137,7 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
         return (
             <PTCompletedTransformersList
                 transformers={jobTransformers}
-                onViewReport={(t) => setSelectedTransformer(t)}
+                onViewReport={(t) => setSelectedTransformer(t as unknown as CompletedTransformer)}
                 onBack={() => setSelectedJobId(null)}
                 jobId={selectedJobId}
                 clientName={clientName}
@@ -147,7 +148,7 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
     // --- LEVEL 1: ORDERS LIST --- sorted by most recently tested date (newest first)
     const getGroupLatestDate = (transformers: CompletedTransformer[]): number => {
         const dates = transformers.map(t => {
-            const ptDateStr = t.testHistory?.pt_test?.savedAt || t.testHistory?.pt_test?.date;
+            const ptDateStr = t.testHistory?.pt_test?.['savedAt'] || t.testHistory?.pt_test?.date;
             if (!ptDateStr) return 0;
             const parts = typeof ptDateStr === 'string' ? ptDateStr.split('/') : [];
             if (parts.length === 3) return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime();
@@ -155,7 +156,7 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
         }).filter(d => !isNaN(d) && d > 0);
         return dates.length > 0 ? Math.max(...dates) : 0;
     };
-    const jobIds = Object.keys(groupByJob).sort((a, b) => getGroupLatestDate(groupByJob[b]) - getGroupLatestDate(groupByJob[a]));
+    const jobIds = Object.keys(groupByJob).sort((a, b) => getGroupLatestDate(groupByJob[b] || []) - getGroupLatestDate(groupByJob[a] || []));
 
     // --- FILTER LOGIC ---
     let filteredJobIds = jobIds;
@@ -163,7 +164,7 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
     if (selectedTester !== 'All') {
         filteredJobIds = filteredJobIds.filter(jobId => {
             const jobTransformers = groupByJob[jobId] || [];
-            return jobTransformers.some(tf => (tf.testHistory?.pt_test?.tester || tf.testHistory?.pt_test?.testedBy) === selectedTester);
+            return jobTransformers.some(tf => (tf.testHistory?.pt_test?.['tester'] || tf.testHistory?.pt_test?.testedBy) === selectedTester);
         });
     }
 
@@ -179,7 +180,7 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
         });
     }
 
-    const allTesters = Array.from(new Set(reports.map(t => t.testHistory?.pt_test?.tester || t.testHistory?.pt_test?.testedBy).filter(Boolean))).sort() as string[];
+    const allTesters = Array.from(new Set(reports.map(t => t.testHistory?.pt_test?.['tester'] || t.testHistory?.pt_test?.testedBy).filter(Boolean))).sort() as string[];
 
     return (
         <div className="space-y-6">
@@ -249,7 +250,7 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
                             {filteredJobIds.map(jobId => {
                                 let transformers = groupByJob[jobId] || [];
                                 if (selectedTester !== 'All') {
-                                    transformers = transformers.filter(t => (t.testHistory?.pt_test?.tester || t.testHistory?.pt_test?.testedBy) === selectedTester);
+                                    transformers = transformers.filter(t => (t.testHistory?.pt_test?.['tester'] || t.testHistory?.pt_test?.testedBy) === selectedTester);
                                 }
                                 const count = transformers.length;
                                 const orderData = transformers[0]?.orderId || {};

@@ -61,7 +61,7 @@ export function CTPage3Results(props: Page3Props) {
 
   const handleRowChange = (index: number, field: keyof AccuracyRow, value: string) => {
     const newRows = [...accuracyRows];
-    newRows[index] = { ...newRows[index], [field]: value };
+    newRows[index] = { ...newRows[index], [field]: value } as AccuracyRow;
     setAccuracyRows(newRows);
   };
 
@@ -79,7 +79,7 @@ export function CTPage3Results(props: Page3Props) {
       {/* Edit Toggle Button */}
       <div className="no-print" style={{ position: 'absolute', top: '-40px', right: '0', zIndex: 100 }}>
         <Button 
-          variant={isEditing ? "success" : "outline"} 
+          variant={isEditing ? "default" : "outline"} 
           size="sm" 
           onClick={() => setIsEditing(!isEditing)}
           className="gap-2 shadow-md"

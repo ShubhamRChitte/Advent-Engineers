@@ -94,7 +94,7 @@ export function PTPretestReportsList({ onBack }: PTPretestReportsListProps) {
         return (
             <PTCompletedTransformersList
                 transformers={jobTransformers}
-                onViewReport={(t) => setSelectedTransformer(t)}
+                onViewReport={(t) => setSelectedTransformer(t as unknown as CompletedTransformer)}
                 onBack={() => setSelectedJobId(null)}
                 jobId={selectedJobId}
                 clientName={clientName}

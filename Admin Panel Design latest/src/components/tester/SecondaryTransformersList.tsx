@@ -14,6 +14,7 @@ interface CoreConfig {
 }
 
 export interface Transformer {
+  _id?: string;
   id: string;
   name: string;
   rating: string;
@@ -332,7 +333,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
             } else if (order.ratedPrimaryCurrent) {
               primary = order.ratedPrimaryCurrent.toString();
             } else if (order.ratio && order.ratio[0]) {
-              primary = order.ratio[0].split('/')[0].replace(/[\[\]"]/g, '');
+              primary = (order.ratio[0] || '').split('/')[0]?.replace(/[\[\]"]/g, '') || '';
             }
             
             // Final cleanup of primary string
@@ -342,11 +343,11 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
             let secondaries: string[] = [];
             if (order.coreDetails && Array.isArray(order.coreDetails) && order.coreDetails.length > 0) {
               secondaries = order.coreDetails.map((c: any) => {
-                const val = c.secondaryCurrent || (c.ratio && c.ratio.includes('/') ? c.ratio.split('/')[1] : null);
+                const val = c.secondaryCurrent || (c.ratio && c.ratio.includes('/') ? c.ratio.split('/')[1] || null : null);
                 return val || '1';
               });
             } else if (order.ratio && Array.isArray(order.ratio) && order.ratio.length > 0) {
-              secondaries = order.ratio.map((r: string) => r.split('/')[1]).filter(s => s);
+              secondaries = order.ratio.map((r: string) => r.split('/')[1] || '').filter(s => s);
             }
 
             if (secondaries.length > 0) {

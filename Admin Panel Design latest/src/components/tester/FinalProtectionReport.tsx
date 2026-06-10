@@ -30,8 +30,8 @@ export function FinalProtectionReport({
       onBack={onBack}
       stage="final"
       accuracyClass={core.accuracyClass}
-      primaryCurrent={primaryCurrent}
-      secondaryCurrent={secondaryCurrent}
+      primaryCurrent={primaryCurrent || ''}
+      secondaryCurrent={secondaryCurrent || ''}
       order={order}
     />
   );

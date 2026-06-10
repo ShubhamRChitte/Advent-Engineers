@@ -32,7 +32,7 @@ const STAGES = ['core', 'secondary', 'primary', 'final'] as const;
 export function CreateOrderView() {
   // --- State ---
   const [step, setStep] = useState<1 | 2>(1);
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [formErrors, setFormErrors] = useState<any>({});
   const [formData, setFormData] = useState({
     clientName: '',
     clientContactNo: '',
@@ -127,9 +127,9 @@ export function CreateOrderView() {
     // Instant Validation Trigger
     const errorMsg = validateField(field, value, updatedData);
     if (errorMsg) {
-      setFormErrors(prev => ({ ...prev, [field]: errorMsg }));
+      setFormErrors((prev: any) => ({ ...prev, [field]: errorMsg }));
     } else {
-      setFormErrors(prev => {
+      setFormErrors((prev: any) => {
         const next = { ...prev };
         delete next[field];
         return next;
@@ -169,11 +169,11 @@ export function CreateOrderView() {
     });
 
     // Evaluate dynamically
-    if (!newType) setFormErrors(p => ({...p, [`coreType_${index}`]: 'Core type required'}));
+    if (!newType) setFormErrors((p: any) => ({...p, [`coreType_${index}`]: 'Core type required'}));
     else if (formData.transformerType === 'PT' && newType === 'PS') {
-      setFormErrors(p => ({...p, [`coreType_${index}`]: 'PS not allowed for PT'}));
+      setFormErrors((p: any) => ({...p, [`coreType_${index}`]: 'PS not allowed for PT'}));
     } else {
-      setFormErrors(p => { const next = {...p}; delete next[`coreType_${index}`]; return next; });
+      setFormErrors((p: any) => { const next = {...p}; delete next[`coreType_${index}`]; return next; });
     }
   };
 
@@ -184,8 +184,8 @@ export function CreateOrderView() {
       return updated;
     });
 
-    if (!newAccuracy) setFormErrors(p => ({ ...p, [`accuracyClass_${index}`]: 'Class required' }));
-    else setFormErrors(p => { const next = {...p}; delete next[`accuracyClass_${index}`]; return next; });
+    if (!newAccuracy) setFormErrors((p: any) => ({ ...p, [`accuracyClass_${index}`]: 'Class required' }));
+    else setFormErrors((p: any) => { const next = {...p}; delete next[`accuracyClass_${index}`]; return next; });
   };
 
   // --- Assignment Logic ---
@@ -257,7 +257,7 @@ export function CreateOrderView() {
 
   // --- Validation Logic ---
   const validateForm = () => {
-    const errors: Record<string, string> = {};
+    const errors: any = {};
     if (!formData.clientName.trim()) errors.clientName = 'Client Name is required';
     
     // Contact No check (10 digits)
@@ -509,7 +509,7 @@ export function CreateOrderView() {
                       value={config.coreType}
                       onValueChange={(v: string) => {
                         handleCoreConfigChange(idx, v);
-                        if (formErrors[`coreType_${idx}`]) setFormErrors(prev => ({ ...prev, [`coreType_${idx}`]: '' }));
+                        if (formErrors[`coreType_${idx}`]) setFormErrors((prev: any) => ({ ...prev, [`coreType_${idx}`]: '' }));
                       }}
                     >
                       <SelectTrigger className={`h-8 ${formErrors[`coreType_${idx}`] ? "border-red-500" : ""}`}><SelectValue placeholder="Select type" /></SelectTrigger>
@@ -530,7 +530,7 @@ export function CreateOrderView() {
                         value={config.accuracyClass}
                         onValueChange={(v: string) => {
                           handleCoreAccuracyChange(idx, v);
-                          if (formErrors[`accuracyClass_${idx}`]) setFormErrors(prev => ({ ...prev, [`accuracyClass_${idx}`]: '' }));
+                          if (formErrors[`accuracyClass_${idx}`]) setFormErrors((prev: any) => ({ ...prev, [`accuracyClass_${idx}`]: '' }));
                         }}
                       >
                         <SelectTrigger className={`h-8 ${formErrors[`accuracyClass_${idx}`] ? "border-red-500" : ""}`}><SelectValue placeholder="Select Class" /></SelectTrigger>

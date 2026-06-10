@@ -38,8 +38,10 @@ export function CTPage2TestDetails(props: Page2Props) {
 
   const handleDetailChange = (index: number, field: 'test' | 'ref', value: string) => {
     const newDetails = [...testDetails];
-    newDetails[index][field] = value;
-    setTestDetails(newDetails);
+    if (newDetails[index]) {
+      newDetails[index][field] = value;
+      setTestDetails(newDetails);
+    }
   };
 
   const inputStyle = {
@@ -56,7 +58,7 @@ export function CTPage2TestDetails(props: Page2Props) {
       {/* Edit Toggle Button */}
       <div className="no-print" style={{ position: 'absolute', top: '-40px', right: '0', zIndex: 100 }}>
         <Button 
-          variant={isEditing ? "success" : "outline"} 
+          variant={isEditing ? "default" : "outline"} 
           size="sm" 
           onClick={() => setIsEditing(!isEditing)}
           className="gap-2 shadow-md"

@@ -41,7 +41,7 @@ export class ErrorBoundary extends Component<Props, State> {
         console.error('ErrorBoundary caught an error:', error, errorInfo);
 
         // In production, send to error tracking service (Sentry, LogRocket, etc.)
-        if (process.env.NODE_ENV === 'production') {
+        if (import.meta.env.PROD) {
             // Example: Sentry.captureException(error, { extra: errorInfo });
         }
 
@@ -81,7 +81,7 @@ export class ErrorBoundary extends Component<Props, State> {
                             The application encountered an unexpected error. This has been logged for investigation.
                         </p>
 
-                        {process.env.NODE_ENV === 'development' && this.state.error && (
+                        {import.meta.env.DEV && this.state.error && (
                             <details className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-xs">
                                 <summary className="cursor-pointer font-semibold text-red-800 mb-2">
                                     Error Details (Dev Only)

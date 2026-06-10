@@ -87,7 +87,7 @@ export function AfterPrimaryReportsList() {
         return (
             <AfterPrimaryCompletedTransformersList
                 transformers={jobTransformers}
-                onViewReport={(t) => setSelectedTransformer(t)}
+                onViewReport={(t) => setSelectedTransformer(t as unknown as CompletedTransformer)}
                 onBack={() => setSelectedJobId(null)}
                 jobId={selectedJobId}
                 clientName={clientName}
@@ -123,7 +123,7 @@ export function AfterPrimaryReportsList() {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {jobIds.map(jobId => {
-                        const transformers = groupByJob[jobId];
+                        const transformers = groupByJob[jobId] || [];
                         const count = transformers.length;
                         // Use first transformer to get Order metadata
                         const orderData = transformers[0]?.orderId || {};

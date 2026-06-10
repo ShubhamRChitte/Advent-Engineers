@@ -40,6 +40,9 @@ interface Order {
   ratio?: string[];
   coreDetails?: any[];
   accuracyClass?: string;
+  voltageRating?: string;
+  nominalSystemVoltage?: string;
+  createdAt?: string;
 }
 
 interface PTTransformersListProps {
@@ -170,7 +173,7 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
           
           const getTrailingNum = (str: string) => {
             const match = str?.toString().match(/(\d+)$/);
-            return match ? parseInt(match[1], 10) : null;
+            return match ? parseInt(match[1] || '0', 10) : null;
           };
           const tNum = getTrailingNum(t.uniqueId);
           const tSuffix = t.uniqueId?.slice(-3);

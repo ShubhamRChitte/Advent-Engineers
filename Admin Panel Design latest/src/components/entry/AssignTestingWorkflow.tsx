@@ -113,7 +113,7 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
 
 
 
-  const currentTest = testTypes[currentTestIndex] || testTypes[0];
+  const currentTest = testTypes[currentTestIndex] || testTypes[0] || { id: 'fallback', name: 'Unknown', icon: Activity, color: 'gray' };
   // Handle both flat structure (Entry Operator) and nested structure (Admin)
   const quantity = orderData.quantity
     ? (typeof orderData.quantity === 'string' ? parseInt(orderData.quantity) : orderData.quantity)
@@ -175,7 +175,7 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
     // Save current test assignment
     const assignments: WorkerAssignment[] = selectedWorkers.map(worker => ({
       worker,
-      transformerCount: parseInt(workerCounts[worker.id]) || 0,
+      transformerCount: parseInt(workerCounts[worker.id] || '0') || 0,
     }));
 
     const newAssignment: TestAssignment = {

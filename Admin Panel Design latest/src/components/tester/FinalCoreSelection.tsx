@@ -20,6 +20,7 @@ interface Order {
   primaryCurrents?: string[];
   ratedSecondaryCurrent?: string;
   clientName?: string;
+  coreDetails?: any[];
 }
 
 interface CoreConfig {
@@ -280,7 +281,7 @@ export function FinalCoreSelection({
             // Automatic detection of parameters
             const coreFromOrder = order?.coreDetails?.[core.coreNumber - 1];
             const secondaryVal = coreFromOrder?.secondaryCurrent || order?.ratedSecondaryCurrent || '1';
-            const primaryVal = coreFromOrder?.primaryCurrent || order?.ratedPrimaryCurrent || (order?.ratio?.[0]?.split('/')[0] || '');
+            const primaryVal = coreFromOrder?.primaryCurrent || order?.primaryCurrents?.[0] || (order?.ratio?.[0]?.split('/')[0] || '');
 
             return (
               <Card

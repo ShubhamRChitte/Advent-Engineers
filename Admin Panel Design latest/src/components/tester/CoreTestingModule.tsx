@@ -61,5 +61,5 @@ export function CoreTestingModule({ user }: CoreTestingModuleProps) {
     );
   }
 
-  return <CoreOrdersList onStartTesting={handleStartTesting} onViewReports={handleViewReports} user={user} />;
+  return <CoreOrdersList onStartTesting={handleStartTesting} onViewReports={handleViewReports} user={user!} />;
 }

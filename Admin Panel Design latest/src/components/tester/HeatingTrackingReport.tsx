@@ -67,7 +67,7 @@ export function HeatingTrackingReport({ order, transformer, user, onBack }: Heat
             serialNumber: dbTransformer.uniqueId,
             jobNo: order.jobId,
             leftInputs: existingRecord.leftInputs || Array(8).fill(null).map(() => ({ col1: "", col2: "" })),
-            startDate: existingRecord.startDate || new Date().toISOString().split('T')[0],
+            startDate: existingRecord.startDate || new Date().toISOString().split('T')[0] || '',
             processSteps: existingRecord.processSteps?.length > 0 ? (existingRecord.processSteps as any[]).map((s: any) => ({
                 process: s.process || '',
                 duration: s.duration || '',
@@ -80,10 +80,10 @@ export function HeatingTrackingReport({ order, transformer, user, onBack }: Heat
             preparedBy: existingRecord.preparedBy || user.name || '',
             productionManager: existingRecord.productionManager || '',
             verifiedBy: existingRecord.verifiedBy || '',
-            date: existingRecord.date || new Date().toISOString().split('T')[0]
+            date: existingRecord.date || new Date().toISOString().split('T')[0] || ''
         });
       } else {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0] || '';
         setRecord({
             id: Math.random().toString(36).substr(2, 9),
             transformerId: transformer._id,
@@ -141,11 +141,11 @@ export function HeatingTrackingReport({ order, transformer, user, onBack }: Heat
     // Strict future date validation
     let finalizedValue = value;
     if (field === 'startDate' || field === 'completionDate') {
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0] || '';
       if (value && value > today) finalizedValue = today;
     }
 
-    newSteps[processIndex] = { ...newSteps[processIndex], [field]: finalizedValue };
+    newSteps[processIndex] = { ...newSteps[processIndex], [field]: finalizedValue } as ProcessStep;
     setRecord({ ...record, processSteps: newSteps });
   };
 
@@ -155,7 +155,7 @@ export function HeatingTrackingReport({ order, transformer, user, onBack }: Heat
     // Strict future date validation
     let finalizedValue = value;
     if (field === 'startDate' || field === 'date') {
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0] || '';
       if (typeof value === 'string' && value > today) finalizedValue = today;
     }
 

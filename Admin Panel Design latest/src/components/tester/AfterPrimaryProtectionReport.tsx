@@ -7,6 +7,7 @@ interface PrimaryProtectionReportProps {
   testerName: string;
   onBack: () => void;
   primaryCurrent?: string;
+  secondaryCurrent?: string;
   order?: any;
   onCompleteTimer?: () => Promise<void>;
 }
@@ -31,10 +32,10 @@ export function AfterPrimaryProtectionReport({
       onBack={onBack}
       stage="primary"
       accuracyClass={core.accuracyClass}
-      primaryCurrent={primaryCurrent}
-      secondaryCurrent={secondaryCurrent}
+      primaryCurrent={primaryCurrent || ''}
+      secondaryCurrent={secondaryCurrent || ''}
       order={order}
-      onCompleteTimer={onCompleteTimer}
+      onCompleteTimer={onCompleteTimer || (async () => {})}
     />
   );
 }

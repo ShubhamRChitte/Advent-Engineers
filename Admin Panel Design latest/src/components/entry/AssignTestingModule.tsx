@@ -194,7 +194,7 @@ export function AssignTestingModule({ orderData, onComplete, onBack }: AssignTes
         return expOrder[b.experienceLevel] - expOrder[a.experienceLevel];
       })[0];
       
-      setSelectedWorker(bestWorker);
+      setSelectedWorker(bestWorker || null);
     }
   };
 

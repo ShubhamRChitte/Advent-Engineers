@@ -73,7 +73,7 @@ export function Page1Overview(props: Page1Props) {
       {/* Edit Toggle Button - Hidden in Print */}
       <div className="no-print" style={{ position: 'absolute', top: '-40px', right: '0', zIndex: 100 }}>
         <Button 
-          variant={isEditing ? "success" : "outline"} 
+          variant={isEditing ? "default" : "outline"} 
           size="sm" 
           onClick={() => setIsEditing(!isEditing)}
           className="gap-2 shadow-md"

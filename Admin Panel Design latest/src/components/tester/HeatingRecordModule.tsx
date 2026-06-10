@@ -185,13 +185,13 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
       // Strict future date validation
       let finalizedValue = value;
       if (field === 'startDate' || field === 'completionDate') {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0] || '';
         if (value && value > today) {
           finalizedValue = today;
         }
       }
 
-      updatedSteps[processIndex] = { ...updatedSteps[processIndex], [field]: finalizedValue };
+      updatedSteps[processIndex] = { ...updatedSteps[processIndex], [field]: finalizedValue } as ProcessStep;
 
       // Ripple Forward Logic
       const isStartTimeChange = (field === 'startDate' || field === 'startTime');
@@ -200,8 +200,9 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
       if (isStartTimeChange || isEndTimeChange) {
         for (let i = processIndex; i < updatedSteps.length; i++) {
           const step = updatedSteps[i];
-          const hoursMatch = step.duration.match(/(\d+)/);
-          const hours = hoursMatch ? parseInt(hoursMatch[1]) : 0;
+          if (!step) continue;
+          const hoursMatch = step?.duration?.match(/(\d+)/);
+          const hours = hoursMatch ? parseInt(hoursMatch[1] || '0') : 0;
 
           if (i === processIndex) {
             if (isStartTimeChange) {
@@ -217,6 +218,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
             }
           } else {
             const prevStep = updatedSteps[i - 1];
+            if (!prevStep) continue;
             if (prevStep.completionDate && prevStep.completionTime) {
               const start = new Date(`${prevStep.completionDate}T${prevStep.completionTime}`);
               const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
@@ -242,7 +244,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
       // Strict future date validation
       let finalizedValue = value;
       if (field === 'startDate' || field === 'date') {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0] || '';
         if (value && value > today) {
           finalizedValue = today;
         }

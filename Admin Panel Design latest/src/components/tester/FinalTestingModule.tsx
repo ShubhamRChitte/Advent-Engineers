@@ -58,7 +58,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
     || (selectedTransformer as any)?.coreDetails?.length
     || 1;
   const { timeLeftMs: ctTimeLeftMs, isOverdue: ctIsOverdue, expectedMinutes: ctExpectedMinutes, endTimer: ctEndTimer } = useCTTimer({
-    transformerId: selectedTransformer?._id || selectedTransformer?.uniqueId || '',
+    transformerId: (selectedTransformer as any)?._id || selectedTransformer?.uniqueId || '',
     orderId:       selectedOrder?._id || '',
     jobId:         selectedOrder?.jobId || '',
     stage:         'final',
@@ -230,7 +230,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
           <HeaderWithTimer title={`${selectedCore.coreType.toUpperCase()} Core Test`} onBack={handleBackToCores} />
           {selectedCore.coreType === 'metering' && (
             <FinalMeteringReport
-              transformer={selectedTransformer}
+              transformer={selectedTransformer as any}
               core={selectedCore as any} 
               testerName={testerName}
               onBack={handleBackToCores}
@@ -241,7 +241,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
           )}
           {selectedCore.coreType === 'ps' && (
             <FinalPSReport
-              transformer={selectedTransformer}
+              transformer={selectedTransformer as any}
               core={selectedCore as any}
               testerName={testerName}
               onBack={handleBackToCores}
@@ -252,7 +252,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
           )}
           {selectedCore.coreType === 'protection' && (
             <FinalProtectionReport
-              transformer={selectedTransformer}
+              transformer={selectedTransformer as any}
               core={selectedCore as any}
               testerName={testerName}
               onBack={handleBackToCores}
