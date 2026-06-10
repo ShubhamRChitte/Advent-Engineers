@@ -31,7 +31,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     // Fetch users for debugging purposes
     const fetchDebugUsers = async () => {
       try {
-        const response = await fetch('http://localhost:5001/auth/debug-users');
+        const response = await fetch(`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/debug-users`);
         const data = await response.json();
         if (data.success) {
           setDebugUsers(data.users);
@@ -49,7 +49,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5001/auth/login', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

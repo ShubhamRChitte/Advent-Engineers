@@ -81,7 +81,7 @@ export function EmployeeManagement() {
   // Fetch Employees
   const fetchEmployees = async () => {
     try {
-      const response = await fetch('http://localhost:5001/auth/all-employees');
+      const response = await fetch(`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/all-employees`);
       const data = await response.json();
       if (data.success) {
         setEmployees(data.users);
@@ -141,7 +141,7 @@ export function EmployeeManagement() {
     if (!window.confirm('Are you sure you want to delete this employee?')) return;
 
     try {
-      const response = await fetch(`http://localhost:5001/auth/delete-employee/${id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/delete-employee/${id}`, {
         method: 'DELETE'
       });
       const data = await response.json();
@@ -180,8 +180,8 @@ export function EmployeeManagement() {
       };
 
       const url = editingEmployee 
-        ? `http://localhost:5001/auth/update-employee/${editingEmployee._id}`
-        : 'http://localhost:5001/auth/add-employee';
+        ? `${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/update-employee/${editingEmployee._id}`
+        : `${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/add-employee`;
       
       const method = editingEmployee ? 'PUT' : 'POST';
 
