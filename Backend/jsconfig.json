@@ -3,6 +3,10 @@
     "checkJs": false,
     "forceConsistentCasingInFileNames": false
   },
-  "include": ["./**/*.js"],
-  "exclude": ["node_modules"]
+  "include": [
+    "**/*.js"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
