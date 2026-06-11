@@ -127,7 +127,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // 2. Session Config
-const MongoStore = require('connect-mongo');
+const { MongoStore } = require('connect-mongo');
 app.use(session({
   secret: 'advent_engineers_secret_key', // Change this in production
   resave: false,
