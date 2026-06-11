@@ -225,8 +225,12 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
       const { ProtectionCoreTestModel } = require('../models/ProtectionCoreTestModel');
 
       [allMeteringTests, allProtectionTests] = await Promise.all([
-        MeteringCoreTestModel.find({ orderId: { $in: allOrderIds } }).lean(),
-        ProtectionCoreTestModel.find({ orderId: { $in: allOrderIds } }).lean()
+        MeteringCoreTestModel.find({ orderId: { $in: allOrderIds } })
+          .select('orderId testedBy coreType readings.internalCoreNo readings.date readings.result readings.remark readings.status readings.measuredMa readings.value')
+          .lean(),
+        ProtectionCoreTestModel.find({ orderId: { $in: allOrderIds } })
+          .select('orderId testedBy coreType readings.internalCoreNo readings.date readings.result readings.remark readings.status readings.measuredMa readings.value')
+          .lean()
       ]);
     } else if (stageKey === 'secondary') {
       const { SecondaryMeteringTestModel } = require('../models/SecondaryMeteringTestModel');
@@ -237,7 +241,7 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
 
       allSecondaryTests = await SecondaryMeteringTestModel.find({
         uniqueId: { $in: allTransformerIds }
-      }).lean();
+      }).select('uniqueId coreId tester status testDate createdAt').lean();
     }
 
     // 5. Enrich Orders with "AssignedUnits" list and Pre-fetched Stats

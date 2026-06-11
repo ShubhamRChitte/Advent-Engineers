@@ -24,6 +24,9 @@ const NotificationSchema = new Schema({
 // Remove the unique index on type and orderId to allow multiple units/requests per order
 // NotificationSchema.index({ type: 1, orderId: 1 }, { unique: true });
 
+NotificationSchema.index({ recipientRole: 1, createdAt: -1 });
+NotificationSchema.index({ recipientName: 1, createdAt: -1 });
+
 const NotificationModel = mongoose.model('Notification', NotificationSchema);
 
 module.exports = { NotificationModel };
