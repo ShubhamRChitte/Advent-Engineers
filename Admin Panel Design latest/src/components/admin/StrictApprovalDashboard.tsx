@@ -4,6 +4,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { ShieldAlert, CheckCircle, XCircle, RefreshCw, Eye, Info } from 'lucide-react';
 import { toast } from 'sonner';
+import { Skeleton } from '../ui/skeleton';
 
 interface StrictApprovalRequest {
     _id: string;
@@ -67,7 +68,40 @@ export function StrictApprovalDashboard() {
     };
 
     if (loading && requests.length === 0) {
-        return <div className="text-center py-4 text-gray-500">Loading requests...</div>;
+        return (
+            <div className="space-y-4 mb-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <Skeleton className="h-6 w-48 mb-1" />
+                        <Skeleton className="h-4 w-64" />
+                    </div>
+                    <Skeleton className="h-8 w-24" />
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                    {[1, 2].map(i => (
+                        <Card key={i} className="p-4 border-l-4 border-l-gray-300">
+                            <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+                                <div className="space-y-2 w-full md:w-2/3">
+                                    <Skeleton className="h-6 w-32" />
+                                    <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-2">
+                                        <Skeleton className="h-4 w-24" />
+                                        <Skeleton className="h-4 w-32" />
+                                        <Skeleton className="h-4 w-28" />
+                                        <Skeleton className="h-4 w-32" />
+                                    </div>
+                                    <Skeleton className="h-16 w-full mt-2" />
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                                    <Skeleton className="h-8 w-20" />
+                                    <Skeleton className="h-8 w-24" />
+                                    <Skeleton className="h-8 w-24" />
+                                </div>
+                            </div>
+                        </Card>
+                    ))}
+                </div>
+            </div>
+        );
     }
 
     if (requests.length === 0) {

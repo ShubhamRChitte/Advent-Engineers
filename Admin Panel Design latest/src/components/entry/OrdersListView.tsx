@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import useSWR from 'swr';
 import axios from 'axios';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -14,6 +15,7 @@ import {
   Filter,
   Download,
 } from 'lucide-react';
+import { Skeleton } from '../ui/skeleton';
 
 interface Order {
   _id: string;
@@ -38,27 +40,13 @@ export function OrdersListView(_props: OrdersListViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [displayLimit, setDisplayLimit] = useState(20);
 
-  // Fetch Orders
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const fetchOrders = async () => {
-    try {
-      // Using admin/orders or a generic orders endpoint. Assuming Entry Operator can access this.
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/admin/orders`, {
-        withCredentials: true
-      });
-      setOrders(response.data);
-    } catch (error) {
-      console.error("Failed to fetch orders", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetcher = (url: string) => axios.get(url, { withCredentials: true }).then(res => res.data);
+  const { data: orders = [], isLoading: loading, mutate: fetchOrders } = useSWR<Order[]>(
+    `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/admin/orders`,
+    fetcher
+  );
 
   const getStatusColor = (status: string) => {
     const s = status || 'Pending';
@@ -70,7 +58,7 @@ export function OrdersListView(_props: OrdersListViewProps) {
   };
 
 
-  const filteredOrders = orders.filter((order) => {
+  const filteredOrders = orders.filter((order: Order) => {
     const q = searchQuery.toLowerCase().trim();
     const oJobId = (order.jobId || '').toLowerCase();
 
@@ -109,12 +97,14 @@ export function OrdersListView(_props: OrdersListViewProps) {
     return matchesSearch && status === selectedStatus;
   });
 
+  const visibleOrders = filteredOrders.slice(0, displayLimit);
+
   const statusCounts = {
     all: orders.length,
-    Pending: orders.filter((o) => (o.status || '').includes('Pending')).length,
-    Assigned: orders.filter((o) => (o.status || '').includes('Assigned') || (o.status || '') === 'In Progress').length,
-    'In Testing': orders.filter((o) => (o.status || '').includes('Testing')).length,
-    Completed: orders.filter((o) => (o.status || '') === 'Completed').length,
+    Pending: orders.filter((o: Order) => (o.status || '').includes('Pending')).length,
+    Assigned: orders.filter((o: Order) => (o.status || '').includes('Assigned') || (o.status || '') === 'In Progress').length,
+    'In Testing': orders.filter((o: Order) => (o.status || '').includes('Testing')).length,
+    Completed: orders.filter((o: Order) => (o.status || '') === 'Completed').length,
   };
 
   // If an order is selected, show the detail view
@@ -140,7 +130,7 @@ export function OrdersListView(_props: OrdersListViewProps) {
           <h2>Orders List</h2>
           <p className="text-gray-500 mt-1">View and manage all transformer orders</p>
         </div>
-        <Button variant="outline" className="gap-2" onClick={fetchOrders}>
+        <Button variant="outline" className="gap-2" onClick={() => fetchOrders()}>
           <Download className="w-4 h-4" />
           Refresh List
         </Button>
@@ -213,8 +203,18 @@ export function OrdersListView(_props: OrdersListViewProps) {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="p-8 text-center">Loading...</td></tr>
-              ) : filteredOrders.map((order, index) => (
+                [1, 2, 3, 4, 5].map((i) => (
+                  <tr key={i} className="border-b border-gray-200">
+                    <td className="p-4"><Skeleton className="h-5 w-28" /></td>
+                    <td className="p-4"><div className="flex items-center gap-2"><Skeleton className="h-8 w-8 rounded-full" /><Skeleton className="h-5 w-32" /></div></td>
+                    <td className="p-4"><Skeleton className="h-5 w-40" /><Skeleton className="h-4 w-24 mt-1" /></td>
+                    <td className="p-4"><div className="flex items-center gap-2"><Skeleton className="h-4 w-4 rounded-full" /><Skeleton className="h-5 w-8" /></div></td>
+                    <td className="p-4"><div className="flex items-center gap-2"><Skeleton className="h-4 w-4 rounded-full" /><Skeleton className="h-4 w-24" /></div></td>
+                    <td className="p-4"><Skeleton className="h-6 w-24 rounded-full" /></td>
+                    <td className="p-4"><Skeleton className="h-8 w-20" /></td>
+                  </tr>
+                ))
+              ) : visibleOrders.map((order: Order, index: number) => (
                 <tr
                   key={order._id}
                   className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
@@ -283,6 +283,18 @@ export function OrdersListView(_props: OrdersListViewProps) {
             <Search className="w-12 h-12 mx-auto mb-2 text-gray-400" />
             <p>No orders found</p>
             <p className="text-sm mt-1">Try adjusting your search or filter criteria</p>
+          </div>
+        )}
+
+        {filteredOrders.length > displayLimit && (
+          <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-center">
+            <Button
+              variant="outline"
+              className="bg-white"
+              onClick={() => setDisplayLimit((prev) => prev + 20)}
+            >
+              Load More Orders
+            </Button>
           </div>
         )}
       </Card>

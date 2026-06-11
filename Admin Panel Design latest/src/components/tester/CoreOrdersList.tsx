@@ -4,6 +4,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Eye, PlayCircle, ChevronDown, ChevronUp, CheckCircle, XCircle, FileText, Search, Filter } from 'lucide-react';
+import { Skeleton } from '../ui/skeleton';
 import axios from 'axios';
 import { User } from '../../App';
 
@@ -148,7 +149,75 @@ export function CoreOrdersList({ onStartTesting, onViewReports, user, type = 'ac
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-gray-500">Loading orders...</div>;
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <Skeleton className="h-8 w-48 mb-2" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+        </div>
+
+        {/* Stats Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="p-4 bg-gray-50 border-gray-100">
+              <Skeleton className="h-4 w-24 mb-2" />
+              <Skeleton className="h-8 w-16" />
+            </Card>
+          ))}
+        </div>
+
+        {/* Filters Skeleton */}
+        <div className="flex flex-col lg:flex-row gap-4">
+          <Skeleton className="h-10 flex-1" />
+          <div className="flex gap-2">
+            <Skeleton className="h-10 w-24" />
+            <Skeleton className="h-10 w-28" />
+            <Skeleton className="h-10 w-28" />
+          </div>
+        </div>
+
+        {/* Table Skeleton */}
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="w-8"></th>
+                  <th className="text-left p-4"><Skeleton className="h-4 w-20" /></th>
+                  <th className="text-left p-4"><Skeleton className="h-4 w-32" /></th>
+                  <th className="text-left p-4"><Skeleton className="h-4 w-24" /></th>
+                  <th className="text-center p-4"><Skeleton className="h-4 w-24 mx-auto" /></th>
+                  <th className="text-center p-4"><Skeleton className="h-4 w-24 mx-auto" /></th>
+                  <th className="text-left p-4"><Skeleton className="h-4 w-20" /></th>
+                  <th className="text-center p-4"><Skeleton className="h-4 w-24 mx-auto" /></th>
+                </tr>
+              </thead>
+              <tbody>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <tr key={i} className="border-b border-gray-100">
+                    <td className="p-4 text-center"><Skeleton className="h-4 w-4 mx-auto" /></td>
+                    <td className="p-4"><Skeleton className="h-4 w-24" /></td>
+                    <td className="p-4"><Skeleton className="h-4 w-32" /></td>
+                    <td className="p-4"><Skeleton className="h-4 w-20" /></td>
+                    <td className="p-4 text-center"><Skeleton className="h-6 w-12 mx-auto" /></td>
+                    <td className="p-4 text-center"><Skeleton className="h-6 w-20 mx-auto" /></td>
+                    <td className="p-4"><Skeleton className="h-6 w-24 rounded-full" /></td>
+                    <td className="p-4">
+                      <div className="flex gap-2 justify-center">
+                        <Skeleton className="h-8 w-20" />
+                        <Skeleton className="h-8 w-24" />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+    );
   }
 
   return (

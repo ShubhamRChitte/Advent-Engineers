@@ -1,5 +1,6 @@
 import { Card } from '../ui/card';
 import { ClipboardCheck, Activity, Clock, CheckCircle2 } from 'lucide-react';
+import { Skeleton } from '../ui/skeleton';
 
 interface PTPretestDashboardProps {
   setActiveView: (view: string) => void;
@@ -50,7 +51,7 @@ export function PTPretestDashboard({ setActiveView, stats, recentActivity, loadi
         <Card className="p-4 bg-white border-l-4 border-l-blue-500 shadow-sm">
           <Activity className="w-8 h-8 text-blue-500 mb-3" />
           <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Active Units</h3>
-          <p className="text-2xl font-bold text-gray-900 mt-0.5">{loading ? '...' : stats.activeTests}</p>
+          {loading ? <Skeleton className="h-8 w-16 mt-0.5" /> : <p className="text-2xl font-bold text-gray-900 mt-0.5">{stats.activeTests}</p>}
           <div className="flex items-center mt-2 text-[11px] text-blue-600">
             <Clock className="w-3 h-3 mr-1" />
             Currently at PT Pretesting stage
@@ -60,7 +61,7 @@ export function PTPretestDashboard({ setActiveView, stats, recentActivity, loadi
         <Card className="p-4 bg-white border-l-4 border-l-green-500 shadow-sm">
           <CheckCircle2 className="w-8 h-8 text-green-500 mb-3" />
           <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Units Completed</h3>
-          <p className="text-2xl font-bold text-gray-900 mt-0.5">{loading ? '...' : stats.completedTests}</p>
+          {loading ? <Skeleton className="h-8 w-16 mt-0.5" /> : <p className="text-2xl font-bold text-gray-900 mt-0.5">{stats.completedTests}</p>}
           <div className="flex items-center mt-2 text-[11px] text-green-600">
             <Activity className="w-3 h-3 mr-1" />
             Verified this month

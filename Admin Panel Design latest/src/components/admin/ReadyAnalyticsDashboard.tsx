@@ -9,6 +9,7 @@ import {
 } from 'recharts';
 import { TrendingUp, Package, Clock, AlertCircle } from 'lucide-react';
 import axios from 'axios';
+import { Skeleton } from '../ui/skeleton';
 
 interface AnalyticsData {
   total: number;
@@ -38,7 +39,37 @@ export default function ReadyAnalyticsDashboard() {
     fetchAnalytics();
   }, []);
 
-  if (loading) return <div className="p-10 text-center">Loading Analytics...</div>;
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-6 h-6 text-[#003a70]" />
+          <h2 className="text-xl font-bold text-gray-900">Inventory Performance Analytics</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <Card key={i} className="p-4 flex flex-col items-center justify-center space-y-2">
+              <Skeleton className="w-8 h-8 rounded-full" />
+              <Skeleton className="w-20 h-4" />
+              <Skeleton className="w-12 h-8" />
+            </Card>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="p-6">
+            <Skeleton className="w-32 h-6 mb-4" />
+            <Skeleton className="w-full h-[300px] rounded-full mx-auto max-w-[300px]" />
+          </Card>
+          <Card className="p-6">
+            <Skeleton className="w-40 h-6 mb-4" />
+            <Skeleton className="w-full h-[300px]" />
+          </Card>
+        </div>
+      </div>
+    );
+  }
   if (!data) return <div className="p-10 text-center text-red-500">Failed to load analytics data</div>;
 
   const pieData = [

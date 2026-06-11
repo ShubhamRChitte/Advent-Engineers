@@ -34,6 +34,8 @@ import {
   DialogDescription,
   DialogFooter
 } from '../ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { Skeleton } from '../ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Label } from '../ui/label';
 import { ReportHeader } from '../reports';
@@ -1721,9 +1723,45 @@ export function CoreTestingForm({
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center p-20 space-y-4">
-        <RefreshCw className="w-10 h-10 text-blue-600 animate-spin" />
-        <p className="text-gray-500 font-medium">Fetching testing data...</p>
+      <div className="space-y-6 p-2 sm:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
+        <div className="flex items-center justify-between">
+          <div>
+            <Skeleton className="h-8 w-24 mb-2" />
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-8 w-64" />
+            </div>
+            <Skeleton className="h-4 w-48 mt-2" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-32" />
+            <Skeleton className="h-9 w-28" />
+          </div>
+        </div>
+
+        <Card className="p-3">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-5 w-24" />
+          </div>
+        </Card>
+
+        <Card className="overflow-hidden shadow-sm">
+          <div className="p-4 bg-gradient-to-r from-gray-100 to-gray-50 border-b">
+            <Skeleton className="h-6 w-48 mx-auto" />
+          </div>
+          <div className="p-6 space-y-4">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="flex gap-4">
+                <Skeleton className="h-10 w-24" />
+                <Skeleton className="h-10 w-32" />
+                <Skeleton className="h-10 flex-1" />
+                <Skeleton className="h-10 w-20" />
+              </div>
+            ))}
+          </div>
+        </Card>
       </div>
     );
   }

@@ -5,6 +5,7 @@ import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
 import { ChevronRight, FileText, Search, Calendar, LayoutGrid } from 'lucide-react';
 import axios from 'axios';
+import { Skeleton } from '../ui/skeleton';
 import { PTReportView } from './PTReportView';
 import { PTCompletedTransformersList } from './PTCompletedTransformersList';
 
@@ -142,7 +143,26 @@ export function PTPretestReportsList({ onBack }: PTPretestReportsListProps) {
             </div>
 
             {loading ? (
-                <div className="flex justify-center py-12">Loading reports...</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[1, 2, 3, 4, 5, 6].map(i => (
+                        <Card key={i} className="p-5 space-y-4">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <Skeleton className="h-6 w-24 mb-1" />
+                                    <Skeleton className="h-4 w-32" />
+                                </div>
+                                <Skeleton className="h-6 w-16 rounded-full" />
+                            </div>
+                            <div className="space-y-2 pt-2 border-t border-gray-100">
+                                <Skeleton className="h-4 w-40" />
+                                <Skeleton className="h-4 w-32" />
+                            </div>
+                            <div className="pt-2 flex justify-end border-t border-gray-100">
+                                <Skeleton className="h-4 w-28" />
+                            </div>
+                        </Card>
+                    ))}
+                </div>
             ) : jobIds.length === 0 ? (
                 <Card className="p-12 border-dashed border-2 border-gray-200 bg-gray-50/50 flex flex-col items-center justify-center text-center">
                     <div className="w-16 h-16 bg-purple-50 text-purple-300 rounded-full flex items-center justify-center mb-4">

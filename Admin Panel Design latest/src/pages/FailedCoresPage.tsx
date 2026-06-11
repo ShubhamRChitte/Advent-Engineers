@@ -1,44 +1,18 @@
-import { useState, useEffect } from 'react';
 import { FailedCoresManager } from '../components/testing/FailedCoresManager';
-import { FailedCore } from '../components/testing/CoreTestingForm';
+import useSWR from 'swr';
 import axios from 'axios';
 import { Loader2 } from 'lucide-react';
 import { FailedCoreSummaryReport } from '../components/testing/FailedCoreSummaryReport';
 
 export function FailedCoresPage() {
-    const [failedCores, setFailedCores] = useState<FailedCore[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const fetcher = (url: string) => axios.get(url, { withCredentials: true }).then(res => res.data);
+    const { data, error, isLoading, mutate } = useSWR(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores?limit=1000`,
+        fetcher,
+        { refreshInterval: 30000 }
+    );
 
-    const fetchFailedCores = async () => {
-        try {
-            setError(null);
-            // Fetch data from the backend
-            const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores`, {
-                withCredentials: true
-            });
-
-            if (response.data && response.data.success) {
-                setFailedCores(response.data.data);
-            } else {
-                // Fallback or empty state
-                setFailedCores([]);
-            }
-        } catch (err: any) {
-            console.error("Failed to fetch failed cores:", err);
-            setError("Unable to load failed cores. Please try again later.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchFailedCores();
-
-        // Optional: Auto-refresh every 30 seconds for a "Live Dashboard" feel
-        const interval = setInterval(fetchFailedCores, 30000);
-        return () => clearInterval(interval);
-    }, []);
+    const failedCores = data?.success ? data.data : [];
 
     if (isLoading) {
         return (
@@ -54,9 +28,9 @@ export function FailedCoresPage() {
             <div className="p-8 text-center">
                 <div className="bg-red-50 text-red-700 p-4 rounded-lg inline-block">
                     <p className="font-bold">Error Loading Dashboard</p>
-                    <p>{error}</p>
+                    <p>Unable to load failed cores. Please try again later.</p>
                     <button
-                        onClick={() => { setIsLoading(true); fetchFailedCores(); }}
+                        onClick={() => mutate()}
                         className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
                     >
                         Retry
@@ -82,9 +56,7 @@ export function FailedCoresPage() {
             <div className="print:hidden">
                 <FailedCoresManager
                     failedCores={failedCores}
-                    onBack={() => {
-                        fetchFailedCores();
-                    }}
+                    onBack={() => mutate()}
                 />
             </div>
         </div>

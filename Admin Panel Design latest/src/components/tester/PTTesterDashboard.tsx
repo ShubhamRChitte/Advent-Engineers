@@ -1,5 +1,6 @@
 import { Card } from '../ui/card';
 import { ClipboardCheck, Activity, Clock, CheckCircle2, ArrowRight, Zap, Inbox } from 'lucide-react';
+import { Skeleton } from '../ui/skeleton';
 
 interface PTTesterDashboardProps {
   setActiveView: (view: string) => void;
@@ -97,7 +98,7 @@ export function PTTesterDashboard({ setActiveView, stats, recentActivity, loadin
           </div>
           <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Units Pending</h3>
           <div className="flex items-end gap-3">
-            <p className="text-2xl font-bold text-gray-900 tracking-tight">{loading ? '...' : stats.activeTests}</p>
+            {loading ? <Skeleton className="h-8 w-16" /> : <p className="text-2xl font-bold text-gray-900 tracking-tight">{stats.activeTests}</p>}
           </div>
           <div className="flex items-center mt-2.5 text-[11px] font-medium text-gray-500">
             <Clock className="w-3 h-3 mr-1 text-blue-500" />
@@ -115,7 +116,7 @@ export function PTTesterDashboard({ setActiveView, stats, recentActivity, loadin
           </div>
           <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Units Completed</h3>
           <div className="flex items-end gap-3">
-            <p className="text-2xl font-bold text-gray-900 tracking-tight">{loading ? '...' : stats.completedTests}</p>
+            {loading ? <Skeleton className="h-8 w-16" /> : <p className="text-2xl font-bold text-gray-900 tracking-tight">{stats.completedTests}</p>}
           </div>
           <div className="flex items-center mt-2.5 text-[11px] font-medium text-gray-500">
             <Activity className="w-3 h-3 mr-1 text-green-500" />

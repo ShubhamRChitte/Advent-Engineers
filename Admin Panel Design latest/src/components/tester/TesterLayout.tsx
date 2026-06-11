@@ -11,6 +11,7 @@ import { SecondaryReportsList } from './SecondaryReportsList';
 import { CoreTrackingDashboard } from '../testing/CoreTrackingDashboard';
 import { Card } from '../ui/card';
 import { ClipboardCheck, Activity, Clock, CheckCircle2 } from 'lucide-react';
+import { Skeleton } from '../ui/skeleton';
 import { AfterPrimaryReportsList } from './reports/AfterPrimaryReportsList';
 import { FinalReportsList } from './reports/FinalReportsList';
 import { FailedCoresPage } from '../../pages/FailedCoresPage';
@@ -143,7 +144,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
               <Card className="p-6 bg-white border-l-4 border-l-blue-500 shadow-sm">
                 <Activity className="w-10 h-10 text-blue-500 mb-4" />
                 <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Active Units</h3>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.activeTests}</p>
+                {loading ? <Skeleton className="h-9 w-16 mt-1" /> : <p className="text-3xl font-bold text-gray-900 mt-1">{stats.activeTests}</p>}
                 <div className="flex items-center mt-2 text-xs text-blue-600">
                   <Clock className="w-3 h-3 mr-1" />
                   Currently at core testing stage
@@ -153,7 +154,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
               <Card className="p-6 bg-white border-l-4 border-l-green-500 shadow-sm">
                 <CheckCircle2 className="w-10 h-10 text-green-500 mb-4" />
                 <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Completed (Month)</h3>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.completedTests}</p>
+                {loading ? <Skeleton className="h-9 w-16 mt-1" /> : <p className="text-3xl font-bold text-gray-900 mt-1">{stats.completedTests}</p>}
                 <div className="flex items-center mt-2 text-xs text-green-600">
                   <Activity className="w-3 h-3 mr-1" />
                   Successfully tested this month
@@ -205,7 +206,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
               <Card className="p-6 bg-white border-l-4 border-l-blue-500 shadow-sm">
                 <Activity className="w-10 h-10 text-blue-500 mb-4" />
                 <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Units In Progress</h3>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.activeTests}</p>
+                {loading ? <Skeleton className="h-9 w-16 mt-1" /> : <p className="text-3xl font-bold text-gray-900 mt-1">{stats.activeTests}</p>}
                 <div className="flex items-center mt-2 text-xs text-blue-600">
                   <Clock className="w-3 h-3 mr-1" />
                   Currently at secondary stage
@@ -215,7 +216,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
               <Card className="p-6 bg-white border-l-4 border-l-green-500 shadow-sm">
                 <CheckCircle2 className="w-10 h-10 text-green-500 mb-4" />
                 <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Units Completed</h3>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.completedTests}</p>
+                {loading ? <Skeleton className="h-9 w-16 mt-1" /> : <p className="text-3xl font-bold text-gray-900 mt-1">{stats.completedTests}</p>}
                 <div className="flex items-center mt-2 text-xs text-green-600">
                   <Activity className="w-3 h-3 mr-1" />
                   Verified this month
@@ -263,7 +264,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
               <Card className="p-6 bg-white border-l-4 border-l-blue-500 shadow-sm">
                 <Activity className="w-10 h-10 text-blue-500 mb-4" />
                 <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Active Inspections</h3>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.activeTests}</p>
+                {loading ? <Skeleton className="h-9 w-16 mt-1" /> : <p className="text-3xl font-bold text-gray-900 mt-1">{stats.activeTests}</p>}
                 <div className="flex items-center mt-2 text-xs text-blue-600">
                   <Clock className="w-3 h-3 mr-1" />
                   Units in final stage
@@ -273,7 +274,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
               <Card className="p-6 bg-white border-l-4 border-l-green-500 shadow-sm">
                 <CheckCircle2 className="w-10 h-10 text-green-500 mb-4" />
                 <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Shipped / Completed</h3>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.completedTests}</p>
+                {loading ? <Skeleton className="h-9 w-16 mt-1" /> : <p className="text-3xl font-bold text-gray-900 mt-1">{stats.completedTests}</p>}
                 <div className="flex items-center mt-2 text-xs text-green-600">
                   <Activity className="w-3 h-3 mr-1" />
                   Finalized this month
@@ -321,7 +322,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
               <Card className="p-6 bg-white border-l-4 border-l-blue-500 shadow-sm">
                 <Activity className="w-10 h-10 text-blue-500 mb-4" />
                 <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Units in Primary</h3>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.activeTests}</p>
+                {loading ? <Skeleton className="h-9 w-16 mt-1" /> : <p className="text-3xl font-bold text-gray-900 mt-1">{stats.activeTests}</p>}
                 <div className="flex items-center mt-2 text-xs text-blue-600">
                   <Clock className="w-3 h-3 mr-1" />
                   Currently at primary stage
@@ -331,7 +332,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
               <Card className="p-6 bg-white border-l-4 border-l-green-500 shadow-sm">
                 <CheckCircle2 className="w-10 h-10 text-green-500 mb-4" />
                 <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Month Completions</h3>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{loading ? '...' : stats.completedTests}</p>
+                {loading ? <Skeleton className="h-9 w-16 mt-1" /> : <p className="text-3xl font-bold text-gray-900 mt-1">{stats.completedTests}</p>}
                 <div className="flex items-center mt-2 text-xs text-green-600">
                   <Activity className="w-3 h-3 mr-1" />
                   Primary tests finished

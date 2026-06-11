@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Loader2
 } from 'lucide-react';
+import { Skeleton } from '../ui/skeleton';
 import { StrictApprovalDashboard } from './StrictApprovalDashboard';
 
 interface Order {
@@ -114,9 +115,30 @@ export function NotificationsModule({ onNavigateToOrder, isActive }: Notificatio
 
   if (loading && notifications.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-20 space-y-4">
-        <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
-        <p className="text-gray-500 animate-pulse">Loading updates...</p>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <Skeleton className="h-8 w-64 mb-2" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+        </div>
+        <div className="space-y-3 mt-6">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Card key={i} className="p-4 flex items-start gap-4">
+              <Skeleton className="w-12 h-12 rounded-xl" />
+              <div className="flex-1 space-y-2">
+                <div className="flex justify-between">
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+                <div className="flex gap-4">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-24 rounded" />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }

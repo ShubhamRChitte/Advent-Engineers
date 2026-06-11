@@ -5,6 +5,7 @@ import { Button } from '../ui/button';
 import { ArrowLeft, PlayCircle, Loader2, CheckCircle, FileText } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { Skeleton } from '../ui/skeleton';
 
 interface CoreConfig {
   coreNumber: number;
@@ -451,9 +452,31 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
 
       <Card className="overflow-hidden">
         {isLoading ? (
-          <div className="p-8 flex justify-center items-center">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-            <span className="ml-2 text-gray-600">Loading transformers...</span>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left p-4"><Skeleton className="h-4 w-32" /></th>
+                  <th className="text-left p-4"><Skeleton className="h-4 w-24" /></th>
+                  <th className="text-left p-4"><Skeleton className="h-4 w-28" /></th>
+                  <th className="text-left p-4"><Skeleton className="h-4 w-40" /></th>
+                  <th className="text-left p-4"><Skeleton className="h-4 w-20" /></th>
+                  <th className="text-center p-4"><Skeleton className="h-4 w-24 mx-auto" /></th>
+                </tr>
+              </thead>
+              <tbody>
+                {[1, 2, 3, 4].map((i) => (
+                  <tr key={i} className="border-b border-gray-100">
+                    <td className="p-4"><Skeleton className="h-4 w-24" /></td>
+                    <td className="p-4"><Skeleton className="h-4 w-20" /></td>
+                    <td className="p-4"><Skeleton className="h-4 w-28" /></td>
+                    <td className="p-4"><div className="flex gap-1"><Skeleton className="h-6 w-20 rounded-full" /><Skeleton className="h-6 w-20 rounded-full" /></div></td>
+                    <td className="p-4"><Skeleton className="h-6 w-24 rounded-full" /></td>
+                    <td className="p-4"><div className="flex justify-center"><Skeleton className="h-8 w-28" /></div></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : error ? (
           <div className="p-8 text-center text-red-600">{error}</div>

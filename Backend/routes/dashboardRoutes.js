@@ -125,68 +125,51 @@ router.get('/stats', async (req, res) => {
         // 2. Testing Progress Trend (Dynamic Aggregation)
         // We want to show the last 6 months of data.
         const months = [];
+        const countPromises = [];
+
         for (let i = 5; i >= 0; i--) {
-            const d = new Date();
-            d.setMonth(d.getMonth() - i);
-            months.push({
-                monthVal: d.getMonth(), // 0-11
-                yearVal: d.getFullYear(),
-                label: d.toLocaleString('default', { month: 'short' }),
+            const startDate = new Date();
+            startDate.setMonth(startDate.getMonth() - i);
+            startDate.setDate(1);
+            startDate.setHours(0, 0, 0, 0);
+
+            const endDate = new Date(startDate);
+            endDate.setMonth(endDate.getMonth() + 1);
+
+            const monthData = {
+                monthVal: startDate.getMonth(),
+                yearVal: startDate.getFullYear(),
+                label: startDate.toLocaleString('default', { month: 'short' }),
                 core: 0,
                 secondary: 0,
                 primary: 0,
                 final: 0,
                 pt: 0,
                 heating: 0
-            });
+            };
+            months.push(monthData);
+
+            const stages = [
+                { key: 'core', dbKey: 'core_test' },
+                { key: 'secondary', dbKey: 'secondary_test' },
+                { key: 'primary', dbKey: 'primary_test' },
+                { key: 'final', dbKey: 'final_test' },
+                { key: 'pt', dbKey: 'pt_test' },
+                { key: 'heating', dbKey: 'heating_test' }
+            ];
+
+            for (const stage of stages) {
+                const promise = TransformerModel.countDocuments({
+                    [`testHistory.${stage.dbKey}.status`]: { $in: ['Completed', 'Approved'] },
+                    [`testHistory.${stage.dbKey}.timestamp`]: { $gte: startDate, $lt: endDate }
+                }).then(count => {
+                    monthData[stage.key] = count;
+                });
+                countPromises.push(promise);
+            }
         }
 
-        // Fetch needed fields from transformers active in the last 6 months
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-        sixMonthsAgo.setDate(1);
-        sixMonthsAgo.setHours(0, 0, 0, 0);
-
-        const allTransformers = await TransformerModel.find({
-            $or: [
-                { "testHistory.core_test.timestamp": { $gte: sixMonthsAgo } },
-                { "testHistory.secondary_test.timestamp": { $gte: sixMonthsAgo } },
-                { "testHistory.primary_test.timestamp": { $gte: sixMonthsAgo } },
-                { "testHistory.final_test.timestamp": { $gte: sixMonthsAgo } },
-                { "testHistory.pt_test.timestamp": { $gte: sixMonthsAgo } },
-                { "testHistory.heating_test.timestamp": { $gte: sixMonthsAgo } }
-            ]
-        })
-        .select('testHistory currentStage')
-        .lean();
-
-        allTransformers.forEach(t => {
-            const history = t.testHistory || {};
-
-            const checkStage = (stageName, stageData) => {
-                if (stageData && (stageData.status === 'Completed' || stageData.timestamp)) {
-                    if (stageData.status !== 'Completed' && stageData.status !== 'Approved') return;
-
-                    const ts = stageData.timestamp ? new Date(stageData.timestamp) : null;
-                    if (ts) {
-                        const m = ts.getMonth();
-                        const y = ts.getFullYear();
-
-                        const monthEntry = months.find(entry => entry.monthVal === m && entry.yearVal === y);
-                        if (monthEntry) {
-                            monthEntry[stageName]++;
-                        }
-                    }
-                }
-            };
-
-            checkStage('core', history.core_test);
-            checkStage('secondary', history.secondary_test);
-            checkStage('primary', history.primary_test);
-            checkStage('final', history.final_test);
-            checkStage('pt', history.pt_test);
-            checkStage('heating', history.heating_test);
-        });
+        await Promise.all(countPromises);
 
         const testingData = months.map(m => ({
             month: m.label,
@@ -199,42 +182,32 @@ router.get('/stats', async (req, res) => {
         }));
 
         // 3. Detailed Order Status Distribution (Dynamic)
-        // We will break down "In Progress" into specific stages
-        const pendingOrders = await OrderModel.countDocuments({ 
-            status: { $in: ['Pending Approval', 'Pending'] } 
-        });
+        // 3. Detailed Order Status Distribution & Recent Activity
+        const [
+            pendingOrders,
+            coreOrders,
+            secondaryOrders,
+            primaryOrders,
+            heatingOrders,
+            finalOrders,
+            ptOrders,
+            completedOrders,
+            recentOrders,
+            recentUsers
+        ] = await Promise.all([
+            OrderModel.countDocuments({ status: { $in: ['Pending Approval', 'Pending'] } }),
+            OrderModel.countDocuments({ status: { $in: ['Core Testing In Progress', 'Core Testing Completed'] } }),
+            OrderModel.countDocuments({ status: 'In Progress', currentStage: 'secondary' }),
+            OrderModel.countDocuments({ status: 'In Progress', currentStage: 'primary' }),
+            OrderModel.countDocuments({ status: 'In Progress', currentStage: 'heating' }),
+            OrderModel.countDocuments({ status: 'In Progress', currentStage: 'final' }),
+            OrderModel.countDocuments({ status: { $in: ['PT Testing In Progress', 'PT Testing Completed', 'PT Pretesting In Progress', 'PT Pretesting Completed'] } }),
+            OrderModel.countDocuments({ status: { $in: ['Completed', 'COMPLETED'] } }),
+            OrderModel.find().sort({ createdAt: -1 }).limit(3).lean(),
+            UserModel.find().sort({ createdAt: -1 }).limit(2).lean()
+        ]);
 
-        const coreOrders = await OrderModel.countDocuments({ 
-            status: { $in: ['Core Testing In Progress', 'Core Testing Completed'] } 
-        });
-
-        const secondaryOrders = await OrderModel.countDocuments({ 
-            status: 'In Progress',
-            currentStage: 'secondary'
-        });
-
-        const primaryOrders = await OrderModel.countDocuments({ 
-            status: 'In Progress',
-            currentStage: 'primary'
-        });
-
-        const heatingOrders = await OrderModel.countDocuments({ 
-            status: 'In Progress',
-            currentStage: 'heating'
-        });
-
-        const finalOrders = await OrderModel.countDocuments({ 
-            status: 'In Progress',
-            currentStage: 'final'
-        });
-
-        const ptOrders = await OrderModel.countDocuments({ 
-            status: { $in: ['PT Testing In Progress', 'PT Testing Completed', 'PT Pretesting In Progress', 'PT Pretesting Completed'] } 
-        });
-
-        const completedOrders = await OrderModel.countDocuments({ 
-            status: { $in: ['Completed', 'COMPLETED'] } 
-        });
+        const activity = [];
 
         const orderData = [
             { name: 'Pending', value: pendingOrders, color: '#94a3b8' },
@@ -246,15 +219,6 @@ router.get('/stats', async (req, res) => {
             { name: 'PT', value: ptOrders, color: '#ec4899' },
             { name: 'Completed', value: completedOrders, color: '#059669' },
         ];
-
-
-        // 4. Recent Activity
-        // Get last 3 created orders
-        const recentOrders = await OrderModel.find().sort({ createdAt: -1 }).limit(3).lean();
-        // Get last 3 added users
-        const recentUsers = await UserModel.find().sort({ createdAt: -1 }).limit(2).lean();
-
-        const activity = [];
 
         recentOrders.forEach(o => {
             activity.push({
