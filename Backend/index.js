@@ -137,7 +137,8 @@ app.use(session({
     collectionName: 'sessions' 
   }),
   cookie: {
-    secure: false, // Set to true if using https
+    secure: process.env.NODE_ENV === 'production', // Must be true for cross-origin on HTTPS
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Required for cross-domain cookies
     httpOnly: true,
     maxAge: 1000 * 60 * 60 * 24 // 1 day
   }
