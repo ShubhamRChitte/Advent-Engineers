@@ -54,7 +54,7 @@ const ReadyTransformerModel = require("./models/ReadyTransformerModel");
 
 
 const app = express();
-
+app.set('trust proxy', 1); // Trust first proxy for Render deployment and rate limiting
 
 mongoose
   .connect(uri)
@@ -127,10 +127,15 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // 2. Session Config
+const MongoStore = require('connect-mongo');
 app.use(session({
   secret: 'advent_engineers_secret_key', // Change this in production
   resave: false,
   saveUninitialized: false,
+  store: MongoStore.create({ 
+    mongoUrl: process.env.MONGO_URL,
+    collectionName: 'sessions' 
+  }),
   cookie: {
     secure: false, // Set to true if using https
     httpOnly: true,
