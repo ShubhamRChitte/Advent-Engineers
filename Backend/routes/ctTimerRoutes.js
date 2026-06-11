@@ -92,7 +92,7 @@ router.post('/start', isAuthenticated, async (req, res) => {
     const role = roleMap[stage] || stage;
 
     let cores = parseInt(coreCount, 10) || 1;
-    if (stage === 'secondary') {
+    if (stage === 'secondary' || stage === 'core') {
       const orQuery = [];
       if (mongoose.Types.ObjectId.isValid(transformerId)) {
         orQuery.push({ _id: new mongoose.Types.ObjectId(transformerId) });
@@ -112,6 +112,8 @@ router.post('/start', isAuthenticated, async (req, res) => {
     let expectedMinutes = await getExpectedMinutes(stage, cores);
     if (stage === 'secondary') {
       expectedMinutes = cores * 5;
+    } else if (stage === 'core') {
+      expectedMinutes = cores * 3;
     }
 
     const record = await CTTimerModel.create({
@@ -162,7 +164,10 @@ router.post('/end', isAuthenticated, async (req, res) => {
 
     const endTime      = new Date();
     const actualTimeMs = endTime - new Date(record.startTime);
-    const expectedMinutesVal = record.expectedMinutes || (stage === 'secondary' ? (record.totalCores || record.coreCount || 1) * 5 : (DEFAULT_LIMITS[stage] || 5));
+    const expectedMinutesVal = record.expectedMinutes || 
+      (stage === 'secondary' ? (record.totalCores || record.coreCount || 1) * 5 : 
+       stage === 'core' ? (record.totalCores || record.coreCount || 1) * 3 : 
+       (DEFAULT_LIMITS[stage] || 5));
     const expectedMs   = expectedMinutesVal * 60 * 1000;
     const delayMs      = Math.max(0, actualTimeMs - expectedMs);
 
@@ -211,7 +216,10 @@ router.post('/complete-core', isAuthenticated, async (req, res) => {
     if (record.completedCores >= record.totalCores) {
       const endTime      = new Date();
       const actualTimeMs = endTime - new Date(record.startTime);
-      const expectedMinutesVal = record.expectedMinutes || (stage === 'secondary' ? (record.totalCores || record.coreCount || 1) * 5 : (DEFAULT_LIMITS[stage] || 5));
+      const expectedMinutesVal = record.expectedMinutes || 
+        (stage === 'secondary' ? (record.totalCores || record.coreCount || 1) * 5 : 
+         stage === 'core' ? (record.totalCores || record.coreCount || 1) * 3 : 
+         (DEFAULT_LIMITS[stage] || 5));
       const expectedMs   = expectedMinutesVal * 60 * 1000;
       const delayMs      = Math.max(0, actualTimeMs - expectedMs);
 
