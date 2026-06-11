@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import useSWR from 'swr';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Users, Package, ClipboardCheck, TrendingUp, AlertCircle, CheckCircle2, PlusCircle, List, ArrowRight } from 'lucide-react';
@@ -16,42 +16,47 @@ const ICON_MAP: any = {
   AlertCircle: AlertCircle
 };
 
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
 export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<any[]>([]);
-  const [testingData, setTestingData] = useState<any[]>([]);
-  const [orderData, setOrderData] = useState<any[]>([]);
-  const [activities, setActivities] = useState<any[]>([]);
-
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const fetchStats = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/dashboard/stats`);
-      const data = await response.json();
-      if (data.success) {
-        setStats(data.stats);
-        setTestingData(data.testingData);
-        setOrderData(data.orderData);
-        setActivities(data.recentActivity);
-      }
-    } catch (error) {
-      console.error("Failed to fetch dashboard stats:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data, error, isLoading } = useSWR(
+    `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/dashboard/stats`,
+    fetcher
+  );
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  if (loading) {
-    return <div className="p-8 text-center text-gray-500">Loading Dashboard...</div>;
+  if (isLoading || (!data && !error)) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div>
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map(i => (
+            <Card key={i} className="p-6 h-32 bg-gray-100 border-none"></Card>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="p-6 h-24 bg-gray-100 border-none"></Card>
+          <Card className="p-6 h-24 bg-gray-100 border-none"></Card>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="p-6 h-80 bg-gray-100 border-none"></Card>
+          <Card className="p-6 h-80 bg-gray-100 border-none"></Card>
+        </div>
+      </div>
+    );
   }
+
+  const stats = data?.stats || [];
+  const testingData = data?.testingData || [];
+  const orderData = data?.orderData || [];
+  const activities = data?.recentActivity || [];
 
   return (
     <div className="space-y-6">
@@ -62,7 +67,7 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.filter(stat => stat.label !== 'Tests Completed').map((stat) => {
+        {stats.filter((stat: any) => stat.label !== 'Tests Completed').map((stat: any) => {
           const Icon = ICON_MAP[stat.icon] || AlertCircle;
 
           return (
@@ -169,7 +174,7 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
           {activities.length === 0 ? (
             <p className="text-gray-500 text-sm">No recent activity.</p>
           ) : (
-            activities.map((activity, idx) => (
+            activities.map((activity: any, idx: number) => (
               <div key={idx} className="flex items-start gap-4 pb-4 border-b border-gray-100 last:border-0">
                 <div className={`w-2 h-2 rounded-full mt-2 ${activity.type === 'success' ? 'bg-green-500' :
                   activity.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'

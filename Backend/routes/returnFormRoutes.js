@@ -66,8 +66,32 @@ router.post('/', isAuthenticated, async (req, res) => {
 // GET /api/return-forms
 router.get('/', isAuthenticated, async (req, res) => {
     try {
-        const data = await ReturnFormModel.find().sort({ createdAt: -1 });
-        res.json({ success: true, data });
+        const limit = parseInt(req.query.limit) || 0;
+        const skip = parseInt(req.query.skip) || 0;
+        const search = req.query.search || '';
+
+        let query = {};
+        if (search) {
+            const searchRegex = new RegExp(search, 'i');
+            query.$or = [
+                { returnNumber: searchRegex },
+                { vendorName: searchRegex }
+            ];
+        }
+
+        if (req.query.paginated === 'true') {
+            const data = await ReturnFormModel.find(query)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean();
+            
+            const totalCount = await ReturnFormModel.countDocuments(query);
+            res.json({ success: true, data, totalCount });
+        } else {
+            const data = await ReturnFormModel.find().sort({ createdAt: -1 }).lean();
+            res.json({ success: true, data });
+        }
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }

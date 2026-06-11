@@ -112,8 +112,38 @@ exports.batchAddReadyTransformers = async (req, res) => {
 
 exports.getAllReadyTransformers = async (req, res) => {
   try {
-    const data = await ReadyTransformer.find().sort({ createdAt: -1 });
-    res.status(200).json(data);
+    const limit = parseInt(req.query.limit) || 0;
+    const skip = parseInt(req.query.skip) || 0;
+    const { search, coreType } = req.query;
+
+    if (req.query.paginated === 'true') {
+      let query = {};
+      
+      if (coreType && coreType !== 'All') {
+        query.coreType = coreType;
+      }
+      
+      if (search) {
+        const searchRegex = new RegExp(search, 'i');
+        query.$or = [
+          { coreId: searchRegex },
+          { serialNumber: searchRegex },
+          { 'specifications.ratio': searchRegex }
+        ];
+      }
+
+      const data = await ReadyTransformer.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+      
+      const totalCount = await ReadyTransformer.countDocuments(query);
+      res.status(200).json({ success: true, data, totalCount });
+    } else {
+      const data = await ReadyTransformer.find().sort({ createdAt: -1 }).lean();
+      res.status(200).json(data);
+    }
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -234,6 +264,10 @@ exports.getReadyStockAnalytics = async (req, res) => {
     const used = await ReadyTransformer.countDocuments({ status: "used" });
     const reserved = await ReadyTransformer.countDocuments({ status: "reserved" });
 
+    const metering = await ReadyTransformer.countDocuments({ status: "available", coreType: "Metering" });
+    const protection = await ReadyTransformer.countDocuments({ status: "available", coreType: "Protection" });
+    const ps = await ReadyTransformer.countDocuments({ status: "available", coreType: "PS" });
+
     const usageRate = total > 0 ? (used / total) * 100 : 0;
 
     res.json({
@@ -241,9 +275,14 @@ exports.getReadyStockAnalytics = async (req, res) => {
       available,
       used,
       reserved,
+      metering,
+      protection,
+      ps,
       usageRate
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
+

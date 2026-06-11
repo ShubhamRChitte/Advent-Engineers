@@ -12,6 +12,7 @@ import {
   Trash2
 } from 'lucide-react';
 import axios from 'axios';
+import useSWR from 'swr';
 import { socket } from '../../utils/socket';
 import { toast } from 'sonner';
 import { PreTestBatchModule } from '../testing/PreTestBatchModule';
@@ -20,7 +21,7 @@ interface ReadyTransformer {
   _id: string;
   batchId?: string;
   coreId: string;
-  coreType: string; // Fixed: root level
+  coreType: string;
   serialNumber?: string;
   status: 'available' | 'reserved' | 'used';
   specifications: {
@@ -41,87 +42,92 @@ interface PreTestBatch {
   passedCount: number;
   failedCount: number;
   discardedCount: number;
+  availableCoresCount?: number;
   status: string;
   createdAt: string;
 }
 
+const fetcher = (url: string) => {
+  const token = localStorage.getItem('token');
+  return axios.get(url, {
+    withCredentials: true,
+    headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+  }).then(res => res.data);
+};
+
 export default function ReadyStockView() {
-  const [stock, setStock] = useState<ReadyTransformer[]>([]);
-  const [batches, setBatches] = useState<PreTestBatch[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [view, setView] = useState<'list' | 'pre-test'>('list');
   const [activeTab, setActiveTab] = useState('All');
   const [resumingBatch, setResumingBatch] = useState<PreTestBatch | null>(null);
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const [stockRes, batchesRes] = await Promise.all([
-        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/ready-transformers`, { 
-          withCredentials: true,
-          headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-        }),
-        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches`, { 
-          withCredentials: true,
-          headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-        })
-      ]);
-      setStock(stockRes.data);
-      setBatches(batchesRes.data);
-    } catch (err) {
-      console.error('Failed to fetch data', err);
-      toast.error('Failed to load inventory');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Pagination state
+  const [batchPage, setBatchPage] = useState(1);
+  const [stockPage, setStockPage] = useState(1);
 
+  // Debounce search
   useEffect(() => {
-    fetchData();
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setBatchPage(1);
+      setStockPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
 
+  // Reset pagination on tab change
+  useEffect(() => {
+    setStockPage(1);
+    setSearch('');
+    setDebouncedSearch('');
+  }, [activeTab]);
+
+  // SWR Hooks
+  const { data: analytics, mutate: mutateAnalytics } = useSWR(
+    `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/ready-transformers/analytics`, 
+    fetcher
+  );
+
+  const { data: batchesData, mutate: mutateBatches, isLoading: isBatchesLoading } = useSWR(
+    `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches?paginated=true&limit=${batchPage * 20}&search=${encodeURIComponent(debouncedSearch)}`,
+    fetcher
+  );
+
+  const { data: stockData, mutate: mutateStock, isLoading: isStockLoading } = useSWR(
+    activeTab !== 'All' 
+      ? `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/ready-transformers?paginated=true&limit=${stockPage * 20}&coreType=${encodeURIComponent(activeTab)}&search=${encodeURIComponent(debouncedSearch)}`
+      : null,
+    fetcher
+  );
+
+  // Global socket listener
+  useEffect(() => {
     socket.on('readyStockUpdated', () => {
-      fetchData();
+      mutateAnalytics();
+      mutateBatches();
+      mutateStock();
     });
-
     return () => {
       socket.off('readyStockUpdated');
     };
-  }, []);
-
-  const availableCoresPerBatch = stock.reduce((acc, core) => {
-    if (core.status === 'available' && core.batchId) {
-      acc[core.batchId] = (acc[core.batchId] || 0) + 1;
-    }
-    return acc;
-  }, {} as Record<string, number>);
-
-  const activeBatches = batches.filter(b => {
-    if (b.status !== 'COMPLETED') return true;
-    return (availableCoresPerBatch[b.batchId] || 0) > 0;
-  });
+  }, [mutateAnalytics, mutateBatches, mutateStock]);
 
   const counts = {
-    All: activeBatches.length,
-    Metering: stock.filter(s => s.coreType === 'Metering' && s.status === 'available').length,
-    Protection: stock.filter(s => s.coreType === 'Protection' && s.status === 'available').length,
-    PS: stock.filter(s => s.coreType === 'PS' && s.status === 'available').length
+    All: batchesData?.totalCount || 0,
+    Metering: analytics?.metering || 0,
+    Protection: analytics?.protection || 0,
+    PS: analytics?.ps || 0
   };
 
-  const filteredBatches = activeBatches.filter(b => 
-    b.batchId.toLowerCase().includes(search.toLowerCase()) ||
-    b.vendorName.toLowerCase().includes(search.toLowerCase()) ||
-    b.coreType.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredBatches: PreTestBatch[] = batchesData?.data || [];
+  const filteredStock: ReadyTransformer[] = stockData?.data || [];
 
-  const filteredStock = stock.filter(s => {
-    const matchesTab = s.coreType === activeTab;
-    const matchesSearch = (s.coreId || s.serialNumber || '').toLowerCase().includes(search.toLowerCase()) ||
-      s.specifications.ratio?.includes(search) ||
-      s.coreType.toLowerCase().includes(search.toLowerCase());
-    return matchesTab && matchesSearch;
-  });
+  const handleManualRefresh = () => {
+    mutateAnalytics();
+    mutateBatches();
+    mutateStock();
+  };
 
   if (view === 'pre-test') {
     return (
@@ -129,7 +135,7 @@ export default function ReadyStockView() {
         onBack={() => {
           setView('list');
           setResumingBatch(null);
-          fetchData();
+          handleManualRefresh();
         }}
         initialBatch={resumingBatch}
       />
@@ -143,7 +149,7 @@ export default function ReadyStockView() {
         withCredentials: true
       });
       toast.success("Batch deleted successfully!");
-      fetchData();
+      handleManualRefresh();
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to delete batch");
     }
@@ -160,7 +166,7 @@ export default function ReadyStockView() {
       });
       if (res.status === 200) {
         toast.success("Batch approved and moved to Ready Stock!");
-        fetchData();
+        handleManualRefresh();
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to approve batch");
@@ -168,8 +174,6 @@ export default function ReadyStockView() {
   };
 
   const isBatchFullyTested = (batch: PreTestBatch) => {
-    // Current failed = total failed - discarded (which were already replaced or removed)
-    // The total tested cores with readings = passedCount + currentlyFailed
     const currentlyFailed = (batch.failedCount || 0) - (batch.discardedCount || 0);
     const totalTested = (batch.passedCount || 0) + currentlyFailed;
     return totalTested >= batch.numberOfCores && batch.numberOfCores > 0;
@@ -192,8 +196,8 @@ export default function ReadyStockView() {
           <p className="text-gray-500">Manage pre-tested cores available for immediate replacement</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={fetchData} className="gap-2">
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <Button variant="outline" onClick={handleManualRefresh} className="gap-2">
+            <RefreshCw className={`w-4 h-4 ${(isBatchesLoading || isStockLoading) ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <Button onClick={() => setView('pre-test')} className="gap-2 bg-[#003a70]">
@@ -292,7 +296,15 @@ export default function ReadyStockView() {
           </thead>
           <tbody className="divide-y">
             {activeTab === 'All' ? (
-              filteredBatches.length > 0 ? (
+              isBatchesLoading && filteredBatches.length === 0 ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td colSpan={8} className="px-3 py-4">
+                      <div className="h-6 bg-gray-200 rounded w-full"></div>
+                    </td>
+                  </tr>
+                ))
+              ) : filteredBatches.length > 0 ? (
                 filteredBatches.map((batch) => (
                   <tr key={batch._id} className="hover:bg-gray-50 transition-colors border-b">
                     <td className="px-3 py-4 font-medium text-gray-900 font-mono text-[10px] break-all" title={batch.batchId}>{batch.batchId}</td>
@@ -349,7 +361,7 @@ export default function ReadyStockView() {
                         {batch.status === 'COMPLETED' ? 'View' : 'Test'}
                       </Button>
                       {/* Show delete if cores in batch becomes 0 or total cores is 0 */}
-                      {((availableCoresPerBatch[batch.batchId] || 0) === 0 || batch.numberOfCores === 0) && (
+                      {((batch.availableCoresCount || 0) === 0 || batch.numberOfCores === 0) && (
                         <Button 
                           variant="ghost" 
                           size="sm" 
@@ -365,16 +377,24 @@ export default function ReadyStockView() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                     <Package className="w-12 h-12 mx-auto mb-4 opacity-20" />
                     No batches found matching your criteria.
                   </td>
                 </tr>
               )
             ) : (
-              filteredStock.length > 0 ? (
+              isStockLoading && filteredStock.length === 0 ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td colSpan={4} className="px-6 py-4">
+                      <div className="h-6 bg-gray-200 rounded w-full"></div>
+                    </td>
+                  </tr>
+                ))
+              ) : filteredStock.length > 0 ? (
                 filteredStock.map((item) => (
-                  <tr key={item._id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={item._id} className="hover:bg-gray-50 transition-colors border-b">
                     <td className="px-6 py-4 font-medium text-gray-900 font-mono text-xs">{item.coreId || item.serialNumber}</td>
                     <td className="px-6 py-4">
                       <Badge variant="outline" className={getCoreTypeColor(item.coreType)}>
@@ -409,8 +429,33 @@ export default function ReadyStockView() {
           </tbody>
         </table>
       </Card>
+      
+      {/* Pagination Controls */}
+      {activeTab === 'All' && batchesData?.totalCount > filteredBatches.length && (
+        <div className="flex justify-center mt-4">
+          <Button 
+            variant="outline" 
+            onClick={() => setBatchPage(p => p + 1)}
+            disabled={isBatchesLoading}
+            className="w-full md:w-auto"
+          >
+            {isBatchesLoading ? 'Loading...' : 'Load More Batches'}
+          </Button>
+        </div>
+      )}
+      {activeTab !== 'All' && stockData?.totalCount > filteredStock.length && (
+        <div className="flex justify-center mt-4">
+          <Button 
+            variant="outline" 
+            onClick={() => setStockPage(p => p + 1)}
+            disabled={isStockLoading}
+            className="w-full md:w-auto"
+          >
+            {isStockLoading ? 'Loading...' : `Load More ${activeTab} Cores`}
+          </Button>
+        </div>
+      )}
 
     </div>
   );
 }
-

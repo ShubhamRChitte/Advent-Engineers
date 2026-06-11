@@ -186,8 +186,23 @@ router.post("/add-employee", async (req, res) => {
 router.get("/all-employees", async (req, res) => {
     try {
         const { UserModel } = require("../models/UserModel");
-        const users = await UserModel.find({}).select("-password").sort({ createdAt: -1 });
-        res.status(200).json({ success: true, users });
+        const limit = parseInt(req.query.limit) || 0;
+        const skip = parseInt(req.query.skip) || 0;
+
+        if (req.query.paginated === 'true') {
+            const users = await UserModel.find({})
+                .select("-password")
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean();
+            
+            const totalCount = await UserModel.countDocuments({});
+            res.status(200).json({ success: true, users, totalCount });
+        } else {
+            const users = await UserModel.find({}).select("-password").sort({ createdAt: -1 }).lean();
+            res.status(200).json({ success: true, users });
+        }
     } catch (error) {
         console.error("Get Employees Error:", error);
         res.status(500).json({ success: false, message: "Server error", error: error.message });

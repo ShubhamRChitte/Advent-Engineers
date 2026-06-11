@@ -213,11 +213,38 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
     const orders = await OrderModel.find(finalOrderQuery).lean().sort({ createdAt: -1 });
     console.log("TESTER Orders matched finalOrderQuery: ", orders.length);
 
-    // 4. Enrich Orders with "AssignedUnits" list
-    const enrichedOrders = await Promise.all(orders.map(async (order) => {
+    // 4. PRE-FETCH DATA TO AVOID N+1 QUERY PROBLEM
+    const allOrderIds = orders.map(o => o._id);
+    let allMeteringTests = [];
+    let allProtectionTests = [];
+    let allSecondaryTests = [];
+    let allTransformers = [];
+
+    if (stageKey === 'core') {
+      const { MeteringCoreTestModel } = require('../models/MeteringCoreTestModel');
+      const { ProtectionCoreTestModel } = require('../models/ProtectionCoreTestModel');
+
+      [allMeteringTests, allProtectionTests] = await Promise.all([
+        MeteringCoreTestModel.find({ orderId: { $in: allOrderIds } }).lean(),
+        ProtectionCoreTestModel.find({ orderId: { $in: allOrderIds } }).lean()
+      ]);
+    } else if (stageKey === 'secondary') {
+      const { SecondaryMeteringTestModel } = require('../models/SecondaryMeteringTestModel');
+      const { TransformerModel } = require('../models/TransformerModel');
+
+      allTransformers = await TransformerModel.find({ orderId: { $in: allOrderIds } }).select('orderId uniqueId').lean();
+      const allTransformerIds = allTransformers.map(t => t.uniqueId);
+
+      allSecondaryTests = await SecondaryMeteringTestModel.find({
+        uniqueId: { $in: allTransformerIds }
+      }).lean();
+    }
+
+    // 5. Enrich Orders with "AssignedUnits" list and Pre-fetched Stats
+    const currentUserName = (user.name || user.fullName || '').trim().toLowerCase();
+
+    const enrichedOrders = orders.map((order) => {
       const oId = order._id.toString();
-      // Attach the specific units assigned to this user
-      // If history, this map might be empty, which is fine (all units might be viewable or logic handled elsewhere)
       const assignedUnitIds = orderToUnitMap[oId] || [];
 
       let stats = {
@@ -228,32 +255,22 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
       };
 
       if (stageKey === 'core') {
-        const { MeteringCoreTestModel } = require('../models/MeteringCoreTestModel');
-        const { ProtectionCoreTestModel } = require('../models/ProtectionCoreTestModel');
+        // Filter pre-fetched tests for this order
+        const tests = [
+          ...allMeteringTests.filter(t => t.orderId?.toString() === oId),
+          ...allProtectionTests.filter(t => t.orderId?.toString() === oId)
+        ];
 
-        // Find tests for this order (fetch ALL documents to ensure we find the user's)
-        const tests = await Promise.all([
-          MeteringCoreTestModel.find({ orderId: order._id }).lean(),
-          ProtectionCoreTestModel.find({ orderId: order._id, coreType: 'Protection' }).lean(),
-          ProtectionCoreTestModel.find({ orderId: order._id, coreType: 'PS' }).lean()
-        ]);
-
-        // Flatten and filter for THIS user (Case-Insensitive)
-        const currentUserName = (user.name || user.fullName || '').trim().toLowerCase();
-
-        tests.flat().filter(t => {
+        tests.filter(t => {
           if (!t || !t.testedBy) return false;
           return t.testedBy.trim().toLowerCase() === currentUserName;
         }).forEach(testDoc => {
           if (testDoc.readings) {
             testDoc.readings.forEach(r => {
-              // Only count valid readings (with internalCoreNo)
               if (r.internalCoreNo) {
                 stats.testsCompleted++;
-
-                // Robust Outcome Check: Support 'P', 'Pass', 'F', 'Fail'
                 const rawOutcome = (r.result || r.remark || r.status || '').toUpperCase();
-                let outcome = rawOutcome; // Default to raw if no match
+                let outcome = rawOutcome;
 
                 if (rawOutcome === 'P' || rawOutcome === 'PASS') {
                   stats.passed++;
@@ -283,33 +300,17 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
           }
         });
       } else if (stageKey === 'secondary') {
-        // SECONDARY STATS AGGREGATION
-        const { SecondaryMeteringTestModel } = require('../models/SecondaryMeteringTestModel');
-
-        // Find tests for this order (linked via uniqueId -> Order or just rely on manual filtering if orderId not present)
-        // Note: SecondaryMeteringModel has 'uniqueId' (Transformer ID), not direct 'orderId'.
-        // We need to resolve which transformers belong to this order.
-        // But wait, the `TransformerModel` has `orderId`.
-
-        // 1. Get all transformers for this order to filter the secondary tests
-        const { TransformerModel } = require('../models/TransformerModel');
-        const orderTransformers = await TransformerModel.find({ orderId: order._id }).select('uniqueId');
+        const orderTransformers = allTransformers.filter(t => t.orderId?.toString() === oId);
         const transformerIds = orderTransformers.map(t => t.uniqueId);
 
         if (transformerIds.length > 0) {
-          // 2. Fetch all secondary tests for these transformers
-          const secondaryTests = await SecondaryMeteringTestModel.find({
-            uniqueId: { $in: transformerIds }
-          }).lean();
-
-          const currentUserName = (user.name || user.fullName || '').trim().toLowerCase();
+          const secondaryTests = allSecondaryTests.filter(t => transformerIds.includes(t.uniqueId));
 
           secondaryTests.filter(t => {
             if (!t || !t.tester) return false;
             return t.tester.trim().toLowerCase() === currentUserName;
           }).forEach(testDoc => {
             stats.testsCompleted++;
-            // Secondary tests are usually measurements. Check 'status' field if exists, else default.
             const status = (testDoc.status || 'Completed').toUpperCase();
 
             if (status === 'COMPLETED' || status === 'PASS') {
@@ -319,7 +320,7 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
             }
 
             stats.userReadings.push({
-              coreId: `${testDoc.uniqueId} - ${testDoc.coreId}`, // Distinct ID for secondary
+              coreId: `${testDoc.uniqueId} - ${testDoc.coreId}`,
               date: testDoc.testDate || testDoc.createdAt,
               result: status,
               type: 'Secondary Metering'
@@ -329,7 +330,7 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
       }
 
       return { ...order, userStats: stats, assignedUnitIds: assignedUnitIds };
-    }));
+    });
 
     res.json(enrichedOrders);
 
@@ -555,15 +556,84 @@ router.get('/final/reports', isAuthenticated, async (req, res) => {
 
 
 
-// ✅ FETCH ALL ORDERS (ADMIN VIEW)
+// ✅ FETCH ALL ORDERS (ADMIN VIEW) WITH PAGINATION AND COUNTS
 router.get('/admin/orders', isAuthenticated, async (req, res) => {
   try {
     const { OrderModel } = require('../models/OrderModel');
-    // Fetch all orders, sorted by newest first
-    const orders = await OrderModel.find({}).lean().sort({ createdAt: -1 });
-    console.log("ADMIN View orders fetched:", orders.length);
-    res.json(orders);
+    
+    // Extract query parameters
+    const limit = parseInt(req.query.limit) || 0; // 0 means no limit (fallback)
+    const skip = parseInt(req.query.skip) || 0;
+    const search = req.query.search || '';
+    const statusFilter = req.query.status || 'all';
+    const typeFilter = req.query.type || 'all';
+
+    // Build the query
+    let query = {};
+
+    if (typeFilter !== 'all') {
+      query.transformerType = new RegExp(`^${typeFilter}$`, 'i');
+    }
+
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      query.$or = [
+        { jobId: searchRegex },
+        { orderId: searchRegex },
+        { clientName: searchRegex },
+        { transformerName: searchRegex }
+      ];
+    }
+
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'Pending') {
+        query.status = 'Pending Approval';
+      } else if (statusFilter === 'Completed') {
+        query.status = { $in: ['COMPLETED', 'Completed', 'PT Testing Completed', 'Final Testing Completed'] };
+      } else if (statusFilter === 'In Testing') {
+        // Exclude Pending and Completed
+        query.status = { $nin: ['Pending Approval', 'COMPLETED', 'Completed', 'PT Testing Completed', 'Final Testing Completed'] };
+      } else {
+        query.status = statusFilter;
+      }
+    }
+
+    // Determine if we are doing a paginated request or the old bulk request
+    // The new frontend will send ?paginated=true
+    if (req.query.paginated === 'true') {
+      // 1. Get Paginated Orders
+      const orders = await OrderModel.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+
+      // 2. Get Global Counts (irrespective of search, so tabs show accurate totals)
+      const [allCount, pendingCount, inTestingCount, completedCount, assignedCount] = await Promise.all([
+        OrderModel.countDocuments({}),
+        OrderModel.countDocuments({ status: 'Pending Approval' }),
+        OrderModel.countDocuments({ status: { $nin: ['Pending Approval', 'COMPLETED', 'Completed', 'PT Testing Completed', 'Final Testing Completed'] } }),
+        OrderModel.countDocuments({ status: { $in: ['COMPLETED', 'Completed', 'PT Testing Completed', 'Final Testing Completed'] } }),
+        OrderModel.countDocuments({ status: { $in: ['Assigned', 'In Progress'] } })
+      ]);
+
+      const counts = {
+        all: allCount,
+        Pending: pendingCount,
+        Assigned: assignedCount,
+        'In Testing': inTestingCount,
+        Completed: completedCount
+      };
+
+      res.json({ success: true, orders, counts });
+    } else {
+      // Fallback for legacy components (e.g. OrdersListView.tsx if it's not updated yet)
+      const orders = await OrderModel.find({}).lean().sort({ createdAt: -1 });
+      res.json(orders);
+    }
+
   } catch (err) {
+    console.error("Admin orders error:", err);
     res.status(500).json({ error: err.message });
   }
 });

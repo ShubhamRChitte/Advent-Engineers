@@ -141,10 +141,24 @@ router.get('/stats', async (req, res) => {
             });
         }
 
-        // Fetch needed fields from all transformers
-        const allTransformers = await TransformerModel.find({})
-            .select('testHistory currentStage')
-            .lean();
+        // Fetch needed fields from transformers active in the last 6 months
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+        sixMonthsAgo.setDate(1);
+        sixMonthsAgo.setHours(0, 0, 0, 0);
+
+        const allTransformers = await TransformerModel.find({
+            $or: [
+                { "testHistory.core_test.timestamp": { $gte: sixMonthsAgo } },
+                { "testHistory.secondary_test.timestamp": { $gte: sixMonthsAgo } },
+                { "testHistory.primary_test.timestamp": { $gte: sixMonthsAgo } },
+                { "testHistory.final_test.timestamp": { $gte: sixMonthsAgo } },
+                { "testHistory.pt_test.timestamp": { $gte: sixMonthsAgo } },
+                { "testHistory.heating_test.timestamp": { $gte: sixMonthsAgo } }
+            ]
+        })
+        .select('testHistory currentStage')
+        .lean();
 
         allTransformers.forEach(t => {
             const history = t.testHistory || {};

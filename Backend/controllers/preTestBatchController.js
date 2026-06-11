@@ -41,8 +41,61 @@ exports.createBatch = async (req, res) => {
 
 exports.getBatches = async (req, res) => {
   try {
-    const batches = await PreTestBatchModel.find().sort({ createdAt: -1 });
-    res.json(batches);
+    const limit = parseInt(req.query.limit) || 0;
+    const skip = parseInt(req.query.skip) || 0;
+    const search = req.query.search || '';
+
+    if (req.query.paginated === 'true') {
+      let matchStage = {};
+      if (search) {
+        const searchRegex = new RegExp(search, 'i');
+        matchStage.$or = [
+          { batchId: searchRegex },
+          { vendorName: searchRegex },
+          { coreType: searchRegex }
+        ];
+      }
+
+      // Aggregation to emulate frontend's activeBatches logic
+      const pipeline = [
+        { $match: matchStage },
+        {
+          $lookup: {
+            from: 'readytransformers', // MongoDB collection name
+            localField: 'batchId',
+            foreignField: 'batchId',
+            as: 'readyCores'
+          }
+        },
+        {
+          $addFields: {
+            availableCoresCount: {
+              $size: {
+                $filter: {
+                  input: '$readyCores',
+                  as: 'core',
+                  cond: { $eq: ['$$core.status', 'available'] }
+                }
+              }
+            }
+          }
+        },
+        // We project out readyCores so we don't send massive arrays over network
+        { $project: { readyCores: 0 } },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip }
+      ];
+
+      if (limit > 0) pipeline.push({ $limit: limit });
+
+      const batches = await PreTestBatchModel.aggregate(pipeline);
+      const totalCount = await PreTestBatchModel.countDocuments(matchStage);
+
+      res.json({ success: true, data: batches, totalCount });
+    } else {
+      const batches = await PreTestBatchModel.find().sort({ createdAt: -1 }).lean();
+      res.json(batches);
+    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

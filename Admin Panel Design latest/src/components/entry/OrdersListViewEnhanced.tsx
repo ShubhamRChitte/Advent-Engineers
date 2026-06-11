@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import useSWR from 'swr';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -92,25 +93,63 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav, o
 
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // New state for SWR and pagination
+  const [page, setPage] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [hasMore, setHasMore] = useState(true);
+  const [counts, setCounts] = useState<any>({
+    all: 0, Pending: 0, Assigned: 0, 'In Testing': 0, Completed: 0
+  });
 
-  const fetchOrders = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/admin/orders`, {
-        withCredentials: true
-      });
-      const mappedOrders = response.data.map((order: any) => ({
+  // Debounce search query to prevent spamming backend
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setPage(0);
+    setOrders([]);
+  }, [debouncedSearch, selectedStatus, activeTab]);
+
+  const fetcher = (url: string) => axios.get(url, { withCredentials: true }).then(res => res.data);
+  const limit = 50;
+  const skip = page * limit;
+  const endpoint = `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/admin/orders?paginated=true&limit=${limit}&skip=${skip}&search=${encodeURIComponent(debouncedSearch)}&status=${encodeURIComponent(selectedStatus)}&type=${encodeURIComponent(activeTab)}`;
+
+  const { data, error, isLoading } = useSWR(endpoint, fetcher, {
+    keepPreviousData: true
+  });
+
+  useEffect(() => {
+    if (data && data.success) {
+      const mappedOrders = data.orders.map((order: any) => ({
         ...order,
         orderId: order.jobId || order.orderId || 'N/A'
       }));
-      setOrders(mappedOrders);
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-      toast.error("Failed to load orders");
-    } finally {
-      setLoading(false);
+      
+      if (page === 0) {
+        setOrders(mappedOrders);
+      } else {
+        // Prevent duplicates in strict mode
+        setOrders(prev => {
+          const newMap = new Map(prev.map(o => [o._id, o]));
+          mappedOrders.forEach((o: any) => newMap.set(o._id, o));
+          return Array.from(newMap.values());
+        });
+      }
+      
+      setCounts(data.counts);
+      setHasMore(data.orders.length === limit);
     }
+  }, [data, page]);
+
+  const fetchOrders = () => {
+    // Legacy fallback wrapper if needed
   };
 
   const handleDelete = async (orderId: string, event: React.MouseEvent) => {
@@ -231,38 +270,8 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav, o
     }
   };
 
-  const filteredOrders = orders.filter((order) => {
-    const orderId = String(order.orderId || '');
-    const clientName = String(order.clientName || '');
-    const transformerName = String(order.transformerName || '');
-    const status = String(order.status || '');
-
-    const q = searchQuery.toLowerCase().trim();
-    const normalOrderId = orderId.toLowerCase().replace(/\s+/g, '');
-    const normalQuery = q.replace(/\s+/g, '');
-
-    const extractedJobMatch = q.match(/job-?\d{4}-?\d{1,4}/i)?.[0];
-    const isTransformerSearch = q.startsWith('tr-') && q.includes(normalOrderId);
-    const jobMatch = normalOrderId.includes(normalQuery) ||
-      (normalQuery.length > 5 && normalOrderId.length > 0 && normalQuery.includes(normalOrderId)) ||
-      (extractedJobMatch && normalOrderId.includes(extractedJobMatch.toLowerCase().replace(/\s+/g, '')));
-
-    const matchesSearch = jobMatch || isTransformerSearch || clientName.toLowerCase().includes(q) || transformerName.toLowerCase().includes(q);
-
-    if (selectedStatus === 'all') return matchesSearch;
-    if (selectedStatus === 'Pending') return matchesSearch && status === 'Pending Approval';
-    if (selectedStatus === 'In Testing') return matchesSearch && status !== 'Pending Approval' && status !== 'COMPLETED';
-    if (selectedStatus === 'Completed') return matchesSearch && (status === 'COMPLETED' || status === 'Completed');
-    return matchesSearch && status === selectedStatus;
-  });
-
-  const statusCounts = {
-    all: orders.length,
-    Pending: orders.filter((o) => (o.status || '') === 'Pending Approval').length,
-    Assigned: orders.filter((o) => (o.status || '') === 'Assigned' || (o.status || '') === 'In Progress').length,
-    'In Testing': orders.filter((o) => (o.status || '').includes('Testing') && !(o.status || '').includes('Completed')).length,
-    Completed: orders.filter((o) => (o.status || '').toUpperCase() === 'COMPLETED' || (o.status || '') === 'PT Testing Completed' || (o.status || '') === 'Final Testing Completed').length,
-  };
+  const filteredOrders = orders; // We now filter on the backend!
+  const statusCounts = counts;
 
   if (isRestoring) {
     return (
@@ -345,7 +354,13 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav, o
 
       <div className="space-y-4 overflow-x-auto pb-4">
         <div className="min-w-[1200px]">
-          {loading ? <div className="text-center py-10 text-gray-400 flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /> Loading orders...</div> : (
+          {isLoading && page === 0 ? (
+            <div className="space-y-4 animate-pulse pt-4">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-24 bg-gray-100 rounded-lg w-full"></div>
+              ))}
+            </div>
+          ) : (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <div className="mb-4">
                 <TabsList className="bg-gray-100 p-1 rounded-lg">
@@ -358,13 +373,6 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav, o
               {['all', 'pt', 'ct'].map(typeFilter => (
                 <TabsContent key={typeFilter} value={typeFilter} className="m-0 space-y-4">
                   {filteredOrders
-                    .filter(order => {
-                      if (typeFilter === 'all') return true;
-                      const type = (order.transformerType || '').toUpperCase();
-                      if (typeFilter === 'pt') return type === 'PT';
-                      if (typeFilter === 'ct') return type === 'CT';
-                      return true;
-                    })
                     .map((order) => {
                       const isExpanded = expandedOrders.has(order._id);
                       const isPending = order.status === 'Pending Approval';
@@ -509,10 +517,24 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav, o
               ))}
             </Tabs>
           )}
+
+          {hasMore && orders.length > 0 && !isLoading && (
+            <div className="flex justify-center mt-8 pb-4">
+              <Button variant="outline" className="px-8" onClick={() => setPage(p => p + 1)}>
+                Load More Orders
+              </Button>
+            </div>
+          )}
+
+          {isLoading && page > 0 && (
+             <div className="flex justify-center mt-8 pb-4">
+               <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+             </div>
+          )}
         </div>
       </div>
 
-      {!loading && filteredOrders.length === 0 && (
+      {!isLoading && filteredOrders.length === 0 && (
         <Card className="p-12 text-center text-gray-500">
           <Search className="w-12 h-12 mx-auto mb-2 text-gray-400" />
           <p>No orders found</p>

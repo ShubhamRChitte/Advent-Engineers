@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import useSWR from 'swr';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -43,10 +44,20 @@ interface Employee {
 }
 
 export function EmployeeManagement() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // For form submission
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [page, setPage] = useState(1);
+
+  const fetcher = (url: string) => fetch(url).then(res => res.json());
+  
+  const { data, mutate, isLoading: isSWRLoading } = useSWR(
+    `${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/all-employees?paginated=true&limit=${page * 20}`,
+    fetcher
+  );
+  
+  const employees: Employee[] = data?.users || [];
+  const totalCount = data?.totalCount || 0;
 
   // Form State
   const initialFormState = {
@@ -78,26 +89,6 @@ export function EmployeeManagement() {
 
   const [formData, setFormData] = useState(initialFormState);
 
-  // Fetch Employees
-  const fetchEmployees = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/all-employees`);
-      const data = await response.json();
-      if (data.success) {
-        setEmployees(data.users);
-      } else {
-        toast.error('Failed to fetch employees');
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error('Error fetching employees');
-    }
-  };
-
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setFormData(prev => ({ ...prev, [id]: value }));
@@ -126,7 +117,7 @@ export function EmployeeManagement() {
       password: '', // Don't show password
       designation: employee.designation || '',
       department: employee.department || '',
-      dateOfJoining: employee.dateOfJoining ? new Date(employee.dateOfJoining).toISOString().split('T')[0] : '',
+      dateOfJoining: employee.dateOfJoining ? (new Date(employee.dateOfJoining).toISOString().split('T')[0] || '') : '',
       employmentType: employee.employmentType || '',
       assignedLab: employee.assignedLab || '',
       activeStatus: employee.activeStatus !== undefined ? employee.activeStatus : true,
@@ -147,7 +138,7 @@ export function EmployeeManagement() {
       const data = await response.json();
       if (data.success) {
         toast.success('Employee deleted');
-        fetchEmployees();
+        mutate();
       } else {
         toast.error(data.message || 'Failed to delete');
       }
@@ -198,7 +189,7 @@ export function EmployeeManagement() {
         setIsAddDialogOpen(false);
         setEditingEmployee(null);
         setFormData(initialFormState);
-        fetchEmployees();
+        mutate();
       } else {
         toast.error(data.message || 'Operation failed');
       }
@@ -387,7 +378,15 @@ export function EmployeeManagement() {
               </tr>
             </thead>
             <tbody>
-              {employees.length === 0 ? (
+              {isSWRLoading && employees.length === 0 ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse border-b">
+                    <td colSpan={7} className="py-4 px-2">
+                      <div className="h-10 bg-gray-200 rounded w-full"></div>
+                    </td>
+                  </tr>
+                ))
+              ) : employees.length === 0 ? (
                 <tr><td colSpan={7} className="text-center py-8 text-gray-500">No employees found. Add one to get started.</td></tr>
               ) : (
                 employees.map((employee) => (
@@ -449,6 +448,18 @@ export function EmployeeManagement() {
             </tbody>
           </table>
         </div>
+        
+        {totalCount > employees.length && (
+          <div className="flex justify-center mt-6">
+            <Button 
+              variant="outline" 
+              onClick={() => setPage(p => p + 1)}
+              disabled={isSWRLoading}
+            >
+              {isSWRLoading ? 'Loading...' : 'Load More'}
+            </Button>
+          </div>
+        )}
       </Card>
     </div>
   );
