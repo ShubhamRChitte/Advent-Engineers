@@ -195,7 +195,7 @@ const TestStageSchema = new Schema({
   tester: String,
   timestamp: { type: Date, default: Date.now },
   reportDate: { type: Date },
-  status: { type: String, enum: ['Pending', 'In Progress', 'Completed', 'Approved'], default: 'Pending' },
+  status: { type: String, enum: ['Pending', 'In Progress', 'Completed', 'Approved', 'Failed'], default: 'Pending' },
 
   // --- TIMER FIELDS FOR SECONDARY (AND OTHER) TESTS ---
   startTime: { type: Date },

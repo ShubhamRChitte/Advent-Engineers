@@ -196,7 +196,8 @@ export function SecondaryMeteringReport({
           accuracyClass: accuracyClass
         }))
       };
-      await axios.post(`http://localhost:5001/transformer-${stage}-metering-tests`, payload, { withCredentials: true });
+      const baseUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+      await axios.post(`${baseUrl}/transformer-${stage}-metering-tests`, payload, { withCredentials: true });
       if (onCompleteTimer) await onCompleteTimer();
       toast.success("Data saved successfully!");
       if (onRefresh) onRefresh();

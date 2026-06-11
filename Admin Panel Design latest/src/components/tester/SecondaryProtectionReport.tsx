@@ -482,7 +482,8 @@ export function SecondaryProtectionReport({
       };
 
       console.log("handleDatabaseSave: Payload ready", payload);
-      const endpoint = `http://localhost:5001/transformer-${stage}-protection-tests`;
+      const baseUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+      const endpoint = `${baseUrl}/transformer-${stage}-protection-tests`;
       console.log(`handleDatabaseSave: Sending Request to ${endpoint}...`);
 
       const response = await axios.post(

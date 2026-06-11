@@ -659,8 +659,8 @@ export function CoreTestingForm({
                        protectionConfigured;
 
   const { timeLeftMs, isOverdue, expectedMinutes, endTimer } = useCTTimer({
-    transformerId: order._id,
-    orderId: order._id,
+    transformerId: order._id || '',
+    orderId: order._id || '',
     jobId: order.jobId || 'N/A',
     stage: 'core',
     testerName: user?.fullName || user?.name || 'Tester',

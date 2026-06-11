@@ -832,9 +832,8 @@ export function SecondaryPSReport({
       };
 
       console.log("handleDatabaseSave (PS): Payload ready", payload);
-
-      const endpoint = `http://localhost:5001/transformer-${stage}-ps-tests`;
-
+      const baseUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+      const endpoint = `${baseUrl}/transformer-${stage}-ps-tests`;
       // 2. Execute POST request
       const response = await axios.post(
         endpoint,
