@@ -72,7 +72,7 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
       if (req.query.type === 'active') {
         query.approved = { $ne: true };
       }
-      const orders = await OrderModel.find(query).sort({ updatedAt: -1 });
+      const orders = await OrderModel.find(query).lean().sort({ updatedAt: -1 });
       console.log("ADMIN orders found: ", orders.length);
       return res.json(orders);
     }
@@ -106,7 +106,7 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
 
     // 2. Find Assigned Transformers directly
     const { TransformerModel } = require('../models/TransformerModel');
-    const assignedTransformers = await TransformerModel.find(activeAssignmentQuery).select('orderId uniqueId');
+    const assignedTransformers = await TransformerModel.find(activeAssignmentQuery).select('orderId uniqueId').lean();
 
     console.log("----- DEBUG ASSIGNMENTS -----");
     console.log("User:", namesToCheck);
@@ -145,8 +145,8 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
       const userTestQuery = { testedBy: { $in: namesToCheck } };
 
       const [meteringTests, protectionTests] = await Promise.all([
-        MeteringCoreTestModel.find(userTestQuery).select('orderId'),
-        ProtectionCoreTestModel.find(userTestQuery).select('orderId')
+        MeteringCoreTestModel.find(userTestQuery).select('orderId').lean(),
+        ProtectionCoreTestModel.find(userTestQuery).select('orderId').lean()
       ]);
       const allTests = [...meteringTests, ...protectionTests];
       historyOrderIds = allTests.map(t => t.orderId);
@@ -560,7 +560,7 @@ router.get('/admin/orders', isAuthenticated, async (req, res) => {
   try {
     const { OrderModel } = require('../models/OrderModel');
     // Fetch all orders, sorted by newest first
-    const orders = await OrderModel.find({}).sort({ createdAt: -1 });
+    const orders = await OrderModel.find({}).lean().sort({ createdAt: -1 });
     console.log("ADMIN View orders fetched:", orders.length);
     res.json(orders);
   } catch (err) {
@@ -619,7 +619,7 @@ router.get('/orders/client/:clientName', async (req, res) => {
     const { OrderModel } = require('../models/OrderModel');
     const clientName = req.params.clientName;
     // Use regex for case-insensitive matching if needed, or exact match
-    const orders = await OrderModel.find({ clientName: clientName }).sort({ createdAt: -1 });
+    const orders = await OrderModel.find({ clientName: clientName }).lean().sort({ createdAt: -1 });
     res.status(200).json({ success: true, orders });
   } catch (error) {
     console.error("Error fetching client orders:", error);

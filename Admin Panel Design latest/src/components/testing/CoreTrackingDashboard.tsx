@@ -18,27 +18,9 @@ export function CoreTrackingDashboard({ user }: CoreTrackingDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabView>('testing');
   const [selectedOrder, setSelectedOrder] = useState<CoreTestingOrder | null>(null);
   const [selectedCoreType, setSelectedCoreType] = useState<CoreType | null>(null);
-  const [, setStats] = useState({ active: 0, completed: 0 });
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const [activeRes, historyRes] = await Promise.all([
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/assigneed_orders?type=active`, { withCredentials: true }),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/assigneed_orders?type=history`, { withCredentials: true })
-        ]);
-        // Use stats
-        console.log(`Active: ${activeRes.data.length}, Completed: ${historyRes.data.length}`);
-        setStats({
-          active: activeRes.data.length,
-          completed: historyRes.data.length
-        });
-      } catch (error) {
-        console.error("Error fetching dashboard stats:", error);
-      }
-    };
-    fetchStats();
-  }, []);
+
+
 
   const handleStartTesting = (order: CoreTestingOrder) => {
     setSelectedOrder(order);

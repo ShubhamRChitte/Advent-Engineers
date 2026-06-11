@@ -49,7 +49,7 @@ router.post('/submit', isAuthenticated, async (req, res) => {
     // 3. Check if ALL transformers for this order have PT test data
     const allTransformers = await TransformerModel.find({
       $or: [{ orderId: orderId }, { orderId: orderId.toString() }]
-    });
+    }).lean();
 
     const allCompleted = allTransformers.length > 0 && allTransformers.every(
       t => t.testHistory && t.testHistory.pt_test && Object.keys(t.testHistory.pt_test).length > 0
@@ -82,7 +82,7 @@ router.put('/:orderId/approve', isAuthenticated, async (req, res) => {
     // Verify all transformers actually have data
     const allTransformers = await TransformerModel.find({
       $or: [{ orderId: orderId }, { orderId: orderId.toString() }]
-    });
+    }).lean();
 
     if (allTransformers.length === 0) {
        return res.status(400).json({ success: false, message: "No transformers found in this order." });
@@ -178,7 +178,7 @@ router.put('/transformer/:transformerId/approve', isAuthenticated, async (req, r
     const orderId = transformer.orderId;
     const allTransformers = await TransformerModel.find({
       $or: [{ orderId: orderId }, { orderId: orderId.toString() }]
-    });
+    }).lean();
 
     // Consider all completed and approved
     // Using an optional chaining like t.testHistory?.pt_test?.approved
@@ -260,7 +260,7 @@ router.get('/all-transformers', isAuthenticated, async (req, res) => {
         // Find all PT Orders
         // You can optimize by filtering out older fully completed orders if needed, 
         // but for safety we get recent ones or all
-        const ptOrders = await OrderModel.find({ transformerType: 'PT' }).select('_id quantity jobId clientName status assignedDate deadline ratio');
+        const ptOrders = await OrderModel.find({ transformerType: 'PT' }).select('_id quantity jobId clientName status assignedDate deadline ratio').lean();
         const orderIds = ptOrders.map(o => o._id);
 
         const transformers = await TransformerModel.find({ orderId: { $in: orderIds } })
@@ -268,7 +268,8 @@ router.get('/all-transformers', isAuthenticated, async (req, res) => {
                 path: 'orderId',
                 select: 'jobId clientName quantity ratio status assignedDate deadline transformerName accuracyClass coreDetails'
             })
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         res.status(200).json({ success: true, transformers });
     } catch (err) {
@@ -295,7 +296,8 @@ router.get('/reports', isAuthenticated, async (req, res) => {
                 match: { transformerType: 'PT' }, // Filter by PT Orders at population level
                 select: 'clientName quantity deadline ratio accuracyClass burden voltageRating jobId'
             })
-            .sort({ 'testHistory.pt_test.date': -1 });
+            .sort({ 'testHistory.pt_test.date': -1 })
+            .lean();
             
         // Filter out docs where populate failed (wasn't a PT order) or where pt_test is logically empty
         const validTransformers = transformers.filter(t => 
@@ -307,7 +309,7 @@ router.get('/reports', isAuthenticated, async (req, res) => {
 
         // Enrich with jobId and clientName from populated order (mirrors secondary/reports route)
         const enrichedTransformers = validTransformers.map(t => {
-            const obj = t.toObject();
+            const obj = t;
             if (obj.orderId) {
                 obj.jobId = obj.orderId.jobId;
                 obj.clientName = obj.orderId.clientName;

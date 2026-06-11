@@ -789,7 +789,8 @@ async function getAdminNotifications(req, res) {
   try {
     const pendingOrders = await OrderModel.find({ isApproved: false })
       .select("jobId clientName quantity createdAt")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     const unreadCount = await OrderModel.countDocuments({ isRead: false });
 
@@ -814,7 +815,8 @@ const getWorkerTasks = async (req, res) => {
       .populate({
         path: 'orderId',
         match: { [`assignments.${role}_tester`]: workerName } // Dynamic key check
-      });
+      })
+      .lean();
 
     // 3. Filter out transformers where the worker isn't the assigned one for this job
     const assignedTasks = tasks.filter(t => t.orderId !== null);
@@ -2142,7 +2144,7 @@ app.put('/api/core-tests/approve-batch', async (req, res) => {
 // --- EXISTING ROUTES ---
 // get allorders
 app.get("/allorders", async (req, res) => {
-  let orders = await OrderModel.find({});
+  let orders = await OrderModel.find({}).lean();
   res.json(orders);
 })
 
@@ -3388,7 +3390,7 @@ app.post('/api/strict-approvals/request', async (req, res) => {
 
 app.get('/api/strict-approvals', async (req, res) => {
   try {
-    const approvals = await StrictApproval.find({ status: 'Pending' }).populate('orderId').sort({ createdAt: -1 });
+    const approvals = await StrictApproval.find({ status: 'Pending' }).populate('orderId').sort({ createdAt: -1 }).lean();
     res.json(approvals);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
