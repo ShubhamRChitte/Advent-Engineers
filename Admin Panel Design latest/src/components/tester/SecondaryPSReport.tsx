@@ -681,8 +681,11 @@ export function SecondaryPSReport({
         res.internalCoreNo === coreId || res.coreId === coreId
       );
       if (myResults.length > 0) {
-        return initial.map((row: PSRow) => {
+        return initial.map((row: PSRow, index: number) => {
           let savedRow = myResults.find((r: any) => r.ratioValue === row.ratioValue);
+          if (!savedRow && myResults[index]) {
+            savedRow = myResults[index];
+          }
           if (!savedRow && dynamicRatios.length === 1) {
             savedRow = myResults.find((r: any) => !r.ratioValue || r.ratioValue === 'N/A');
           }
@@ -743,11 +746,16 @@ export function SecondaryPSReport({
           // Map saved results back to state
           // We need to match by ratioValue to ensure order
           setPsData((prevData: PSRow[]) => {
-            return prevData.map((row: PSRow) => {
+            return prevData.map((row: PSRow, index: number) => {
               // 1. Try Exact Match
               let savedRow = myResults.find((r: any) => r.ratioValue === row.ratioValue);
 
-              // 2. Fallback for "N/A"
+              // 2. Fallback: Match by index
+              if (!savedRow && myResults[index]) {
+                savedRow = myResults[index];
+              }
+
+              // 3. Fallback for "N/A"
               if (!savedRow && dynamicRatios.length === 1) {
                 savedRow = myResults.find((r: any) => !r.ratioValue || r.ratioValue === 'N/A');
               }
@@ -855,37 +863,48 @@ export function SecondaryPSReport({
 
   // Validation Logic for PS Cores
   const validatePSRow = (row: PSRow) => {
-    // Both ratio errors and excitation currents must be populated to grade
-    if (!row.turnRatioError || !row.iexVk || !row.iex11Vk) return { isPass: null, reason: null };
-
-    const ratioError = parseFloat(row.turnRatioError);
-    const iexVk = parseFloat(row.iexVk);
-    const iex11Vk = parseFloat(row.iex11Vk);
-
-    if (isNaN(ratioError) || isNaN(iexVk) || isNaN(iex11Vk)) return { isPass: null, reason: null };
-
     const limitRatio = psLimit?.psRatioErrorLimit ?? 0.25;
     const limitMulti = psLimit?.psExcitationMultiplier ?? 1.5;
 
     let reasons: string[] = [];
+    let isRatioPass: boolean | null = null;
+    let isExcitationPass: boolean | null = null;
 
-    // Condition 1: Ratio Error must be strictly between limits
-    const isRatioPass = ratioError > -limitRatio && ratioError < limitRatio;
-    if (!isRatioPass) {
-        reasons.push(`Ratio Error (${ratioError}) meets or exceeds ±${limitRatio} limit`);
+    if (row.turnRatioError && row.turnRatioError.trim() !== '') {
+      const ratioError = parseFloat(row.turnRatioError);
+      if (!isNaN(ratioError)) {
+        isRatioPass = ratioError > -limitRatio && ratioError < limitRatio;
+        if (!isRatioPass) {
+          reasons.push(`Ratio Error (${ratioError}) meets or exceeds ±${limitRatio} limit`);
+        }
+      }
     }
 
-    // Condition 2: (Iex at Vk * limitMulti) > Iex at 1.1Vk
-    const calculatedValue = iexVk * limitMulti;
-    const isExcitationPass = calculatedValue > iex11Vk;
-    if (!isExcitationPass) {
-        reasons.push(`Excitation check failed: IexVk * ${limitMulti} (${calculatedValue.toFixed(2)}) is not > Iex11Vk (${iex11Vk})`);
+    if (row.iexVk && row.iexVk.trim() !== '' && row.iex11Vk && row.iex11Vk.trim() !== '') {
+      const iexVk = parseFloat(row.iexVk);
+      const iex11Vk = parseFloat(row.iex11Vk);
+      if (!isNaN(iexVk) && !isNaN(iex11Vk)) {
+        const calculatedValue = iexVk * limitMulti;
+        isExcitationPass = calculatedValue > iex11Vk;
+        if (!isExcitationPass) {
+          reasons.push(`Excitation check failed: IexVk * ${limitMulti} (${calculatedValue.toFixed(2)}) is not > Iex11Vk (${iex11Vk})`);
+        }
+      }
     }
 
-    return {
-        isPass: isRatioPass && isExcitationPass,
-        reason: reasons.length > 0 ? reasons.join('; ') : null
-    };
+    if (isRatioPass === false || isExcitationPass === false) {
+      return { isPass: false, reason: reasons.join('; ') };
+    }
+
+    const isCompleted = (row.turnRatioError && row.turnRatioError.trim() !== '') &&
+                        (row.iexVk && row.iexVk.trim() !== '') &&
+                        (row.iex11Vk && row.iex11Vk.trim() !== '');
+
+    if (isCompleted && isRatioPass === true && isExcitationPass === true) {
+      return { isPass: true, reason: null };
+    }
+
+    return { isPass: null, reason: null };
   };
 
   const calculateRowStatus = (row: PSRow) => validatePSRow(row).isPass;
@@ -908,11 +927,11 @@ export function SecondaryPSReport({
         const iexVk = parseFloat(row.iexVk);
         const iex11Vk = parseFloat(row.iex11Vk);
 
-        if (isNaN(ratioErr) || ratioErr <= -limitRatio || ratioErr >= limitRatio) {
+        if (row.turnRatioError && row.turnRatioError.trim() !== '' && (isNaN(ratioErr) || ratioErr <= -limitRatio || ratioErr >= limitRatio)) {
           reasons.push(`Row ${idx + 1} (Ratio ${row.ratioValue}): Ratio Error ${row.turnRatioError} meets or exceeds ±${limitRatio} limit.`);
         }
 
-        if (!isNaN(iexVk) && !isNaN(iex11Vk) && (iexVk * limitMulti) <= iex11Vk) {
+        if (row.iexVk && row.iexVk.trim() !== '' && row.iex11Vk && row.iex11Vk.trim() !== '' && !isNaN(iexVk) && !isNaN(iex11Vk) && (iexVk * limitMulti) <= iex11Vk) {
           reasons.push(`Row ${idx + 1} (Ratio ${row.ratioValue}): Excitation check failed (IexVk*${limitMulti} <= Iex11Vk).`);
         }
       }
@@ -924,21 +943,36 @@ export function SecondaryPSReport({
       // Persist the entered test values to the transformer's history first
       await handleDatabaseSave();
 
+      const orderObj = propOrder || (transformer as any).fullOrder || (transformer as any).orderId || (transformer as any).order;
+
       const payload = {
-        orderId: (transformer as any).orderId?._id || (transformer as any).orderId || (transformer as any)._id || (transformer as any).order?._id,
-        internalCoreNo: coreId,
+        transformerId: transformer.id || transformer._id,
+        transformerUniqueId: transformer.uniqueId,
+        orderId: (transformer as any).orderId?._id || (transformer as any).orderId || (transformer as any).order?._id || orderObj?._id || orderObj?.id,
+        jobNumber: transformer.jobId || orderObj?.jobId || '',
+        clientName: transformer.clientName || orderObj?.clientName || '',
+        coreType: "PS",
+        testType: "Secondary PS",
+        failureParameters: { failureStage: `${stage}_ps_test`, dynamicValues: psData, coreId: coreId },
         failureReason: finalReason,
-        failureStage: `${stage}_ps_test`,
-        dynamicValues: psData
+        reportedBy: testerName,
+        stage: "SECONDARY_TESTING",
+        status: "FAILED"
       };
 
-      console.log("[DEBUG] Frontend Failed Core Payload:", payload);
+      console.log("[DEBUG] Frontend Failed Transformer Payload:", payload);
 
-      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores`, payload, { withCredentials: true });
-      toast.success("Added to Failed Cores successfully!");
+      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers`, payload, { withCredentials: true });
+      if (response.data.success) {
+        toast.success(response.data.message || "Transformer marked as failed successfully.");
+        if (onRefresh) onRefresh();
+        onBack();
+      } else {
+        toast.error("Failed to add to failed transformers.");
+      }
     } catch (error: any) {
       console.error("Mark as failed error:", error);
-      toast.error(error.response?.data?.message || "Error adding to failed cores");
+      toast.error(error.response?.data?.message || "Error adding to failed transformers");
     }
   };
 
@@ -1036,7 +1070,7 @@ export function SecondaryPSReport({
             <div className="flex gap-2">
               {hasFailures && (
                 <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
-                  <AlertTriangle className="w-4 h-4" /> Add to Failed Cores
+                  <AlertTriangle className="w-4 h-4" /> Add to Failed Transformer
                 </Button>
               )}
               <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2">

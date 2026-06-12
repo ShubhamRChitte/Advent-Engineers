@@ -221,8 +221,11 @@ export function SecondaryProtectionReport({
       );
 
       if (myResults.length > 0) {
-        const syncedData = initialData.map((row: ProtectionTestRow) => {
+        const syncedData = initialData.map((row: ProtectionTestRow, index: number) => {
           let saved = myResults.find((r: any) => r.ratioValue === row.ratio);
+          if (!saved && myResults[index]) {
+            saved = myResults[index];
+          }
           if (!saved && dynamicRatios.length === 1) {
             saved = myResults.find((r: any) => !r.ratioValue || r.ratioValue === 'N/A');
           }
@@ -272,9 +275,14 @@ export function SecondaryProtectionReport({
           );
 
           if (myResults.length > 0) {
-            setTestResults(prev => prev.map(row => {
+            setTestResults(prev => prev.map((row, index) => {
               // 1. Try Exact Match
               let saved = myResults.find((r: any) => r.ratioValue === row.ratio);
+
+              // 1.5 Fallback: Match by index
+              if (!saved && myResults[index]) {
+                saved = myResults[index];
+              }
 
               // 2. Fallback for "N/A" if checking against the single available ratio
               if (!saved && ratiosToUse.length === 1) {
@@ -521,19 +529,34 @@ export function SecondaryProtectionReport({
       // Persist the entered test values to the transformer's history first
       await handleDatabaseSave();
 
+      const orderObj = propOrder || transformer.fullOrder || transformer.orderId;
+
       const payload = {
-        orderId: transformer.orderId?._id || transformer.orderId,
-        internalCoreNo: coreId,
+        transformerId: transformer.id || transformer._id,
+        transformerUniqueId: transformer.uniqueId,
+        orderId: transformer.orderId?._id || transformer.orderId || orderObj?._id || orderObj?.id,
+        jobNumber: transformer.jobId || orderObj?.jobId || '',
+        clientName: transformer.clientName || orderObj?.clientName || '',
+        coreType: "Protection",
+        testType: "Secondary Protection",
+        failureParameters: { failureStage: `${stage}_protection_test`, dynamicValues: testResults, coreId: coreId },
         failureReason: allReasons || "Limits Exceeded",
-        failureStage: `${stage}_protection_test`,
-        dynamicValues: testResults
+        reportedBy: testerName,
+        stage: "SECONDARY_TESTING",
+        status: "FAILED"
       };
 
-      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores`, payload, { withCredentials: true });
-      toast.success("Added to Failed Cores!");
+      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers`, payload, { withCredentials: true });
+      if (response.data.success) {
+        toast.success(response.data.message || "Transformer marked as failed successfully.");
+        if (onRefresh) onRefresh();
+        onBack();
+      } else {
+        toast.error("Failed to add to failed transformers.");
+      }
     } catch (err: any) {
       console.error("Mark as failed error:", err);
-      toast.error(err.response?.data?.message || "Could not add to failed cores");
+      toast.error(err.response?.data?.message || "Could not add to failed transformers");
     }
   };
 
@@ -641,7 +664,7 @@ export function SecondaryProtectionReport({
               </Button>
               {hasFailures && (
                 <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2">
-                  <AlertTriangle className="w-4 h-4" /> Add to Failed Cores
+                  <AlertTriangle className="w-4 h-4" /> Add to Failed Transformer
                 </Button>
               )}
               <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">

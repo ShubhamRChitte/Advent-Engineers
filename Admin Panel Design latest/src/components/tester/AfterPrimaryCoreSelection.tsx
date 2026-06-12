@@ -3,7 +3,6 @@ import axios from 'axios';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Label } from '../ui/label';
 import { ArrowLeft, PlayCircle, Loader2, CheckCircle, FileText, AlertTriangle } from 'lucide-react';
 import { Transformer as AfterPrimaryTransformer } from './AfterPrimaryTransformersList';
 import { toast } from 'sonner';
@@ -263,8 +262,6 @@ export function AfterPrimaryCoreSelection({
           size="sm" 
           onClick={onBack} 
           className="gap-2"
-          disabled={!isAllCoresCompleted}
-          title={!isAllCoresCompleted ? "You must complete all cores before going back" : ""}
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Transformers

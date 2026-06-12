@@ -307,8 +307,6 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
           size="sm"
           onClick={onBack}
           className="gap-2"
-          disabled={!isAllCoresCompleted}
-          title={!isAllCoresCompleted ? "You must complete all cores before going back" : ""}
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Transformers

@@ -168,6 +168,7 @@ app.use('/api/core-tests', require('./routes/coreTestRoutes')); // Generic Route
 app.use('/api/final', require('./routes/finalTestRoutes')); // New Final Test Routes
 app.use('/api/dashboard', require('./routes/dashboardRoutes')); // New Dashboard Stats Route
 app.use('/api/failed-cores', require('./routes/failedCoreRoutes')); // Failed Core Management
+app.use('/api/failed-transformers', require('./routes/failedTransformerRoutes')); // Failed Transformer Management
 app.use('/api/return-forms', require('./routes/returnFormRoutes')); // New Return Form Routes
 app.use('/api/pt-tests', require('./routes/ptTestRoutes')); // PT Testing Routes
 app.use('/api/pt-pretests', require('./routes/ptPretestRoutes')); // PT Pretesting Routes

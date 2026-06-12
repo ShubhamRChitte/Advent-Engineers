@@ -57,14 +57,37 @@ const FailedTransformerSchema = new Schema(
         // --- Extensibility ---
         stage: {
             type: String,
-            enum: ["PT_TESTING", "FIELD_RETURN"],
+            enum: ["PT_TESTING", "FIELD_RETURN", "SECONDARY_TESTING", "pt_pretest_testING"],
             default: "PT_TESTING"
         },
         status: {
             type: String,
-            enum: ["FAILED", "REPLACED", "SCRAPPED", "UNDER_ANALYSIS", "RETURNED"],
+            enum: ["FAILED", "REPLACED", "SCRAPPED", "UNDER_ANALYSIS", "RETURNED", "TREATING", "RETESTED", "TREATED", "RESOLVED"],
             default: "FAILED",
             index: true
+        },
+        transformerUniqueId: {
+            type: String,
+            trim: true
+        },
+        testType: {
+            type: String,
+            trim: true
+        },
+        retestHistory: {
+            type: Schema.Types.Mixed,
+            default: []
+        },
+        treatedBy: {
+            type: String,
+            trim: true
+        },
+        treatedAt: {
+            type: Date
+        },
+        resolutionRemarks: {
+            type: String,
+            trim: true
         }
     },
     {

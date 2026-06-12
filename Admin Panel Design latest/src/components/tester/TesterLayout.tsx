@@ -13,7 +13,6 @@ import { Card } from '../ui/card';
 import { ClipboardCheck, Activity, Clock, CheckCircle2 } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { AfterPrimaryReportsList } from './reports/AfterPrimaryReportsList';
-import { FinalReportsList } from './reports/FinalReportsList';
 import { FailedCoresPage } from '../../pages/FailedCoresPage';
 import { PTTesterDashboard } from './PTTesterDashboard';
 import { PTTestingModule } from './PTTestingModule';
@@ -26,6 +25,7 @@ import { OrderDetailsView } from './OrderDetailsView';
 import { useTesterStats } from './useTesterStats';
 import { CTReportsList } from './CTReportsList';
 import ReadyStockView from '../inventory/ReadyStockView';
+import { FailedTransformersSection } from './FailedTransformersSection';
 
 
 interface TesterLayoutProps {
@@ -241,6 +241,8 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         return <OrdersListViewEnhanced userRole={user.role} />;
       } else if (activeView === 'failed-cores') {
         return <FailedCoresPage />;
+      } else if (activeView === 'failed-transformers') {
+        return <FailedTransformersSection user={user} />;
       }
     }
 

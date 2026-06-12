@@ -37,6 +37,12 @@ export function FinalReportView({ transformer, onBack }: FinalReportViewProps) {
 
     const hasHistory = showMetering || showProtection || showPS;
 
+    const order = transformer.fullOrder || transformer.orderId;
+    const coreDetails = order?.coreDetails || [];
+    const meteringCoreIndex = coreDetails.findIndex((c: any) => c.coreType === 'Metering');
+    const protectionCoreIndex = coreDetails.findIndex((c: any) => c.coreType === 'Protection');
+    const psCoreIndex = coreDetails.findIndex((c: any) => c.coreType === 'PS');
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -56,7 +62,7 @@ export function FinalReportView({ transformer, onBack }: FinalReportViewProps) {
                 {(!hasHistory || showMetering) && (reportType === 'metering' || hasHistory) && (
                     <SecondaryMeteringReport
                         transformer={transformer}
-                        coreNumber={1}
+                        coreNumber={meteringCoreIndex !== -1 ? meteringCoreIndex + 1 : 1}
                         // For metering, extract metering specific core ID
                         coreId={history?.metering_results?.[0]?.internalCoreNo || history?.metering_results?.[0]?.coreId || transformer.uniqueId}
                         testerName={transformer.testHistory?.final_test?.tester || 'Unknown'}
@@ -69,7 +75,7 @@ export function FinalReportView({ transformer, onBack }: FinalReportViewProps) {
                 {(!hasHistory || showProtection) && (reportType === 'protection' || hasHistory) && (
                     <SecondaryProtectionReport
                         transformer={transformer}
-                        coreNumber={1}
+                        coreNumber={protectionCoreIndex !== -1 ? protectionCoreIndex + 1 : 1}
                         coreId={history?.protection_results?.[0]?.internalCoreNo || history?.protection_results?.[0]?.coreId || transformer.uniqueId}
                         testerName={transformer.testHistory?.final_test?.tester || 'Unknown'}
                         onBack={() => { }}
@@ -81,7 +87,7 @@ export function FinalReportView({ transformer, onBack }: FinalReportViewProps) {
                 {(!hasHistory || showPS) && (reportType === 'ps' || hasHistory) && (
                     <SecondaryPSReport
                         transformer={transformer}
-                        coreNumber={1}
+                        coreNumber={psCoreIndex !== -1 ? psCoreIndex + 1 : 1}
                         coreId={history?.ps_results?.[0]?.internalCoreNo || history?.ps_results?.[0]?.coreId || transformer.uniqueId}
                         testerName={transformer.testHistory?.final_test?.tester || 'Unknown'}
                         onBack={() => { }}

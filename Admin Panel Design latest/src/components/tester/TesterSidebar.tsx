@@ -20,6 +20,7 @@ interface MenuItem {
 
 export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSidebarProps) {
   const [failedCount, setFailedCount] = useState(0);
+  const [failedTransformersCount, setFailedTransformersCount] = useState(0);
 
   useEffect(() => {
     const fetchCount = async () => {
@@ -27,19 +28,26 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
       if (!token) return;
       
       try {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores/count`, { withCredentials: true });
-        if (res.data.success) {
-          setFailedCount(res.data.count);
+        if (userRole === 'secondary-tester') {
+          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/count`, { withCredentials: true });
+          if (res.data.success) {
+            setFailedTransformersCount(res.data.count);
+          }
+        } else {
+          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores/count`, { withCredentials: true });
+          if (res.data.success) {
+            setFailedCount(res.data.count);
+          }
         }
       } catch (e) {
-        console.error("Failed to fetch failed count", e);
+        console.error("Failed to fetch count", e);
       }
     };
 
     fetchCount();
     const interval = setInterval(fetchCount, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [userRole]);
 
   const getMenuItems = (): MenuItem[] => {
     if (userRole === 'pt-tester') {
@@ -85,7 +93,11 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
       baseItems.push({ id: 'reports', label: 'Customer Reports', icon: FileText });
     }
 
-    baseItems.push({ id: 'failed-cores', label: 'Failed Cores', icon: AlertTriangle, badge: failedCount > 0 ? failedCount : undefined });
+    if (userRole === 'secondary-tester') {
+      baseItems.push({ id: 'failed-transformers', label: 'Failed Transformers', icon: AlertTriangle, badge: failedTransformersCount > 0 ? failedTransformersCount : undefined });
+    } else {
+      baseItems.push({ id: 'failed-cores', label: 'Failed Cores', icon: AlertTriangle, badge: failedCount > 0 ? failedCount : undefined });
+    }
 
     return baseItems;
   };

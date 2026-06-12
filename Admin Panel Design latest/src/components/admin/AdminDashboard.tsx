@@ -3,7 +3,6 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Users, Package, ClipboardCheck, TrendingUp, AlertCircle, CheckCircle2, PlusCircle, List, ArrowRight } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
-import { EfficiencyMonitor } from './EfficiencyMonitor';
 
 interface AdminDashboardProps {
   setActiveView?: (view: string) => void;
@@ -164,8 +163,6 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
         </Card>
       </div>
 
-      {/* Efficiency Monitor */}
-      <EfficiencyMonitor />
 
       {/* Recent Activity */}
       <Card className="p-6">

@@ -123,9 +123,10 @@ export function SecondaryMeteringReport({
     if (history?.length > 0) {
       const myResults = history.filter((res: any) => res.internalCoreNo === coreId);
       return initial.map((item, idx) => {
-        const saved = myResults[idx];
-        if (saved && saved.ratioValue === item.ratioValue) return { ...item, rows: saved.rows };
-        const matched = myResults.find((r: any) => r.ratioValue === item.ratioValue);
+        let matched = myResults.find((r: any) => r.ratioValue === item.ratioValue);
+        if (!matched && myResults[idx]) {
+          matched = myResults[idx];
+        }
         return matched ? { ...item, rows: matched.rows } : item;
       });
     }
@@ -143,8 +144,11 @@ export function SecondaryMeteringReport({
         if (stageHistory?.metering_results?.length > 0) {
           const myResults = stageHistory.metering_results.filter((res: any) => res.internalCoreNo === coreId);
           if (myResults.length > 0) {
-            setTestResults(prev => prev.map(item => {
-              const matched = myResults.find((r: any) => r.ratioValue === item.ratioValue);
+            setTestResults(prev => prev.map((item, idx) => {
+              let matched = myResults.find((r: any) => r.ratioValue === item.ratioValue);
+              if (!matched && myResults[idx]) {
+                matched = myResults[idx];
+              }
               return matched ? { ...item, rows: matched.rows } : item;
             }));
           }
@@ -221,17 +225,36 @@ export function SecondaryMeteringReport({
         });
       });
 
+      const orderObj = propOrder || transformer.fullOrder || transformer.orderId;
+
       const payload = {
-        orderId: transformer.orderId?._id || transformer.orderId,
-        internalCoreNo: coreId,
+        transformerId: transformer.id || transformer._id,
+        transformerUniqueId: transformer.uniqueId,
+        orderId: transformer.orderId?._id || transformer.orderId || orderObj?._id || orderObj?.id,
+        jobNumber: transformer.jobId || orderObj?.jobId || '',
+        clientName: transformer.clientName || orderObj?.clientName || '',
+        coreType: "Metering",
+        testType: "Secondary Metering",
+        failureParameters: { failureStage: `${stage}_metering_test`, dynamicValues: testResults, coreId: coreId },
         failureReason: allReasons.length > 0 ? [...new Set(allReasons)].join(' | ') : "Accuracy Limits Exceeded",
-        failureStage: `${stage}_metering_test`,
-        dynamicValues: testResults
+        reportedBy: testerName,
+        stage: "SECONDARY_TESTING",
+        status: "FAILED"
       };
-      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores`, payload, { withCredentials: true });
-      toast.success("Core marked as failed successfully.");
+
+      // Persist the entered test values to the transformer's history first
+      await handleDatabaseSave();
+
+      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers`, payload, { withCredentials: true });
+      if (response.data.success) {
+        toast.success(response.data.message || "Transformer marked as failed successfully.");
+        if (onRefresh) onRefresh();
+        onBack();
+      } else {
+        toast.error("Failed to add to failed transformers.");
+      }
     } catch (error: any) {
-      toast.error("Error adding to failed cores");
+      toast.error(error.response?.data?.message || "Error adding to failed transformers");
     }
   };
 
@@ -293,7 +316,7 @@ export function SecondaryMeteringReport({
             <Button variant="outline" size="sm" onClick={onBack} className="gap-2"><ArrowLeft className="w-4 h-4" /> Back</Button>
             <div className="flex gap-2">
               {!readOnly && hasAnyFailures && (
-                <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2"><AlertTriangle className="w-4 h-4" /> Add to Failed Cores</Button>
+                <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2"><AlertTriangle className="w-4 h-4" /> Add to Failed Transformer</Button>
               )}
               <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2"><Save className="w-4 h-4" /> Save</Button>
               <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2"><Printer className="w-4 h-4" /> Print</Button>
