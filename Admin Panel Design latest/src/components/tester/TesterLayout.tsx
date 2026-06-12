@@ -91,6 +91,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         userRole={user.role} 
         userName={user.name} 
         onViewOrder={handleViewOrder}
+        setActiveView={setActiveView}
       />;
     }
 
