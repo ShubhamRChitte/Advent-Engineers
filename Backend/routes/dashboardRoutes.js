@@ -102,124 +102,231 @@ router.get('/tester-stats', async (req, res) => {
 // GET /api/dashboard/stats
 router.get('/stats', async (req, res) => {
     try {
+        const { CTTimerModel } = require('../models/CTTimerModel');
+        const { PTTimerModel } = require('../models/PTTimerModel');
+
         // 1. Basic Counts
         const totalEmployees = await UserModel.countDocuments({ activeStatus: true });
-
-        // Active orders: Not completed/shipped? 
-        // Logic: Orders that are not fully completed.
-        // Or strictly status based. Let's assume 'Completed' is the final status.
         const activeOrders = await OrderModel.countDocuments({ status: { $ne: 'Completed' } });
-
+        
         // Tests Completed: Count of transformers where currentStage is 'shipped' (assuming shipped means all done)
-        // OR check completionStages in order (but that's order level).
-        // Let's count transformers that passed 'final' stage.
-        // Assuming 'final' stage completion is marked in testHistory.final_test.status = 'Completed'.
-        // Or simplified: currentStage === 'shipped' or 'final' + completed.
-        // Let's use: count transformers where currentStage is 'shipped'.
         const testsCompleted = await TransformerModel.countDocuments({ currentStage: 'shipped' });
 
         // Pending Tests: All active transformers not shipped.
         const totalTransformers = await TransformerModel.countDocuments({});
         const pendingTests = totalTransformers - testsCompleted;
 
-        // 2. Testing Progress Trend (Dynamic Aggregation)
-        // We want to show the last 6 months of data.
-        const months = [];
-        const countPromises = [];
+        // 2. Active WIP by Stage (Exclude Heating completely)
+        const activeTransformers = await TransformerModel.find({
+            currentStage: { $in: ['core', 'secondary', 'secondary_failed', 'primary', 'final', 'admin_review', 'pt_pretest', 'pt'] }
+        }, { currentStage: 1 }).lean();
 
-        for (let i = 5; i >= 0; i--) {
-            const startDate = new Date();
-            startDate.setMonth(startDate.getMonth() - i);
-            startDate.setDate(1);
-            startDate.setHours(0, 0, 0, 0);
+        const wipMap = {
+            'Core Testing': 0,
+            'Secondary Testing': 0,
+            'After Primary Testing': 0,
+            'Final Testing': 0,
+            'PT Pretesting': 0,
+            'PT Final Testing': 0
+        };
 
-            const endDate = new Date(startDate);
-            endDate.setMonth(endDate.getMonth() + 1);
+        activeTransformers.forEach(t => {
+            if (t.currentStage === 'core') wipMap['Core Testing']++;
+            else if (t.currentStage === 'secondary' || t.currentStage === 'secondary_failed') wipMap['Secondary Testing']++;
+            else if (t.currentStage === 'primary') wipMap['After Primary Testing']++; // Heating is completely excluded
+            else if (t.currentStage === 'final' || t.currentStage === 'admin_review') wipMap['Final Testing']++;
+            else if (t.currentStage === 'pt_pretest') wipMap['PT Pretesting']++;
+            else if (t.currentStage === 'pt') wipMap['PT Final Testing']++;
+        });
 
-            const monthData = {
-                monthVal: startDate.getMonth(),
-                yearVal: startDate.getFullYear(),
-                label: startDate.toLocaleString('default', { month: 'short' }),
-                core: 0,
-                secondary: 0,
-                primary: 0,
-                final: 0,
-                pt: 0,
-                heating: 0
-            };
-            months.push(monthData);
+        const wipData = Object.keys(wipMap).map(key => ({ stage: key, count: wipMap[key] }));
 
-            const stages = [
-                { key: 'core', dbKey: 'core_test' },
-                { key: 'secondary', dbKey: 'secondary_test' },
-                { key: 'primary', dbKey: 'primary_test' },
-                { key: 'final', dbKey: 'final_test' },
-                { key: 'pt', dbKey: 'pt_test' },
-                { key: 'heating', dbKey: 'heating_test' }
-            ];
-
-            for (const stage of stages) {
-                const promise = TransformerModel.countDocuments({
-                    [`testHistory.${stage.dbKey}.status`]: { $in: ['Completed', 'Approved'] },
-                    [`testHistory.${stage.dbKey}.timestamp`]: { $gte: startDate, $lt: endDate }
-                }).then(count => {
-                    monthData[stage.key] = count;
-                });
-                countPromises.push(promise);
+        // 3. Tester Performance Dashboard (excluding Heating, sorting DESC, Top 10)
+        // Group by testerName in completed cttimers (exclude any where stage is heating)
+        const ctPerformance = await CTTimerModel.aggregate([
+            { $match: { status: 'Completed', stage: { $ne: 'heating' } } },
+            {
+                $group: {
+                    _id: "$testerName",
+                    unitsTested: { $sum: 1 },
+                    totalDelayMs: { $sum: "$delayMs" }
+                }
             }
+        ]);
+
+        // Group by testerName in completed pttimers
+        const ptPerformance = await PTTimerModel.aggregate([
+            { $match: { status: 'Completed', stage: { $ne: 'heating' } } },
+            {
+                $group: {
+                    _id: "$testerName",
+                    unitsTested: { $sum: 1 },
+                    totalDelayMs: { $sum: "$delayMs" }
+                }
+            }
+        ]);
+
+        const testerMap = {};
+        const addPerformanceData = (perfList) => {
+            perfList.forEach(p => {
+                const name = p._id || "Unknown";
+                if (!testerMap[name]) {
+                    testerMap[name] = {
+                        testerName: name,
+                        unitsTested: 0,
+                        totalDelayMs: 0
+                    };
+                }
+                testerMap[name].unitsTested += p.unitsTested;
+                testerMap[name].totalDelayMs += p.totalDelayMs;
+            });
+        };
+
+        addPerformanceData(ctPerformance);
+        addPerformanceData(ptPerformance);
+
+        const testerData = Object.values(testerMap)
+            .map(t => {
+                const totalDelay = Math.round(t.totalDelayMs / 60000);
+                const averageDelay = t.unitsTested > 0 ? Math.round((t.totalDelayMs / t.unitsTested) / 60000) : 0;
+                return {
+                    tester: t.testerName,
+                    unitsTested: t.unitsTested,
+                    totalDelay,
+                    averageDelay
+                };
+            })
+            .sort((a, b) => b.unitsTested - a.unitsTested) // Sort DESC by Units Tested
+            .slice(0, 10); // Limit to Top 10
+
+        // 4. Daily Production Output Trend (excluding Heating)
+        // Get all completed CT transformers (via final_test.status and timestamp)
+        const ctCompleted = await TransformerModel.find({
+            "testHistory.final_test.status": { $in: ["Completed", "Approved"] },
+            "testHistory.final_test.timestamp": { $exists: true }
+        }, { "testHistory.final_test.timestamp": 1 }).lean();
+
+        // Get all completed PT transformers (via pt_test.approved and fallback to updatedAt)
+        const ptCompleted = await TransformerModel.find({
+            $or: [
+                { "testHistory.pt_test.approved": true },
+                { "testHistory.pt_test.approved": "true" }
+            ]
+        }, { "testHistory.pt_test.timestamp": 1, updatedAt: 1 }).lean();
+
+        const daily = [];
+        const weekly = [];
+        const monthly = [];
+
+        const now = new Date();
+
+        // Daily trend: last 30 days
+        for (let i = 29; i >= 0; i--) {
+            const d = new Date(now);
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            const label = d.toLocaleDateString('default', { month: 'short', day: 'numeric' });
+            daily.push({ date: dateStr, label, ct: 0, pt: 0 });
         }
 
-        await Promise.all(countPromises);
+        // Weekly trend: last 12 weeks
+        for (let i = 11; i >= 0; i--) {
+            const d = new Date(now);
+            d.setDate(d.getDate() - i * 7);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            const monday = new Date(d.setDate(diff));
+            const mondayStr = monday.toISOString().split('T')[0];
+            const label = `Wk ${monday.toLocaleDateString('default', { month: 'numeric', day: 'numeric' })}`;
+            
+            weekly.push({
+                date: mondayStr,
+                label,
+                ct: 0,
+                pt: 0,
+                startDate: new Date(monday.setHours(0, 0, 0, 0)),
+                endDate: new Date(monday.getTime() + 7 * 24 * 60 * 60 * 1000)
+            });
+        }
 
-        const testingData = months.map(m => ({
-            month: m.label,
-            core: m.core,
-            secondary: m.secondary,
-            primary: m.primary,
-            final: m.final,
-            pt: m.pt,
-            heating: m.heating
+        // Monthly trend: last 12 months
+        for (let i = 11; i >= 0; i--) {
+            const d = new Date(now);
+            d.setMonth(d.getMonth() - i);
+            const yearMonthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            const label = d.toLocaleString('default', { month: 'short' });
+            monthly.push({ date: yearMonthStr, label, ct: 0, pt: 0, monthVal: d.getMonth(), yearVal: d.getFullYear() });
+        }
+
+        // Populate CT Completed Units
+        ctCompleted.forEach(unit => {
+            const ts = new Date(unit.testHistory.final_test.timestamp);
+            if (isNaN(ts.getTime())) return;
+
+            const dateStr = ts.toISOString().split('T')[0];
+            const dMatch = daily.find(day => day.date === dateStr);
+            if (dMatch) dMatch.ct++;
+
+            weekly.forEach(wk => {
+                if (ts >= wk.startDate && ts < wk.endDate) {
+                    wk.ct++;
+                }
+            });
+
+            const mVal = ts.getMonth();
+            const yVal = ts.getFullYear();
+            const mMatch = monthly.find(m => m.monthVal === mVal && m.yearVal === yVal);
+            if (mMatch) mMatch.ct++;
+        });
+
+        // Populate PT Completed Units (with safe fallback: timestamp OR updatedAt)
+        ptCompleted.forEach(unit => {
+            const ts = new Date(unit.testHistory?.pt_test?.timestamp || unit.updatedAt);
+            if (isNaN(ts.getTime())) return;
+
+            const dateStr = ts.toISOString().split('T')[0];
+            const dMatch = daily.find(day => day.date === dateStr);
+            if (dMatch) dMatch.pt++;
+
+            weekly.forEach(wk => {
+                if (ts >= wk.startDate && ts < wk.endDate) {
+                    wk.pt++;
+                }
+            });
+
+            const mVal = ts.getMonth();
+            const yVal = ts.getFullYear();
+            const mMatch = monthly.find(m => m.monthVal === mVal && m.yearVal === yVal);
+            if (mMatch) mMatch.pt++;
+        });
+
+        const cleanedWeekly = weekly.map(w => ({
+            date: w.date,
+            label: w.label,
+            ct: w.ct,
+            pt: w.pt
         }));
 
-        // 3. Detailed Order Status Distribution (Dynamic)
-        // 3. Detailed Order Status Distribution & Recent Activity
-        const [
-            pendingOrders,
-            coreOrders,
-            secondaryOrders,
-            primaryOrders,
-            heatingOrders,
-            finalOrders,
-            ptOrders,
-            completedOrders,
-            recentOrders,
-            recentUsers
-        ] = await Promise.all([
-            OrderModel.countDocuments({ status: { $in: ['Pending Approval', 'Pending'] } }),
-            OrderModel.countDocuments({ status: { $in: ['Core Testing In Progress', 'Core Testing Completed'] } }),
-            OrderModel.countDocuments({ status: 'In Progress', currentStage: 'secondary' }),
-            OrderModel.countDocuments({ status: 'In Progress', currentStage: 'primary' }),
-            OrderModel.countDocuments({ status: 'In Progress', currentStage: 'heating' }),
-            OrderModel.countDocuments({ status: 'In Progress', currentStage: 'final' }),
-            OrderModel.countDocuments({ status: { $in: ['PT Testing In Progress', 'PT Testing Completed', 'PT Pretesting In Progress', 'PT Pretesting Completed'] } }),
-            OrderModel.countDocuments({ status: { $in: ['Completed', 'COMPLETED'] } }),
+        const cleanedMonthly = monthly.map(m => ({
+            date: m.date,
+            label: m.label,
+            ct: m.ct,
+            pt: m.pt
+        }));
+
+        const productionTrend = {
+            daily: daily.map(d => ({ date: d.date, label: d.label, ct: d.ct, pt: d.pt })),
+            weekly: cleanedWeekly,
+            monthly: cleanedMonthly
+        };
+
+        // 5. Recent Activity
+        const [recentOrders, recentUsers] = await Promise.all([
             OrderModel.find().sort({ createdAt: -1 }).limit(3).lean(),
             UserModel.find().sort({ createdAt: -1 }).limit(2).lean()
         ]);
 
         const activity = [];
-
-        const orderData = [
-            { name: 'Pending', value: pendingOrders, color: '#94a3b8' },
-            { name: 'Core', value: coreOrders, color: '#3b82f6' },
-            { name: 'Secondary', value: secondaryOrders, color: '#8b5cf6' },
-            { name: 'Primary', value: primaryOrders, color: '#f97316' },
-            { name: 'Heating', value: heatingOrders, color: '#f59e0b' },
-            { name: 'Final', value: finalOrders, color: '#10b981' },
-            { name: 'PT', value: ptOrders, color: '#ec4899' },
-            { name: 'Completed', value: completedOrders, color: '#059669' },
-        ];
-
         recentOrders.forEach(o => {
             activity.push({
                 action: 'New order created',
@@ -238,7 +345,6 @@ router.get('/stats', async (req, res) => {
             });
         });
 
-        // Sort by time desc
         activity.sort((a, b) => new Date(b.time) - new Date(a.time));
 
         res.status(200).json({
@@ -249,8 +355,9 @@ router.get('/stats', async (req, res) => {
                 { label: 'Tests Completed', value: testsCompleted.toString(), icon: 'CheckCircle2', color: 'green', change: '+0' },
                 { label: 'Pending Tests', value: pendingTests.toString(), icon: 'AlertCircle', color: 'orange', change: '+0' },
             ],
-            testingData, // Sending static for now
-            orderData,
+            wipData,
+            testerData,
+            productionTrend,
             recentActivity: activity
         });
 

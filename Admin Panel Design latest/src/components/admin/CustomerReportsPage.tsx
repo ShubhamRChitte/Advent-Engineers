@@ -13,31 +13,34 @@ export function CustomerReportsPage({ onBack }: CustomerReportsPageProps) {
   const [activeTab, setActiveTab] = useState<'CT' | 'PT'>('CT');
 
   return (
-    <div className="space-y-6">
-      {/* Custom Tab Navigation */}
-      <div className="inline-flex bg-gray-100/80 backdrop-blur-sm p-1.5 rounded-xl border border-gray-200/50 mb-6 shadow-sm">
-        <button
-          onClick={() => setActiveTab('CT')}
-          className={`relative flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium text-sm transition-all duration-300 ${
-            activeTab === 'CT' 
-            ? 'bg-white text-blue-700 shadow-sm ring-1 ring-black/5' 
-            : 'text-gray-500 hover:text-gray-800 hover:bg-gray-200/50'
-          }`}
-        >
-          <FileText className={`w-4 h-4 ${activeTab === 'CT' ? 'text-blue-600' : 'text-gray-400'}`} />
-          CT Customer Reports
-        </button>
-        <button
-          onClick={() => setActiveTab('PT')}
-          className={`relative flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium text-sm transition-all duration-300 ${
-            activeTab === 'PT' 
-            ? 'bg-white text-purple-700 shadow-sm ring-1 ring-black/5' 
-            : 'text-gray-500 hover:text-gray-800 hover:bg-gray-200/50'
-          }`}
-        >
-          <FileText className={`w-4 h-4 ${activeTab === 'PT' ? 'text-purple-600' : 'text-gray-400'}`} />
-          PT Customer Reports
-        </button>
+    <div className="space-y-4">
+      {/* Professional Module Navigation Tabs */}
+      <div className="border-b border-gray-200 w-full mb-6">
+        <nav className="flex flex-row gap-6 sm:gap-12 -mb-px" aria-label="Customer Reports Switcher">
+          <button
+            onClick={() => setActiveTab('CT')}
+            className={`flex items-center gap-3 py-4 px-3 sm:px-6 text-base border-b-[3px] transition-all duration-200 outline-none ${
+              activeTab === 'CT'
+                ? 'border-[#003a70] text-[#003a70] font-bold'
+                : 'border-transparent text-gray-500 hover:text-[#003a70] hover:border-gray-300/80 font-medium'
+            }`}
+          >
+            <FileText className={`w-5 h-5 transition-colors duration-200 ${activeTab === 'CT' ? 'text-[#003a70]' : 'text-gray-400'}`} />
+            <span>CT Customer Reports</span>
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('PT')}
+            className={`flex items-center gap-3 py-4 px-3 sm:px-6 text-base border-b-[3px] transition-all duration-200 outline-none ${
+              activeTab === 'PT'
+                ? 'border-[#003a70] text-[#003a70] font-bold'
+                : 'border-transparent text-gray-500 hover:text-[#003a70] hover:border-gray-300/80 font-medium'
+            }`}
+          >
+            <FileText className={`w-5 h-5 transition-colors duration-200 ${activeTab === 'PT' ? 'text-[#003a70]' : 'text-gray-400'}`} />
+            <span>PT Customer Reports</span>
+          </button>
+        </nav>
       </div>
 
       <div className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm min-h-[500px]">

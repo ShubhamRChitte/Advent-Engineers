@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import useSWR from 'swr';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Users, Package, ClipboardCheck, TrendingUp, AlertCircle, CheckCircle2, PlusCircle, List, ArrowRight } from 'lucide-react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface AdminDashboardProps {
   setActiveView?: (view: string) => void;
@@ -18,6 +19,7 @@ const ICON_MAP: any = {
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
+  const [trendTimeframe, setTrendTimeframe] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const { data, error, isLoading } = useSWR(
     `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/dashboard/stats`,
     fetcher
@@ -53,8 +55,9 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
   }
 
   const stats = data?.stats || [];
-  const testingData = data?.testingData || [];
-  const orderData = data?.orderData || [];
+  const wipData = data?.wipData || [];
+  const testerData = data?.testerData || [];
+  const trendData = data?.productionTrend?.[trendTimeframe] || [];
   const activities = data?.recentActivity || [];
 
   return (
@@ -121,47 +124,102 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
         </div>
       )}
 
-      {/* Charts */}
+      {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 1. Active WIP by Stage */}
         <Card className="p-6">
-          <h3 className="text-lg font-bold mb-4">Testing Progress Trend</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={testingData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="core" stroke="#3b82f6" strokeWidth={2} name="Core Tests" />
-              <Line type="monotone" dataKey="secondary" stroke="#8b5cf6" strokeWidth={2} name="Secondary Tests" />
-              <Line type="monotone" dataKey="primary" stroke="#f97316" strokeWidth={2} name="Primary Tests" />
-              <Line type="monotone" dataKey="heating" stroke="#f59e0b" strokeWidth={2} name="Heating Tests" />
-              <Line type="monotone" dataKey="pt" stroke="#ec4899" strokeWidth={2} name="PT Tests" />
-              <Line type="monotone" dataKey="final" stroke="#10b981" strokeWidth={2} name="Final Tests" />
-            </LineChart>
-          </ResponsiveContainer>
-        </Card>
-
-        <Card className="p-6">
-          <h3 className="text-lg font-bold mb-4">Order Status Distribution</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={orderData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} />
-              <YAxis axisLine={false} tickLine={false} fontSize={12} />
-              <Tooltip 
+          <h3 className="text-lg font-bold mb-4 text-gray-800">Active Work-in-Progress (WIP) by Stage</h3>
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart
+              layout="vertical"
+              data={wipData}
+              margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} vertical={true} />
+              <XAxis type="number" allowDecimals={false} stroke="#94a3b8" />
+              <YAxis dataKey="stage" type="category" width={160} stroke="#94a3b8" fontSize={12} />
+              <Tooltip
                 cursor={{ fill: '#f8fafc' }}
                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
               />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={40}>
-                {orderData.map((entry: any, index: number) => (
-                  <Cell key={`cell-${index}`} fill={entry.color || '#ef4444'} />
-                ))}
-              </Bar>
+              <Bar dataKey="count" fill="#003a70" radius={[0, 4, 4, 0]} name="Active Units" />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* 2. Tester Performance */}
+        <Card className="p-6">
+          <h3 className="text-lg font-bold mb-4 text-gray-800">Top Tester Performance</h3>
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart
+              layout="vertical"
+              data={testerData}
+              margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} vertical={true} />
+              <XAxis type="number" allowDecimals={false} stroke="#94a3b8" />
+              <YAxis dataKey="tester" type="category" width={120} stroke="#94a3b8" fontSize={12} />
+              <Tooltip
+                cursor={{ fill: '#f8fafc' }}
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const d = payload[0].payload;
+                    return (
+                      <div className="bg-white p-3 border border-gray-100 rounded-lg shadow-lg text-sm space-y-1">
+                        <p className="font-bold text-gray-800">{d.tester}</p>
+                        <p className="text-gray-600"><span className="font-medium text-[#8b5cf6]">Units Tested:</span> {d.unitsTested}</p>
+                        <p className="text-gray-600"><span className="font-medium text-amber-600">Average Delay:</span> {d.averageDelay} min</p>
+                        <p className="text-gray-600"><span className="font-medium text-red-500">Total Delay:</span> {d.totalDelay} min</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Bar dataKey="unitsTested" fill="#8b5cf6" radius={[0, 4, 4, 0]} name="Units Tested" />
             </BarChart>
           </ResponsiveContainer>
         </Card>
       </div>
+
+      {/* 3. Daily Production Output Trend */}
+      <Card className="p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h3 className="text-lg font-bold text-gray-800">Production Output Trend</h3>
+            <p className="text-sm text-gray-500 mt-0.5">Completed and approved transformers over time</p>
+          </div>
+          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg self-start sm:self-center">
+            {(['daily', 'weekly', 'monthly'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTrendTimeframe(t)}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider transition-colors ${
+                  trendTimeframe === t
+                    ? 'bg-white text-[#003a70] shadow-sm'
+                    : 'text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <ResponsiveContainer width="100%" height={320}>
+          <LineChart data={trendData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis dataKey="label" stroke="#94a3b8" />
+            <YAxis stroke="#94a3b8" allowDecimals={false} />
+            <Tooltip
+              contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+            />
+            <Legend verticalAlign="top" height={36} />
+            <Line type="monotone" dataKey="ct" stroke="#3b82f6" strokeWidth={3} name="CT Completed Units" activeDot={{ r: 6 }} />
+            <Line type="monotone" dataKey="pt" stroke="#ec4899" strokeWidth={3} name="PT Completed Units" activeDot={{ r: 6 }} />
+          </LineChart>
+        </ResponsiveContainer>
+      </Card>
 
 
       {/* Recent Activity */}

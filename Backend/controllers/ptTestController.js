@@ -88,7 +88,11 @@ exports.approveOrder = async (req, res) => {
 
     // Set approved flag on all transformers in the order
     for (const transformer of allTransformers) {
-      const ptTestUpdate = { ...transformer.testHistory.pt_test, approved: true };
+      const ptTestUpdate = { 
+        ...transformer.testHistory.pt_test, 
+        approved: true,
+        timestamp: new Date()
+      };
       await TransformerModel.findByIdAndUpdate(transformer._id, {
         $set: { 'testHistory.pt_test': ptTestUpdate }
       });
@@ -155,7 +159,11 @@ exports.approveTransformer = async (req, res) => {
     }
 
     // Set approved flag on transformer's PT test
-    const ptTestUpdate = { ...transformer.testHistory.pt_test, approved: true };
+    const ptTestUpdate = { 
+      ...transformer.testHistory.pt_test, 
+      approved: true,
+      timestamp: new Date()
+    };
     await TransformerModel.findByIdAndUpdate(transformerId, {
       $set: { 'testHistory.pt_test': ptTestUpdate }
     });
