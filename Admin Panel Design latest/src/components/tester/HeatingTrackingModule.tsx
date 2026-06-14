@@ -120,7 +120,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
     
     if (existingRecord) {
         setRecord({
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             transformerId: t._id,
             groupNo: "No.-1",
             serialNumber: t.uniqueId,
@@ -167,7 +167,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
     } else {
         // Create new fresh block
         const newBlock: HeatingRecordBlock = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             transformerId: t._id,
             groupNo: "No.-1",
             serialNumber: t.uniqueId,

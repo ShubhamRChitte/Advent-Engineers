@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { ReturnFormModel } = require('../models/ReturnFormModel');
 const { FailedCoreModel } = require('../models/FailedCoreModel');
 const { isAuthenticated } = require('../middlewares/authMiddleware');
+const { escapeRegExp } = require('../utils/regexHelper');
 
 // POST /api/return-forms
 // Create a new return form and update failed core statuses
@@ -72,7 +73,7 @@ router.get('/', isAuthenticated, async (req, res) => {
 
         let query = {};
         if (search) {
-            const searchRegex = new RegExp(search, 'i');
+            const searchRegex = new RegExp(escapeRegExp(search), 'i');
             query.$or = [
                 { returnNumber: searchRegex },
                 { vendorName: searchRegex }
@@ -89,7 +90,7 @@ router.get('/', isAuthenticated, async (req, res) => {
             const totalCount = await ReturnFormModel.countDocuments(query);
             res.json({ success: true, data, totalCount });
         } else {
-            const data = await ReturnFormModel.find().sort({ createdAt: -1 }).lean();
+            const data = await ReturnFormModel.find().sort({ createdAt: -1 }).limit(1000).lean();
             res.json({ success: true, data });
         }
     } catch (err) {

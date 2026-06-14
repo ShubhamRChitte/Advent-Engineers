@@ -2,6 +2,14 @@ const express = require("express");
 const passport = require("passport");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
+const { isAuthenticated, isAdmin } = require("../middlewares/authMiddleware");
+const rateLimit = require("express-rate-limit");
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 auth requests per windowMs
+  message: { success: false, message: 'Too many login attempts from this IP, please try again after 15 minutes.' }
+});
 
 // Helper to map designation/department to frontend role
 const getMappedRole = (user) => {
@@ -18,7 +26,7 @@ const getMappedRole = (user) => {
 };
 
 // Login Route
-router.post("/login", (req, res, next) => {
+router.post("/login", authLimiter, (req, res, next) => {
     passport.authenticate("local", (err, user, info) => {
         if (err) return next(err);
         if (!user) return res.status(401).json({ success: false, message: info.message });
@@ -31,7 +39,7 @@ router.post("/login", (req, res, next) => {
             // Generate JWT Token
             const token = jwt.sign(
                 { id: user._id, role: role },
-                process.env.JWT_SECRET || 'advent_engineers_secret_key',
+                process.env.JWT_SECRET,
                 { expiresIn: '24h' }
             );
 
@@ -75,7 +83,7 @@ router.get("/check-auth", (req, res) => {
 });
 
 // Get Testers List (for Admin Dropdowns)
-router.get("/testers", async (req, res) => {
+router.get("/testers", isAuthenticated, async (req, res) => {
     try {
         const { UserModel } = require("../models/UserModel"); // Lazy load to avoid circular deps if any
         // Roles that are considered testers
@@ -116,7 +124,7 @@ const getNextEmployeeId = async () => {
 };
 
 // Add Employee Route
-router.post("/add-employee", async (req, res) => {
+router.post("/add-employee", authLimiter, isAdmin, async (req, res) => {
     try {
         const { UserModel } = require("../models/UserModel");
         const bcrypt = require("bcryptjs");
@@ -183,7 +191,7 @@ router.post("/add-employee", async (req, res) => {
 });
 
 // Get All Employees Route
-router.get("/all-employees", async (req, res) => {
+router.get("/all-employees", isAdmin, async (req, res) => {
     try {
         const { UserModel } = require("../models/UserModel");
         const limit = parseInt(req.query.limit) || 0;
@@ -200,7 +208,7 @@ router.get("/all-employees", async (req, res) => {
             const totalCount = await UserModel.countDocuments({});
             res.status(200).json({ success: true, users, totalCount });
         } else {
-            const users = await UserModel.find({}).select("-password").sort({ createdAt: -1 }).lean();
+            const users = await UserModel.find({}).select("-password").sort({ createdAt: -1 }).limit(1000).lean();
             res.status(200).json({ success: true, users });
         }
     } catch (error) {
@@ -209,8 +217,8 @@ router.get("/all-employees", async (req, res) => {
     }
 });
 
-// Update Employee
-router.put("/update-employee/:id", async (req, res) => {
+// Update Employee Route
+router.put("/update-employee/:id", isAdmin, async (req, res) => {
     try {
         const { UserModel } = require("../models/UserModel");
         const bcrypt = require("bcryptjs");
@@ -237,8 +245,8 @@ router.put("/update-employee/:id", async (req, res) => {
     }
 });
 
-// Delete Employee
-router.delete("/delete-employee/:id", async (req, res) => {
+// Delete Employee Route
+router.delete("/delete-employee/:id", isAdmin, async (req, res) => {
     try {
         const { UserModel } = require("../models/UserModel");
         const { id } = req.params;

@@ -553,14 +553,13 @@
 //   );
 // }
 
-
-
 import axios from 'axios';
 import React, { useState } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { ArrowLeft, Save, Printer, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import { SOCKET_URL } from '../../utils/socket';
 import { Transformer } from './SecondaryTransformersList';
 import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
@@ -840,7 +839,7 @@ export function SecondaryPSReport({
       };
 
       console.log("handleDatabaseSave (PS): Payload ready", payload);
-      const baseUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+      const baseUrl = SOCKET_URL;
       const endpoint = `${baseUrl}/transformer-${stage}-ps-tests`;
       // 2. Execute POST request
       const response = await axios.post(

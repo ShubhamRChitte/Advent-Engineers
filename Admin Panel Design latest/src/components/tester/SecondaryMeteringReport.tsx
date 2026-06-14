@@ -7,6 +7,7 @@ import { Transformer } from './SecondaryTransformersList';
 import { toast } from 'sonner';
 import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { SOCKET_URL } from '../../utils/socket';
 
 interface SecondaryMeteringReportProps {
   transformer: Transformer;
@@ -200,7 +201,7 @@ export function SecondaryMeteringReport({
           accuracyClass: accuracyClass
         }))
       };
-      const baseUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+      const baseUrl = SOCKET_URL;
       await axios.post(`${baseUrl}/transformer-${stage}-metering-tests`, payload, { withCredentials: true });
       if (onCompleteTimer) await onCompleteTimer();
       toast.success("Data saved successfully!");

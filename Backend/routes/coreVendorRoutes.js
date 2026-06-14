@@ -4,7 +4,7 @@ const { CoreVendorModel } = require('../models/CoreVendorModel');
 const { isAuthenticated } = require('../middlewares/authMiddleware');
 
 // GET all active core vendors
-router.get('/', async (req, res) => {
+router.get('/', isAuthenticated, async (req, res) => {
     try {
         const vendors = await CoreVendorModel.find({ status: 'active' }).sort({ vendor_no: 1 });
         res.json({ success: true, data: vendors });

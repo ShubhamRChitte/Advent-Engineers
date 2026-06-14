@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
-const { FailedTransformerModel } = require('../models/FailedTransformerModel');
 const { TransformerModel } = require('../models/TransformerModel');
+const { FailedTransformerModel } = require('../models/FailedTransformerModel');
+const { escapeRegExp } = require('../utils/regexHelper');
 const { OrderModel } = require('../models/OrderModel');
 const { isAuthenticated } = require('../middlewares/authMiddleware');
 
@@ -109,7 +110,7 @@ router.get('/', isAuthenticated, async (req, res) => {
         }
 
         if (search) {
-            const searchRegex = new RegExp(search, 'i');
+            const searchRegex = new RegExp(escapeRegExp(search), 'i');
             query.$or = [
                 { transformerUniqueId: searchRegex },
                 { jobNumber: searchRegex },

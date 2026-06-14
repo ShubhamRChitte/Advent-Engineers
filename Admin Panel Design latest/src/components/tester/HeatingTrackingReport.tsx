@@ -61,7 +61,7 @@ export function HeatingTrackingReport({ order, transformer, user, onBack }: Heat
 
       if (existingRecord) {
         setRecord({
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             transformerId: dbTransformer._id,
             groupNo: "No.-1",
             serialNumber: dbTransformer.uniqueId,
@@ -85,7 +85,7 @@ export function HeatingTrackingReport({ order, transformer, user, onBack }: Heat
       } else {
         const today = new Date().toISOString().split('T')[0] || '';
         setRecord({
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             transformerId: transformer._id,
             groupNo: "No.-1",
             serialNumber: transformer.uniqueId,

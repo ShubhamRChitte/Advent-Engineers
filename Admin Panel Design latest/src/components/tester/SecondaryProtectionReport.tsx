@@ -7,6 +7,7 @@ import { Transformer } from './SecondaryTransformersList';
 import { toast } from 'sonner';
 import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { SOCKET_URL } from '../../utils/socket';
 
 interface SecondaryProtectionReportProps {
   transformer: Transformer;
@@ -490,7 +491,7 @@ export function SecondaryProtectionReport({
       };
 
       console.log("handleDatabaseSave: Payload ready", payload);
-      const baseUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+      const baseUrl = SOCKET_URL;
       const endpoint = `${baseUrl}/transformer-${stage}-protection-tests`;
       console.log(`handleDatabaseSave: Sending Request to ${endpoint}...`);
 

@@ -3,6 +3,7 @@ const router = express.Router();
 const { isAuthenticated } = require('../middlewares/authMiddleware');
 const { TransformerModel } = require('../models/TransformerModel');
 const { CounterModel } = require('../models/CounterModel'); // Adjust path if needed
+const { escapeRegExp } = require('../utils/regexHelper');
 const path = require('path');
 
 
@@ -422,7 +423,7 @@ router.get('/secondary/reports', isAuthenticated, async (req, res) => {
     // Find transformers where this user marked secondary test as Completed
     // Construct a list of possible names to search for
     const namesToCheck = [user.name, user.fullName, user.username].filter(n => n && n.trim().length > 0).map(n => n.trim());
-    const nameRegexes = namesToCheck.map(n => new RegExp(n, 'i'));
+    const nameRegexes = namesToCheck.map(n => new RegExp(escapeRegExp(n), 'i'));
 
     console.log("Fetching secondary reports for names:", namesToCheck);
 
@@ -440,7 +441,7 @@ router.get('/secondary/reports', isAuthenticated, async (req, res) => {
       ];
     }
 
-    const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 }).populate('orderId');
+    const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 }).limit(200).populate('orderId');
 
     const enrichedTransformers = transformers.map(t => {
       const obj = t.toObject();
@@ -478,7 +479,7 @@ router.get('/after-primary/reports', isAuthenticated, async (req, res) => {
 
     // Find transformers where this user marked after-primary test as Completed
     const namesToCheck = [user.name, user.fullName, user.username].filter(n => n && n.trim().length > 0).map(n => n.trim());
-    const nameRegexes = namesToCheck.map(n => new RegExp(n, 'i'));
+    const nameRegexes = namesToCheck.map(n => new RegExp(escapeRegExp(n), 'i'));
 
     const isAdmin = user.role === 'admin' || user.designation === 'Admin' || ['Management', 'Office', 'Admin'].includes(user.department);
     const query = {
@@ -492,7 +493,7 @@ router.get('/after-primary/reports', isAuthenticated, async (req, res) => {
       ];
     }
 
-    const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 }).populate('orderId');
+    const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 }).limit(200).populate('orderId');
 
     const enrichedTransformers = transformers.map(t => {
       const obj = t.toObject();
@@ -523,7 +524,7 @@ router.get('/final/reports', isAuthenticated, async (req, res) => {
 
     // Find transformers where this user marked final test as Completed
     const namesToCheck = [user.name, user.fullName, user.username].filter(n => n && n.trim().length > 0).map(n => n.trim());
-    const nameRegexes = namesToCheck.map(n => new RegExp(n, 'i'));
+    const nameRegexes = namesToCheck.map(n => new RegExp(escapeRegExp(n), 'i'));
 
     const isAdmin = user.role === 'admin' || user.designation === 'Admin' || ['Management', 'Office', 'Admin'].includes(user.department);
     const query = {
@@ -537,7 +538,7 @@ router.get('/final/reports', isAuthenticated, async (req, res) => {
       ];
     }
 
-    const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 }).populate('orderId');
+    const transformers = await TransformerModel.find(query).sort({ updatedAt: -1 }).limit(200).populate('orderId');
 
     const enrichedTransformers = transformers.map(t => {
       const obj = t.toObject();
@@ -576,11 +577,11 @@ router.get('/admin/orders', isAuthenticated, async (req, res) => {
     let query = {};
 
     if (typeFilter !== 'all') {
-      query.transformerType = new RegExp(`^${typeFilter}$`, 'i');
+      query.transformerType = new RegExp(`^${escapeRegExp(typeFilter)}$`, 'i');
     }
 
     if (search) {
-      const searchRegex = new RegExp(search, 'i');
+      const searchRegex = new RegExp(escapeRegExp(search), 'i');
       query.$or = [
         { jobId: searchRegex },
         { orderId: searchRegex },
@@ -632,7 +633,7 @@ router.get('/admin/orders', isAuthenticated, async (req, res) => {
       res.json({ success: true, orders, counts });
     } else {
       // Fallback for legacy components (e.g. OrdersListView.tsx if it's not updated yet)
-      const orders = await OrderModel.find({}).lean().sort({ createdAt: -1 });
+      const orders = await OrderModel.find({}).lean().sort({ createdAt: -1 }).limit(1000);
       res.json(orders);
     }
 

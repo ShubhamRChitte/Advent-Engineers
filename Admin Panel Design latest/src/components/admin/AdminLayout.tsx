@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { User } from '../../App';
-import axios from 'axios';
+import axios from '../../utils/axiosConfig';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminHeader } from './AdminHeader';
 import { AdminDashboard } from './AdminDashboard';
@@ -38,8 +38,8 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
   useEffect(() => {
     const fetchVendors = async () => {
       try {
-        const response = await fetch(`/core-vendors`);
-        const data = await response.json();
+        const response = await axios.get(`/core-vendors`);
+        const data = response.data;
         if (data.success) {
           setAllVendors(data.data);
         }

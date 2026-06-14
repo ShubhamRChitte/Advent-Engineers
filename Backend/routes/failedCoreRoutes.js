@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const { FailedCoreModel } = require('../models/FailedCoreModel');
+const { escapeRegExp } = require('../utils/regexHelper');
 const { OrderModel } = require('../models/OrderModel');
 const { isAuthenticated } = require('../middlewares/authMiddleware');
 
@@ -172,7 +173,7 @@ router.get('/', isAuthenticated, async (req, res) => {
 
         // 2. Search (Multi-field)
         if (search && search.trim() !== "") {
-            const searchRegex = new RegExp(search.trim(), 'i');
+            const searchRegex = new RegExp(escapeRegExp(search.trim()), 'i');
             query.$or = [
                 { internalCoreNo: searchRegex },
                 { vendorCoreNo: searchRegex },

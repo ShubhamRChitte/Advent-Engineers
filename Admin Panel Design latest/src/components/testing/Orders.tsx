@@ -67,7 +67,7 @@ export function Orders(_props: OrdersProps) {
             if (!acc[order.clientName]) {
                 acc[order.clientName] = [];
             }
-            acc[order.clientName]!.push(order);
+            acc[order.clientName]?.push(order);
             return acc;
         }, {} as Record<string, Order[]>);
 

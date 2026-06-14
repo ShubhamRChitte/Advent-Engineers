@@ -110,7 +110,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
       const res = await axios.get(`/heating-record/${selectedOrder._id}/${transformerType}`, { withCredentials: true });
       if (res.data.success && res.data.data?.blocks?.length > 0) {
         const uiBlocks = res.data.data.blocks.map((b: any) => ({
-          id: Math.random().toString(36).substr(2, 9),
+          id: crypto.randomUUID(),
           transformerId: '',
           groupNo: b.groupNo || '',
           serialNumber: b.serialNumber || '',
@@ -157,7 +157,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
     }
   
     return {
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
       transformerId: '',
       groupNo: `No.-${blockNumber}`,
       serialNumber: `${voltage}KV - CT = ${blockNumber}`,

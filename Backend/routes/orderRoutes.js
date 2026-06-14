@@ -29,13 +29,13 @@ const handleUpload = (req, res, next) => {
   });
 };
 
-router.post('/create-order', handleUpload, createOrder);
-router.put('/orders/:orderId/approve', approveOrder);
-router.put('/orders/:orderId/reassign', reassignTester);
-router.put('/orders/:orderId', updateOrder);
+router.post('/create-order', isAuthenticated, handleUpload, createOrder);
+router.put('/orders/:orderId/approve', isAuthenticated, approveOrder);
+router.put('/orders/:orderId/reassign', isAuthenticated, reassignTester);
+router.put('/orders/:orderId', isAuthenticated, updateOrder);
 router.delete('/orders/:orderId', isAuthenticated, deleteOrder);
 router.post('/orders/:orderId/update-timer', isAuthenticated, updateOrderTimer);
-router.get('/orders/:orderId', getOrderById);
-router.get('/allorders', getAllOrders);
+router.get('/orders/:orderId', isAuthenticated, getOrderById);
+router.get('/allorders', isAuthenticated, getAllOrders);
 
 module.exports = router;

@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const TransformerModel = require('../models/TransformerModel');
 
+const { isAuthenticated } = require('../middlewares/authMiddleware');
+
 // POST endpoint to save or update PT heating records
-router.post('/', async (req, res) => {
+router.post('/', isAuthenticated, async (req, res) => {
     try {
         const { records } = req.body;
         
@@ -54,7 +56,7 @@ router.post('/', async (req, res) => {
 });
 
 // GET endpoint to fetch PT Heating records for a specific Job ID or Transformer ID
-router.get('/:jobId', async (req, res) => {
+router.get('/:jobId', isAuthenticated, async (req, res) => {
     try {
         const { jobId } = req.params;
         const transformers = await TransformerModel.find({ jobId: jobId }).select('processHistory.ptHeatingRecord');

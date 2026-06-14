@@ -517,7 +517,7 @@ exports.getOrderById = async (req, res) => {
 // GET /allorders
 exports.getAllOrders = async (req, res) => {
   try {
-    let orders = await OrderModel.find({}).lean();
+    let orders = await OrderModel.find({}).lean().limit(1000);
     res.json(orders);
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

@@ -1,7 +1,7 @@
-
 const ReadyTransformer = require("../models/ReadyTransformerModel");
 const { PreTestBatchModel } = require("../models/PreTestBatchModel");
 const { FailedCoreModel } = require("../models/FailedCoreModel");
+const { escapeRegExp } = require("../utils/regexHelper");
 
 exports.addReadyTransformer = async (req, res) => {
   try {
@@ -124,7 +124,7 @@ exports.getAllReadyTransformers = async (req, res) => {
       }
       
       if (search) {
-        const searchRegex = new RegExp(search, 'i');
+        const searchRegex = new RegExp(escapeRegExp(search), 'i');
         query.$or = [
           { coreId: searchRegex },
           { serialNumber: searchRegex },
@@ -141,7 +141,7 @@ exports.getAllReadyTransformers = async (req, res) => {
       const totalCount = await ReadyTransformer.countDocuments(query);
       res.status(200).json({ success: true, data, totalCount });
     } else {
-      const data = await ReadyTransformer.find().sort({ createdAt: -1 }).lean();
+      const data = await ReadyTransformer.find().sort({ createdAt: -1 }).limit(1000).lean();
       res.status(200).json(data);
     }
   } catch (err) {

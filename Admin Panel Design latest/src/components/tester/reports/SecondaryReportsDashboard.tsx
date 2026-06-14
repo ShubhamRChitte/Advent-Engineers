@@ -1,7 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { Card } from '../../ui/card';
-
+import { Badge } from '../../ui/badge';
+import axios from '../../../utils/axiosConfig';
 import { Input } from '../../ui/input';
 import { ChevronDown, ChevronRight, FileText, Loader2, Search } from 'lucide-react';
 import { ReportDetails } from './ReportDetails';
@@ -33,15 +33,11 @@ export function SecondaryReportsDashboard() {
     const fetchReports = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`/secondary/reports`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}` // Ensure auth
-                }
+            const response = await axios.get(`/secondary/reports`, {
+              withCredentials: true
             });
 
-            if (!response.ok) throw new Error('Failed to fetch reports');
-
-            const data = await response.json();
+            const data = response.data;
             const grouped = groupByJob(data);
             setGroupedReports(grouped);
         } catch (err: any) {

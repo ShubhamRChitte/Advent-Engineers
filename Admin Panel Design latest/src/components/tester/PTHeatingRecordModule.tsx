@@ -160,7 +160,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
 
       if (res.data.success && res.data.data?.blocks?.length > 0) {
         const uiBlocks = res.data.data.blocks.map((b: any) => ({
-          id: Math.random().toString(36).substr(2, 9),
+          id: crypto.randomUUID(),
           transformerId: '',
           groupNo: b.groupNo || '',
           serialNumber: b.serialNumber || '',
@@ -195,7 +195,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
     // Default: initialize fresh block
     const today = new Date().toISOString().split('T')[0] || '';
     const block: HeatingRecordBlock = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
       transformerId: '',
       groupNo: 'No.-1',
       serialNumber: t.uniqueId || '33KV - PT = 1',
@@ -241,7 +241,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
     if (!selectedOrder) return;
     const today = new Date().toISOString().split('T')[0] || '';
     setRecords(prev => [...prev, {
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
       transformerId: '',
       groupNo: `No.-${prev.length + 1}`,
       serialNumber: `33KV - PT = ${prev.length + 1}`,

@@ -306,6 +306,8 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
 router.get('/admin-review', isAuthenticated, async (req, res) => {
     try {
         const transformers = await TransformerModel.find({ currentStage: 'admin_review' })
+            .sort({ updatedAt: -1 })
+            .limit(200)
             .populate('orderId')
             .lean();
         res.json({ success: true, data: transformers });
