@@ -307,7 +307,7 @@ export function TesterNotifications({ userRole, onViewOrder, setActiveView }: Te
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/notifications`, { withCredentials: true });
+        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/notifications`, { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
         const mapped = res.data.notifications.map((n: any) => {
           const order = n.orderId || {}; // Use the populated order or an empty object
           return {
@@ -345,7 +345,7 @@ export function TesterNotifications({ userRole, onViewOrder, setActiveView }: Te
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
-      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/notifications/${notificationId}/read`, {}, { withCredentials: true });
+      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/notifications/${notificationId}/read`, {}, { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
       setNotifications(notifications.map(n =>
         n.id === notificationId ? { ...n, isRead: true } : n
       ));
@@ -356,7 +356,7 @@ export function TesterNotifications({ userRole, onViewOrder, setActiveView }: Te
 
   const handleMarkAllAsRead = async () => {
     try {
-      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/notifications/mark-read`, {}, { withCredentials: true });
+      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/notifications/mark-read`, {}, { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
       setNotifications(notifications.map(n => ({ ...n, isRead: true })));
     } catch (err) {
       console.error("Error marking all read:", err);
