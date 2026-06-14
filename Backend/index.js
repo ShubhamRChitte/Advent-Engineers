@@ -401,6 +401,18 @@ app.put("/api/transformers/:id/approve-stage", isAuthenticated, async (req, res)
       if (!transformer.testHistory.secondary_test.tester) {
         transformer.testHistory.secondary_test.tester = userName;
       }
+      
+      // If returning to primary stage (i.e. from Failed Transformers section),
+      // we clear the old primary test readings so the form opens empty.
+      if (nextStage === 'primary' && transformer.testHistory.primary_test) {
+        transformer.testHistory.primary_test.metering_results = [];
+        transformer.testHistory.primary_test.ps_results = [];
+        transformer.testHistory.primary_test.protection_results = [];
+        transformer.testHistory.primary_test.tester = null;
+        transformer.testHistory.primary_test.status = 'Pending';
+        transformer.testHistory.primary_test.completionDate = null;
+        transformer.markModified('testHistory.primary_test');
+      }
     } else if (stage === 'primary') {
       if (!transformer.testHistory.primary_test) transformer.testHistory.primary_test = {};
       transformer.testHistory.primary_test.status = 'Completed';
@@ -426,6 +438,18 @@ app.put("/api/transformers/:id/approve-stage", isAuthenticated, async (req, res)
     // 3. Save with error catching for validation
     try {
       await transformer.save();
+
+      // Mark failed transformer records as RESOLVED since this stage has been approved
+      await FailedTransformerModel.updateMany(
+        {
+          $or: [
+            { transformerId: transformer._id },
+            { transformerUniqueId: transformer.uniqueId }
+          ],
+          status: { $in: ["FAILED", "TREATED"] }
+        },
+        { $set: { status: "RESOLVED" } }
+      );
     } catch (saveErr) {
       console.error("Mongoose Save Error on Approval:", saveErr);
       throw saveErr;

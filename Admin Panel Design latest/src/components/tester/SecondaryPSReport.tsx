@@ -589,6 +589,12 @@ interface SecondaryPSReportProps {
   order?: any;
   onRefresh?: () => void;
   onCompleteTimer?: () => Promise<void>;
+  sourceStage?: 'secondary' | 'primary' | 'final';
+  isFailedSection?: boolean;
+  failedTransformerId?: string;
+  failedStatus?: string;
+  isFailedCore?: boolean;
+  retestHistory?: any[];
 }
 
 export function SecondaryPSReport({ 
@@ -604,10 +610,22 @@ export function SecondaryPSReport({
   secondaryCurrent: manualSecondary,
   order: propOrder,
   onRefresh,
-  onCompleteTimer
+  onCompleteTimer,
+  sourceStage,
+  isFailedSection = false,
+  failedTransformerId,
+  failedStatus,
+  isFailedCore,
+  retestHistory
 }: SecondaryPSReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
     (!isNaN(parseInt(coreId.replace(/[^0-9]/g, ''))) ? parseInt(coreId.replace(/[^0-9]/g, '')) - 1 : 0);
+
+  const hasBeenRetested = !!(retestHistory?.some((h: any) =>
+    Array.isArray(h.newTreatmentReadings) && h.newTreatmentReadings.some((r: any) =>
+      r.internalCoreNo === coreId || r.coreId === coreId
+    )
+  ));
 
   // Use dynamic ratios from transformer, fallback if missing
   // Determine ratios from transformer (passed from props)
@@ -673,13 +691,37 @@ export function SecondaryPSReport({
     }));
 
     // Fast Load from props
-    const stageKey = `${stage}_test` as keyof typeof transformer.testHistory;
-    const stageHistory = transformer.testHistory?.[stageKey];
-    if (stageHistory?.ps_results?.length > 0) {
-      const myResults = stageHistory.ps_results.filter((res: any) =>
-        res.internalCoreNo === coreId || res.coreId === coreId
-      );
-      if (myResults.length > 0) {
+    let myResults = [];
+
+    const shouldLoadFromTreated = isFailedSection && failedStatus === 'TREATED' && (isFailedCore || hasBeenRetested);
+    if (shouldLoadFromTreated) {
+      const secHistory = transformer.testHistory?.secondary_test;
+      if (secHistory?.ps_results?.length > 0) {
+        myResults = secHistory.ps_results.filter((res: any) =>
+          res.internalCoreNo === coreId || res.coreId === coreId
+        );
+      }
+    }
+
+    if (myResults.length === 0) {
+      const stageHistory = transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory] as any;
+      if (stageHistory?.ps_results?.length > 0) {
+        myResults = stageHistory.ps_results.filter((res: any) =>
+          res.internalCoreNo === coreId || res.coreId === coreId
+        );
+      }
+    }
+
+    if (myResults.length === 0 && sourceStage && sourceStage !== stage) {
+      const sourceHistory = transformer.testHistory?.[`${sourceStage}_test` as keyof typeof transformer.testHistory] as any;
+      if (sourceHistory?.ps_results?.length > 0) {
+        myResults = sourceHistory.ps_results.filter((res: any) =>
+          res.internalCoreNo === coreId || res.coreId === coreId
+        );
+      }
+    }
+
+    if (myResults.length > 0) {
         return initial.map((row: PSRow, index: number) => {
           let savedRow = myResults.find((r: any) => r.ratioValue === row.ratioValue);
           if (!savedRow && myResults[index]) {
@@ -702,7 +744,6 @@ export function SecondaryPSReport({
           return row;
         });
       }
-    }
     return initial;
   });
 
@@ -730,17 +771,38 @@ export function SecondaryPSReport({
         const res = await axios.get(`/transformers/${(transformer as any).uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
 
-        // Dynamic Path
-        const stageKey = `${stage}_test` as keyof typeof freshTransformer.testHistory;
-        const stageHistory = freshTransformer?.testHistory?.[stageKey];
+        let myResults = [];
+        
+        const shouldLoadFromTreated = isFailedSection && failedStatus === 'TREATED' && (isFailedCore || hasBeenRetested);
+        if (shouldLoadFromTreated) {
+          const secHistory = freshTransformer?.testHistory?.secondary_test;
+          if (secHistory?.ps_results?.length > 0) {
+            myResults = secHistory.ps_results.filter((res: any) =>
+              res.internalCoreNo === coreId || res.coreId === coreId
+            );
+          }
+        }
 
-        if (stageHistory?.ps_results?.length > 0) {
-          console.log(`Found saved PS results for ${stage}, loading...`, stageHistory.ps_results);
+        if (myResults.length === 0) {
+          const stageHistory = freshTransformer?.testHistory?.[`${stage}_test`] as any;
+          if (stageHistory?.ps_results?.length > 0) {
+            myResults = stageHistory.ps_results.filter((res: any) =>
+              res.internalCoreNo === coreId || res.coreId === coreId
+            );
+          }
+        }
 
-          // Filter results for THIS specific core ID
-          const myResults = stageHistory.ps_results.filter((res: any) =>
-            res.internalCoreNo === coreId || res.coreId === coreId
-          );
+        if (myResults.length === 0 && sourceStage && sourceStage !== stage) {
+          const sourceHistory = freshTransformer?.testHistory?.[`${sourceStage}_test`] as any;
+          if (sourceHistory?.ps_results?.length > 0) {
+            myResults = sourceHistory.ps_results.filter((res: any) =>
+              res.internalCoreNo === coreId || res.coreId === coreId
+            );
+          }
+        }
+
+        if (myResults.length > 0) {
+          console.log(`Found saved PS results for ${stage}, loading...`, myResults);
 
           // Map saved results back to state
           // We need to match by ratioValue to ensure order
@@ -786,7 +848,7 @@ export function SecondaryPSReport({
     };
 
     fetchLatestData();
-  }, [(transformer as any).uniqueId, coreId]);
+  }, [(transformer as any).uniqueId, coreId, failedStatus, isFailedCore, retestHistory]);
 
   const handleUpdate = (idx: number, field: keyof PSRow, val: string) => {
     if (readOnly) return;
@@ -839,14 +901,27 @@ export function SecondaryPSReport({
       };
 
       console.log("handleDatabaseSave (PS): Payload ready", payload);
-      const baseUrl = SOCKET_URL;
-      const endpoint = `${baseUrl}/transformer-${stage}-ps-tests`;
-      // 2. Execute POST request
-      const response = await axios.post(
-        endpoint,
-        payload,
-        { withCredentials: true }
-      );
+
+
+      let response;
+      if (isFailedSection && failedTransformerId) {
+        response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/${failedTransformerId}/retest-save`, {
+            treatedReadings: payload.ps_results,
+            treatedBy: testerName,
+            remarks: "Treated After Primary Failure via PS Report",
+            coreType: 'ps'
+        }, { withCredentials: true });
+      } else {
+        const baseUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+        const endpoint = `${baseUrl}/transformer-${stage}-ps-tests`;
+        // 2. Execute POST request
+        response = await axios.post(
+          endpoint,
+          payload,
+          { withCredentials: true }
+        );
+      }
+
 
       if (onCompleteTimer) await onCompleteTimer();
 
@@ -951,11 +1026,11 @@ export function SecondaryPSReport({
         jobNumber: transformer.jobId || orderObj?.jobId || '',
         clientName: transformer.clientName || orderObj?.clientName || '',
         coreType: "PS",
-        testType: "Secondary PS",
+        testType: stage === 'primary' ? "After Primary PS" : "Secondary PS",
         failureParameters: { failureStage: `${stage}_ps_test`, dynamicValues: psData, coreId: coreId },
         failureReason: finalReason,
         reportedBy: testerName,
-        stage: "SECONDARY_TESTING",
+        stage: stage === 'primary' ? "PRIMARY_TESTING" : "SECONDARY_TESTING",
         status: "FAILED"
       };
 

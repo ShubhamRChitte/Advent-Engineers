@@ -212,17 +212,17 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
   const hasFailures = transformer.cores.some(core => {
     const results = transformer.testHistory?.secondary_test?.[`${core.coreType}_results`] || [];
     if (core.coreType === 'metering') {
-       return results.some((res: any) => res.rows && res.rows.some((row: any) => 
-         row.r100_r_pass === false || row.r100_p_pass === false || 
-         row.r25_r_pass === false || row.r25_p_pass === false ||
-         row.r100_pass === false || row.r25_pass === false || row.p100_pass === false || row.p25_pass === false
-       ));
+      return results.some((res: any) => res.rows && res.rows.some((row: any) =>
+        row.r100_r_pass === false || row.r100_p_pass === false ||
+        row.r25_r_pass === false || row.r25_p_pass === false ||
+        row.r100_pass === false || row.r25_pass === false || row.p100_pass === false || row.p25_pass === false
+      ));
     }
     if (core.coreType === 'protection') {
-       return results.some((res: any) => res.isPass === false);
+      return results.some((res: any) => res.isPass === false);
     }
     if (core.coreType === 'ps') {
-       return results.some((res: any) => res.isPass === false);
+      return results.some((res: any) => res.isPass === false);
     }
     return false;
   });
@@ -231,10 +231,10 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
     try {
       // Automatically fetch failure reasons from results
       let failureReasons: string[] = [];
-      
+
       transformer.cores.forEach(core => {
         const results = transformer.testHistory?.secondary_test?.[`${core.coreType}_results`] || [];
-        
+
         if (core.coreType === 'metering') {
           results.forEach((res: any) => {
             if (res.rows) {
@@ -263,8 +263,8 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
         }
       });
 
-      const finalReason = failureReasons.length > 0 
-        ? [...new Set(failureReasons)].join(' | ') 
+      const finalReason = failureReasons.length > 0
+        ? [...new Set(failureReasons)].join(' | ')
         : "Accuracy Limits Exceeded";
 
       const payload = {
@@ -278,8 +278,10 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
         requestedBy: 'Tester'
       };
 
-      await axios.post(`/strict-approvals/request`, payload, { withCredentials: true });
-      
+
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/strict-approvals/request`, payload, { withCredentials: true });
+
+
       // Update transformer status so it waits for admin
       await axios.put(`/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'secondary',

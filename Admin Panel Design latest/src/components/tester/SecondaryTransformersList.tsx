@@ -109,11 +109,25 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
     setError(null);
     try {
       const orderId = order._id;
-      const response = await axios.get(`/orders/${orderId}/transformers`, {
-        withCredentials: true
-      });
+
+      const [response, failedRes] = await Promise.all([
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}/transformers`, {
+          withCredentials: true
+        }),
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers?stage=SECONDARY_TESTING`, {
+          withCredentials: true
+        })
+      ]);
+
 
       const dbTransformers = response.data;
+      const failedRecords = failedRes.data.success ? failedRes.data.data : [];
+      const activeFailedIds = new Set(
+        failedRecords
+          .filter((f: any) => f.status === 'FAILED')
+          .map((f: any) => f.transformerUniqueId || f.transformerId?.uniqueId)
+          .filter(Boolean)
+      );
 
       const mappedTransformers: Transformer[] = dbTransformers.map((t: any) => {
         let status: 'pending' | 'in-progress' | 'completed' = 'pending';
@@ -375,7 +389,11 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
         };
       });
 
-      setTransformers(mappedTransformers.filter((t: any) => t.currentStage === 'secondary' || t.currentStage === 'admin_review'));
+      setTransformers(
+        mappedTransformers.filter(
+          (t: any) => (t.currentStage === 'secondary' || t.currentStage === 'admin_review') && !activeFailedIds.has(t.uniqueId)
+        )
+      );
     } catch (err) {
       console.error("Failed to fetch transformers", err);
       setError("Failed to load transformers.");

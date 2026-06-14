@@ -18,6 +18,7 @@ import ReadyStockView from '../inventory/ReadyStockView';
 import { CustomerReportsPage } from './CustomerReportsPage';
 import { PTDelayDashboard } from './PTDelayDashboard';
 import { CTDelayDashboard } from './CTDelayDashboard';
+import { FailedTransformersSection } from '../tester/FailedTransformersSection';
 
 interface AdminLayoutProps {
   user: User;
@@ -157,6 +158,8 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
         );
       case 'failed-cores':
         return <FailedCoresPage />;
+      case 'failed-transformers':
+        return <FailedTransformersSection user={user} />;
       case 'ready-stock':
         return <ReadyStockView />;
       case 'pt-delay-tracker':

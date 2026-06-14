@@ -11,23 +11,34 @@ interface AdminSidebarProps {
 
 export function AdminSidebar({ activeView, setActiveView }: AdminSidebarProps) {
   const [failedCount, setFailedCount] = useState(0);
+  const [failedTransformersCount, setFailedTransformersCount] = useState(0);
 
   useEffect(() => {
     const fetchCount = async () => {
       const token = localStorage.getItem('token');
       if (!token) return;
       try {
-        const res = await axios.get(`/failed-cores/count`, { 
-          withCredentials: true,
-          headers: {
-            'Authorization': token ? `Bearer ${token}` : ''
-          }
-        });
-        if (res.data.success) {
-          setFailedCount(res.data.count);
+
+        const [resCores, resTransformers] = await Promise.all([
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores/count`, { 
+            withCredentials: true,
+            headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+          }),
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/count`, { 
+            withCredentials: true,
+            headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+          })
+        ]);
+
+        if (resCores.data.success) {
+          setFailedCount(resCores.data.count);
+        }
+        if (resTransformers.data.success) {
+          setFailedTransformersCount(resTransformers.data.count);
+
         }
       } catch (e) {
-        console.error("Failed to fetch failed count", e);
+        console.error("Failed to fetch counts in admin sidebar", e);
       }
     };
 
@@ -40,6 +51,7 @@ export function AdminSidebar({ activeView, setActiveView }: AdminSidebarProps) {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'failed-cores', label: 'Failed Cores', icon: AlertTriangle, badge: failedCount > 0 ? failedCount : undefined },
+    { id: 'failed-transformers', label: 'Failed Transformers', icon: AlertTriangle, badge: failedTransformersCount > 0 ? failedTransformersCount : undefined },
     { id: 'employees', label: 'Employees', icon: Users },
     { id: 'add-order', label: 'Add Orders', icon: PlusCircle },
     { id: 'view-orders', label: 'View Orders', icon: List },

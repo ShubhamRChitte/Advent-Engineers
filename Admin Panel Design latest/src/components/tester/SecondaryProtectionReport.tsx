@@ -23,6 +23,12 @@ interface SecondaryProtectionReportProps {
   order?: any;
   onRefresh?: () => void;
   onCompleteTimer?: () => Promise<void>;
+  sourceStage?: 'secondary' | 'primary' | 'final';
+  isFailedSection?: boolean;
+  failedTransformerId?: string;
+  failedStatus?: string;
+  isFailedCore?: boolean;
+  retestHistory?: any[];
 }
 
 interface ProtectionTestRow {
@@ -114,9 +120,21 @@ export function SecondaryProtectionReport({
   order: propOrder,
   onRefresh,
   onCompleteTimer,
+  sourceStage,
+  isFailedSection = false,
+  failedTransformerId,
+  failedStatus,
+  isFailedCore,
+  retestHistory
 }: SecondaryProtectionReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
     (!isNaN(parseInt(coreId.replace(/[^0-9]/g, ''))) ? parseInt(coreId.replace(/[^0-9]/g, '')) - 1 : 0);
+
+  const hasBeenRetested = !!(retestHistory?.some((h: any) =>
+    Array.isArray(h.newTreatmentReadings) && h.newTreatmentReadings.some((r: any) =>
+      r.internalCoreNo === coreId || r.coreId === coreId
+    )
+  ));
 
 
   // Use ratios from the transformer object, falling back to a default if empty
@@ -213,15 +231,40 @@ export function SecondaryProtectionReport({
     }));
 
     // 3. Sync with prop if it has history (Fast Load)
-    const stageKey = `${stage}_test` as keyof typeof transformer.testHistory;
-    const stageHistory = transformer.testHistory?.[stageKey];
+    let myResults = [];
+    
+    // If we are in the failed section, treated readings are ALWAYS saved to secondary_test, even for primary failures, but only for the failed core.
+    const shouldLoadFromTreated = isFailedSection && failedStatus === 'TREATED' && (isFailedCore || hasBeenRetested);
+    if (shouldLoadFromTreated) {
+      const secHistory = transformer.testHistory?.secondary_test;
+      if (secHistory?.protection_results?.length > 0) {
+        myResults = secHistory.protection_results.filter((res: any) =>
+          res.internalCoreNo === coreId || res.coreId === coreId
+        );
+      }
+    }
 
-    if (stageHistory?.protection_results?.length > 0) {
-      const myResults = stageHistory.protection_results.filter((res: any) =>
-        res.internalCoreNo === coreId || res.coreId === coreId
-      );
+    if (myResults.length === 0) {
+      const stageKey = `${stage}_test` as keyof typeof transformer.testHistory;
+      const stageHistory = transformer.testHistory?.[stageKey];
+      if (stageHistory?.protection_results?.length > 0) {
+        myResults = stageHistory.protection_results.filter((res: any) =>
+          res.internalCoreNo === coreId || res.coreId === coreId
+        );
+      }
+    }
 
-      if (myResults.length > 0) {
+    // Fallback like Metering for sourceStage
+    if (myResults.length === 0 && sourceStage && sourceStage !== stage) {
+      const sourceHistory = transformer.testHistory?.[`${sourceStage}_test` as keyof typeof transformer.testHistory] as any;
+      if (sourceHistory?.protection_results?.length > 0) {
+        myResults = sourceHistory.protection_results.filter((res: any) =>
+          res.internalCoreNo === coreId || res.coreId === coreId
+        );
+      }
+    }
+
+    if (myResults.length > 0) {
         const syncedData = initialData.map((row: ProtectionTestRow, index: number) => {
           let saved = myResults.find((r: any) => r.ratioValue === row.ratio);
           if (!saved && myResults[index]) {
@@ -252,11 +295,10 @@ export function SecondaryProtectionReport({
         setTestResults(syncedData);
         return;
       }
-    }
 
     setTestResults(initialData);
 
-  }, [transformer, coreId, stage]);
+  }, [transformer, coreId, stage, failedStatus, isFailedCore, retestHistory]);
 
 
   // ✅ LOAD DATA EFFECT for Read Only viewing OR Consistency
@@ -266,16 +308,38 @@ export function SecondaryProtectionReport({
         const res = await axios.get(`/transformers/${transformer.uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
 
-        // Dynamic Path
-        const stageKey = `${stage}_test` as keyof typeof freshTransformer.testHistory;
-        const stageHistory = freshTransformer?.testHistory?.[stageKey];
+        let myResults = [];
+        
+        const shouldLoadFromTreated = isFailedSection && failedStatus === 'TREATED' && (isFailedCore || hasBeenRetested);
+        if (shouldLoadFromTreated) {
+          const secHistory = freshTransformer.testHistory?.secondary_test;
+          if (secHistory?.protection_results?.length > 0) {
+            myResults = secHistory.protection_results.filter((res: any) =>
+              res.internalCoreNo === coreId || res.coreId === coreId
+            );
+          }
+        }
 
-        if (stageHistory?.protection_results?.length > 0) {
-          const myResults = stageHistory.protection_results.filter((res: any) =>
-            res.internalCoreNo === coreId || res.coreId === coreId
-          );
+        if (myResults.length === 0) {
+          const stageKey = `${stage}_test` as keyof typeof freshTransformer.testHistory;
+          const stageHistory = freshTransformer?.testHistory?.[stageKey];
+          if (stageHistory?.protection_results?.length > 0) {
+            myResults = stageHistory.protection_results.filter((res: any) =>
+              res.internalCoreNo === coreId || res.coreId === coreId
+            );
+          }
+        }
 
-          if (myResults.length > 0) {
+        if (myResults.length === 0 && sourceStage && sourceStage !== stage) {
+          const sourceHistory = freshTransformer?.testHistory?.[`${sourceStage}_test`] as any;
+          if (sourceHistory?.protection_results?.length > 0) {
+            myResults = sourceHistory.protection_results.filter((res: any) =>
+              res.internalCoreNo === coreId || res.coreId === coreId
+            );
+          }
+        }
+
+        if (myResults.length > 0) {
             setTestResults(prev => prev.map((row, index) => {
               // 1. Try Exact Match
               let saved = myResults.find((r: any) => r.ratioValue === row.ratio);
@@ -317,13 +381,12 @@ export function SecondaryProtectionReport({
               return row;
             }));
           }
-        }
       } catch (err) {
         console.error("Failed to load existing protection data", err);
       }
     };
     fetchLatestData();
-  }, [transformer.uniqueId, coreId, stage]);
+  }, [transformer.uniqueId, coreId, stage, failedStatus, isFailedCore, retestHistory]);
 
   // Robust Parsing Helpers
   const parseRatedCurrent = (ratio: any): number => {
@@ -457,6 +520,7 @@ export function SecondaryProtectionReport({
       // 1. Build the array based on your ProtectionBlockSchema
       const protectionResults = testResults.map(row => ({
         internalCoreNo: coreId, // Inject Core ID for persistence
+        coreId: coreId,         // Inject Core ID for persistence
         ratioValue: row.ratio,
         protectionClass: protectionClass || '5P',
 
@@ -491,15 +555,29 @@ export function SecondaryProtectionReport({
       };
 
       console.log("handleDatabaseSave: Payload ready", payload);
-      const baseUrl = SOCKET_URL;
-      const endpoint = `${baseUrl}/transformer-${stage}-protection-tests`;
-      console.log(`handleDatabaseSave: Sending Request to ${endpoint}...`);
 
-      const response = await axios.post(
-        endpoint,
-        payload,
-        { withCredentials: true }
-      );
+      
+      let response;
+      if (isFailedSection && failedTransformerId) {
+        // Save to retest-save endpoint
+        response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/${failedTransformerId}/retest-save`, {
+            treatedReadings: payload.protection_results,
+            treatedBy: testerName,
+            remarks: "Treated After Primary Failure via Protection Report",
+            coreType: 'protection'
+        }, { withCredentials: true });
+      } else {
+        const baseUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+        const endpoint = `${baseUrl}/transformer-${stage}-protection-tests`;
+        console.log(`handleDatabaseSave: Sending Request to ${endpoint}...`);
+
+
+        response = await axios.post(
+          endpoint,
+          payload,
+          { withCredentials: true }
+        );
+      }
 
       if (onCompleteTimer) await onCompleteTimer();
 
@@ -539,11 +617,11 @@ export function SecondaryProtectionReport({
         jobNumber: transformer.jobId || orderObj?.jobId || '',
         clientName: transformer.clientName || orderObj?.clientName || '',
         coreType: "Protection",
-        testType: "Secondary Protection",
+        testType: stage === 'primary' ? "After Primary Protection" : "Secondary Protection",
         failureParameters: { failureStage: `${stage}_protection_test`, dynamicValues: testResults, coreId: coreId },
         failureReason: allReasons || "Limits Exceeded",
         reportedBy: testerName,
-        stage: "SECONDARY_TESTING",
+        stage: stage === 'primary' ? "PRIMARY_TESTING" : "SECONDARY_TESTING",
         status: "FAILED"
       };
 

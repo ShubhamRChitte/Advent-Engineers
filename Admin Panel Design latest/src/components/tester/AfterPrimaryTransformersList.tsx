@@ -94,11 +94,25 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
       setError(null);
       try {
         const orderId = order._id;
-        const response = await axios.get(`/orders/${orderId}/transformers`, {
-          withCredentials: true
-        });
+
+        const [response, failedRes] = await Promise.all([
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}/transformers`, {
+            withCredentials: true
+          }),
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers?stage=PRIMARY_TESTING`, {
+            withCredentials: true
+          })
+        ]);
+
 
         const dbTransformers = response.data;
+        const failedRecords = failedRes.data.success ? failedRes.data.data : [];
+        const activeFailedIds = new Set(
+          failedRecords
+            .filter((f: any) => f.status === 'FAILED')
+            .map((f: any) => f.transformerUniqueId || f.transformerId?.uniqueId)
+            .filter(Boolean)
+        );
 
         // Map DB data + Order Specs to UI Model
         const mappedTransformers: Transformer[] = dbTransformers.map((t: any) => {
@@ -422,7 +436,7 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
             assignedId === t.uniqueId || assignedId.includes(t.uniqueId)
           ));
 
-        setTransformers(filtered);
+        setTransformers(filtered.filter(t => !activeFailedIds.has(t.uniqueId)));
       } catch (err: any) {
         console.error("Error fetching transformers:", err);
         setError("Failed to load transformers. Please try again.");
