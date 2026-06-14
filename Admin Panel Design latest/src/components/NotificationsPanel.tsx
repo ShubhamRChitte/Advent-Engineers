@@ -20,13 +20,13 @@ export function NotificationsPanel() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchUnreadCount = () => {
-    axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/notifications/unread-count`, { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+    axios.get(`/notifications/unread-count`, { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
       .then(res => setUnreadCount(res.data.count))
       .catch(err => console.error("Error fetching unread count:", err));
   };
 
   const fetchNotifications = () => {
-    axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/notifications`, { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+    axios.get(`/notifications`, { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
       .then(res => setNotifications(res.data.notifications))
       .catch(err => console.error("Error fetching notifications:", err));
   };
@@ -42,7 +42,7 @@ export function NotificationsPanel() {
 
   const markAsRead = async (id: string) => {
     try {
-      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/notifications/${id}/read`, {}, { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      await axios.put(`/notifications/${id}/read`, {}, { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
       setNotifications(notifications.map(n => n._id === id ? { ...n, isRead: true } : n));
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (err) {
@@ -52,7 +52,7 @@ export function NotificationsPanel() {
 
   const markAllAsRead = async () => {
     try {
-      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/notifications/mark-read`, {}, { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      await axios.put(`/notifications/mark-read`, {}, { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
       setNotifications(notifications.map(n => ({ ...n, isRead: true })));
       setUnreadCount(0);
     } catch (err) {

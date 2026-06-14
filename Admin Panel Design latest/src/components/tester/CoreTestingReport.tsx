@@ -159,7 +159,7 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
       setIsApproving(true);
       // Call the Granular Batch Approval Endpoint
       const response = await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/core-tests/approve/${order._id}`,
+        `/core-tests/approve/${order._id}`,
         {},
         { withCredentials: true }
       );

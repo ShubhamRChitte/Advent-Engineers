@@ -59,7 +59,7 @@ export function CTReportsList({ onBack }: CTReportsListProps) {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/final/reports`, {
+            const response = await axios.get(`/final/reports`, {
                 withCredentials: true,
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });

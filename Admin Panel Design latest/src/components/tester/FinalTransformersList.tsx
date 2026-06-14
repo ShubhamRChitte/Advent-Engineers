@@ -77,9 +77,9 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
     const fetchLimits = async () => {
       try {
         const [mRes, psRes, pRes] = await Promise.all([
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/metering`, { withCredentials: true }),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/ps`, { withCredentials: true }),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/protection`, { withCredentials: true })
+          axios.get(`/accuracy-limits/metering`, { withCredentials: true }),
+          axios.get(`/accuracy-limits/ps`, { withCredentials: true }),
+          axios.get(`/accuracy-limits/protection`, { withCredentials: true })
         ]);
         setMeteringLimits(mRes.data);
         setPsLimits(psRes.data);
@@ -97,7 +97,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
       setError(null);
       try {
         const orderId = order._id;
-        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}/transformers`, {
+        const response = await axios.get(`/orders/${orderId}/transformers`, {
           withCredentials: true
         });
 
@@ -573,7 +573,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                               const finalReason = reasons.length > 0 ? [...new Set(reasons)].join(' | ') : "Accuracy Limits Exceeded during Final Test";
 
                               try {
-                                await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/strict-approvals/request`, {
+                                await axios.post(`/strict-approvals/request`, {
                                   orderId: transformer.orderId?._id || transformer.orderId,
                                   jobId: order.jobId,
                                   unitId: transformer.uniqueId,
@@ -585,7 +585,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                                   requestedBy: 'Final Tester'
                                 }, { withCredentials: true });
 
-                                await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}/approve-stage`, { 
+                                await axios.put(`/transformers/${transformer.uniqueId}/approve-stage`, { 
                                   stage: 'final', 
                                   nextStage: 'admin_review' 
                                 }, { withCredentials: true });

@@ -43,7 +43,7 @@ export function AfterPrimaryReportsList() {
     const fetchReports = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/after-primary/reports`, {
+            const response = await axios.get(`/after-primary/reports`, {
                 withCredentials: true
             });
 

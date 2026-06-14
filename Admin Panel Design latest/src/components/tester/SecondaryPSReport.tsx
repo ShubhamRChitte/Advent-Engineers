@@ -713,7 +713,7 @@ export function SecondaryPSReport({
   React.useEffect(() => {
     const fetchLimit = async () => {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/ps`, { withCredentials: true });
+        const response = await axios.get(`/accuracy-limits/ps`, { withCredentials: true });
         if (response.data && response.data.length > 0) {
           setPsLimit(response.data[0]);
         }
@@ -728,7 +728,7 @@ export function SecondaryPSReport({
   React.useEffect(() => {
     const fetchLatestData = async () => {
       try {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${(transformer as any).uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`/transformers/${(transformer as any).uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
 
         // Dynamic Path
@@ -962,7 +962,7 @@ export function SecondaryPSReport({
 
       console.log("[DEBUG] Frontend Failed Transformer Payload:", payload);
 
-      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers`, payload, { withCredentials: true });
+      const response = await axios.post(`/failed-transformers`, payload, { withCredentials: true });
       if (response.data.success) {
         toast.success(response.data.message || "Transformer marked as failed successfully.");
         if (onRefresh) onRefresh();

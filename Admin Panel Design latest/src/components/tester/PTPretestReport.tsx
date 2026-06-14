@@ -119,8 +119,8 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
     const fetchLimits = async () => {
       try {
         const [metRes, protRes] = await Promise.all([
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/metering?transformerType=PT`, { withCredentials: true }),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/protection?transformerType=PT`, { withCredentials: true })
+          axios.get(`/accuracy-limits/metering?transformerType=PT`, { withCredentials: true }),
+          axios.get(`/accuracy-limits/protection?transformerType=PT`, { withCredentials: true })
         ]);
 
         if (Array.isArray(metRes.data)) {
@@ -220,7 +220,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
             let anyReadOnly = false;
 
             for (const t of responseList) {
-                const testRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/${t._id}`, {
+                const testRes = await axios.get(`/pt-pretests/${t._id}`, {
                     withCredentials: true
                 });
 
@@ -398,7 +398,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
 
         // Wait for all to submit sequentially or in parallel
         const responses = await Promise.all(payloads.map(payload => 
-            axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/submit`, payload, { withCredentials: true })
+            axios.post(`/pt-pretests/submit`, payload, { withCredentials: true })
         ));
 
         if (responses.every(r => r.data.success)) {
@@ -430,7 +430,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
         }));
 
         await Promise.all(payloads.map(payload => 
-            axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/failed`, payload, {
+            axios.post(`/pt-pretests/failed`, payload, {
                 withCredentials: true
             })
         ));
@@ -450,7 +450,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
       if (!activeTabId) return;
       if (!window.confirm("Are you sure you want to approve this unit and send it to Final PT Testing?")) return;
       
-      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/transformer/${activeTabId}/approve`, {}, { withCredentials: true });
+      await axios.put(`/pt-pretests/transformer/${activeTabId}/approve`, {}, { withCredentials: true });
       toast.success("Unit approved and sent to Final PT Testing!");
       endTimer(); // Record timer end for delay tracking
       
@@ -470,7 +470,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
     try {
       setIsApproving(true);
       const response = await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/${order._id}/approve`,
+        `/pt-pretests/${order._id}/approve`,
         {},
         { withCredentials: true }
       );

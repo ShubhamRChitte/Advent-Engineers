@@ -45,7 +45,7 @@ export function NotificationsModule({ onNavigateToOrder, isActive }: Notificatio
   const fetchNotifications = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/notifications/admin`, {
+      const response = await axios.get(`/notifications/admin`, {
         withCredentials: true,
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
@@ -85,7 +85,7 @@ export function NotificationsModule({ onNavigateToOrder, isActive }: Notificatio
     setNotifications(notifications.map(n => ({ ...n, isRead: true })));
 
     try {
-      const response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/notifications/mark-read`, {}, {
+      const response = await axios.put(`/notifications/mark-read`, {}, {
         withCredentials: true,
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
@@ -102,7 +102,7 @@ export function NotificationsModule({ onNavigateToOrder, isActive }: Notificatio
     e.stopPropagation();
     setNotifications(notifications.map(n => n._id === id ? { ...n, isRead: true } : n));
     try {
-      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/notifications/${id}/read`, {}, { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      await axios.put(`/notifications/${id}/read`, {}, { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
     } catch (err) {
       console.error("Failed to mark read", err);
     }

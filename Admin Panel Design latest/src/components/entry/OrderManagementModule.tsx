@@ -38,7 +38,7 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
   useEffect(() => {
     const fetchVendors = async () => {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/core-vendors`, { withCredentials: true });
+        const response = await axios.get(`/core-vendors`, { withCredentials: true });
         console.log("Fetch vendors response:", response.data);
         if (response.data.success) {
           setAllVendors(response.data.data);
@@ -189,7 +189,7 @@ export function OrderManagementModule({ isAdmin = false }: { isAdmin?: boolean }
         }
       });
 
-      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/create-order`, formData, {
+      const response = await axios.post(`/create-order`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

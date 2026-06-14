@@ -121,7 +121,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
     try {
       console.log('Approving transformer:', target.uniqueId);
 
-      const response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${target.uniqueId}/approve-stage`, {
+      const response = await axios.put(`/transformers/${target.uniqueId}/approve-stage`, {
         stage: 'final',
         nextStage: 'shipped'
       }, {

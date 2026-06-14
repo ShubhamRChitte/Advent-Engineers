@@ -136,8 +136,8 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
         
         // Parallel fetch for transformers and heating records
         const [transformersRes, heatingRes] = await Promise.all([
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/order/${orderId}`, { withCredentials: true }),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record/${orderId}/33KV_PT`, { withCredentials: true }).catch(err => {
+          axios.get(`/transformers/order/${orderId}`, { withCredentials: true }),
+          axios.get(`/heating-record/${orderId}/33KV_PT`, { withCredentials: true }).catch(err => {
              console.warn("No heating record found or error:", err);
              return { data: { success: false, data: { blocks: [] } } };
           })
@@ -259,7 +259,7 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
     try {
       if (!window.confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId}?`)) return;
       const apiBasePath = testStage === 'pretest' ? 'pt-pretests' : 'pt-tests';
-      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/${apiBasePath}/transformer/${transformer._id}/approve`, {}, { withCredentials: true });
+      await axios.put(`/${apiBasePath}/transformer/${transformer._id}/approve`, {}, { withCredentials: true });
       alert("Transformer approved successfully!");
       // Update local state to reflect approval (remove from active list)
       setTransformers(prev => prev.filter(t => t._id !== transformer._id));

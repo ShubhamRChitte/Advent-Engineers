@@ -28,7 +28,7 @@ export function HeatingTrackingOrdersList({ onStartTesting, user }: HeatingTrack
     try {
       setLoading(true);
       const endpoint = currentTab === 'assigned' ? 'orders' : 'completed';
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record/${endpoint}`, {
+      const response = await axios.get(`/heating-record/${endpoint}`, {
         withCredentials: true
       });
       

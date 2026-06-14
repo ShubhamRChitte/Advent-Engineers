@@ -21,7 +21,7 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
   const [trendTimeframe, setTrendTimeframe] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const { data, error, isLoading } = useSWR(
-    `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/dashboard/stats`,
+    `/dashboard/stats`,
     fetcher
   );
 

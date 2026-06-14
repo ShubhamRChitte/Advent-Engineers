@@ -5,7 +5,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 
-const API_BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-timer`;
+const API_BASE = `/pt-timer`;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

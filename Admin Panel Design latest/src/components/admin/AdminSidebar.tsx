@@ -17,7 +17,7 @@ export function AdminSidebar({ activeView, setActiveView }: AdminSidebarProps) {
       const token = localStorage.getItem('token');
       if (!token) return;
       try {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores/count`, { 
+        const res = await axios.get(`/failed-cores/count`, { 
           withCredentials: true,
           headers: {
             'Authorization': token ? `Bearer ${token}` : ''

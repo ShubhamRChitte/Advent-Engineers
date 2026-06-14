@@ -78,7 +78,7 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
 
 
           try {
-            const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}${endpoint}/${txnOrderId}${typeParam}`, {
+            const res = await axios.get(`${endpoint}/${txnOrderId}${typeParam}`, {
               withCredentials: true
             });
 
@@ -168,7 +168,7 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
     const txnOrderId = getTxnOrderId();
 
     try {
-      const response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/core-tests/approve/${txnOrderId}`, {}, { withCredentials: true });
+      const response = await axios.put(`/core-tests/approve/${txnOrderId}`, {}, { withCredentials: true });
 
       if (response.status === 200) {
         alert("Order approved successfully! Moving to Secondary stage.");

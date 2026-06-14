@@ -46,7 +46,7 @@ export function AdminReviewPanel() {
     const fetchReviewTransformers = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/admin-review`, {
+            const res = await axios.get(`/transformers/admin-review`, {
                 withCredentials: true
             });
             if (res.data.success) {
@@ -63,7 +63,7 @@ export function AdminReviewPanel() {
     const handleApproveRetest = async (uniqueId: string) => {
         try {
             const newTester = selectedEmployees[uniqueId] || undefined;
-            const res = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${uniqueId}/approve-retest`,
+            const res = await axios.put(`/transformers/${uniqueId}/approve-retest`,
                 { newTester },
                 { withCredentials: true }
             );

@@ -83,7 +83,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
   const fetchOrders = async () => {
     try {
       setOrdersLoading(true);
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record/assigned-orders?type=PT`, {
+      const response = await axios.get(`/heating-record/assigned-orders?type=PT`, {
         withCredentials: true
       });
       setOrders(response.data.success ? response.data.orders : []);
@@ -99,7 +99,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
   const fetchTransformers = async (order: Order) => {
     try {
       setTransformersLoading(true);
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/order/${order._id}`, {
+      const response = await axios.get(`/transformers/order/${order._id}`, {
         withCredentials: true
       });
 
@@ -115,7 +115,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
       const filtered = (!order.assignedUnitIds || order.assignedUnitIds.length === 0)
         ? activeOnly
         : activeOnly.filter(t =>
-          order.assignedUnitIds!.some(id => id === t.uniqueId || id.includes(t.uniqueId))
+          order.assignedUnitIds?.some(id => id === t.uniqueId || id.includes(t.uniqueId))
         );
 
       setTransformers(filtered);
@@ -149,11 +149,12 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
     setSelectedTransformer(t);
     setIsEditingRecord(false);
 
-    const order = selectedOrder!;
+    if (!selectedOrder) return;
+    const order = selectedOrder;
 
     try {
       const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record/${order._id}/33KV_PT`,
+        `/heating-record/${order._id}/33KV_PT`,
         { withCredentials: true }
       );
 
@@ -217,7 +218,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
     try {
       if (!window.confirm(`Approve Heating Record for Transformer ${t.uniqueId}?`)) return;
       await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-tests/transformer/${t._id}/approve`,
+        `/pt-tests/transformer/${t._id}/approve`,
         {},
         { withCredentials: true }
       );
@@ -320,7 +321,7 @@ export function PTHeatingRecordModule({ user }: PTHeatingRecordModuleProps) {
         blocks: blocksPayload
       };
 
-      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record`, payload, { withCredentials: true });
+      await axios.post(`/heating-record`, payload, { withCredentials: true });
       alert(isEditingRecord ? 'PT Heating records updated successfully!' : 'PT Heating records saved successfully!');
 
       // Go back to transformers list

@@ -61,7 +61,7 @@ export function CoreTestingOrders({ onStartTesting, user: _user, type = 'active'
 
   useEffect(() => {
     axios
-      .get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/assigneed_orders`, {
+      .get(`/assigneed_orders`, {
         params: { type },
         withCredentials: true
       })

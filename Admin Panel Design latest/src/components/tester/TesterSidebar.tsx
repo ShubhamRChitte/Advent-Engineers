@@ -29,12 +29,12 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
       
       try {
         if (userRole === 'secondary-tester') {
-          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/count`, { withCredentials: true });
+          const res = await axios.get(`/failed-transformers/count`, { withCredentials: true });
           if (res.data.success) {
             setFailedTransformersCount(res.data.count);
           }
         } else {
-          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores/count`, { withCredentials: true });
+          const res = await axios.get(`/failed-cores/count`, { withCredentials: true });
           if (res.data.success) {
             setFailedCount(res.data.count);
           }

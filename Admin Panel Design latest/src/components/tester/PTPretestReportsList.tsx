@@ -50,7 +50,7 @@ export function PTPretestReportsList({ onBack }: PTPretestReportsListProps) {
     const fetchReports = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/reports`, {
+            const response = await axios.get(`/pt-pretests/reports`, {
                 withCredentials: true
             });
 

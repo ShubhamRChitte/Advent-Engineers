@@ -29,7 +29,7 @@ export function StrictApprovalDashboard() {
     const fetchRequests = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/strict-approvals`, {
+            const res = await axios.get(`/strict-approvals`, {
                 withCredentials: true
             });
             // Show only pending requests
@@ -51,7 +51,7 @@ export function StrictApprovalDashboard() {
             const action = approved ? 'approve' : 'reject';
             if (!confirm(`Are you sure you want to ${action} this request?`)) return;
 
-            const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/strict-approvals/${id}/resolve`, {
+            const res = await axios.post(`/strict-approvals/${id}/resolve`, {
                 approved,
                 adminComments: approved ? "Approved by Admin" : "Rejected by Admin"
             }, { withCredentials: true });

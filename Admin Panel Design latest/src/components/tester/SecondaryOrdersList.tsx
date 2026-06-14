@@ -39,7 +39,7 @@ export function SecondaryOrdersList({ onStartTesting, refreshTrigger = 0 }: Seco
     try {
       // The backend /assigneed_orders route automatically filters by the user's role (secondary)
       // and finding orders in the 'secondary' stage.
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/assigneed_orders?type=active`, {
+      const response = await axios.get(`/assigneed_orders?type=active`, {
         withCredentials: true
       });
       setOrders(response.data);

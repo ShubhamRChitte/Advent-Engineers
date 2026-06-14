@@ -70,7 +70,9 @@ mongoose
       await notifCollection.dropIndex('type_1_orderId_1');
       console.log("Successfully dropped restrictive unique index on notifications.");
     } catch (e) {
-      // Ignore if index doesn't exist
+      if (e.code !== 27) { // 27 is IndexNotFound
+        console.warn("Non-fatal error dropping index:", e.message);
+      }
     }
 
     await seedCoreVendors();
@@ -128,13 +130,9 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // 2. Session Config
 const { MongoStore } = require('connect-mongo');
-let sessionSecret = process.env.SESSION_SECRET;
+const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error("CRITICAL SECURITY ERROR: SESSION_SECRET is not configured in production environment!");
-  } else {
-    sessionSecret = 'advent_engineers_secret_key'; // Local fallback
-  }
+  throw new Error("CRITICAL SECURITY ERROR: SESSION_SECRET is not configured in environment variables!");
 }
 
 app.use(session({
@@ -424,13 +422,13 @@ app.get("/api/reports/:id", async (req, res) => {
               if (!normalized.startDateTime && normalized.startDate && normalized.startTime) {
                 try {
                   normalized.startDateTime = new Date(`${normalized.startDate}T${normalized.startTime}`);
-                } catch (e) { }
+                } catch (e) { console.warn("Date parse error for startDateTime:", e.message); }
               }
               // Construct completionDateTime if missing
               if (!normalized.completionDateTime && normalized.endDate && normalized.endTime) {
                 try {
                   normalized.completionDateTime = new Date(`${normalized.endDate}T${normalized.endTime}`);
-                } catch (e) { }
+                } catch (e) { console.warn("Date parse error for completionDateTime:", e.message); }
               }
 
               return normalized;
@@ -461,12 +459,12 @@ app.get("/api/reports/:id", async (req, res) => {
             if (!normalized.startDateTime && normalized.startDate && normalized.startTime) {
               try {
                 normalized.startDateTime = new Date(`${normalized.startDate}T${normalized.startTime}`);
-              } catch (e) { }
+              } catch (e) { console.warn("Date parse error for startDateTime (PT):", e.message); }
             }
             if (!normalized.completionDateTime && normalized.completionDate && normalized.completionTime) {
               try {
                 normalized.completionDateTime = new Date(`${normalized.completionDate}T${normalized.completionTime}`);
-              } catch (e) { }
+              } catch (e) { console.warn("Date parse error for completionDateTime (PT):", e.message); }
             }
             return normalized;
           });

@@ -51,7 +51,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       setLoadingPool(true);
       const orderId = item.orderId?._id || item.orderId;
       
-      const orderRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}`, { withCredentials: true });
+      const orderRes = await axios.get(`/orders/${orderId}`, { withCredentials: true });
       const order = orderRes.data?.data || item.orderId;
       
       const coreDetails = order?.coreDetails || [];
@@ -66,7 +66,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       // Fetch from Ready Stock API
       const token = localStorage.getItem('token');
       const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/ready-transformers/available`,
+        `/ready-transformers/available`,
         {
           params: { coreType: targetType },
           withCredentials: true,
@@ -149,7 +149,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
           setLoadingPool(true);
           const orderId = replacingCoreItem.orderId?._id || replacingCoreItem.orderId;
           
-          const orderRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}`, { withCredentials: true });
+          const orderRes = await axios.get(`/orders/${orderId}`, { withCredentials: true });
           const order = orderRes.data?.data || replacingCoreItem.orderId;
           
           const updatedItem = { ...replacingCoreItem, orderId: order };
@@ -190,7 +190,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       setSubmittingReplacement(true);
       const orderId = replacingCoreItem.orderId?._id || replacingCoreItem.orderId;
       
-      const orderRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}`, { withCredentials: true });
+      const orderRes = await axios.get(`/orders/${orderId}`, { withCredentials: true });
       const order = orderRes.data?.data || replacingCoreItem.orderId;
       const updatedItem = { ...replacingCoreItem, orderId: order };
 
@@ -208,7 +208,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
         try {
           const token = localStorage.getItem('token');
           await axios.post(
-            `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/ready-transformers/reserve/${selectedPoolItem._id}`,
+            `/ready-transformers/reserve/${selectedPoolItem._id}`,
             {},
             {
               withCredentials: true,
@@ -218,7 +218,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
           
           const oldCoreId = targetCore.currentCoreId === 'N/A' ? '' : targetCore.currentCoreId;
           await axios.post(
-            `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/ready-transformers/use/${selectedPoolItem._id}`,
+            `/ready-transformers/use/${selectedPoolItem._id}`,
             {
               orderId: orderId,
               replacedCoreId: oldCoreId
@@ -242,7 +242,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       };
 
       const res = await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/${replacingCoreItem._id}/replace-core`,
+        `/failed-transformers/${replacingCoreItem._id}/replace-core`,
         payload,
         { withCredentials: true }
       );
@@ -271,7 +271,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       setError(null);
       
       const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers?stage=SECONDARY_TESTING`, 
+        `/failed-transformers?stage=SECONDARY_TESTING`, 
         { withCredentials: true }
       );
       
@@ -297,7 +297,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
     try {
       // Update the failed transformer record to TREATED
       const res = await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/${retestingTransformer._id}/status`,
+        `/failed-transformers/${retestingTransformer._id}/status`,
         {
           status: "TREATED",
           treatedBy: user.name || user.fullName || "Secondary Tester",

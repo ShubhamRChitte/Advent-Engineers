@@ -63,7 +63,7 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-tests/reports`, {
+            const response = await axios.get(`/pt-tests/reports`, {
                 withCredentials: true,
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });

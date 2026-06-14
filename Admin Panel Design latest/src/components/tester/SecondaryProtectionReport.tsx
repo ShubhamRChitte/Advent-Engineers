@@ -165,7 +165,7 @@ export function SecondaryProtectionReport({
   useEffect(() => {
     const fetchLimits = async () => {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/protection`, { withCredentials: true });
+        const response = await axios.get(`/accuracy-limits/protection`, { withCredentials: true });
         setDbLimits(response.data);
       } catch (error) {
         console.error('Failed to fetch dynamic protection limits', error);
@@ -262,7 +262,7 @@ export function SecondaryProtectionReport({
   useEffect(() => {
     const fetchLatestData = async () => {
       try {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`/transformers/${transformer.uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
 
         // Dynamic Path
@@ -546,7 +546,7 @@ export function SecondaryProtectionReport({
         status: "FAILED"
       };
 
-      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers`, payload, { withCredentials: true });
+      const response = await axios.post(`/failed-transformers`, payload, { withCredentials: true });
       if (response.data.success) {
         toast.success(response.data.message || "Transformer marked as failed successfully.");
         if (onRefresh) onRefresh();

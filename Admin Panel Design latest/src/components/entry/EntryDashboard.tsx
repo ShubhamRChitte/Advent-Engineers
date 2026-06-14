@@ -27,7 +27,7 @@ export function EntryDashboard({ onAddOrder }: EntryDashboardProps) {
       try {
         // Use withCredentials to ensure auth cookie is sent if needed, 
         // though dashboard routes might not require it if not strict, but usually they do.
-        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/dashboard/entry-stats`, { withCredentials: true });
+        const res = await axios.get(`/dashboard/entry-stats`, { withCredentials: true });
         if (res.data.success) {
           setStatsData(res.data.stats);
           setRecentOrders(res.data.recentOrders);

@@ -350,7 +350,7 @@ export function CreateOrderView() {
         ratio: formData.ratio ? formData.ratio.split(',').map(r => r.trim()).filter(Boolean) : []
       };
 
-      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/create-order`, payload);
+      const res = await axios.post(`/create-order`, payload);
 
       if (res.data.success) {
         toast.success(`Order ${res.data.jobId} Created & ${qty} Units Generated!`);

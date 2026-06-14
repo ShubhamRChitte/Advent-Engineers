@@ -60,7 +60,7 @@ export function AfterPrimaryCoreSelection({
     const fetchTransformerData = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${initialTransformer.uniqueId}`, {
+        const response = await axios.get(`/transformers/${initialTransformer.uniqueId}`, {
           withCredentials: true
         });
         if (response.data) {
@@ -218,9 +218,9 @@ export function AfterPrimaryCoreSelection({
         requestedBy: 'Primary Tester'
       };
 
-      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/strict-approvals/request`, payload, { withCredentials: true });
+      await axios.post(`/strict-approvals/request`, payload, { withCredentials: true });
       
-      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}/approve-stage`, {
+      await axios.put(`/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'primary',
         nextStage: 'admin_review'
       }, { withCredentials: true });
@@ -236,7 +236,7 @@ export function AfterPrimaryCoreSelection({
   const handleApproveTransformer = async () => {
     try {
       if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Final Testing?`)) return;
-      const response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}/approve-stage`, {
+      const response = await axios.put(`/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'primary',
         nextStage: 'final'
       }, { withCredentials: true });

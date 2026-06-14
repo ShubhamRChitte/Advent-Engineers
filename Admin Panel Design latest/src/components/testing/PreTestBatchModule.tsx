@@ -52,7 +52,7 @@ export function PreTestBatchModule({ onBack, user, initialBatch }: PreTestBatchM
   useEffect(() => {
     const fetchVendors = async () => {
       try {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/core-vendors`);
+        const res = await axios.get(`/core-vendors`);
         if (res.data.success) {
           setVendors(res.data.data);
         }
@@ -104,7 +104,7 @@ export function PreTestBatchModule({ onBack, user, initialBatch }: PreTestBatchM
         turns: finalTurns
       };
 
-      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches/create`, payload, {
+      const response = await axios.post(`/pre-test-batches/create`, payload, {
         withCredentials: true
       });
 

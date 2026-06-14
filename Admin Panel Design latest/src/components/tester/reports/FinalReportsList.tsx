@@ -41,7 +41,7 @@ export function FinalReportsList() {
     const fetchReports = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/final/reports`, {
+            const response = await axios.get(`/final/reports`, {
                 withCredentials: true
             });
 

@@ -46,7 +46,7 @@ export function TestReportModal({ isOpen, onClose, transformer, order, testType 
         setLoading(true);
         try {
             const id = transformer._id || transformer.id;
-            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/reports/${id}?stage=${testType}`);
+            const res = await fetch(`/reports/${id}?stage=${testType}`);
             const result = await res.json();
             if (result.success) {
                 setReportData(result.data);
@@ -64,17 +64,17 @@ export function TestReportModal({ isOpen, onClose, transformer, order, testType 
             const orderId = transformer.orderId._id || transformer.orderId; // Handle populated or raw ID
 
             // Fetch Metering
-            const metRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/metering-tests/${orderId}`);
+            const metRes = await fetch(`/metering-tests/${orderId}`);
             const metData = await metRes.json();
             if (metData) setMeteringData(metData);
 
             // Fetch Protection
-            const protRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/protection-tests/${orderId}?type=Protection`);
+            const protRes = await fetch(`/protection-tests/${orderId}?type=Protection`);
             const protData = await protRes.json();
             if (protData) setProtectionData(protData);
 
             // Fetch PS
-            const psRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/protection-tests/${orderId}?type=PS`);
+            const psRes = await fetch(`/protection-tests/${orderId}?type=PS`);
             const psData = await psRes.json();
             if (psData) setPsData(psData);
 

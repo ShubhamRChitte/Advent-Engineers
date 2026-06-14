@@ -86,7 +86,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
   useEffect(() => {
     const fetchTransformers = async () => {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/order/${order.id}`, {
+        const response = await axios.get(`/transformers/order/${order.id}`, {
           withCredentials: true
         });
 

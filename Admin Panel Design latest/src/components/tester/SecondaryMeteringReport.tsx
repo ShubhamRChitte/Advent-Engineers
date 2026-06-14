@@ -48,7 +48,7 @@ export function SecondaryMeteringReport({
   useEffect(() => {
     const fetchLimits = async () => {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/metering`, { withCredentials: true });
+        const response = await axios.get(`/accuracy-limits/metering`, { withCredentials: true });
         setDbLimits(response.data);
       } catch (error) {
         console.error('Failed to fetch dynamic metering limits', error);
@@ -136,7 +136,7 @@ export function SecondaryMeteringReport({
   useEffect(() => {
     const fetchLatestData = async () => {
       try {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`/transformers/${transformer.uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
         const stageKey = `${stage}_test`;
         const stageHistory = freshTransformer?.testHistory?.[stageKey];
@@ -245,7 +245,7 @@ export function SecondaryMeteringReport({
       // Persist the entered test values to the transformer's history first
       await handleDatabaseSave();
 
-      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers`, payload, { withCredentials: true });
+      const response = await axios.post(`/failed-transformers`, payload, { withCredentials: true });
       if (response.data.success) {
         toast.success(response.data.message || "Transformer marked as failed successfully.");
         if (onRefresh) onRefresh();

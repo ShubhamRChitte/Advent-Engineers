@@ -85,18 +85,18 @@ export default function ReadyStockView() {
 
   // SWR Hooks
   const { data: analytics, mutate: mutateAnalytics } = useSWR(
-    `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/ready-transformers/analytics`, 
+    `/ready-transformers/analytics`, 
     fetcher
   );
 
   const { data: batchesData, mutate: mutateBatches, isLoading: isBatchesLoading } = useSWR(
-    `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches?paginated=true&limit=${batchPage * 20}&search=${encodeURIComponent(debouncedSearch)}`,
+    `/pre-test-batches?paginated=true&limit=${batchPage * 20}&search=${encodeURIComponent(debouncedSearch)}`,
     fetcher
   );
 
   const { data: stockData, mutate: mutateStock, isLoading: isStockLoading } = useSWR(
     activeTab !== 'All' 
-      ? `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/ready-transformers?paginated=true&limit=${stockPage * 20}&coreType=${encodeURIComponent(activeTab)}&search=${encodeURIComponent(debouncedSearch)}`
+      ? `/ready-transformers?paginated=true&limit=${stockPage * 20}&coreType=${encodeURIComponent(activeTab)}&search=${encodeURIComponent(debouncedSearch)}`
       : null,
     fetcher
   );
@@ -145,7 +145,7 @@ export default function ReadyStockView() {
   const handleDeleteBatch = async (batchId: string) => {
     if (!window.confirm("Are you sure you want to delete this batch? This action cannot be undone.")) return;
     try {
-      await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches/${batchId}`, {
+      await axios.delete(`/pre-test-batches/${batchId}`, {
         withCredentials: true
       });
       toast.success("Batch deleted successfully!");
@@ -160,7 +160,7 @@ export default function ReadyStockView() {
     
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches/${batchId}/approve`, {}, {
+      const res = await axios.post(`/pre-test-batches/${batchId}/approve`, {}, {
         withCredentials: true,
         headers: { 'Authorization': token ? `Bearer ${token}` : '' }
       });
