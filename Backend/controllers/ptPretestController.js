@@ -236,7 +236,7 @@ exports.logFailed = async (req, res) => {
             failureParameters,
             failureReason,
             reportedBy,
-            stage: "pt_pretest_testING",
+            stage: "PT_PRETEST_TESTING",
             status: "FAILED"
         });
 
