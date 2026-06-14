@@ -43,32 +43,79 @@ interface TesterNotificationsProps {
   setActiveView?: (view: string) => void;
 }
 
-const getPTPretesterStatus = (notification: TaskNotification) => {
-  const statusLower = (notification.orderStatus || '').toLowerCase();
-  
-  // 1. COMPLETED: If the pre-testing is marked completed or order is finished
-  const isCompleted = 
-    notification.completionStages?.pt_pretest === true ||
-    statusLower.includes('pt pre-testing completed') ||
-    statusLower.includes('pt pretesting completed') ||
-    statusLower.includes('pt testing assigned') ||
-    statusLower.includes('pt testing') ||
-    statusLower.includes('final testing') ||
-    statusLower === 'completed' ||
-    statusLower === 'shipped' ||
-    statusLower === 'dispatch';
-    
-  if (isCompleted) return 'COMPLETED';
+const getRoleStageKey = (role: string) => {
+  switch (role) {
+    case 'core-tester': return 'core';
+    case 'secondary-tester': return 'secondary';
+    case 'after-primary-tester': return 'primary';
+    case 'final-tester': return 'final';
+    case 'pt-tester': return 'pt';
+    case 'pt-pretester': return 'pt_pretest';
+    default: return '';
+  }
+};
 
-  // 2. DELAYED: If deadline is passed and not completed
+const isStageCompleted = (role: string, notification: TaskNotification) => {
+  const stageKey = getRoleStageKey(role);
+  if (!stageKey) return false;
+  
+  if (notification.completionStages?.[stageKey] === true) return true;
+
+  const statusLower = (notification.orderStatus || '').toLowerCase();
+
+  // General Completed status
+  if (statusLower === 'completed' || statusLower === 'shipped' || statusLower === 'dispatch' || statusLower.includes('final testing completed')) {
+    return true;
+  }
+
+  // Stage-specific completion markers in order status field
+  switch (role) {
+    case 'core-tester':
+      return statusLower.includes('core testing completed') || 
+             statusLower.includes('secondary') || 
+             statusLower.includes('primary') || 
+             statusLower.includes('final') || 
+             statusLower.includes('completed');
+    case 'secondary-tester':
+      return statusLower.includes('secondary testing completed') || 
+             statusLower.includes('primary') || 
+             statusLower.includes('final') || 
+             statusLower.includes('completed');
+    case 'after-primary-tester':
+      return statusLower.includes('primary testing completed') || 
+             statusLower.includes('final') || 
+             statusLower.includes('completed');
+    case 'final-tester':
+      return statusLower.includes('final testing completed') || 
+             statusLower.includes('completed');
+    case 'pt-pretester':
+      return statusLower.includes('pt pre-testing completed') ||
+             statusLower.includes('pt pretesting completed') ||
+             statusLower.includes('pt testing assigned') ||
+             statusLower.includes('pt testing') ||
+             statusLower.includes('final testing') ||
+             statusLower.includes('completed');
+    case 'pt-tester':
+      return statusLower.includes('pt testing completed') || 
+             statusLower.includes('pt final testing completed') ||
+             statusLower.includes('completed');
+    default:
+      return false;
+  }
+};
+
+const getTesterStatus = (role: string, notification: TaskNotification) => {
+  if (isStageCompleted(role, notification)) {
+    return 'COMPLETED';
+  }
+  
   const isOverdue = notification.deadline ? new Date(notification.deadline) < new Date() : false;
   if (isOverdue) return 'DELAYED';
 
-  // 3. IN PROGRESS: If testing has started/is in progress
-  const isInProgress = statusLower.includes('in progress') || statusLower.includes('in-testing');
+  const statusLower = (notification.orderStatus || '').toLowerCase();
+  const isInProgress = statusLower.includes('in progress') || statusLower.includes('in-testing') || statusLower.includes('active');
   if (isInProgress) return 'IN PROGRESS';
 
-  // 4. NEW: Default/unread or recently assigned
   return 'NEW';
 };
 
@@ -96,7 +143,7 @@ const getStatusStyles = (status: string) => {
       return {
         borderClass: 'border-l-[4px] border-l-gray-400',
         bgClass: 'bg-gray-50/30',
-        badgeClass: 'bg-gray-100 text-gray-800 border-gray-200 text-xs'
+        badgeClass: 'bg-gray-100 text-gray-800 border-gray-200 text-xs border'
       };
     default:
       return {
@@ -107,10 +154,30 @@ const getStatusStyles = (status: string) => {
   }
 };
 
-const getStartButtonLabel = (notification: TaskNotification) => {
+const getStartTestingView = (role: string) => {
+  return role === 'core-tester' ? 'core-tracking' : 'testing';
+};
+
+const getStartButtonLabel = (role: string, notification: TaskNotification) => {
   const statusLower = (notification.orderStatus || '').toLowerCase();
   const isInProgress = statusLower.includes('in progress') || statusLower.includes('in-testing');
-  return isInProgress ? 'Continue PT Pretest' : 'Start PT Pretest';
+  const prefix = isInProgress ? 'Continue' : 'Start';
+  switch (role) {
+    case 'core-tester':
+      return `${prefix} Core Testing`;
+    case 'secondary-tester':
+      return `${prefix} Secondary Testing`;
+    case 'after-primary-tester':
+      return `${prefix} After Primary Testing`;
+    case 'final-tester':
+      return `${prefix} Final Testing`;
+    case 'pt-tester':
+      return `${prefix} PT Final Testing`;
+    case 'pt-pretester':
+      return `${prefix} PT Pretest`;
+    default:
+      return `${prefix} Testing`;
+  }
 };
 
 const formatPTTimestamp = (rawDate?: string, fromStage?: string, fromEmployee?: string) => {
@@ -296,12 +363,13 @@ export function TesterNotifications({ userRole, onViewOrder, setActiveView }: Te
     }
   };
 
-  const handleStartPTPretest = async (notification: TaskNotification) => {
+  const handleStartTesting = async (notification: TaskNotification) => {
     if (!notification.isRead) {
       await handleMarkAsRead(notification.id);
     }
     if (setActiveView) {
-      setActiveView('testing');
+      const targetView = getStartTestingView(userRole);
+      setActiveView(targetView);
     }
   };
 
@@ -385,172 +453,86 @@ export function TesterNotifications({ userRole, onViewOrder, setActiveView }: Te
       {/* Notifications List */}
       <div className="space-y-3">
         {notifications.map((notification) => {
-          if (userRole === 'pt-pretester') {
-            const status = getPTPretesterStatus(notification);
-            const styles = getStatusStyles(status);
-            return (
-              <Card
-                key={notification.id}
-                className={`p-3 transition-all border border-gray-100 shadow-sm ${styles.borderClass} ${styles.bgClass} hover:shadow-md`}
-              >
-                <div className="space-y-2.5">
-                  {/* Notification Header */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-semibold text-gray-900 m-0">
-                        You have a new testing task assigned
-                      </h3>
-                      <span className="text-xs bg-slate-100 text-slate-800 font-mono font-bold px-2 py-0.5 rounded border border-slate-200 shadow-sm">
-                        JOB ID: {notification.jobId}
-                      </span>
-                      <Badge className={`${styles.badgeClass} text-[10px] px-2 py-0.5 font-semibold rounded-md shadow-none`}>
-                        {status}
-                      </Badge>
-                    </div>
-                    
-                    {!notification.isRead && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleMarkAsRead(notification.id)}
-                        className="h-7 text-xs px-2 text-gray-600 hover:text-gray-900 gap-1.5 border-gray-200"
-                      >
-                        <CheckCircle className="w-3.5 h-3.5" />
-                        Mark as Read
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Clean & Compact Info Layout with grid spacing */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-1 gap-x-4 py-2 px-3 bg-white rounded border border-gray-100">
-                    <div className="text-xs">
-                      <span className="text-gray-400 font-medium">Client: </span>
-                      <span className="font-semibold text-gray-800">{notification.clientName}</span>
-                    </div>
-                    <div className="text-xs">
-                      <span className="text-gray-400 font-medium">Transformer: </span>
-                      <span className="font-semibold text-gray-800">{notification.transformerType}</span>
-                    </div>
-                    <div className="text-xs">
-                      <span className="text-gray-400 font-medium">Qty: </span>
-                      <span className="font-semibold text-gray-850">
-                        {notification.quantity} {notification.quantity === 1 ? 'Unit' : 'Units'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Footer (Timestamp and Action Buttons) */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1.5">
-                    {/* Improved visually lighter assignment / timestamp info */}
-                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-gray-400 font-medium">
-                      <Clock className="w-3.5 h-3.5 text-gray-400 mr-0.5" />
-                      <span>{formatPTTimestamp(notification.rawDate, notification.fromStage, notification.fromEmployee)}</span>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        variant="outline" 
-                        className="h-8 text-xs gap-1.5 px-3 border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm"
-                        onClick={() => onViewOrder && onViewOrder(notification.orderObjectId || notification.id)}
-                      >
-                        <Package className="w-3.5 h-3.5" />
-                        View Order Details
-                      </Button>
-                      {status !== 'COMPLETED' && (
-                        <Button
-                          size="sm"
-                          className="h-8 text-xs gap-1.5 px-3 bg-[#003a70] hover:bg-blue-900 text-white font-medium shadow-sm"
-                          onClick={() => handleStartPTPretest(notification)}
-                        >
-                          <PlayCircle className="w-3.5 h-3.5" />
-                          {getStartButtonLabel(notification)}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            );
-          }
-
-          // Otherwise keep unchanged for other modules/roles
+          const status = getTesterStatus(userRole, notification);
+          const styles = getStatusStyles(status);
           return (
             <Card
               key={notification.id}
-              className={`p-4 ${!notification.isRead ? 'border-l-4 border-l-blue-600 bg-blue-50/30' : ''}`}
+              className={`p-3 transition-all border border-gray-100 shadow-sm ${styles.borderClass} ${styles.bgClass} hover:shadow-md`}
             >
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {/* Notification Header */}
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className={`p-2 rounded-lg ${!notification.isRead ? 'bg-blue-500' : 'bg-gray-400'}`}>
-                      <Bell className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-1">
-                        <div>
-                          {/* <h3 className="text-gray-900 mb-1">{notification.message}</h3> */}
-                          <h3 className="text-sm font-semibold text-gray-900 mb-0.5">You have a new testing task assigned</h3>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-xs text-gray-600 font-medium">{notification.jobId}</p>
-                          </div>
-                        </div>
-                        {!notification.isRead && (
-                          <Badge className="bg-blue-600 text-white text-[10px] px-1.5 py-0 h-5">New</Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                        <span>From {notification.fromStage}: {notification.fromEmployee}</span>
-                        <span>•</span>
-                        <span>{notification.timestamp}</span>
-                      </div>
-                    </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-semibold text-gray-900 m-0">
+                      You have a new testing task assigned
+                    </h3>
+                    <span className="text-xs bg-slate-100 text-slate-800 font-mono font-bold px-2 py-0.5 rounded border border-slate-200 shadow-sm">
+                      JOB ID: {notification.jobId}
+                    </span>
+                    <Badge className={`${styles.badgeClass} text-[10px] px-2 py-0.5 font-semibold rounded-md shadow-none`}>
+                      {status}
+                    </Badge>
                   </div>
+                  
                   {!notification.isRead && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleMarkAsRead(notification.id)}
-                      className="gap-1.5 ml-2 h-7 text-xs px-2"
+                      className="h-7 text-xs px-2 text-gray-600 hover:text-gray-900 gap-1.5 border-gray-200"
                     >
                       <CheckCircle className="w-3.5 h-3.5" />
                       Mark as Read
                     </Button>
                   )}
-                </div>
-
-                {/* Transformer Details */}
-                <div className="p-3 bg-white rounded-md border border-gray-100 shadow-sm">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">Client Name</p>
-                      <p className="text-sm font-medium text-gray-900">{notification.clientName}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">Transformer</p>
-                      <p className="text-sm font-medium text-gray-900">{notification.transformerName}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">Quantity</p>
-                      <div className="flex items-center gap-1">
-                        <Package className="w-3.5 h-3.5 text-gray-400" />
-                        <span className="text-sm font-medium text-gray-900">{notification.quantity} units</span>
-                      </div>
-                    </div>
+                </div>                {/* Clean & Compact Info Layout with grid spacing */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-y-1 gap-x-4 py-2 px-3 bg-white rounded border border-gray-100">
+                  <div className="text-xs">
+                    <span className="text-gray-500 font-medium">Client: </span>
+                    <span className="font-semibold text-gray-900">{notification.clientName}</span>
+                  </div>
+                  <div className="text-xs">
+                    <span className="text-gray-500 font-medium">Transformer: </span>
+                    <span className="font-semibold text-gray-900">{notification.transformerType}</span>
+                  </div>
+                  <div className="text-xs">
+                    <span className="text-gray-500 font-medium">Qty: </span>
+                    <span className="font-semibold text-gray-900">
+                      {notification.quantity} {notification.quantity === 1 ? 'Unit' : 'Units'}
+                    </span>
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex items-center gap-3 pt-2">
-                  <Button 
-                    variant="outline" 
-                    className="gap-2"
-                    onClick={() => onViewOrder && onViewOrder(notification.orderObjectId || notification.id)}
-                  >
-                    <Package className="w-4 h-4" />
-                    View Order Details
-                  </Button>
+                {/* Footer (Timestamp and Action Buttons) */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1.5">
+                  {/* Improved visually lighter assignment / timestamp info */}
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500 font-medium">
+                    <Clock className="w-3.5 h-3.5 text-gray-400 mr-0.5" />
+                    <span>{formatPTTimestamp(notification.rawDate, notification.fromStage, notification.fromEmployee)}</span>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="h-8 text-xs gap-1.5 px-3 border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm"
+                      onClick={() => onViewOrder && onViewOrder(notification.orderObjectId || notification.id)}
+                    >
+                      <Package className="w-3.5 h-3.5" />
+                      View Order Details
+                    </Button>
+                    {status !== 'COMPLETED' && (
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs gap-1.5 px-3 bg-[#003a70] hover:bg-blue-900 text-white font-medium shadow-sm"
+                        onClick={() => handleStartTesting(notification)}
+                      >
+                        <PlayCircle className="w-3.5 h-3.5" />
+                        {getStartButtonLabel(userRole, notification)}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </Card>
