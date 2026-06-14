@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { AfterPrimaryOrdersList } from './AfterPrimaryOrdersList';
 import { AfterPrimaryTransformersList, Transformer as AfterPrimaryTransformer } from './AfterPrimaryTransformersList';
 import { AfterPrimaryCoreSelection } from './AfterPrimaryCoreSelection';

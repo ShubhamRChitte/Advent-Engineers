@@ -3,7 +3,7 @@ import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { ArrowLeft, PlayCircle, Loader2, CheckCircle } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 
 interface CoreConfig {
   coreNumber: number;

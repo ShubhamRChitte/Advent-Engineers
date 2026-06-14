@@ -8,7 +8,7 @@ import {
   Cell
 } from 'recharts';
 import { TrendingUp, Package, Clock, AlertCircle } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Skeleton } from '../ui/skeleton';
 
 interface AnalyticsData {

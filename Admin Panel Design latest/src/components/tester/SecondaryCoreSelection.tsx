@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { ArrowLeft, CheckCircle } from 'lucide-react';
 import { Transformer } from './SecondaryTransformersList';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { toast } from 'sonner';
 
 interface SecondaryCoreSelectionProps {

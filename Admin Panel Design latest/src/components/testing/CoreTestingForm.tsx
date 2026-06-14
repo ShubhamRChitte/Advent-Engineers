@@ -41,7 +41,7 @@ import { Label } from '../ui/label';
 import { ReportHeader } from '../reports';
 import { CoreReportPrint } from './CoreReportPrint';
 import { getSafeOrderId, getSafeClientName, getSafeBatchId } from '../../utils/orderUtils';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { useCTTimer } from '../../utils/useCTTimer';
 import { CTTimerBadge } from '../tester/CTTimerBadge';interface CoreTestingFormProps {
   order: CoreTestingOrder;

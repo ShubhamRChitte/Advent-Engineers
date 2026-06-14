@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Package, Plus, Trash2, AlertCircle, User } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 
 // --- Types ---
 interface Tester {

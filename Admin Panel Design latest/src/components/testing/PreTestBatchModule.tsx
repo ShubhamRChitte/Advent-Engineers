@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Plus, Minus, Settings, Loader2 } from 'lucide-react';
 import { CoreTestingForm } from './CoreTestingForm';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { toast } from 'sonner';
 
 interface PreTestBatchModuleProps {

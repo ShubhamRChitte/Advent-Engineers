@@ -4,7 +4,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { PlayCircle, Loader2, Search } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 
 interface Order {
   _id: string; 

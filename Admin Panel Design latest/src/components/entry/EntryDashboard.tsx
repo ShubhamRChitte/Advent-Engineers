@@ -10,7 +10,7 @@ interface EntryDashboardProps {
   Updated to fetch dynamic data from Backend 
 */
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 
 export function EntryDashboard({ onAddOrder }: EntryDashboardProps) {
   const [statsData, setStatsData] = useState({

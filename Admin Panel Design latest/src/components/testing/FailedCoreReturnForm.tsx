@@ -10,7 +10,7 @@ import {
     ClipboardList,
     Send,
 } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 
 interface FailedCore {
     _id?: string;

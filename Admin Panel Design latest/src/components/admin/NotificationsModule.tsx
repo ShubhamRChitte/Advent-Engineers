@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { toast } from 'sonner';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';

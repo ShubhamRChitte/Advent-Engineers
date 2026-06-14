@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Printer, ArrowLeft, Loader2, Database } from 'lucide-react';

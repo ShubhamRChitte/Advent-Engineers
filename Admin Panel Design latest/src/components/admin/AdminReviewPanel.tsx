@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { ShieldAlert, User, CheckCircle, RefreshCw } from 'lucide-react';

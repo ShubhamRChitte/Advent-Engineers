@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Plus, Upload, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 
 interface CoreData {
   id: string;

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
 import { FinalOrdersList } from './FinalOrdersList';

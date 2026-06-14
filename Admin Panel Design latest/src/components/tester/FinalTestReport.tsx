@@ -4,7 +4,7 @@ import { Input } from '../ui/input';
 import { ArrowLeft, Save, Download, Printer, AlertTriangle } from 'lucide-react';
 import { FinalTransformer } from './FinalTransformersList';
 import { toast } from 'sonner';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { useCTTimer } from '../../utils/useCTTimer';
 import { CTTimerBadge } from './CTTimerBadge';
 

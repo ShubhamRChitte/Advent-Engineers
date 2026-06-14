@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { CoreTestingOrders, CoreTestingOrder } from './CoreTestingOrders';
 import { CoreTypeSelection } from './CoreTypeSelection';
 import { CoreTestingForm } from './CoreTestingForm';

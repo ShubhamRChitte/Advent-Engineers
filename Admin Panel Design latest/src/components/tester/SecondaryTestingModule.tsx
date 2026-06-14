@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Clock, RefreshCw } from 'lucide-react';
 import { SecondaryOrdersList } from './SecondaryOrdersList';
 import { SecondaryTransformersList, Transformer } from './SecondaryTransformersList';

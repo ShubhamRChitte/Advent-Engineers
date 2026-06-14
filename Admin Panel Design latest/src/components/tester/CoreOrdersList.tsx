@@ -5,7 +5,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Eye, PlayCircle, ChevronDown, ChevronUp, CheckCircle, XCircle, FileText, Search, Filter } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { User } from '../../App';
 
 interface UserReading {

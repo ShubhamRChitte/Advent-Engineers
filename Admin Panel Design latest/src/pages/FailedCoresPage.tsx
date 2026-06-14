@@ -1,6 +1,6 @@
 import { FailedCoresManager } from '../components/testing/FailedCoresManager';
 import useSWR from 'swr';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Loader2 } from 'lucide-react';
 import { FailedCoreSummaryReport } from '../components/testing/FailedCoreSummaryReport';
 

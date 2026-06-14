@@ -11,7 +11,7 @@ import {
   CheckCircle2,
   Trash2
 } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import useSWR from 'swr';
 import { socket } from '../../utils/socket';
 import { toast } from 'sonner';

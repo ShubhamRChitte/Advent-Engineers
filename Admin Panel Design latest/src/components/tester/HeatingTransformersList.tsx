@@ -3,7 +3,7 @@ import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { ArrowLeft, PlayCircle, Loader2, CheckCircle, FileText } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Order, Transformer } from './HeatingTrackingModule';
 
 interface HeatingTransformersListProps {

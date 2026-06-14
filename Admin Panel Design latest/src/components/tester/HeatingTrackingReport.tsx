@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { User } from '../../App';
 import { Loader2 } from 'lucide-react';
 import {

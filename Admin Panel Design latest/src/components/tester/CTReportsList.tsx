@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
 import { ChevronRight, FileText, Search, Calendar, LayoutGrid, Printer } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Skeleton } from '../ui/skeleton';
 import { CTCustomerReport } from './customer-report/CTCustomerReport';
 

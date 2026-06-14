@@ -5,7 +5,7 @@ import { Download, ArrowLeft, Save, Loader2, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { CheckCircle } from 'lucide-react';
 import { exportCoreTestingReport } from '../../utils/pdfExport';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { PrintableCoreReport } from '../reports/PrintableCoreReport';
 import { useCTTimer } from '../../utils/useCTTimer';
 import { CTTimerBadge } from './CTTimerBadge';

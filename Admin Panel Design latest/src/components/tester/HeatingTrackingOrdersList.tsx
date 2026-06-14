@@ -4,7 +4,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { PlayCircle, ChevronDown, ChevronUp, Search, Filter, Loader2 } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { User } from '../../App';
 import { Order } from './HeatingTrackingModule';
 

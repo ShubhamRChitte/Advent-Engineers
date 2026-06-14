@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 
 const API_BASE = `/ct-timer`;
 

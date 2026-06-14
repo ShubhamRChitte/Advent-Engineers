@@ -3,7 +3,7 @@ import { Bell, LogOut } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { User } from '../../App';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 
 interface AdminHeaderProps {
   user: User;

@@ -1,7 +1,7 @@
 import { ClipboardCheck, FileText, Home, Bell, Zap, AlertTriangle, Warehouse } from 'lucide-react';
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 

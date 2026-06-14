@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import React, { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';

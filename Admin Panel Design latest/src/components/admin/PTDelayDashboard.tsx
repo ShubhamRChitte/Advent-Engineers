@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Clock, AlertTriangle, Users, Briefcase, List, RefreshCw, Filter } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';

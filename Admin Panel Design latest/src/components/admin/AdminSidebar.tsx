@@ -2,7 +2,7 @@ import { LayoutDashboard, Users, PlusCircle, List, FileText, Bell, AlertTriangle
 import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 
 interface AdminSidebarProps {
   activeView: string;

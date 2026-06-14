@@ -4,6 +4,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Users, Package, ClipboardCheck, TrendingUp, AlertCircle, CheckCircle2, PlusCircle, List, ArrowRight } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import axios from '../../utils/axiosConfig';
 
 interface AdminDashboardProps {
   setActiveView?: (view: string) => void;
@@ -16,7 +17,7 @@ const ICON_MAP: any = {
   AlertCircle: AlertCircle
 };
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = (url: string) => axios.get(url).then((res) => res.data);
 
 export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
   const [trendTimeframe, setTrendTimeframe] = useState<'daily' | 'weekly' | 'monthly'>('daily');
@@ -163,7 +164,7 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
                 cursor={{ fill: '#f8fafc' }}
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
-                    const d = payload[0].payload;
+                    const d = payload[0]?.payload;
                     return (
                       <div className="bg-white p-3 border border-gray-100 rounded-lg shadow-lg text-sm space-y-1">
                         <p className="font-bold text-gray-800">{d.tester}</p>
