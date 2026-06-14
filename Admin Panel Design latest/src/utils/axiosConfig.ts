@@ -2,8 +2,14 @@ import axios from 'axios';
 
 // Global Axios Configuration
 axios.defaults.withCredentials = true;
-// Set Base URL for all API requests
-axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+let baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+
+// Auto-append /api if it's missing from the production environment variable
+if (baseURL && !baseURL.endsWith('/api')) {
+  baseURL = baseURL.endsWith('/') ? `${baseURL}api` : `${baseURL}/api`;
+}
+
+axios.defaults.baseURL = baseURL;
 
 
 // Request Interceptor: Inject Token
