@@ -159,17 +159,17 @@ const ProtectionBlockSchema = new Schema({
   ratioValue: String, // e.g., "200/1"
   protectionClass: String,
   // Map the top-row measurements specifically
-  ratioError100: { type: Number, default: 0 }, // Was burden100_1
-  phaseError: { type: Number, default: 0 },    // Was burden100_2
+  ratioError100: { type: Number, default: null }, // Was burden100_1
+  phaseError: { type: Number, default: null },    // Was burden100_2
 
   // Test Parameters
-  resistance: { type: Number, default: 0 },
-  alf: { type: Number, default: 0 },
-  excitationCurrent: { type: Number, default: 0 },
+  resistance: { type: Number, default: null },
+  alf: { type: Number, default: null },
+  excitationCurrent: { type: Number, default: null },
 
   // Automated Result Fields
-  secondaryLimitingVoltage: { type: Number, default: 0 },
-  compositeError: { type: Number, default: 0 },
+  secondaryLimitingVoltage: { type: Number, default: null },
+  compositeError: { type: Number, default: null },
 
   // Maintain legacy field to prevent breaking old reports
   secondaryLimitingVtg: Schema.Types.Mixed,

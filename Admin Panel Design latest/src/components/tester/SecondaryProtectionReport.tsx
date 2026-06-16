@@ -462,6 +462,15 @@ export function SecondaryProtectionReport({
         // Ensure accurate parsing of Burden from Order ID (e.g. "30VA" -> 30)
         const burdenVal = getBurdenValue();
 
+        // If any of the dependent inputs are completely empty, clear the calculated fields
+        if (updatedRow.resistance === '' || updatedRow.alf === '' || updatedRow.excitationCurrent === '') {
+          return {
+            ...updatedRow,
+            secondaryLimitingVoltage: '',
+            compositeError: ''
+          };
+        }
+
         // Force Parsing: Wrap all table inputs in parseFloat()
         const r = parseFloat(updatedRow.resistance) || 0;
         const alf = parseFloat(updatedRow.alf) || 0;
@@ -470,12 +479,12 @@ export function SecondaryProtectionReport({
         // Debug inputs for calculation verification
         console.log("Values used:", { burdenVal, iRated, resistance: r, alf });
 
-        // Safety Constraint: If ALF or I_Rated is 0, results default to 0 to avoid Infinity/NaN
+        // Safety Constraint: If ALF or I_Rated is 0, results default to empty to avoid Infinity/NaN
         if (alf === 0 || iRated === 0) {
           return {
             ...updatedRow,
-            secondaryLimitingVoltage: '0.000',
-            compositeError: '0.000'
+            secondaryLimitingVoltage: '',
+            compositeError: ''
           };
         }
 
@@ -518,6 +527,8 @@ export function SecondaryProtectionReport({
     console.log("handleDatabaseSave: STARTED (Protection)");
     try {
       // 1. Build the array based on your ProtectionBlockSchema
+      const parseOrNull = (val: any) => (val === '' || val === null || val === undefined) ? null : parseFloat(val);
+
       const protectionResults = testResults.map(row => ({
         internalCoreNo: coreId, // Inject Core ID for persistence
         coreId: coreId,         // Inject Core ID for persistence
@@ -525,23 +536,23 @@ export function SecondaryProtectionReport({
         protectionClass: protectionClass || '5P',
 
         // New Schema Mapping - Ensure Numeric Integrity
-        ratioError100: parseFloat(row.ratioError100) || 0,
-        phaseError: parseFloat(row.phaseError) || 0,
+        ratioError100: parseOrNull(row.ratioError100),
+        phaseError: parseOrNull(row.phaseError),
 
-        resistance: parseFloat(row.resistance) || 0,
-        alf: parseFloat(row.alf) || 0,
-        excitationCurrent: parseFloat(row.excitationCurrent) || 0,
+        resistance: parseOrNull(row.resistance),
+        alf: parseOrNull(row.alf),
+        excitationCurrent: parseOrNull(row.excitationCurrent),
 
         // Calculated fields (stored as strings in state, convert back to number)
-        secondaryLimitingVoltage: parseFloat(row.secondaryLimitingVoltage) || 0,
-        compositeError: parseFloat(row.compositeError) || 0,
+        secondaryLimitingVoltage: parseOrNull(row.secondaryLimitingVoltage),
+        compositeError: parseOrNull(row.compositeError),
 
         // Pass/Fail status for strict approval tracking
         isPass: row.isPass,
         reason: row.reason,
 
         // Legacy Field Mapping
-        secondaryLimitingVtg: parseFloat(row.secondaryLimitingVoltage) || 0
+        secondaryLimitingVtg: parseOrNull(row.secondaryLimitingVoltage)
       }));
 
       console.log("handleDatabaseSave: protectionResults built", protectionResults);
