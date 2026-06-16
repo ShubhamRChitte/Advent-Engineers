@@ -143,14 +143,26 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
             stageData.startTime = null;
             // ------------------------------
             
-            if (nextStage === 'primary' && transformer.testHistory.primary_test) {
-                transformer.testHistory.primary_test.metering_results = [];
-                transformer.testHistory.primary_test.ps_results = [];
-                transformer.testHistory.primary_test.protection_results = [];
-                transformer.testHistory.primary_test.tester = null;
-                transformer.testHistory.primary_test.status = 'Pending';
-                transformer.testHistory.primary_test.timestamp = null;
-                transformer.markModified('testHistory.primary_test');
+            if (nextStage === 'primary') {
+                if (transformer.testHistory.primary_test) {
+                    transformer.testHistory.primary_test.metering_results = [];
+                    transformer.testHistory.primary_test.ps_results = [];
+                    transformer.testHistory.primary_test.protection_results = [];
+                    transformer.testHistory.primary_test.tester = null;
+                    transformer.testHistory.primary_test.status = 'Pending';
+                    transformer.testHistory.primary_test.timestamp = null;
+                    transformer.markModified('testHistory.primary_test');
+                }
+                
+                // Clear final_test as well to ensure a fresh start for primary and above
+                if (transformer.testHistory.final_test) {
+                    transformer.testHistory.final_test = {
+                        status: 'Pending',
+                        tester: null,
+                        timestamp: null
+                    };
+                    transformer.markModified('testHistory.final_test');
+                }
             }
         } else if (stage === 'primary') {
             if (!transformer.testHistory.primary_test) {

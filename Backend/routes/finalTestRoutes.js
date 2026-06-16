@@ -125,36 +125,46 @@ router.post('/:id', isAuthenticated, async (req, res) => {
 
         // Handle Failure
         if (failedStage) {
-            if (requiresAdminReview) {
-                transformer.currentStage = "admin_review";
-                transformer.adminReviewDetails = {
-                    failedStage: failedStage,
-                    returnTargetStage: returnTargetStage,
-                    requestedAt: new Date()
-                };
-            } else {
-                // Regular failure stays in final (or whatever the standard failure flow is)
-                // Assuming it just stays in 'final' but status is 'Failed' to be picked up by Failed Section logic
-            }
+            // New Flow: Send directly to Failed Transformers Section
+            transformer.currentStage = "secondary_failed";
 
-            // Record in Failed Cores Collection
-            const failedCoreSvc = require('../services/failedCoreService');
-
+            const { FailedTransformerModel } = require('../models/FailedTransformerModel');
+            
             const actualOrderId = transformer.orderId?._id || transformer.orderId;
             if (!actualOrderId) {
                 console.error("CRITICAL ERROR: Cannot record failure, transformer.orderId is missing.", transformer.uniqueId);
                 throw new Error("Order association missing for this transformer.");
             }
 
-            await failedCoreSvc.recordFailure(
-                actualOrderId,
-                transformer.uniqueId, // Using Transformer UniqueId as 'internalCoreNo' for Final Test level failure
-                {
-                    failureStage: failedStage,
-                    failureReason: failureReason
-                }
-            );
+            // Check if failure already logged for this stage/type
+            const existingFailure = await FailedTransformerModel.findOne({
+                transformerId: transformer._id,
+                coreType: "COMPLETE UNIT",
+                status: { $in: ["FAILED", "TREATING"] }
+            });
 
+            if (!existingFailure) {
+                const failedRecord = new FailedTransformerModel({
+                    transformerId: transformer._id,
+                    transformerUniqueId: transformer.uniqueId,
+                    orderId: actualOrderId,
+                    jobNumber: transformer.jobId || (transformer.orderId ? transformer.orderId.jobId : ''),
+                    clientName: transformer.clientName || (transformer.orderId ? transformer.orderId.clientName : ''),
+                    coreType: "COMPLETE UNIT",
+                    testType: "Final Testing",
+                    failureParameters: { failedStage },
+                    failureReason: failureReason,
+                    reportedBy: testerName,
+                    stage: "FINAL_TESTING",
+                    status: "FAILED"
+                });
+                await failedRecord.save();
+            } else {
+                existingFailure.failureReason = failureReason;
+                existingFailure.reportedBy = testerName;
+                existingFailure.status = "FAILED";
+                await existingFailure.save();
+            }
         }
         // STAGE TRANSITION REMOVED: Must be explicitly approved via /api/transformers/:id/approve-stage
 
@@ -165,9 +175,8 @@ router.post('/:id', isAuthenticated, async (req, res) => {
         res.json({
             success: true,
             message: failedStage
-                ? (requiresAdminReview ? "Test failed. Moved to Admin Review." : "Test failed. Moved to failed section.")
-                : "Final Test completed successfully.",
-            requiresAdminReview
+                ? "Test failed. Moved to failed transformer section."
+                : "Final Test completed successfully."
         });
 
     } catch (error) {

@@ -175,22 +175,16 @@ export function FinalTestReport({
     const finalReason = getValidationFailures().join(' | ') || "Failed during final testing.";
 
     try {
-      // Persist the actual test data first
+      // Persist the actual test data and trigger the Failed Transformer workflow
       const testPayload = {
         polarityResult, meggarPrimaryToSecondary, meggarPrimaryToEarth, meggarSecondaryToEarth, meggarCoreToCore,
-        hvSecondaryWinding, hvPrimaryWinding, hvBetweenCore, ovitTest
+        hvSecondaryWinding, hvPrimaryWinding, hvBetweenCore, ovitTest,
+        failedStage: 'FINAL_TESTING',
+        failureReason: finalReason
       };
-      await axios.post(`/final/${encodeURIComponent(transformer.uniqueId)}`, testPayload, { withCredentials: true });
+      const response = await axios.post(`/final/${encodeURIComponent(transformer.uniqueId)}`, testPayload, { withCredentials: true });
 
-      const payload = {
-        orderId: (transformer as any).orderId?._id || (transformer as any).orderId,
-        internalCoreNo: transformer.uniqueId,
-        failureReason: finalReason,
-        failureStage: 'FINAL_QA', // Dynamic depending on specific exact stage if necessary
-      };
-
-      const failedRes = await axios.post(`/failed-cores`, payload, { withCredentials: true });
-      if (failedRes.data?.success || failedRes.status === 200 || failedRes.status === 201) {
+      if (response.data?.success || response.status === 200 || response.status === 201) {
         toast.success("Transformer marked as failed successfully.");
         if (onBack) onBack();
       }

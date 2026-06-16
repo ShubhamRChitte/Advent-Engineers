@@ -121,10 +121,10 @@ router.get('/', isAuthenticated, async (req, res) => {
             query.status = status;
         }
 
-        // Non-admin users only see failed transformers reported by them, EXCEPT for SECONDARY_TESTING/PRIMARY_TESTING stages where they see all failures
+        // Non-admin users only see failed transformers reported by them, EXCEPT for SECONDARY_TESTING/PRIMARY_TESTING/FINAL_TESTING stages where they see all failures
         const user = req.user;
         const isAdmin = user.role === 'admin' || user.designation === 'Admin' || ['Management', 'Office', 'Admin'].includes(user.department);
-        const isCTStage = stage && (stage.includes("SECONDARY_TESTING") || stage.includes("PRIMARY_TESTING"));
+        const isCTStage = stage && (stage.includes("SECONDARY_TESTING") || stage.includes("PRIMARY_TESTING") || stage.includes("FINAL_TESTING"));
         if (!isAdmin && !isCTStage) {
             const namesToCheck = [user.name, user.fullName].filter(Boolean);
             query.reportedBy = { $in: namesToCheck };
@@ -160,7 +160,7 @@ router.get('/', isAuthenticated, async (req, res) => {
 router.get('/count', isAuthenticated, async (req, res) => {
     try {
         const query = {
-            stage: { $in: ["SECONDARY_TESTING", "PRIMARY_TESTING"] },
+            stage: { $in: ["SECONDARY_TESTING", "PRIMARY_TESTING", "FINAL_TESTING"] },
             status: "FAILED"
         };
         
@@ -212,7 +212,7 @@ router.put('/:id/retest-save', isAuthenticated, async (req, res) => {
             return res.status(404).json({ success: false, message: "Transformer not found" });
         }
 
-        // 1. Save treated readings into secondary_test history
+        // 1. Save treated readings into the correct test history stage (ALWAYS secondary_test)
         if (!transformer.testHistory.secondary_test) {
             transformer.testHistory.secondary_test = {};
         }
@@ -220,7 +220,7 @@ router.put('/:id/retest-save', isAuthenticated, async (req, res) => {
         const coreTypeLower = (coreType || record.coreType || '').toLowerCase(); // 'metering', 'ps', 'protection 1' etc
         const testTypeLower = (record.testType || '').toLowerCase();
         
-        // This handles merging the edited readings into secondary_test.
+        // This handles merging the edited readings into the corresponding history stage.
         // We figure out the target field from the failed record's testType or coreType
         if (Array.isArray(treatedReadings)) {
             let coreSlot = "";
@@ -246,6 +246,16 @@ router.put('/:id/retest-save', isAuthenticated, async (req, res) => {
                     r.internalCoreNo !== coreSlot && r.coreId !== coreSlot
                 );
                 transformer.testHistory.secondary_test.metering_results = [...otherCoresResults, ...formattedReadings];
+
+                // Clear from primary and final
+                ['primary_test', 'final_test'].forEach(stage => {
+                    if (transformer.testHistory[stage] && transformer.testHistory[stage].metering_results) {
+                        transformer.testHistory[stage].metering_results = transformer.testHistory[stage].metering_results.filter(r => 
+                            r.internalCoreNo !== coreSlot && r.coreId !== coreSlot
+                        );
+                    }
+                });
+
             } else if (coreTypeLower.includes('ps') || testTypeLower.includes('ps')) {
                 if (!transformer.testHistory.secondary_test.ps_results) transformer.testHistory.secondary_test.ps_results = [];
                 const existingResults = transformer.testHistory.secondary_test.ps_results || [];
@@ -253,6 +263,16 @@ router.put('/:id/retest-save', isAuthenticated, async (req, res) => {
                     r.internalCoreNo !== coreSlot && r.coreId !== coreSlot
                 );
                 transformer.testHistory.secondary_test.ps_results = [...otherCoresResults, ...formattedReadings];
+
+                // Clear from primary and final
+                ['primary_test', 'final_test'].forEach(stage => {
+                    if (transformer.testHistory[stage] && transformer.testHistory[stage].ps_results) {
+                        transformer.testHistory[stage].ps_results = transformer.testHistory[stage].ps_results.filter(r => 
+                            r.internalCoreNo !== coreSlot && r.coreId !== coreSlot
+                        );
+                    }
+                });
+
             } else if (coreTypeLower.includes('protection') || testTypeLower.includes('protection')) {
                 if (!transformer.testHistory.secondary_test.protection_results) transformer.testHistory.secondary_test.protection_results = [];
                 const existingResults = transformer.testHistory.secondary_test.protection_results || [];
@@ -260,6 +280,15 @@ router.put('/:id/retest-save', isAuthenticated, async (req, res) => {
                     r.internalCoreNo !== coreSlot && r.coreId !== coreSlot
                 );
                 transformer.testHistory.secondary_test.protection_results = [...otherCoresResults, ...formattedReadings];
+
+                // Clear from primary and final
+                ['primary_test', 'final_test'].forEach(stage => {
+                    if (transformer.testHistory[stage] && transformer.testHistory[stage].protection_results) {
+                        transformer.testHistory[stage].protection_results = transformer.testHistory[stage].protection_results.filter(r => 
+                            r.internalCoreNo !== coreSlot && r.coreId !== coreSlot
+                        );
+                    }
+                });
             }
         }
 

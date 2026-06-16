@@ -540,7 +540,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
 
       const res = await axios.get(
 
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers?stage=SECONDARY_TESTING,PRIMARY_TESTING`,
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers?stage=SECONDARY_TESTING,PRIMARY_TESTING,FINAL_TESTING`,
 
         { withCredentials: true }
       );
@@ -1412,9 +1412,11 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${
                           item.stage === 'PRIMARY_TESTING' 
                             ? 'bg-amber-50 text-amber-700 border-amber-100' 
-                            : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                            : item.stage === 'FINAL_TESTING'
+                              ? 'bg-purple-50 text-purple-700 border-purple-100'
+                              : 'bg-indigo-50 text-indigo-700 border-indigo-100'
                         }`}>
-                          {item.stage === 'PRIMARY_TESTING' ? 'After Primary' : 'Secondary'}
+                          {item.stage === 'PRIMARY_TESTING' ? 'After Primary' : item.stage === 'FINAL_TESTING' ? 'Final Testing' : 'Secondary'}
                         </span>
                       </td>
                       <td className="p-3 text-xs text-red-600 max-w-[280px] truncate" title={item.failureReason}>
