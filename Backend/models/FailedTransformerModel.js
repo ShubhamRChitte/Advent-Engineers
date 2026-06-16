@@ -58,7 +58,7 @@ const FailedTransformerSchema = new Schema(
         stage: {
             type: String,
 
-            enum: ["PT_TESTING", "FIELD_RETURN", "SECONDARY_TESTING", "PT_PRETEST_TESTING", "pt_pretest_testING", "PRIMARY_TESTING"],
+            enum: ["PT_TESTING", "FIELD_RETURN", "SECONDARY_TESTING", "PT_PRETEST_TESTING", "pt_pretest_testING", "PRIMARY_TESTING", "FINAL_TESTING"],
 
             default: "PT_TESTING"
         },

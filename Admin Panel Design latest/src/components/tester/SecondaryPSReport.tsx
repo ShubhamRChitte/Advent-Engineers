@@ -588,6 +588,7 @@ interface SecondaryPSReportProps {
   secondaryCurrent?: string;
   order?: any;
   onRefresh?: () => void;
+  onFail?: () => void;
   onCompleteTimer?: () => Promise<void>;
   sourceStage?: 'secondary' | 'primary' | 'final';
   isFailedSection?: boolean;
@@ -610,6 +611,7 @@ export function SecondaryPSReport({
   secondaryCurrent: manualSecondary,
   order: propOrder,
   onRefresh,
+  onFail,
   onCompleteTimer,
   sourceStage,
   isFailedSection = false,
@@ -1026,11 +1028,11 @@ export function SecondaryPSReport({
         jobNumber: transformer.jobId || orderObj?.jobId || '',
         clientName: transformer.clientName || orderObj?.clientName || '',
         coreType: "PS",
-        testType: stage === 'primary' ? "After Primary PS" : "Secondary PS",
+        testType: stage === 'primary' ? "After Primary PS" : stage === 'final' ? "Final PS" : "Secondary PS",
         failureParameters: { failureStage: `${stage}_ps_test`, dynamicValues: psData, coreId: coreId },
         failureReason: finalReason,
         reportedBy: testerName,
-        stage: stage === 'primary' ? "PRIMARY_TESTING" : "SECONDARY_TESTING",
+        stage: stage === 'primary' ? "PRIMARY_TESTING" : stage === 'final' ? "FINAL_TESTING" : "SECONDARY_TESTING",
         status: "FAILED"
       };
 
@@ -1040,7 +1042,7 @@ export function SecondaryPSReport({
       if (response.data.success) {
         toast.success(response.data.message || "Transformer marked as failed successfully.");
         if (onRefresh) onRefresh();
-        onBack();
+        if (onFail) onFail(); else onBack();
       } else {
         toast.error("Failed to add to failed transformers.");
       }

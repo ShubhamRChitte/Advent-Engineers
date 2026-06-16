@@ -57,6 +57,7 @@ router.post('/', isAuthenticated, async (req, res) => {
             existingFailure.clientName = clientName || transformer.clientName || (order ? order.clientName : '');
             existingFailure.transformerUniqueId = transformerUniqueId || transformer.uniqueId;
             existingFailure.orderId = orderId;
+            existingFailure.date = Date.now();
             
             // Clear treatment details since it is now failing again
             existingFailure.treatedBy = undefined;

@@ -828,11 +828,11 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
               coreId={activeReport.coreId}
               testerName={user.name || user.fullName || 'Tester'}
               onBack={() => setActiveReport(null)}
-              stage={retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary' : 'secondary'}
+              stage={retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary' : retestingTransformer.stage === 'FINAL_TESTING' ? 'final' : 'secondary'}
               order={orderObj}
               onRefresh={refreshRetestingTransformer}
               accuracyClass={activeReport.accuracyClass}
-              sourceStage={retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary' : 'secondary'}
+              sourceStage={retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary' : retestingTransformer.stage === 'FINAL_TESTING' ? 'final' : 'secondary'}
               isFailedSection={true}
               failedTransformerId={retestingTransformer._id}
               failedStatus={retestingTransformer.status}
@@ -847,11 +847,11 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
               coreId={activeReport.coreId}
               testerName={user.name || user.fullName || 'Tester'}
               onBack={() => setActiveReport(null)}
-              stage={retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary' : 'secondary'}
+              stage={retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary' : retestingTransformer.stage === 'FINAL_TESTING' ? 'final' : 'secondary'}
               order={orderObj}
               onRefresh={refreshRetestingTransformer}
               accuracyClass={activeReport.accuracyClass}
-              sourceStage={retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary' : 'secondary'}
+              sourceStage={retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary' : retestingTransformer.stage === 'FINAL_TESTING' ? 'final' : 'secondary'}
               isFailedSection={true}
               failedTransformerId={retestingTransformer._id}
               failedStatus={retestingTransformer.status}
@@ -866,11 +866,11 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
               coreId={activeReport.coreId}
               testerName={user.name || user.fullName || 'Tester'}
               onBack={() => setActiveReport(null)}
-              stage={retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary' : 'secondary'}
+              stage={retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary' : retestingTransformer.stage === 'FINAL_TESTING' ? 'final' : 'secondary'}
               order={orderObj}
               onRefresh={refreshRetestingTransformer}
               accuracyClass={activeReport.accuracyClass}
-              sourceStage={retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary' : 'secondary'}
+              sourceStage={retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary' : retestingTransformer.stage === 'FINAL_TESTING' ? 'final' : 'secondary'}
               isFailedSection={true}
               failedTransformerId={retestingTransformer._id}
               failedStatus={retestingTransformer.status}
@@ -1382,8 +1382,9 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredList.map((item) => {
-                  const dateStr = item.createdAt
-                    ? new Date(item.createdAt).toLocaleDateString('en-GB')
+                  const dateToUse = item.date || item.updatedAt || item.createdAt;
+                  const dateStr = dateToUse
+                    ? new Date(dateToUse).toLocaleDateString('en-GB')
                     : '-';
 
                   const tStage = item.transformerId?.currentStage;

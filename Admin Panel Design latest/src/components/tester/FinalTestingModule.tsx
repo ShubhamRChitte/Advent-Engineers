@@ -234,6 +234,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
               core={selectedCore as any} 
               testerName={testerName}
               onBack={handleBackToCores}
+              onFail={handleBackToOrders}
               order={selectedOrder}
               primaryCurrent={selectedPrimary}
               secondaryCurrent={selectedSecondary}
@@ -245,6 +246,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
               core={selectedCore as any}
               testerName={testerName}
               onBack={handleBackToCores}
+              onFail={handleBackToOrders}
               order={selectedOrder}
               primaryCurrent={selectedPrimary}
               secondaryCurrent={selectedSecondary}
@@ -256,6 +258,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
               core={selectedCore as any}
               testerName={testerName}
               onBack={handleBackToCores}
+              onFail={handleBackToOrders}
               order={selectedOrder}
               primaryCurrent={selectedPrimary}
               secondaryCurrent={selectedSecondary}

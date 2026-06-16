@@ -184,6 +184,7 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
                 coreId={enteredCoreId}
                 testerName={userName || 'Unknown Tester'}
                 onBack={handleBackFromReport}
+                onFail={handleBackToOrders}
                 stage="secondary"
                 accuracyClass={selectedAccuracyClass}
                 onRefresh={triggerRefresh}
@@ -197,6 +198,7 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
                 coreId={enteredCoreId}
                 testerName={userName || 'Unknown Tester'}
                 onBack={handleBackFromReport}
+                onFail={handleBackToOrders}
                 stage="secondary"
                 accuracyClass={selectedAccuracyClass}
                 onRefresh={triggerRefresh}
@@ -210,6 +212,7 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
                 coreId={enteredCoreId}
                 testerName={userName || 'Unknown Tester'}
                 onBack={handleBackFromReport}
+                onFail={handleBackToOrders}
                 stage="secondary"
                 accuracyClass={selectedAccuracyClass}
                 onRefresh={triggerRefresh}

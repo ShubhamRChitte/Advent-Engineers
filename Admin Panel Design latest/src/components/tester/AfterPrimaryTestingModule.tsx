@@ -179,6 +179,7 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
             core={selectedCore}
             testerName={testerName}
             onBack={handleBackToCores}
+            onFail={handleBackToOrders}
             order={selectedOrder}
             primaryCurrent={selectedPrimary}
             secondaryCurrent={selectedSecondary}
@@ -194,6 +195,7 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
             core={selectedCore}
             testerName={testerName}
             onBack={handleBackToCores}
+            onFail={handleBackToOrders}
             order={selectedOrder}
             primaryCurrent={selectedPrimary}
             secondaryCurrent={selectedSecondary}
@@ -209,6 +211,7 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
             core={selectedCore}
             testerName={testerName}
             onBack={handleBackToCores}
+            onFail={handleBackToOrders}
             order={selectedOrder}
             primaryCurrent={selectedPrimary}
             secondaryCurrent={selectedSecondary}

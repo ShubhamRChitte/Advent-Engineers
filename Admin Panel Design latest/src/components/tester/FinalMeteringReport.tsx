@@ -7,6 +7,7 @@ interface FinalMeteringReportProps {
   core: { coreNumber: number; coreId: string; accuracyClass?: string; };
   testerName: string;
   onBack: () => void;
+  onFail?: () => void;
   primaryCurrent?: string;
   secondaryCurrent?: string;
   order?: any;
@@ -17,6 +18,7 @@ export function FinalMeteringReport({
   core,
   testerName,
   onBack,
+  onFail,
   primaryCurrent,
   secondaryCurrent,
   order,
@@ -29,6 +31,7 @@ export function FinalMeteringReport({
       coreNumber={core.coreNumber}
       testerName={testerName}
       onBack={onBack}
+      onFail={onFail}
       stage="final"
       accuracyClass={core.accuracyClass}
       primaryCurrent={primaryCurrent || ''}

@@ -370,25 +370,7 @@ export function FinalCoreSelection({
         </Card>
       )}
 
-      {isAllCoresCompleted && hasAnyFailures && (
-        <Card className="p-6 bg-red-50 border-red-200 border-l-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-12 h-12 text-red-600" />
-              <div>
-                <h4 className="font-black text-red-900 text-xl uppercase">Strict Approval Required</h4>
-                <p className="text-sm text-red-700 font-bold italic">This unit has core failures. Move to Admin Review stage for decision.</p>
-              </div>
-            </div>
-            <Button
-              className="bg-red-600 hover:bg-red-700 text-white gap-2 px-10 py-7 text-xl font-black shadow-xl"
-              onClick={handleStrictApproval}
-            >
-              Request Strict Approval
-            </Button>
-          </div>
-        </Card>
-      )}
+
 
       {/* Info Box */}
       <Card className="p-6 bg-blue-50 border-blue-200 border-l-4">

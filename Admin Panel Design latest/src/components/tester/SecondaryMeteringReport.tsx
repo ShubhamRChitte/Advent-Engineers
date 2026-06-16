@@ -22,6 +22,7 @@ interface SecondaryMeteringReportProps {
   secondaryCurrent?: string;
   order?: any;
   onRefresh?: () => void;
+  onFail?: () => void;
   onCompleteTimer?: () => Promise<void>;
   sourceStage?: 'secondary' | 'primary' | 'final';
   isFailedSection?: boolean;
@@ -44,6 +45,7 @@ export function SecondaryMeteringReport({
   secondaryCurrent: manualSecondary,
   order: propOrder,
   onRefresh,
+  onFail,
   onCompleteTimer,
   sourceStage,
   isFailedSection = false,
@@ -302,11 +304,11 @@ export function SecondaryMeteringReport({
         jobNumber: transformer.jobId || orderObj?.jobId || '',
         clientName: transformer.clientName || orderObj?.clientName || '',
         coreType: "Metering",
-        testType: stage === 'primary' ? "After Primary Metering" : "Secondary Metering",
+        testType: stage === 'primary' ? "After Primary Metering" : stage === 'final' ? "Final Metering" : "Secondary Metering",
         failureParameters: { failureStage: `${stage}_metering_test`, dynamicValues: testResults, coreId: coreId },
         failureReason: allReasons.length > 0 ? [...new Set(allReasons)].join(' | ') : "Accuracy Limits Exceeded",
         reportedBy: testerName,
-        stage: stage === 'primary' ? "PRIMARY_TESTING" : "SECONDARY_TESTING",
+        stage: stage === 'primary' ? "PRIMARY_TESTING" : stage === 'final' ? "FINAL_TESTING" : "SECONDARY_TESTING",
         status: "FAILED"
       };
 
@@ -317,7 +319,7 @@ export function SecondaryMeteringReport({
       if (response.data.success) {
         toast.success(response.data.message || "Transformer marked as failed successfully.");
         if (onRefresh) onRefresh();
-        onBack();
+        if (onFail) onFail(); else onBack();
       } else {
         toast.error("Failed to add to failed transformers.");
       }
