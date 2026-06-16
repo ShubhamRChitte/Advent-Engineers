@@ -231,8 +231,8 @@ const TransformerSchema = new Schema({
   uniqueId: { type: String, required: true, unique: true },
 
   // Connection to Parent Order
-  orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true },
-  jobId: { type: String, required: true }, // Redundant for faster searching
+  orderId: { type: Schema.Types.ObjectId, ref: 'Order' },
+  jobId: { type: String }, // Redundant for faster searching
 
   // Workflow tracking
   currentStage: {

@@ -345,7 +345,7 @@ router.post("/transformer-final-protection-tests", async (req, res) => {
     transformer.testHistory.final_test.tester = tester;
 
     // Merge logic for Protection (Final)
-    const { validateProtectionReading } = require('./utils/protectionLimits');
+    const { validateProtectionReading } = require('../utils/protectionLimits');
     const newResults = protection_results.map(r => {
       const validation = validateProtectionReading(
         r.protectionClass,
@@ -470,7 +470,7 @@ router.post("/transformer-final-ps-tests", async (req, res) => {
 router.post("/transformer-secondary-metering-tests", async (req, res) => {
   try {
     const { uniqueId, coreId, tester, metering_results, remarks } = req.body;
-    const { validateMeteringReading } = require('./utils/accuracyLimits');
+    const { validateMeteringReading } = require('../utils/accuracyLimits');
 
     // 0. Fetch the Transformer & Order to get Accuracy Class
     const transformerDoc = await TransformerModel.findOne({ uniqueId: uniqueId }).populate('orderId');
@@ -720,7 +720,7 @@ router.post("/transformer-secondary-protection-tests", async (req, res) => {
 
     transformer.testHistory.secondary_test.tester = tester;
     // Merge logic for Protection
-    const { validateProtectionReading } = require('./utils/protectionLimits');
+    const { validateProtectionReading } = require('../utils/protectionLimits');
     const newResults = protection_results.map(r => {
       const validation = validateProtectionReading(
         r.protectionClass,
