@@ -5,7 +5,7 @@ import { Button } from '../ui/button';
 import { Printer, ArrowLeft, Save, AlertTriangle } from 'lucide-react';
 import { Transformer } from './SecondaryTransformersList';
 import { toast } from 'sonner';
-<<<<<<< HEAD
+
 import { 
   ReportHeader, 
   ReportSectionTitle, 
@@ -15,11 +15,7 @@ import {
   secondaryReportPrintStyles,
   ReportSpecBox,
 } from './SecondaryReportPrintLayout';
-=======
-import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
-import { ImageWithFallback } from '../figma/ImageWithFallback';
-import { SOCKET_URL } from '../../utils/socket';
->>>>>>> d614ac6cdd53eab956a52df16354164e66f1d299
+
 
 interface SecondaryMeteringReportProps {
   transformer: Transformer;
