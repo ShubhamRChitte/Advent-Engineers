@@ -1,7 +1,7 @@
 import { ClipboardCheck, FileText, Home, Bell, Zap, AlertTriangle, Warehouse } from 'lucide-react';
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 
@@ -21,6 +21,7 @@ interface MenuItem {
 export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSidebarProps) {
   const [failedCount, setFailedCount] = useState(0);
   const [failedTransformersCount, setFailedTransformersCount] = useState(0);
+  const [ptFailedCount, setPtFailedCount] = useState(0);
 
   useEffect(() => {
     const fetchCount = async () => {
@@ -29,12 +30,22 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
       
       try {
         if (userRole === 'secondary-tester') {
-          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/count`, { withCredentials: true });
+          const res = await axios.get(`/failed-transformers/count`, { withCredentials: true });
           if (res.data.success) {
             setFailedTransformersCount(res.data.count);
           }
+        } else if (userRole === 'pt-tester') {
+          const res = await axios.get(`/failed-transformers/count?stage=PT_TESTING`, { withCredentials: true });
+          if (res.data.success) {
+            setPtFailedCount(res.data.count);
+          }
+        } else if (userRole === 'pt-pretester') {
+          const res = await axios.get(`/failed-transformers/count?stage=PT_PRETEST_TESTING`, { withCredentials: true });
+          if (res.data.success) {
+            setPtFailedCount(res.data.count);
+          }
         } else {
-          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores/count`, { withCredentials: true });
+          const res = await axios.get(`/failed-cores/count`, { withCredentials: true });
           if (res.data.success) {
             setFailedCount(res.data.count);
           }
@@ -57,6 +68,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
         { id: 'testing', label: 'Final PT Testing', icon: ClipboardCheck },
         { id: 'reports', label: 'Customer Reports', icon: FileText },
         { id: 'view-orders', label: 'View Orders', icon: FileText },
+        { id: 'pt-failed', label: 'Failed Transformers', icon: AlertTriangle, badge: ptFailedCount > 0 ? ptFailedCount : undefined },
       ];
     }
 
@@ -66,6 +78,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'testing', label: 'PT Pretesting', icon: ClipboardCheck },
         { id: 'view-orders', label: 'View Orders', icon: FileText },
+        { id: 'pt-failed', label: 'Failed Transformers', icon: AlertTriangle, badge: ptFailedCount > 0 ? ptFailedCount : undefined },
       ];
     }
 
@@ -130,6 +143,11 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
             >
               <Icon className="w-5 h-5" />
               <span className="text-sm">{item.label}</span>
+              {item.badge !== undefined && (
+                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
+                  {item.badge}
+                </span>
+              )}
             </button>
           );
         })}

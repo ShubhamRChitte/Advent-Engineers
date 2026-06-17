@@ -3,7 +3,7 @@ import { Bell, LogOut } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { User } from '../../App';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 
 interface AdminHeaderProps {
   user: User;
@@ -17,7 +17,7 @@ export function AdminHeader({ user, onLogout, onNotificationClick }: AdminHeader
   const fetchUnreadCount = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/notifications/unread-count`, {
+      const response = await axios.get(`/notifications/unread-count`, {
         withCredentials: true,
         headers: {
           'Authorization': token ? `Bearer ${token}` : ''

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import useSWR from 'swr';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -119,7 +119,7 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav, o
   const fetcher = (url: string) => axios.get(url, { withCredentials: true }).then(res => res.data);
   const limit = 50;
   const skip = page * limit;
-  const endpoint = `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/admin/orders?paginated=true&limit=${limit}&skip=${skip}&search=${encodeURIComponent(debouncedSearch)}&status=${encodeURIComponent(selectedStatus)}&type=${encodeURIComponent(activeTab)}`;
+  const endpoint = `/admin/orders?paginated=true&limit=${limit}&skip=${skip}&search=${encodeURIComponent(debouncedSearch)}&status=${encodeURIComponent(selectedStatus)}&type=${encodeURIComponent(activeTab)}`;
 
   const { data, error, isLoading } = useSWR(endpoint, fetcher, {
     keepPreviousData: true
@@ -157,7 +157,7 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav, o
     if (!window.confirm("Are you sure you want to delete this order? All associated transformer units will also be deleted.")) return;
 
     try {
-      const response = await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}`, {
+      const response = await axios.delete(`/orders/${orderId}`, {
         withCredentials: true
       });
       if (response.data.success) {
@@ -220,7 +220,7 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav, o
   const handleApprove = async (orderId: string, event: React.MouseEvent) => {
     event.stopPropagation();
     try {
-      const response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}/approve`, {}, {
+      const response = await axios.put(`/orders/${orderId}/approve`, {}, {
         withCredentials: true
       });
       if (response.data.success) {

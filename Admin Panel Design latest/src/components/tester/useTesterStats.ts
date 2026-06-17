@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 
 interface TesterStats {
   activeTests: number;
@@ -25,7 +25,7 @@ export function useTesterStats(role: string, userName: string) {
     if (!role) return;
     setLoading(true);
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/dashboard/tester-stats`, {
+      const response = await axios.get(`/dashboard/tester-stats`, {
         params: { role, userName },
         withCredentials: true
       });

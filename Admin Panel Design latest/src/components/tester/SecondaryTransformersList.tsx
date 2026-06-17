@@ -3,7 +3,7 @@ import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { ArrowLeft, PlayCircle, Loader2, CheckCircle, FileText } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { toast } from 'sonner';
 import { Skeleton } from '../ui/skeleton';
 
@@ -90,9 +90,9 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
     const fetchLimits = async () => {
       try {
         const [mRes, psRes, pRes] = await Promise.all([
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/metering`, { withCredentials: true }),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/ps`, { withCredentials: true }),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/protection`, { withCredentials: true })
+          axios.get(`/accuracy-limits/metering`, { withCredentials: true }),
+          axios.get(`/accuracy-limits/ps`, { withCredentials: true }),
+          axios.get(`/accuracy-limits/protection`, { withCredentials: true })
         ]);
         setMeteringLimits(mRes.data);
         setPsLimits(psRes.data);
@@ -109,11 +109,25 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
     setError(null);
     try {
       const orderId = order._id;
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}/transformers`, {
-        withCredentials: true
-      });
+
+      const [response, failedRes] = await Promise.all([
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}/transformers`, {
+          withCredentials: true
+        }),
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers?stage=SECONDARY_TESTING`, {
+          withCredentials: true
+        })
+      ]);
+
 
       const dbTransformers = response.data;
+      const failedRecords = failedRes.data.success ? failedRes.data.data : [];
+      const activeFailedIds = new Set(
+        failedRecords
+          .filter((f: any) => f.status === 'FAILED')
+          .map((f: any) => f.transformerUniqueId || f.transformerId?.uniqueId)
+          .filter(Boolean)
+      );
 
       const mappedTransformers: Transformer[] = dbTransformers.map((t: any) => {
         let status: 'pending' | 'in-progress' | 'completed' = 'pending';
@@ -375,7 +389,11 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
         };
       });
 
-      setTransformers(mappedTransformers.filter((t: any) => t.currentStage === 'secondary' || t.currentStage === 'admin_review'));
+      setTransformers(
+        mappedTransformers.filter(
+          (t: any) => (t.currentStage === 'secondary' || t.currentStage === 'admin_review') && !activeFailedIds.has(t.uniqueId)
+        )
+      );
     } catch (err) {
       console.error("Failed to fetch transformers", err);
       setError("Failed to load transformers.");
@@ -391,7 +409,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
   const handleApproveTransformer = async (transformer: Transformer) => {
     try {
       if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Primary Testing?`)) return;
-      const response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}/approve-stage`, {
+      const response = await axios.put(`/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'secondary',
         nextStage: 'primary'
       }, { withCredentials: true });
@@ -572,7 +590,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
                               const finalReason = reasons.length > 0 ? [...new Set(reasons)].join(' | ') : "Limits Exceeded";
                               
                               try {
-                                await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/strict-approvals/request`, {
+                                await axios.post(`/strict-approvals/request`, {
                                   orderId: order._id,
                                   jobId: order.jobId,
                                   unitId: transformer.uniqueId,
@@ -584,7 +602,7 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
                                   requestedBy: transformer.testHistory?.secondary_test?.tester || JSON.parse(localStorage.getItem('user') || '{}').name || 'Tester'
                                 }, { withCredentials: true });
 
-                                await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}/approve-stage`, { 
+                                await axios.put(`/transformers/${transformer.uniqueId}/approve-stage`, { 
                                   stage: 'secondary', 
                                   nextStage: 'admin_review' 
                                 }, { withCredentials: true });

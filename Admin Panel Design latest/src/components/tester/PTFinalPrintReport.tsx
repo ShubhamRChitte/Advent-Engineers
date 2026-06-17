@@ -283,7 +283,7 @@ export function PTFinalPrintReport({
               </td>
               <td style={{ textAlign: 'right' }}>
                 Date :&nbsp;
-                <span>{reportData?.date || new Date().toLocaleDateString('en-GB')}</span>
+                <span style={{ minWidth: '80px', textAlign: 'center' }}>{reportData?.date || new Date().toLocaleDateString('en-GB')}</span>
               </td>
             </tr>
           </tbody>
@@ -370,8 +370,8 @@ export function PTFinalPrintReport({
           {/* Pretester name */}
           <div style={{ borderTop: '1px solid #000', borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #000', padding: '3px 8px', fontSize: 10, background: '#fafafa' }}>
             <strong>Tested By (Pretester):</strong>&nbsp;
-            <span style={{ borderBottom: '1px solid #555', minWidth: 120, display: 'inline-block', padding: '0 4px' }}>
-              {reportData?.preTesting?.testedBy || ''}
+            <span style={{ borderBottom: '1px solid #555', minWidth: 120, display: 'inline-block', padding: '0 4px', fontSize: '13px', fontWeight: 'bold', color: '#003a70' }}>
+              {reportData?.preTesting?.testedBy || pretestData?.testedBy || ''}
             </span>
           </div>
         </div>
@@ -473,7 +473,7 @@ export function PTFinalPrintReport({
             <tr>
               <td>
                 <strong>Tested By:</strong><br />
-                <span style={{ borderBottom: '1px solid #000', minWidth: 160, display: 'inline-block', paddingBottom: 2, marginTop: 6 }}>
+                <span style={{ borderBottom: '1px solid #000', minWidth: 160, display: 'inline-block', paddingBottom: 2, marginTop: 6, fontSize: '13px', fontWeight: 'bold', color: '#003a70' }}>
                   {reportData?.testedBy || user?.name || user?.fullName || ''}
                 </span><br />
                 <span style={{ fontSize: 9, color: '#555' }}>PT Tester</span>

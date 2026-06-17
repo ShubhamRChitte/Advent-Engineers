@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -119,8 +119,8 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
     const fetchLimits = async () => {
       try {
         const [metRes, protRes] = await Promise.all([
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/metering?transformerType=PT`, { withCredentials: true }),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/protection?transformerType=PT`, { withCredentials: true })
+          axios.get(`/accuracy-limits/metering?transformerType=PT`, { withCredentials: true }),
+          axios.get(`/accuracy-limits/protection?transformerType=PT`, { withCredentials: true })
         ]);
 
         if (Array.isArray(metRes.data)) {
@@ -220,7 +220,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
             let anyReadOnly = false;
 
             for (const t of responseList) {
-                const testRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/${t._id}`, {
+                const testRes = await axios.get(`/pt-pretests/${t._id}`, {
                     withCredentials: true
                 });
 
@@ -398,7 +398,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
 
         // Wait for all to submit sequentially or in parallel
         const responses = await Promise.all(payloads.map(payload => 
-            axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/submit`, payload, { withCredentials: true })
+            axios.post(`/pt-pretests/submit`, payload, { withCredentials: true })
         ));
 
         if (responses.every(r => r.data.success)) {
@@ -430,7 +430,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
         }));
 
         await Promise.all(payloads.map(payload => 
-            axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/failed`, payload, {
+            axios.post(`/pt-pretests/failed`, payload, {
                 withCredentials: true
             })
         ));
@@ -445,12 +445,32 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
     }
   };
 
+  const handleAddToFailed = async () => {
+    if (!window.confirm('Are you sure you want to mark this transformer as failed? The timer will be stopped and the transformer will be moved to the Failed section.')) return;
+    try {
+        const t = transformersData[0];
+        if (!t) return;
+        await axios.post(`/pt-pretests/failed`, {
+            transformerId: t._id,
+            orderId: order._id,
+            jobNumber: order.jobId,
+            reportedBy: user?.name || user?.fullName || 'PT Pretester'
+        }, { withCredentials: true });
+        await endTimer();
+        toast.success('Transformer marked as failed.');
+        onBack();
+    } catch (err: any) {
+        console.error('Error marking as failed:', err);
+        toast.error(err.response?.data?.message || 'Failed to mark as failed.');
+    }
+  };
+
   const handleApproveActiveTransformer = async () => {
     try {
       if (!activeTabId) return;
       if (!window.confirm("Are you sure you want to approve this unit and send it to Final PT Testing?")) return;
       
-      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/transformer/${activeTabId}/approve`, {}, { withCredentials: true });
+      await axios.put(`/pt-pretests/transformer/${activeTabId}/approve`, {}, { withCredentials: true });
       toast.success("Unit approved and sent to Final PT Testing!");
       endTimer(); // Record timer end for delay tracking
       
@@ -470,7 +490,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
     try {
       setIsApproving(true);
       const response = await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/${order._id}/approve`,
+        `/pt-pretests/${order._id}/approve`,
         {},
         { withCredentials: true }
       );
@@ -730,6 +750,12 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
                 {!isReadOnly && hasAnyFailures && (
                     <Button variant="destructive" size="sm" onClick={() => setShowFailureModal(true)} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
                         <AlertTriangle className="w-4 h-4" /> Add to Failed Transformers
+                    </Button>
+                )}
+
+                {!isReadOnly && (
+                    <Button variant="destructive" size="sm" onClick={handleAddToFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
+                        <AlertTriangle className="w-4 h-4" /> Add to Failed
                     </Button>
                 )}
 

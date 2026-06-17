@@ -37,6 +37,6 @@ export function PTPretestModule({ user }: PTPretestModuleProps) {
     return <PTTransformersList order={selectedOrder} onStartTest={handleTransformerSelect} onBack={handleBackToOrders} testStage="pretest" />;
   }
 
-  return <PTAssignedOrders onStartTesting={handleStartTesting} endpoint={`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/assigned-orders`} />;
+  return <PTAssignedOrders onStartTesting={handleStartTesting} endpoint={`/pt-pretests/assigned-orders`} />;
 }
 

@@ -137,7 +137,7 @@ export function PTReportView({ transformer, order, onBack, readOnly = false }: P
                 <div className="flex justify-between items-center p-2 text-sm">
                     <div className="flex items-center">
                         <span className="font-bold mr-2">Tested By: -</span>
-                        <Input value={reportData.testedBy || reportData.tester || ''} className="w-48 h-7 text-blue-600 italic font-medium bg-transparent border-t-0 border-l-0 border-r-0 border-b border-gray-400 rounded-none px-1" readOnly />
+                        <Input value={reportData.preTesting?.testedBy || ''} className="w-48 h-7 text-blue-600 italic font-medium bg-transparent border-t-0 border-l-0 border-r-0 border-b border-gray-400 rounded-none px-1" readOnly />
                     </div>
                 </div>
             </div>

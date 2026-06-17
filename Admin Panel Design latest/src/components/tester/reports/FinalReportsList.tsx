@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { ChevronRight, FileText, Calendar, LayoutGrid } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Skeleton } from '../../ui/skeleton';
 import { FinalReportView } from './FinalReportView';
 import { FinalCompletedTransformersList } from './FinalCompletedTransformersList';
@@ -41,7 +41,7 @@ export function FinalReportsList() {
     const fetchReports = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/final/reports`, {
+            const response = await axios.get(`/final/reports`, {
                 withCredentials: true
             });
 

@@ -3,7 +3,7 @@ import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { ArrowLeft, PlayCircle, Loader2, FileText } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { toast } from 'sonner';
 
 interface CoreConfig {
@@ -77,9 +77,9 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
     const fetchLimits = async () => {
       try {
         const [mRes, psRes, pRes] = await Promise.all([
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/metering`, { withCredentials: true }),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/ps`, { withCredentials: true }),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/protection`, { withCredentials: true })
+          axios.get(`/accuracy-limits/metering`, { withCredentials: true }),
+          axios.get(`/accuracy-limits/ps`, { withCredentials: true }),
+          axios.get(`/accuracy-limits/protection`, { withCredentials: true })
         ]);
         setMeteringLimits(mRes.data);
         setPsLimits(psRes.data);
@@ -97,7 +97,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
       setError(null);
       try {
         const orderId = order._id;
-        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}/transformers`, {
+        const response = await axios.get(`/orders/${orderId}/transformers`, {
           withCredentials: true
         });
 
@@ -299,7 +299,8 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
 
           if (t.currentStage === 'final') {
             if (isFullyComplete) status = 'completed';
-            else if (isFilled) status = 'in-progress'; 
+            else if (isFilled) status = 'ready-for-approval'; 
+            else if (finalHistory.status === 'In Progress' || finalHistory.tester) status = 'in-progress';
             else status = 'pending';
           } else if (t.currentStage === 'shipped' || t.currentStage === 'completed') {
             status = 'completed';
@@ -406,7 +407,8 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
     switch (status) {
       case 'pending': return 'bg-blue-100 text-blue-700';
       case 'in-progress': return 'bg-yellow-100 text-yellow-700';
-      case 'completed': return 'bg-green-100 text-green-700';
+      case 'ready-for-approval': return 'bg-green-100 text-green-700 border border-green-300';
+      case 'completed': return 'bg-green-600 text-white';
       case 'locked': return 'bg-gray-100 text-gray-500 border-dashed';
       default: return 'bg-gray-100 text-gray-700';
     }
@@ -415,7 +417,8 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
   const getStatusText = (status: string, currentStage: string) => {
     if (status === 'locked') return `In ${currentStage} Stage`;
     if (status === 'completed') return 'Approved';
-    if (status === 'in-progress') return 'Ready for Approval';
+    if (status === 'ready-for-approval') return 'Ready for Approval';
+    if (status === 'in-progress') return 'In Progress (Draft)';
     return 'Pending';
   };
 
@@ -573,7 +576,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                               const finalReason = reasons.length > 0 ? [...new Set(reasons)].join(' | ') : "Accuracy Limits Exceeded during Final Test";
 
                               try {
-                                await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/strict-approvals/request`, {
+                                await axios.post(`/strict-approvals/request`, {
                                   orderId: transformer.orderId?._id || transformer.orderId,
                                   jobId: order.jobId,
                                   unitId: transformer.uniqueId,
@@ -585,7 +588,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                                   requestedBy: 'Final Tester'
                                 }, { withCredentials: true });
 
-                                await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}/approve-stage`, { 
+                                await axios.put(`/transformers/${transformer.uniqueId}/approve-stage`, { 
                                   stage: 'final', 
                                   nextStage: 'admin_review' 
                                 }, { withCredentials: true });

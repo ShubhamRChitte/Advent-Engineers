@@ -12,7 +12,7 @@ const { isAuthenticated } = require('../middlewares/authMiddleware');
 // @route   POST /api/heating-record
 // @desc    Add or update heating records for an order
 // @access  Private 
-router.post('/', async (req, res) => {
+router.post('/', isAuthenticated, async (req, res) => {
     try {
         const { orderId, transformerType, blocks } = req.body;
 
@@ -44,7 +44,7 @@ router.post('/', async (req, res) => {
 // @route   GET /api/heating-record/assigned-orders
 // @desc    Fetch all orders by transformerType (CT or PT) with NO stage restriction.
 //          Use ?type=CT or ?type=PT
-router.get('/assigned-orders', async (req, res) => {
+router.get('/assigned-orders', isAuthenticated, async (req, res) => {
     try {
         const { type } = req.query;
 
@@ -152,7 +152,7 @@ router.get('/transformers/:orderId', isAuthenticated, async (req, res) => {
 // @route   GET /api/heating-record/:orderId/:type
 // @desc    Get heating records for a specific order and transformer type
 // @access  Private
-router.get('/:orderId/:type', async (req, res) => {
+router.get('/:orderId/:type', isAuthenticated, async (req, res) => {
     try {
         const { orderId, type } = req.params;
 
@@ -175,7 +175,7 @@ router.get('/:orderId/:type', async (req, res) => {
 // @route   POST /api/heating-record/completed-status
 // @desc    Check which of the given order IDs have completed heating records
 // @access  Private
-router.post('/completed-status', async (req, res) => {
+router.post('/completed-status', isAuthenticated, async (req, res) => {
     try {
         const { orderIds, prefix } = req.body;
         
@@ -217,7 +217,7 @@ router.post('/completed-status', async (req, res) => {
 // @route   PUT /api/heating-record/:orderId/approve
 // @desc    Approve a heating record and move it to completed
 // @access  Private
-router.put('/:orderId/approve', async (req, res) => {
+router.put('/:orderId/approve', isAuthenticated, async (req, res) => {
     try {
         const { orderId } = req.params;
         const { type } = req.body;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { AfterPrimaryOrdersList } from './AfterPrimaryOrdersList';
 import { AfterPrimaryTransformersList, Transformer as AfterPrimaryTransformer } from './AfterPrimaryTransformersList';
 import { AfterPrimaryCoreSelection } from './AfterPrimaryCoreSelection';
@@ -111,7 +111,7 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
     // Re-fetch fresh transformer data so AfterPrimaryCoreSelection sees latest test results
     if (selectedTransformer?.uniqueId) {
       try {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${selectedTransformer.uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`/transformers/${selectedTransformer.uniqueId}`, { withCredentials: true });
         if (res.data) {
           setSelectedTransformer(prev => prev ? { ...prev, testHistory: res.data.testHistory } : prev);
         }
@@ -179,6 +179,7 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
             core={selectedCore}
             testerName={testerName}
             onBack={handleBackToCores}
+            onFail={handleBackToOrders}
             order={selectedOrder}
             primaryCurrent={selectedPrimary}
             secondaryCurrent={selectedSecondary}
@@ -194,6 +195,7 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
             core={selectedCore}
             testerName={testerName}
             onBack={handleBackToCores}
+            onFail={handleBackToOrders}
             order={selectedOrder}
             primaryCurrent={selectedPrimary}
             secondaryCurrent={selectedSecondary}
@@ -209,6 +211,7 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
             core={selectedCore}
             testerName={testerName}
             onBack={handleBackToCores}
+            onFail={handleBackToOrders}
             order={selectedOrder}
             primaryCurrent={selectedPrimary}
             secondaryCurrent={selectedSecondary}

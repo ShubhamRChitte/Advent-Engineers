@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -66,7 +66,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
   const fetchOrders = async () => {
     try {
       const typeParam = user.role === 'pt-tester' ? 'PT' : 'CT';
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record/assigned-orders?type=${typeParam}`, {
+      const response = await axios.get(`/heating-record/assigned-orders?type=${typeParam}`, {
         withCredentials: true
       });
 
@@ -76,7 +76,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
       // For now keeping existing tab logic but focusing on inside the order
       const orderIds = eligibleOrders.map((o: any) => o._id);
       if (orderIds.length > 0) {
-        const completedRes = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record/completed-status`, {
+        const completedRes = await axios.post(`/heating-record/completed-status`, {
             orderIds,
             prefix: typeParam
         }, { withCredentials: true });
@@ -101,7 +101,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
     try {
       // Pass includeApproved=true if we are in the completed tab
       const includeApproved = currentTab === 'completed';
-      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record/transformers/${order._id}?includeApproved=${includeApproved}`, { withCredentials: true });
+      const res = await axios.get(`/heating-record/transformers/${order._id}?includeApproved=${includeApproved}`, { withCredentials: true });
       setTransformersList(Array.isArray(res.data.transformers) ? res.data.transformers : []);
     } catch (e) {
       console.error('Failed to fetch transformers for order', e);
@@ -120,7 +120,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
     
     if (existingRecord) {
         setRecord({
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             transformerId: t._id,
             groupNo: "No.-1",
             serialNumber: t.uniqueId,
@@ -167,7 +167,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
     } else {
         // Create new fresh block
         const newBlock: HeatingRecordBlock = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             transformerId: t._id,
             groupNo: "No.-1",
             serialNumber: t.uniqueId,
@@ -308,7 +308,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
         isApproveCall: isApprove
       };
 
-      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record/save/${selectedTransformer.uniqueId}`, payload, { withCredentials: true });
+      const res = await axios.post(`/heating-record/save/${selectedTransformer.uniqueId}`, payload, { withCredentials: true });
       
       if (res.data.success) {
           alert(isApprove ? "Heating Approved Successfully!" : "Heating Record Saved Successfully!");

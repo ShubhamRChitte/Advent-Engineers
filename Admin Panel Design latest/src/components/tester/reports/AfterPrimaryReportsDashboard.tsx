@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 
 
 import { Card } from '../../ui/card';
@@ -33,7 +33,7 @@ export function AfterPrimaryReportsDashboard() {
     const fetchReports = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/after-primary/reports`, {
+            const response = await axios.get(`/after-primary/reports`, {
                 withCredentials: true
             });
 

@@ -3,7 +3,7 @@ import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import { ChevronRight, FileText, Search, Calendar, User, LayoutGrid } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Skeleton } from '../../ui/skeleton';
 import { toast } from 'sonner';
 import { AfterPrimaryReportView } from './AfterPrimaryReportView';
@@ -43,7 +43,7 @@ export function AfterPrimaryReportsList() {
     const fetchReports = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/after-primary/reports`, {
+            const response = await axios.get(`/after-primary/reports`, {
                 withCredentials: true
             });
 

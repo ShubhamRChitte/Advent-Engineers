@@ -4,6 +4,7 @@ const { ProtectionCoreTestModel } = require("../models/ProtectionCoreTestModel")
 const { FailedCoreModel } = require("../models/FailedCoreModel");
 const ReadyTransformer = require("../models/ReadyTransformerModel");
 const { generateBatchId } = require("../utils/idGenerator");
+const { escapeRegExp } = require("../utils/regexHelper");
 
 exports.createBatch = async (req, res) => {
   try {
@@ -48,7 +49,7 @@ exports.getBatches = async (req, res) => {
     if (req.query.paginated === 'true') {
       let matchStage = {};
       if (search) {
-        const searchRegex = new RegExp(search, 'i');
+        const searchRegex = new RegExp(escapeRegExp(search), 'i');
         matchStage.$or = [
           { batchId: searchRegex },
           { vendorName: searchRegex },
@@ -93,7 +94,7 @@ exports.getBatches = async (req, res) => {
 
       res.json({ success: true, data: batches, totalCount });
     } else {
-      const batches = await PreTestBatchModel.find().sort({ createdAt: -1 }).lean();
+      const batches = await PreTestBatchModel.find().sort({ createdAt: -1 }).limit(1000).lean();
       res.json(batches);
     }
   } catch (error) {

@@ -32,10 +32,13 @@ const isAuthenticated = (req, res, next) => {
 };
 
 const isAdmin = (req, res, next) => {
-    if (req.isAuthenticated() && req.user.designation === 'Admin') {
-        return next();
-    }
-    res.status(403).json({ message: "Forbidden. Admin access required." });
+    isAuthenticated(req, res, (err) => {
+        if (err) return next(err);
+        if (req.user && req.user.designation === 'Admin') {
+            return next();
+        }
+        return res.status(403).json({ success: false, message: "Forbidden. Admin access required." });
+    });
 };
 
 module.exports = { isAuthenticated, isAdmin };

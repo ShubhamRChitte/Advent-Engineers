@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { User } from '../../App';
 import { Loader2 } from 'lucide-react';
 import {
@@ -52,7 +52,7 @@ export function HeatingTrackingReport({ order, transformer, user, onBack }: Heat
     setLoading(true);
     try {
       // Use the transformer-specific lookup from the unified backend logic
-      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record/transformers/${order._id}`, {
+      const res = await axios.get(`/heating-record/transformers/${order._id}`, {
         withCredentials: true
       });
 
@@ -61,7 +61,7 @@ export function HeatingTrackingReport({ order, transformer, user, onBack }: Heat
 
       if (existingRecord) {
         setRecord({
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             transformerId: dbTransformer._id,
             groupNo: "No.-1",
             serialNumber: dbTransformer.uniqueId,
@@ -85,7 +85,7 @@ export function HeatingTrackingReport({ order, transformer, user, onBack }: Heat
       } else {
         const today = new Date().toISOString().split('T')[0] || '';
         setRecord({
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             transformerId: transformer._id,
             groupNo: "No.-1",
             serialNumber: transformer.uniqueId,
@@ -183,7 +183,7 @@ export function HeatingTrackingReport({ order, transformer, user, onBack }: Heat
         isApproveCall: isApprove
       };
 
-      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record/save/${transformer.uniqueId}`, payload, { withCredentials: true });
+      await axios.post(`/heating-record/save/${transformer.uniqueId}`, payload, { withCredentials: true });
       alert(isApprove ? "Approved successfully!" : "Saved successfully!");
       onBack();
     } catch (e: any) {

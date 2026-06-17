@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -120,8 +120,8 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
     const fetchLimits = async () => {
       try {
         const [metRes, protRes] = await Promise.all([
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/metering?transformerType=PT`, { withCredentials: true }),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/protection?transformerType=PT`, { withCredentials: true })
+          axios.get(`/accuracy-limits/metering?transformerType=PT`, { withCredentials: true }),
+          axios.get(`/accuracy-limits/protection?transformerType=PT`, { withCredentials: true })
         ]);
 
         if (Array.isArray(metRes.data)) {
@@ -221,7 +221,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
             let anyReadOnly = false;
 
             for (const t of responseList) {
-                const testRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-tests/${t._id}`, {
+                const testRes = await axios.get(`/pt-tests/${t._id}`, {
                     withCredentials: true
                 });
 
@@ -257,12 +257,12 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                     newReportsData[t._id] = savedData;
 
                     // Fetch pretest data from pretester to autofill (read-only)
-                    const pretestRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/${t._id}`, { withCredentials: true }).catch(() => null);
+                    const pretestRes = await axios.get(`/pt-pretests/${t._id}`, { withCredentials: true }).catch(() => null);
                     if (pretestRes?.data?.success && pretestRes.data.data) {
                         // Merge pretest data into the preTesting field (will be rendered read-only)
                         newReportsData[t._id].preTesting = {
                             ...(pretestRes.data.data.preTesting || {}),
-                            testedBy: pretestRes.data.data.testedBy || ''
+                            testedBy: pretestRes.data.data.testedBy || pretestRes.data.data.savedBy || ''
                         };
                     }
 
@@ -289,10 +289,13 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                     });
 
                     // Fetch pretest data from pretester to autofill (read-only)
-                    const pretestResNew = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/${t._id}`, { withCredentials: true }).catch(() => null);
+                    const pretestResNew = await axios.get(`/pt-pretests/${t._id}`, { withCredentials: true }).catch(() => null);
                     let defaultPreTesting: any = {};
                     if (pretestResNew?.data?.success && pretestResNew.data.data?.preTesting) {
-                        defaultPreTesting = pretestResNew.data.data.preTesting;
+                        defaultPreTesting = {
+                            ...(pretestResNew.data.data.preTesting || {}),
+                            testedBy: pretestResNew.data.data.testedBy || pretestResNew.data.data.savedBy || ''
+                        };
                     } else {
                         coresList.forEach(core => {
                             defaultPreTesting[core] = { ratioError100: '', phaseError100: '', ratioError25: '', phaseError25: '' };
@@ -448,7 +451,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
 
         // Wait for all to submit sequentially or in parallel
         const responses = await Promise.all(payloads.map(payload => 
-            axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-tests/submit`, payload, { withCredentials: true })
+            axios.post(`/pt-tests/submit`, payload, { withCredentials: true })
         ));
 
         if (responses.every(r => r.data.success)) {
@@ -471,7 +474,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
     try {
       setIsApproving(true);
       const response = await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-tests/${order._id}/approve`,
+        `/pt-tests/${order._id}/approve`,
         {},
         { withCredentials: true }
       );
@@ -509,7 +512,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
         }));
 
         await Promise.all(payloads.map(payload => 
-            axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-tests/failed`, payload, {
+            axios.post(`/pt-tests/failed`, payload, {
                 withCredentials: true
             })
         ));
@@ -521,6 +524,26 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
     } catch (err: any) {
         console.error("Error logging failure:", err);
         toast.error(err.response?.data?.message || "Failed to log errors.");
+    }
+  };
+
+  const handleAddToFailed = async () => {
+    if (!window.confirm('Are you sure you want to mark this transformer as failed? The timer will be stopped and the transformer will be moved to the Failed section.')) return;
+    try {
+        const t = transformersData[0];
+        if (!t) return;
+        await axios.post(`/pt-tests/failed`, {
+            transformerId: t._id,
+            orderId: order._id,
+            jobNumber: order.jobId,
+            reportedBy: user?.name || user?.fullName || 'PT Tester'
+        }, { withCredentials: true });
+        await endTimer();
+        toast.success('Transformer marked as failed.');
+        onBack();
+    } catch (err: any) {
+        console.error('Error marking as failed:', err);
+        toast.error(err.response?.data?.message || 'Failed to mark as failed.');
     }
   };
 
@@ -796,6 +819,12 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                 {!isReadOnly && hasAnyFailures && (
                     <Button variant="destructive" size="sm" onClick={() => setShowFailureModal(true)} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
                         <AlertTriangle className="w-4 h-4" /> Add to Failed Transformers
+                    </Button>
+                )}
+
+                {!isReadOnly && (
+                    <Button variant="destructive" size="sm" onClick={handleAddToFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
+                        <AlertTriangle className="w-4 h-4" /> Add to Failed
                     </Button>
                 )}
 

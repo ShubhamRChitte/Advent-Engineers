@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { SecondaryReportView } from "../tester/SecondaryReportView";
 import { Card } from "../ui/card";
 import { useEffect, useState } from "react";
+import axios from "../../utils/axiosConfig";
 import { ScrollArea } from "../ui/scroll-area";
 
 import { PTReportView } from "../tester/PTReportView";
@@ -46,8 +47,8 @@ export function TestReportModal({ isOpen, onClose, transformer, order, testType 
         setLoading(true);
         try {
             const id = transformer._id || transformer.id;
-            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/reports/${id}?stage=${testType}`);
-            const result = await res.json();
+            const res = await axios.get(`/reports/${id}?stage=${testType}`);
+            const result = res.data;
             if (result.success) {
                 setReportData(result.data);
             }
@@ -64,18 +65,18 @@ export function TestReportModal({ isOpen, onClose, transformer, order, testType 
             const orderId = transformer.orderId._id || transformer.orderId; // Handle populated or raw ID
 
             // Fetch Metering
-            const metRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/metering-tests/${orderId}`);
-            const metData = await metRes.json();
+            const metRes = await axios.get(`/metering-tests/${orderId}`);
+            const metData = metRes.data;
             if (metData) setMeteringData(metData);
 
             // Fetch Protection
-            const protRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/protection-tests/${orderId}?type=Protection`);
-            const protData = await protRes.json();
+            const protRes = await axios.get(`/protection-tests/${orderId}?type=Protection`);
+            const protData = protRes.data;
             if (protData) setProtectionData(protData);
 
             // Fetch PS
-            const psRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/protection-tests/${orderId}?type=PS`);
-            const psData = await psRes.json();
+            const psRes = await axios.get(`/protection-tests/${orderId}?type=PS`);
+            const psData = psRes.data;
             if (psData) setPsData(psData);
 
         } catch (error) {

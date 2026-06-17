@@ -10,9 +10,10 @@ interface CoreConfig {
 
 interface AfterPrimaryMeteringReportProps {
   transformer: Transformer;
-  core: CoreConfig;
+  core: { coreNumber: number; coreId: string; accuracyClass?: string; };
   testerName: string;
   onBack: () => void;
+  onFail?: () => void;
   primaryCurrent?: string;
   secondaryCurrent?: string;
   order?: any;
@@ -24,6 +25,7 @@ export function AfterPrimaryMeteringReport({
   core,
   testerName,
   onBack,
+  onFail,
   primaryCurrent,
   secondaryCurrent,
   order,
@@ -37,6 +39,7 @@ export function AfterPrimaryMeteringReport({
       coreNumber={core.coreNumber}
       testerName={testerName}
       onBack={onBack}
+      onFail={onFail}
       stage="primary"
       accuracyClass={core.accuracyClass}
       primaryCurrent={primaryCurrent || ''}

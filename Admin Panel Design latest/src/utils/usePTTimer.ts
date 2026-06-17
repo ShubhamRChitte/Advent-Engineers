@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 
-const API_BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-timer`;
+const API_BASE = `/pt-timer`;
 
 interface UsePTTimerOptions {
   transformerId: string;

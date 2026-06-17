@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Printer, ArrowLeft, Loader2, Database } from 'lucide-react';
@@ -67,7 +67,7 @@ export function AdminReportViewPage() {
         setLoading(true);
         try {
             // First fetch the basic transformer info
-            const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/reports/${id}?stage=${type}`, {
+            const res = await axios.get(`/reports/${id}?stage=${type}`, {
                 withCredentials: true
             });
             
@@ -108,7 +108,7 @@ export function AdminReportViewPage() {
                     const jobId = fetchedTransformer.jobId;
                     if (jobId) {
                         try {
-                            const coreRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/core-tests/report/${jobId}`, {
+                            const coreRes = await axios.get(`/core-tests/report/${jobId}`, {
                                 withCredentials: true
                             });
                             if (coreRes.data) {

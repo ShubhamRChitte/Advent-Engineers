@@ -4,7 +4,7 @@ import { Input } from '../ui/input';
 import { ArrowLeft, Save, Download, Printer, AlertTriangle } from 'lucide-react';
 import { FinalTransformer } from './FinalTransformersList';
 import { toast } from 'sonner';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { useCTTimer } from '../../utils/useCTTimer';
 import { CTTimerBadge } from './CTTimerBadge';
 
@@ -155,7 +155,7 @@ export function FinalTestReport({
         reportDate: new Date()
       };
 
-      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/final/${encodeURIComponent(transformer.uniqueId)}`, payload, {
+      const response = await axios.post(`/final/${encodeURIComponent(transformer.uniqueId)}`, payload, {
         withCredentials: true
       });
 
@@ -175,22 +175,16 @@ export function FinalTestReport({
     const finalReason = getValidationFailures().join(' | ') || "Failed during final testing.";
 
     try {
-      // Persist the actual test data first
+      // Persist the actual test data and trigger the Failed Transformer workflow
       const testPayload = {
         polarityResult, meggarPrimaryToSecondary, meggarPrimaryToEarth, meggarSecondaryToEarth, meggarCoreToCore,
-        hvSecondaryWinding, hvPrimaryWinding, hvBetweenCore, ovitTest
+        hvSecondaryWinding, hvPrimaryWinding, hvBetweenCore, ovitTest,
+        failedStage: 'FINAL_TESTING',
+        failureReason: finalReason
       };
-      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/final/${encodeURIComponent(transformer.uniqueId)}`, testPayload, { withCredentials: true });
+      const response = await axios.post(`/final/${encodeURIComponent(transformer.uniqueId)}`, testPayload, { withCredentials: true });
 
-      const payload = {
-        orderId: (transformer as any).orderId?._id || (transformer as any).orderId,
-        internalCoreNo: transformer.uniqueId,
-        failureReason: finalReason,
-        failureStage: 'FINAL_QA', // Dynamic depending on specific exact stage if necessary
-      };
-
-      const failedRes = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores`, payload, { withCredentials: true });
-      if (failedRes.data?.success || failedRes.status === 200 || failedRes.status === 201) {
+      if (response.data?.success || response.status === 200 || response.status === 201) {
         toast.success("Transformer marked as failed successfully.");
         if (onBack) onBack();
       }
@@ -229,7 +223,7 @@ export function FinalTestReport({
       };
 
       // 1. Save directly to FinalReportData
-      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/final/${encodeURIComponent(transformer.uniqueId)}/generate-save`, reportData, {
+      const res = await axios.post(`/final/${encodeURIComponent(transformer.uniqueId)}/generate-save`, reportData, {
         withCredentials: true
       });
 

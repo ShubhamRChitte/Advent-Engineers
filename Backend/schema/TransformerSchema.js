@@ -159,17 +159,17 @@ const ProtectionBlockSchema = new Schema({
   ratioValue: String, // e.g., "200/1"
   protectionClass: String,
   // Map the top-row measurements specifically
-  ratioError100: { type: Number, default: 0 }, // Was burden100_1
-  phaseError: { type: Number, default: 0 },    // Was burden100_2
+  ratioError100: { type: Number, default: null }, // Was burden100_1
+  phaseError: { type: Number, default: null },    // Was burden100_2
 
   // Test Parameters
-  resistance: { type: Number, default: 0 },
-  alf: { type: Number, default: 0 },
-  excitationCurrent: { type: Number, default: 0 },
+  resistance: { type: Number, default: null },
+  alf: { type: Number, default: null },
+  excitationCurrent: { type: Number, default: null },
 
   // Automated Result Fields
-  secondaryLimitingVoltage: { type: Number, default: 0 },
-  compositeError: { type: Number, default: 0 },
+  secondaryLimitingVoltage: { type: Number, default: null },
+  compositeError: { type: Number, default: null },
 
   // Maintain legacy field to prevent breaking old reports
   secondaryLimitingVtg: Schema.Types.Mixed,
@@ -231,13 +231,13 @@ const TransformerSchema = new Schema({
   uniqueId: { type: String, required: true, unique: true },
 
   // Connection to Parent Order
-  orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true },
-  jobId: { type: String, required: true }, // Redundant for faster searching
+  orderId: { type: Schema.Types.ObjectId, ref: 'Order' },
+  jobId: { type: String }, // Redundant for faster searching
 
   // Workflow tracking
   currentStage: {
     type: String,
-    enum: ["core", "secondary", "secondary_failed", "primary", "heating", "final", "shipped", "pt", "pt_pretest", "admin_review"],
+    enum: ["core", "secondary", "secondary_failed", "primary", "heating", "final", "shipped", "pt", "pt_pretest", "pt_pretest_failed", "pt_failed", "admin_review"],
     default: "core"
   },
 

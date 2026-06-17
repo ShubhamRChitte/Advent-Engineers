@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Printer, ArrowLeft, Loader2, Database } from 'lucide-react';
@@ -29,7 +29,7 @@ export function ReportPage() {
     const fetchReport = async (jobId: string) => {
         try {
             setLoading(true);
-            const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/core-tests/report/${jobId}`, {
+            const res = await axios.get(`/core-tests/report/${jobId}`, {
                 withCredentials: true,
             });
 

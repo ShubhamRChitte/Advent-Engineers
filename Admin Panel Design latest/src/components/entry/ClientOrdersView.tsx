@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
+import axios from '../../utils/axiosConfig';
 import { Button } from '../ui/button';
 import { OrderReportsView } from './OrderReportsView';
 import {
@@ -64,8 +65,8 @@ export function ClientOrdersView({
     const fetchClientOrders = async () => {
       try {
         // Encode client name to handle special chars like '&'
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/client/${encodeURIComponent(client.name)}`);
-        const data = await response.json();
+        const response = await axios.get(`/orders/client/${encodeURIComponent(client.name)}`);
+        const data = response.data;
 
         if (data.success && data.orders) {
           // Map backend order to frontend Order interface

@@ -41,7 +41,7 @@ import { Label } from '../ui/label';
 import { ReportHeader } from '../reports';
 import { CoreReportPrint } from './CoreReportPrint';
 import { getSafeOrderId, getSafeClientName, getSafeBatchId } from '../../utils/orderUtils';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { useCTTimer } from '../../utils/useCTTimer';
 import { CTTimerBadge } from '../tester/CTTimerBadge';interface CoreTestingFormProps {
   order: CoreTestingOrder;
@@ -162,7 +162,7 @@ export function CoreTestingForm({
   const updatePreTestBatchStatus = async (newStatus: string) => {
     if (!isPreTest || !batchData?.batchId) return;
     try {
-      await axios.patch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches/${batchData.batchId}/status`, { status: newStatus }, {
+      await axios.patch(`/pre-test-batches/${batchData.batchId}/status`, { status: newStatus }, {
         withCredentials: true
       });
     } catch (err) {
@@ -289,7 +289,7 @@ export function CoreTestingForm({
         const token = localStorage.getItem('token');
 
         if (isPreTest && batchData?.batchId) {
-          response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches/${batchData.batchId}`, {
+          response = await axios.get(`/pre-test-batches/${batchData.batchId}`, {
             withCredentials: true,
             headers: { 'Authorization': token ? `Bearer ${token}` : '' }
           });
@@ -349,7 +349,7 @@ export function CoreTestingForm({
           const endpoint = isMeteringCheck ? '/metering-tests' : '/protection-tests';
           const typeParam = !isMeteringCheck ? `?type=${coreType}` : '';
 
-          response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}${endpoint}/${txnOrderId}${typeParam}`, {
+          response = await axios.get(`${endpoint}/${txnOrderId}${typeParam}`, {
             withCredentials: true,
             headers: { 'Authorization': token ? `Bearer ${token}` : '' }
           });
@@ -362,7 +362,7 @@ export function CoreTestingForm({
 
           // Use the dedicated order-specific endpoint which is more reliable
           try {
-            const fcRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores/order/${txnOrderId}`, {
+            const fcRes = await axios.get(`/failed-cores/order/${txnOrderId}`, {
               withCredentials: true,
               headers: { 'Authorization': token ? `Bearer ${token}` : '' }
             });
@@ -781,7 +781,7 @@ export function CoreTestingForm({
     }
 
     try {
-      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches/${batchData.batchId}/approve`, {}, {
+      const res = await axios.post(`/pre-test-batches/${batchData.batchId}/approve`, {}, {
         withCredentials: true
       });
       if (res.status === 200) {
@@ -875,7 +875,7 @@ export function CoreTestingForm({
         }
       };
 
-      await axios.patch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches/${batchData.batchId}`, payload, {
+      await axios.patch(`/pre-test-batches/${batchData.batchId}`, payload, {
         withCredentials: true
       });
     } catch (err) {
@@ -1065,7 +1065,7 @@ export function CoreTestingForm({
       console.log(`[FETCH_READY] Final Query Params:`, queryParams);
 
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/ready-transformers/available`, {
+      const res = await axios.get(`/ready-transformers/available`, {
         params: queryParams,
         withCredentials: true,
         headers: { 'Authorization': token ? `Bearer ${token}` : '' }
@@ -1085,7 +1085,7 @@ export function CoreTestingForm({
     if (!core?._id) return;
     const token = localStorage.getItem('token');
     try {
-      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/ready-transformers/reserve/${core._id}`, {}, {
+      await axios.post(`/ready-transformers/reserve/${core._id}`, {}, {
         withCredentials: true,
         headers: { 'Authorization': token ? `Bearer ${token}` : '' }
       });
@@ -1113,7 +1113,7 @@ export function CoreTestingForm({
       if (isPreTest && batchData?.batchId) {
         const token = localStorage.getItem('token');
         // Pre-Test batch: use the batch discard endpoint
-        await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches/${batchData.batchId}/discard-core`, {
+        await axios.post(`/pre-test-batches/${batchData.batchId}/discard-core`, {
           internalCoreNo: failedRow.internalCoreNo,
           vendorCoreNo: failedRow.coreVendorNo,
           reason: "Replaced from Ready Stock",
@@ -1127,7 +1127,7 @@ export function CoreTestingForm({
 
       // 2. Mark as used in Inventory and Link to Order
       const token = localStorage.getItem('token');
-      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/ready-transformers/use/${currentCore._id}`, {
+      const res = await axios.post(`/ready-transformers/use/${currentCore._id}`, {
         orderId: txnOrderId,
         replacedCoreId: failedRow.internalCoreNo
       }, {
@@ -1255,7 +1255,7 @@ export function CoreTestingForm({
       };
 
       console.log("Moving core to failed section:", payload);
-      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores`, payload, {
+      await axios.post(`/failed-cores`, payload, {
         withCredentials: true,
         headers: { 'Authorization': token ? `Bearer ${token}` : '' }
       });
@@ -1345,7 +1345,7 @@ export function CoreTestingForm({
 
       console.log(`DEBUG: Saving row ${index} (${payload.reading.internalCoreNo}) to batch ${batchData.batchId}`);
       const token = localStorage.getItem('token');
-      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches/${batchData.batchId}/save-reading`, payload, {
+      await axios.post(`/pre-test-batches/${batchData.batchId}/save-reading`, payload, {
         withCredentials: true,
         headers: { 'Authorization': token ? `Bearer ${token}` : '' }
       });
@@ -1400,7 +1400,7 @@ export function CoreTestingForm({
 
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches/${batchData.batchId}/discard-core`, {
+      const response = await axios.post(`/pre-test-batches/${batchData.batchId}/discard-core`, {
         internalCoreNo: row.internalCoreNo,
         vendorCoreNo: row.coreVendorNo,
         reason: "Failed testing",
@@ -1582,7 +1582,7 @@ export function CoreTestingForm({
           testLimits: isMetering ? finalPayload.testLimits : finalPayload.testSpecification
         };
 
-        await axios.patch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pre-test-batches/${batchData.batchId}`, batchPayload, {
+        await axios.patch(`/pre-test-batches/${batchData.batchId}`, batchPayload, {
           withCredentials: true
         });
 
@@ -1593,7 +1593,7 @@ export function CoreTestingForm({
       console.log("DEBUG: Sending Final Payload to Backend:", finalPayload);
 
       const token = localStorage.getItem('token');
-      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}${endpoint}`, finalPayload, {
+      const response = await axios.post(`${endpoint}`, finalPayload, {
         withCredentials: true,
         headers: {
           'Content-Type': 'application/json',

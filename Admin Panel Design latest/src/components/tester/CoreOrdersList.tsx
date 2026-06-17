@@ -5,7 +5,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Eye, PlayCircle, ChevronDown, ChevronUp, CheckCircle, XCircle, FileText, Search, Filter } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { User } from '../../App';
 
 interface UserReading {
@@ -59,7 +59,7 @@ export function CoreOrdersList({ onStartTesting, onViewReports, user, type = 'ac
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/assigneed_orders`, {
+      const response = await axios.get(`/assigneed_orders`, {
         params: { type },
         withCredentials: true
       });

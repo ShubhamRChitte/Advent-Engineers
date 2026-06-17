@@ -240,7 +240,7 @@ export function PTPretestPrintReport({
               </td>
               <td style={{ textAlign: 'right' }}>
                 Date :&nbsp;
-                <span>{reportData?.date || new Date().toLocaleDateString('en-GB')}</span>
+                <span style={{ minWidth: '80px', textAlign: 'center' }}>{reportData?.date || new Date().toLocaleDateString('en-GB')}</span>
               </td>
             </tr>
           </tbody>
@@ -327,8 +327,8 @@ export function PTPretestPrintReport({
           {/* Pretester name */}
           <div style={{ borderTop: 'none', borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #000', padding: '8px 12px', fontSize: 12, background: '#fafafa', display: 'flex', alignItems: 'center' }}>
             <strong>Tested By (Pretester):</strong>&nbsp;
-            <span style={{ borderBottom: '1px solid #555', minWidth: 160, display: 'inline-block', padding: '0 4px', fontStyle: 'italic', color: '#003a70', fontWeight: 'bold' }}>
-              {reportData?.preTesting?.testedBy || ''}
+            <span style={{ borderBottom: '1px solid #555', minWidth: 160, display: 'inline-block', padding: '0 4px', fontStyle: 'italic', color: '#003a70', fontWeight: 'bold', fontSize: '14px' }}>
+              {reportData?.testedBy || reportData?.preTesting?.testedBy || ''}
             </span>
           </div>
         </div>

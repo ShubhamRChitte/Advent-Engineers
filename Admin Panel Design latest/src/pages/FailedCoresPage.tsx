@@ -1,13 +1,13 @@
 import { FailedCoresManager } from '../components/testing/FailedCoresManager';
 import useSWR from 'swr';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Loader2 } from 'lucide-react';
 import { FailedCoreSummaryReport } from '../components/testing/FailedCoreSummaryReport';
 
 export function FailedCoresPage() {
     const fetcher = (url: string) => axios.get(url, { withCredentials: true }).then(res => res.data);
     const { data, error, isLoading, mutate } = useSWR(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores?limit=1000`,
+        `/failed-cores?limit=1000`,
         fetcher,
         { refreshInterval: 30000 }
     );

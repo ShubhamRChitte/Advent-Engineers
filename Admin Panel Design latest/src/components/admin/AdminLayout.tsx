@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { User } from '../../App';
-import axios from 'axios';
+import axios from '../../utils/axiosConfig';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminHeader } from './AdminHeader';
 import { AdminDashboard } from './AdminDashboard';
@@ -9,6 +9,7 @@ import { EmployeeManagement } from './EmployeeManagement';
 import { OrderManagementModule } from '../entry/OrderManagementModule';
 import { OrdersListViewEnhanced } from '../entry/OrdersListViewEnhanced';
 import { EnhancedOrderForm } from '../entry/EnhancedOrderForm';
+import { AssignTestingWorkflow } from '../entry/AssignTestingWorkflow';
 import { toast } from 'sonner';
 import { useEffect } from 'react';
 import { ReportsModule } from '../entry/ReportsModule';
@@ -18,6 +19,7 @@ import ReadyStockView from '../inventory/ReadyStockView';
 import { CustomerReportsPage } from './CustomerReportsPage';
 import { PTDelayDashboard } from './PTDelayDashboard';
 import { CTDelayDashboard } from './CTDelayDashboard';
+import { FailedTransformersSection } from '../tester/FailedTransformersSection';
 
 interface AdminLayoutProps {
   user: User;
@@ -32,14 +34,16 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
   // State to handle navigation from notifications to a specific order
   const [selectedOrderIdForNav, setSelectedOrderIdForNav] = useState<string | null>(null);
   const [editingOrder, setEditingOrder] = useState<any>(null);
+  const [editStep, setEditStep] = useState<'form' | 'assignments'>('form');
+  const [editedOrderData, setEditedOrderData] = useState<any>(null);
 
   const [allVendors, setAllVendors] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchVendors = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/core-vendors`);
-        const data = await response.json();
+        const response = await axios.get(`/core-vendors`);
+        const data = response.data;
         if (data.success) {
           setAllVendors(data.data);
         }
@@ -64,39 +68,74 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
     setActiveView('view-orders');
   };
 
-  const handleUpdateOrder = async (updatedData: any) => {
+  const handleUpdateOrder = (updatedData: any) => {
+    setEditedOrderData({
+      ...updatedData,
+      originalQuantity: editingOrder.quantity,
+      assignments: editingOrder.assignments || []
+    });
+    setEditStep('assignments');
+  };
+
+  const handleSaveEditedOrder = async (assignments: any[]) => {
     try {
-      // Construct payload similar to OrderManagementModule
+      const assignmentsByStage = assignments.reduce((acc: any[], stage) => {
+        let start = 1;
+        const stageAssignments = stage.workers.map((w: any) => {
+          const range = { from: start, to: start + w.transformerCount - 1 };
+          start += w.transformerCount;
+          const stageEnumMap: Record<string, string> = {
+            'Core Test': 'core',
+            'After Secondary Test': 'secondary',
+            'Secondary Test': 'secondary',
+            'After Primary Test': 'primary',
+            'Final Test': 'final',
+            'PT Test': 'pt',
+            'PT Pretest': 'pt_pretest'
+          };
+          return {
+            testerName: w.worker.name,
+            stage: stageEnumMap[stage.testType] || 'core',
+            unitRange: range,
+            status: 'Assigned'
+          };
+        });
+        return [...acc, ...stageAssignments];
+      }, []);
+
       const payload: any = {
-        clientName: updatedData.clientName,
-        clientContactNo: updatedData.clientContact,
-        transformerName: updatedData.transformerName,
-        transformerType: updatedData.transformerType,
-        quantity: parseInt(updatedData.quantity),
-        noOfCores: parseInt(updatedData.numberOfCores),
-        coreDetails: updatedData.coreDetails,
-        primaryCurrents: updatedData.primaryCurrents || [],
-        ratio: updatedData.ratio,
-        voltageRating: updatedData.voltageRating,
-        nominalSystemVoltage: parseFloat(updatedData.parameters?.nominalVoltage) || 0,
-        burden: parseFloat(updatedData.parameters?.burden) || 0,
-        stc: updatedData.parameters?.stc || '',
-        ratedPrimaryVoltage: updatedData.parameters?.ratedPrimaryVoltage || '',
-        ratedSecondaryVoltage: updatedData.parameters?.ratedSecondaryVoltage || '',
-        isStandard: updatedData.isStandard,
-        indoorOutdoor: updatedData.indoorOutdoor,
-        insulationType: updatedData.insulationType,
-        tankType: updatedData.tankType,
-        coreVendors: updatedData.coreVendors
+        clientName: editedOrderData.clientName,
+        clientContactNo: editedOrderData.clientContact,
+        transformerName: editedOrderData.transformerName,
+        transformerType: editedOrderData.transformerType,
+        quantity: parseInt(editedOrderData.quantity),
+        noOfCores: parseInt(editedOrderData.numberOfCores),
+        coreDetails: editedOrderData.coreDetails,
+        primaryCurrents: editedOrderData.primaryCurrents || [],
+        ratio: editedOrderData.ratio,
+        voltageRating: editedOrderData.voltageRating,
+        nominalSystemVoltage: parseFloat(editedOrderData.parameters?.nominalVoltage) || 0,
+        burden: parseFloat(editedOrderData.parameters?.burden) || 0,
+        stc: editedOrderData.parameters?.stc || '',
+        ratedPrimaryVoltage: editedOrderData.parameters?.ratedPrimaryVoltage || '',
+        ratedSecondaryVoltage: editedOrderData.parameters?.ratedSecondaryVoltage || '',
+        isStandard: editedOrderData.isStandard,
+        indoorOutdoor: editedOrderData.indoorOutdoor,
+        insulationType: editedOrderData.insulationType,
+        tankType: editedOrderData.tankType,
+        coreVendors: editedOrderData.coreVendors,
+        assignments: assignmentsByStage
       };
 
-      const response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${editingOrder._id}`, payload, {
+      const response = await axios.put(`/orders/${editingOrder._id}`, payload, {
         withCredentials: true
       });
 
       if (response.data.success) {
-        toast.success("Order updated successfully");
+        toast.success("Order and assignments updated successfully");
         setEditingOrder(null);
+        setEditedOrderData(null);
+        setEditStep('form');
         setActiveView('view-orders');
       } else {
         toast.error(response.data.error || "Failed to update order");
@@ -125,38 +164,55 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
             onClearNav={() => setSelectedOrderIdForNav(null)}
             onEditOrder={(order) => {
               setEditingOrder(order);
+              setEditStep('form');
+              setEditedOrderData(null);
               setActiveView('edit-order');
             }}
           />
         );
       case 'edit-order':
-        return editingOrder ? (
-          <EnhancedOrderForm
-            transformer={null as any}
-            allVendors={allVendors}
-            initialData={editingOrder}
-            onSubmit={handleUpdateOrder}
-            onBack={() => {
-              setEditingOrder(null);
-              setActiveView('view-orders');
-            }}
-          />
-        ) : (
-          <div className="p-8 text-center text-gray-500">No order selected for editing.</div>
-        );
+        if (!editingOrder) {
+          return <div className="p-8 text-center text-gray-500">No order selected for editing.</div>;
+        }
+        if (editStep === 'form') {
+          return (
+            <EnhancedOrderForm
+              transformer={null as any}
+              allVendors={allVendors}
+              initialData={editingOrder}
+              onSubmit={handleUpdateOrder}
+              onBack={() => {
+                setEditingOrder(null);
+                setEditStep('form');
+                setEditedOrderData(null);
+                setActiveView('view-orders');
+              }}
+            />
+          );
+        } else {
+          return (
+            <AssignTestingWorkflow
+              orderData={editedOrderData}
+              onComplete={handleSaveEditedOrder}
+              onBack={() => setEditStep('form')}
+            />
+          );
+        }
       case 'reports':
         return <ReportsModule />;
       case 'customer-reports':
         return <CustomerReportsPage onBack={() => setActiveView('dashboard')} />;
       case 'notifications':
         return (
-          <NotificationsModule 
+          <NotificationsModule
             onNavigateToOrder={handleOrderNavigation}
             isActive={activeView === 'notifications'}
           />
         );
       case 'failed-cores':
         return <FailedCoresPage />;
+      case 'failed-transformers':
+        return <FailedTransformersSection user={user} />;
       case 'ready-stock':
         return <ReadyStockView />;
       case 'pt-delay-tracker':

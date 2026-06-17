@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from '../../utils/axiosConfig';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -43,8 +44,8 @@ export function ReportsModule({ fromAdmin = false }: ReportsModuleProps) {
   useEffect(() => {
     const fetchClientStats = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/clients/stats`);
-        const data = await response.json();
+        const response = await axios.get(`/orders/clients/stats`);
+        const data = response.data;
         if (data.success) {
           setClients(data.clients);
         }

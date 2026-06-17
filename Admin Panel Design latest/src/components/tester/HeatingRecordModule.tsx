@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { FileText, Loader2, ArrowLeft, PlayCircle, CheckCircle } from 'lucide-react';
@@ -55,7 +55,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
       // Use dedicated heating-record endpoint which has NO stage restriction.
       // /assigneed_orders filters by transformer.currentStage and misses orders
       // where transformers have already moved past 'heating' stage.
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record/assigned-orders?type=CT`, {
+      const response = await axios.get(`/heating-record/assigned-orders?type=CT`, {
         withCredentials: true
       });
 
@@ -65,7 +65,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
 
       const orderIds = eligibleOrders.map((o: any) => o._id);
       if (orderIds.length > 0) {
-        const completedRes = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record/completed-status`, {
+        const completedRes = await axios.post(`/heating-record/completed-status`, {
             orderIds,
             prefix: "CT"
         }, { withCredentials: true });
@@ -88,7 +88,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
     setSelectedOrder(order);
     setLoadingTransformers(true);
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/order/${order._id}`, { withCredentials: true });
+      const res = await axios.get(`/transformers/order/${order._id}`, { withCredentials: true });
       setTransformersList(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
       console.error('Failed to fetch transformers for order', e);
@@ -101,19 +101,20 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
 
 
   const handleSelectTransformer = async (t: any) => {
+    if (!selectedOrder) return;
     setSelectedTransformer(t);
     const voltageStr = String((selectedOrder as any)?.voltageRating || selectedOrder?.nominalSystemVoltage || '');
     const transformerType = voltageStr.includes('33') ? '33KV_CT' : '11KV_CT';
 
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record/${selectedOrder!._id}/${transformerType}`, { withCredentials: true });
+      const res = await axios.get(`/heating-record/${selectedOrder._id}/${transformerType}`, { withCredentials: true });
       if (res.data.success && res.data.data?.blocks?.length > 0) {
         const uiBlocks = res.data.data.blocks.map((b: any) => ({
-          id: Math.random().toString(36).substr(2, 9),
+          id: crypto.randomUUID(),
           transformerId: '',
           groupNo: b.groupNo || '',
           serialNumber: b.serialNumber || '',
-          jobNo: selectedOrder!.jobId,
+          jobNo: selectedOrder.jobId,
           leftInputs: ensureLeftInputs(b.leftInputs),
           startDate: b.startDate || new Date().toISOString().split('T')[0],
           processSteps: b.processSteps && b.processSteps.length > 0 ? b.processSteps.map((s: any) => ({
@@ -138,7 +139,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
     }
 
     // Default: single fresh block pre-filled with selected transformer
-    const block = makeNewBlock(selectedOrder!.jobId, 1, voltageStr);
+    const block = makeNewBlock(selectedOrder.jobId, 1, voltageStr);
     block.serialNumber = t.uniqueId || block.serialNumber;
     setRecords([block]);
   };
@@ -156,7 +157,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
     }
   
     return {
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
       transformerId: '',
       groupNo: `No.-${blockNumber}`,
       serialNumber: `${voltage}KV - CT = ${blockNumber}`,
@@ -296,7 +297,7 @@ export function HeatingRecordModule({ user }: HeatingRecordModuleProps) {
         blocks: blocksPayload
       };
 
-      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/heating-record`, payload, { withCredentials: true });
+      await axios.post(`/heating-record`, payload, { withCredentials: true });
       alert("Heating records saved successfully!");
 
       setSelectedTransformer(null);

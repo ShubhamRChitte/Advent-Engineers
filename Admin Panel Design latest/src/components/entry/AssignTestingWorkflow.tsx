@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -17,6 +17,7 @@ import {
   Sparkles,
   ArrowLeft,
   ArrowRight,
+  X,
 } from 'lucide-react';
 
 interface Worker {
@@ -54,10 +55,15 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
   const [allWorkers, setAllWorkers] = useState<Worker[]>([]);
   const [loadingTesters, setLoadingTesters] = useState(true);
 
+  // Handle both flat structure (Entry Operator) and nested structure (Admin)
+  const quantity = orderData.quantity
+    ? (typeof orderData.quantity === 'string' ? parseInt(orderData.quantity) : orderData.quantity)
+    : (orderData.transformer?.quantity ? parseInt(orderData.transformer.quantity) : 1);
+
   useEffect(() => {
     const fetchTesters = async () => {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/testers`);
+        const response = await axios.get('/auth/testers');
         if (response.data.success) {
           const mappedWorkers: Worker[] = response.data.users.map((user: any) => {
             // Map Department to Skill Category
@@ -99,25 +105,81 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
     fetchTesters();
   }, []);
 
-  const testTypes = orderData?.transformerType === 'PT' 
-    ? [ 
-        { id: 'pt-pretest', name: 'PT Pretest', icon: Zap, color: 'indigo' },
-        { id: 'pt-test', name: 'PT Test', icon: Zap, color: 'purple' } 
-      ]
+  const testTypes = orderData?.transformerType === 'PT'
+    ? [
+      { id: 'pt-pretest', name: 'PT Pretest', icon: Zap, color: 'indigo' },
+      { id: 'pt-test', name: 'PT Test', icon: Zap, color: 'purple' }
+    ]
     : [
-        { id: 'core-test', name: 'Core Test', icon: TestTube, color: 'blue' },
-        { id: 'after-secondary', name: 'After Secondary Test', icon: Zap, color: 'purple' },
-        { id: 'after-primary', name: 'After Primary Test', icon: Activity, color: 'orange' },
-        { id: 'final-test', name: 'Final Test', icon: ClipboardCheck, color: 'green' },
-      ];
+      { id: 'core-test', name: 'Core Test', icon: TestTube, color: 'blue' },
+      { id: 'after-secondary', name: 'After Secondary Test', icon: Zap, color: 'purple' },
+      { id: 'after-primary', name: 'After Primary Test', icon: Activity, color: 'orange' },
+      { id: 'final-test', name: 'Final Test', icon: ClipboardCheck, color: 'green' },
+    ];
+
+  const currentTest = testTypes[currentTestIndex] || testTypes[0] || { id: 'fallback', name: 'Unknown', icon: Zap, color: 'gray' };
+
+  // Pre-populate assignments if they exist in orderData (e.g. during edit)
+  useEffect(() => {
+    if (allWorkers.length === 0) return;
+    const currentTest = testTypes[currentTestIndex];
+    if (!currentTest) return;
+
+    const stageEnumMap: Record<string, string> = {
+      'pt-pretest': 'pt_pretest',
+      'pt-test': 'pt',
+      'core-test': 'core',
+      'after-secondary': 'secondary',
+      'after-primary': 'primary',
+      'final-test': 'final'
+    };
+    const targetStage = stageEnumMap[currentTest.id];
+
+    const stageAssigns = orderData?.assignments?.filter((a: any) => a.stage === targetStage) || [];
+
+    if (stageAssigns.length > 0) {
+      const initialSelected: Worker[] = [];
+      const initialCounts: { [workerId: string]: string } = {};
+
+      stageAssigns.forEach((assign: any) => {
+        const matchedWorker = allWorkers.find(w => w.name === assign.testerName);
+        const workerObj = matchedWorker || {
+          id: assign.testerName,
+          name: assign.testerName,
+          workerId: "N/A",
+          skillCategories: [currentTest.name],
+          currentWorkload: 0,
+          status: 'Available' as const,
+          experienceLevel: 'Mid-Level' as const
+        };
+
+        initialSelected.push(workerObj);
+        const fromVal = assign.unitRange?.from ? parseInt(assign.unitRange.from) : 1;
+        const toVal = assign.unitRange?.to ? parseInt(assign.unitRange.to) : quantity;
+        initialCounts[workerObj.id] = (toVal - fromVal + 1).toString();
+      });
+
+      setSelectedWorkers(initialSelected);
+      setWorkerCounts(initialCounts);
+    } else {
+      setSelectedWorkers([]);
+      setWorkerCounts({});
+    }
+  }, [currentTestIndex, allWorkers, orderData, quantity]);
 
 
 
-  const currentTest = testTypes[currentTestIndex] || testTypes[0] || { id: 'fallback', name: 'Unknown', icon: Activity, color: 'gray' };
-  // Handle both flat structure (Entry Operator) and nested structure (Admin)
-  const quantity = orderData.quantity
-    ? (typeof orderData.quantity === 'string' ? parseInt(orderData.quantity) : orderData.quantity)
-    : (orderData.transformer?.quantity ? parseInt(orderData.transformer.quantity) : 1);
+  const stageEnumMap: Record<string, string> = {
+    'pt-pretest': 'pt_pretest',
+    'pt-test': 'pt',
+    'core-test': 'core',
+    'after-secondary': 'secondary',
+    'after-primary': 'primary',
+    'final-test': 'final'
+  };
+  const targetStage = stageEnumMap[currentTest.id];
+  const isQuantityChanged = orderData?.originalQuantity !== undefined && quantity !== orderData.originalQuantity;
+  const isStageFullyCompleted = orderData?.completionStages?.[targetStage] === true && !isQuantityChanged;
 
   const availableWorkers = allWorkers.filter((worker) =>
     worker.skillCategories.includes(currentTest.name)
@@ -143,6 +205,7 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
   };
 
   const toggleWorkerSelection = (worker: Worker) => {
+    if (isStageFullyCompleted) return;
     if (selectedWorkers.find(w => w.id === worker.id)) {
       setSelectedWorkers(selectedWorkers.filter(w => w.id !== worker.id));
       const newCounts = { ...workerCounts };
@@ -154,7 +217,7 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
   };
 
   const handleAutoDistribute = () => {
-    if (selectedWorkers.length === 0) return;
+    if (selectedWorkers.length === 0 || isStageFullyCompleted) return;
 
     const perWorker = Math.floor(quantity / selectedWorkers.length);
     const remainder = quantity % selectedWorkers.length;
@@ -270,6 +333,16 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
                 <p className="text-gray-600 mt-1">
                   Select workers qualified for this test type
                 </p>
+                {isStageFullyCompleted && (
+                  <div className="mt-3 p-3 bg-amber-100 border border-amber-300 text-amber-900 rounded-md text-xs font-semibold">
+                    This testing stage is completed for this order. Tester assignments are locked.
+                  </div>
+                )}
+                {!isStageFullyCompleted && orderData?.assignments?.some((a: any) => a.stage === targetStage) && (
+                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded-md text-xs">
+                    Reassigning workers will only affect remaining transformers that have not completed this stage.
+                  </div>
+                )}
               </div>
             </div>
           </Card>
@@ -282,7 +355,7 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
                 variant="outline"
                 size="sm"
                 onClick={handleAutoDistribute}
-                disabled={selectedWorkers.length === 0}
+                disabled={selectedWorkers.length === 0 || isStageFullyCompleted}
                 className="gap-2"
               >
                 <Sparkles className="w-4 h-4" />
@@ -297,11 +370,11 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
                 return (
                   <Card
                     key={worker.id}
-                    className={`p-4 cursor-pointer transition-all ${isSelected
+                    className={`p-4 transition-all ${isSelected
                       ? 'border-2 border-blue-500 bg-blue-50'
                       : 'hover:shadow-md'
-                      }`}
-                    onClick={() => toggleWorkerSelection(worker)}
+                      } ${isStageFullyCompleted ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
+                    onClick={() => !isStageFullyCompleted && toggleWorkerSelection(worker)}
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
@@ -351,23 +424,41 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
                       <p className="font-medium">{worker.name}</p>
                       <p className="text-sm text-gray-500">{worker.workerId}</p>
                     </div>
-                    <div className="w-48">
-                      <Label className="text-xs">Number of Transformers</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max={quantity}
-                        value={workerCounts[worker.id] || ''}
-                        onChange={(e) => {
-                          setWorkerCounts({
-                            ...workerCounts,
-                            [worker.id]: e.target.value,
-                          });
-                          setDistributionMode('manual');
+                    <div className="flex items-end gap-2 w-60">
+                      <div className="flex-1">
+                        <Label className="text-xs">Number of Transformers</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max={quantity}
+                          value={workerCounts[worker.id] || ''}
+                          disabled={isStageFullyCompleted}
+                          onChange={(e) => {
+                            setWorkerCounts({
+                              ...workerCounts,
+                              [worker.id]: e.target.value,
+                            });
+                            setDistributionMode('manual');
+                          }}
+                          className="mt-1"
+                          placeholder="0"
+                        />
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        type="button"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 mb-0.5"
+                        disabled={isStageFullyCompleted}
+                        onClick={() => {
+                          setSelectedWorkers(selectedWorkers.filter(w => w.id !== worker.id));
+                          const newCounts = { ...workerCounts };
+                          delete newCounts[worker.id];
+                          setWorkerCounts(newCounts);
                         }}
-                        className="mt-1"
-                        placeholder="0"
-                      />
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
                 ))}

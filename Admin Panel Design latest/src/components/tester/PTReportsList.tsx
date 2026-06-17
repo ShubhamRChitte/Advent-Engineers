@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
 import { ChevronRight, FileText, Search, Calendar, LayoutGrid, Printer, X } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Skeleton } from '../ui/skeleton';
 import { PTReportView } from './PTReportView';
 import { PTCompletedTransformersList } from './PTCompletedTransformersList';
@@ -63,7 +63,7 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-tests/reports`, {
+            const response = await axios.get(`/pt-tests/reports`, {
                 withCredentials: true,
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
@@ -94,7 +94,35 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
         const orderData = selectedTransformer.orderId || {};
         const ptTest = selectedTransformer.testHistory?.pt_test || {};
         const pretestData = selectedTransformer.testHistory?.pt_pretest_test?.preTesting || {};
-        const activeCores = selectedTransformer.coreDetails?.map((c: any) => c.coreType || c.type || 'metering') || ['metering'];
+        
+        const cores = orderData?.coreDetails || orderData?.coreConfigs || [];
+        let countMetering = 0;
+        let countProtection = 0;
+        let countPS = 0;
+        const activeCores: string[] = [];
+        
+        cores.forEach((core: any) => {
+            const type = typeof core === 'string' ? core : core.coreType;
+            if (type?.toLowerCase() === 'metering') {
+                countMetering++;
+                const coreId = countMetering > 1 ? `metering${countMetering}` : 'metering';
+                activeCores.push(coreId);
+            }
+            if (type?.toLowerCase() === 'protection') {
+                countProtection++;
+                const coreId = `protection${countProtection}`;
+                activeCores.push(coreId);
+            }
+            if (type?.toLowerCase() === 'ps') {
+                countPS++;
+                const coreId = `ps${countPS}`;
+                activeCores.push(coreId);
+            }
+        });
+
+        if (activeCores.length === 0) {
+            activeCores.push('metering');
+        }
 
         return (
             <div>

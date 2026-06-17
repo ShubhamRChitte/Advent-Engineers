@@ -4,7 +4,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { PlayCircle, Search } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 
 interface Order {
   _id: string; 
@@ -41,7 +41,7 @@ export function AfterPrimaryOrdersList({ onStartTesting }: AfterPrimaryOrdersLis
     try {
       // The backend /assigneed_orders route automatically filters by the user's role (after-primary-tester)
       // and finds orders in the 'primary' stage.
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/assigneed_orders`, {
+      const response = await axios.get(`/assigneed_orders`, {
         withCredentials: true
       });
       setOrders(response.data);

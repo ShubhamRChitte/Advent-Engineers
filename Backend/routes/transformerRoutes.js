@@ -142,6 +142,28 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
             stageData.timerStatus = "Completed";
             stageData.startTime = null;
             // ------------------------------
+            
+            if (nextStage === 'primary') {
+                if (transformer.testHistory.primary_test) {
+                    transformer.testHistory.primary_test.metering_results = [];
+                    transformer.testHistory.primary_test.ps_results = [];
+                    transformer.testHistory.primary_test.protection_results = [];
+                    transformer.testHistory.primary_test.tester = null;
+                    transformer.testHistory.primary_test.status = 'Pending';
+                    transformer.testHistory.primary_test.timestamp = null;
+                    transformer.markModified('testHistory.primary_test');
+                }
+                
+                // Clear final_test as well to ensure a fresh start for primary and above
+                if (transformer.testHistory.final_test) {
+                    transformer.testHistory.final_test = {
+                        status: 'Pending',
+                        tester: null,
+                        timestamp: null
+                    };
+                    transformer.markModified('testHistory.final_test');
+                }
+            }
         } else if (stage === 'primary') {
             if (!transformer.testHistory.primary_test) {
                 transformer.testHistory.primary_test = {};
@@ -160,6 +182,23 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
 
         transformer.markModified('testHistory');
         await transformer.save();
+
+        // Mark failed transformer records as RESOLVED since this stage has been approved
+        try {
+            const { FailedTransformerModel } = require('../models/FailedTransformerModel');
+            await FailedTransformerModel.updateMany(
+                {
+                    $or: [
+                        { transformerId: transformer._id },
+                        { transformerUniqueId: transformer.uniqueId }
+                    ],
+                    status: { $in: ["FAILED", "TREATED"] }
+                },
+                { $set: { status: "RESOLVED" } }
+            );
+        } catch (ftErr) {
+            console.error("Failed to mark failed transformer records as RESOLVED:", ftErr);
+        }
 
         // 3. Check Order Assignment Completion
         // We need to check if ALL units assigned to this tester for this stage are now completed.
@@ -297,6 +336,13 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
 
     } catch (error) {
         console.error("Error approving stage:", error);
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            fs.writeFileSync(path.join(__dirname, '../error_log.txt'), `--- ERROR IN transformerRoutes.js ---\n${error.stack || error.message}`);
+        } catch (fsErr) {
+            console.error("Failed to write local error log:", fsErr);
+        }
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -306,6 +352,8 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
 router.get('/admin-review', isAuthenticated, async (req, res) => {
     try {
         const transformers = await TransformerModel.find({ currentStage: 'admin_review' })
+            .sort({ updatedAt: -1 })
+            .limit(200)
             .populate('orderId')
             .lean();
         res.json({ success: true, data: transformers });

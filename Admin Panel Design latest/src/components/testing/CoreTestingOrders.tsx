@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import {
   Package,
   Clock,
@@ -61,7 +61,7 @@ export function CoreTestingOrders({ onStartTesting, user: _user, type = 'active'
 
   useEffect(() => {
     axios
-      .get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/assigneed_orders`, {
+      .get(`/assigneed_orders`, {
         params: { type },
         withCredentials: true
       })

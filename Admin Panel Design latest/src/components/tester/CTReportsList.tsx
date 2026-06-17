@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
 import { ChevronRight, FileText, Search, Calendar, LayoutGrid, Printer } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Skeleton } from '../ui/skeleton';
 import { CTCustomerReport } from './customer-report/CTCustomerReport';
 
@@ -59,7 +59,7 @@ export function CTReportsList({ onBack }: CTReportsListProps) {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/final/reports`, {
+            const response = await axios.get(`/final/reports`, {
                 withCredentials: true,
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Clock, AlertTriangle, CheckCircle2, TrendingDown } from 'lucide-react';
@@ -26,7 +26,7 @@ export function EfficiencyMonitor() {
   const handleAcknowledge = async (orderId: string, jobId: string, coreType: string) => {
     setAcknowledging(`${orderId}-${coreType}`);
     try {
-      const response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/dashboard/efficiency/acknowledge`, {
+      const response = await axios.put(`/dashboard/efficiency/acknowledge`, {
         orderId,
         jobId,
         coreType
@@ -45,7 +45,7 @@ export function EfficiencyMonitor() {
 
   const fetchEfficiency = async () => {
     try {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/dashboard/efficiency`, {
+      const response = await axios.get(`/dashboard/efficiency`, {
         withCredentials: true
       });
       if (response.data.success) {

@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
 import { ChevronRight, FileText, Search, Calendar, LayoutGrid } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Skeleton } from '../ui/skeleton';
 import { PTReportView } from './PTReportView';
 import { PTCompletedTransformersList } from './PTCompletedTransformersList';
@@ -50,7 +50,7 @@ export function PTPretestReportsList({ onBack }: PTPretestReportsListProps) {
     const fetchReports = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/pt-pretests/reports`, {
+            const response = await axios.get(`/pt-pretests/reports`, {
                 withCredentials: true
             });
 

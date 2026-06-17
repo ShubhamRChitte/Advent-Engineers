@@ -213,6 +213,33 @@ exports.approveOrder = async (req, res) => {
   }
 };
 
+// Helper: check if a specific testing stage is completed for a transformer
+const isStageCompleted = (transformer, stage) => {
+  const currentStage = transformer.currentStage;
+  if (stage === 'core') {
+    return currentStage !== 'core';
+  }
+  if (stage === 'secondary') {
+    return !['core', 'secondary', 'secondary_failed', 'admin_review'].includes(currentStage);
+  }
+  if (stage === 'primary') {
+    return !['core', 'secondary', 'secondary_failed', 'primary', 'admin_review'].includes(currentStage);
+  }
+  if (stage === 'heating') {
+    return !['core', 'secondary', 'secondary_failed', 'primary', 'heating', 'admin_review'].includes(currentStage);
+  }
+  if (stage === 'final') {
+    return currentStage === 'shipped' || transformer.testHistory?.final_test?.status === 'Completed';
+  }
+  if (stage === 'pt_pretest') {
+    return currentStage !== 'pt_pretest';
+  }
+  if (stage === 'pt') {
+    return !['pt_pretest', 'pt', 'admin_review'].includes(currentStage);
+  }
+  return false;
+};
+
 // PUT /api/orders/:orderId
 exports.updateOrder = async (req, res) => {
   try {
@@ -231,7 +258,7 @@ exports.updateOrder = async (req, res) => {
       { new: true }
     );
 
-    if (newQuantity !== oldQuantity) {
+    if (newQuantity !== oldQuantity && existingOrder.isApproved) {
       console.log(`[UpdateOrder] Quantity changed from ${oldQuantity} to ${newQuantity}. Syncing transformers...`);
       
       if (newQuantity > oldQuantity) {
@@ -303,6 +330,98 @@ exports.updateOrder = async (req, res) => {
           await FailedTransformerModel.deleteMany({ uniqueId });
         }
       }
+    }
+
+    // Dynamic Worker Assignment Sync for remaining tests of existing units (Only for approved orders)
+    if (updates.assignments && existingOrder.isApproved) {
+      const remainingLimit = Math.min(oldQuantity, newQuantity);
+      const transformers = await TransformerModel.find({ orderId: order._id });
+      
+      for (const t of transformers) {
+        const parts = t.uniqueId.split('-');
+        const unitNumber = parseInt(parts[parts.length - 1], 10);
+        
+        if (unitNumber <= remainingLimit) {
+          if (!t.assignments) t.assignments = {};
+          
+          const stages = ["core", "secondary", "primary", "heating", "final", "pt", "pt_pretest"];
+          let isModified = false;
+          
+          for (const stage of stages) {
+            if (!isStageCompleted(t, stage)) {
+              // Find matching assignment in updated assignments list
+              const matchingAssign = updates.assignments.find(a => 
+                a.stage === stage && 
+                unitNumber >= parseInt(a.unitRange.from, 10) && 
+                unitNumber <= (parseInt(a.unitRange.to, 10) || newQuantity)
+              );
+              
+              const key = `${stage}_tester`;
+              const oldTester = t.assignments[key];
+              const newTester = matchingAssign ? matchingAssign.testerName : "";
+              
+              if (oldTester !== newTester) {
+                t.assignments[key] = newTester;
+                isModified = true;
+              }
+            }
+          }
+          
+          if (isModified) {
+            t.markModified('assignments');
+            await t.save();
+          }
+        }
+      }
+    }
+
+    // Recalculate completionStages & currentStage based on all transformers for this order (Only for approved orders)
+    if (existingOrder.isApproved) {
+      const allTransformers = await TransformerModel.find({ orderId: order._id });
+      const stages = ["core", "secondary", "primary", "heating", "final", "pt", "pt_pretest"];
+      
+      const newCompletionStages = {
+        core: true,
+        secondary: true,
+        primary: true,
+        heating: true,
+        final: true,
+        pt: true,
+        pt_pretest: true
+      };
+      
+      for (const t of allTransformers) {
+        for (const stage of stages) {
+          if (!isStageCompleted(t, stage)) {
+            newCompletionStages[stage] = false;
+          }
+        }
+      }
+      
+      // Determine earliest uncompleted stage among all units
+      let earliestStage = order.transformerType === 'PT' ? 'pt_pretest' : 'core';
+      if (order.transformerType === 'PT') {
+        if (!newCompletionStages.pt_pretest) earliestStage = 'pt_pretest';
+        else if (!newCompletionStages.pt) earliestStage = 'pt';
+        else earliestStage = 'completed';
+      } else {
+        if (!newCompletionStages.core) earliestStage = 'core';
+        else if (!newCompletionStages.secondary) earliestStage = 'secondary';
+        else if (!newCompletionStages.primary) earliestStage = 'primary';
+        else if (!newCompletionStages.heating) earliestStage = 'heating';
+        else if (!newCompletionStages.final) earliestStage = 'final';
+        else earliestStage = 'completed';
+      }
+      
+      order.completionStages = newCompletionStages;
+      order.currentStage = earliestStage;
+      if (!newCompletionStages.core) {
+        order.approved = false;
+        if (order.status === "Core Testing Completed" || order.status === "COMPLETED") {
+          order.status = "In Progress";
+        }
+      }
+      await order.save();
     }
 
     res.status(200).json({
@@ -517,7 +636,7 @@ exports.getOrderById = async (req, res) => {
 // GET /allorders
 exports.getAllOrders = async (req, res) => {
   try {
-    let orders = await OrderModel.find({}).lean();
+    let orders = await OrderModel.find({}).lean().limit(1000);
     res.json(orders);
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

@@ -5,6 +5,7 @@ import { Button } from '../ui/button';
 import { Printer, ArrowLeft, Save, AlertTriangle } from 'lucide-react';
 import { Transformer } from './SecondaryTransformersList';
 import { toast } from 'sonner';
+<<<<<<< HEAD
 import { 
   ReportHeader, 
   ReportSectionTitle, 
@@ -14,6 +15,11 @@ import {
   secondaryReportPrintStyles,
   ReportSpecBox,
 } from './SecondaryReportPrintLayout';
+=======
+import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
+import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { SOCKET_URL } from '../../utils/socket';
+>>>>>>> d614ac6cdd53eab956a52df16354164e66f1d299
 
 interface SecondaryMeteringReportProps {
   transformer: Transformer;
@@ -28,7 +34,14 @@ interface SecondaryMeteringReportProps {
   secondaryCurrent?: string;
   order?: any;
   onRefresh?: () => void;
+  onFail?: () => void;
   onCompleteTimer?: () => Promise<void>;
+  sourceStage?: 'secondary' | 'primary' | 'final';
+  isFailedSection?: boolean;
+  failedTransformerId?: string;
+  failedStatus?: string;
+  isFailedCore?: boolean;
+  retestHistory?: any[];
 }
 
 export function SecondaryMeteringReport({
@@ -44,10 +57,23 @@ export function SecondaryMeteringReport({
   secondaryCurrent: manualSecondary,
   order: propOrder,
   onRefresh,
+  onFail,
   onCompleteTimer,
+  sourceStage,
+  isFailedSection = false,
+  failedTransformerId,
+  failedStatus,
+  isFailedCore,
+  retestHistory
 }: SecondaryMeteringReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
     (!isNaN(parseInt(coreId.replace(/[^0-9]/g, ''))) ? parseInt(coreId.replace(/[^0-9]/g, '')) - 1 : 0);
+
+  const hasBeenRetested = !!(retestHistory?.some((h: any) =>
+    Array.isArray(h.newTreatmentReadings) && h.newTreatmentReadings.some((r: any) =>
+      r.internalCoreNo === coreId || r.coreId === coreId
+    )
+  ));
 
 
   const [dbLimits, setDbLimits] = useState<any[]>([]);
@@ -55,7 +81,7 @@ export function SecondaryMeteringReport({
   useEffect(() => {
     const fetchLimits = async () => {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/accuracy-limits/metering`, { withCredentials: true });
+        const response = await axios.get(`/accuracy-limits/metering`, { withCredentials: true });
         setDbLimits(response.data);
       } catch (error) {
         console.error('Failed to fetch dynamic metering limits', error);
@@ -125,10 +151,27 @@ export function SecondaryMeteringReport({
       rows: getInitialData(accuracyClass)
     }));
 
-    const stageKey = `${stage}_test`;
-    const history = transformer.testHistory?.[stageKey]?.metering_results;
-    if (history?.length > 0) {
-      const myResults = history.filter((res: any) => res.internalCoreNo === coreId);
+    let myResults = [];
+
+    const shouldLoadFromTreated = isFailedSection && failedStatus === 'TREATED' && (isFailedCore || hasBeenRetested);
+    if (shouldLoadFromTreated) {
+      const secHistory = transformer.testHistory?.secondary_test;
+      if (secHistory?.metering_results?.length > 0) {
+        myResults = secHistory.metering_results.filter((res: any) => res.internalCoreNo === coreId);
+      }
+    }
+
+    if (myResults.length === 0) {
+      const stageHistory = transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory] as any;
+      myResults = (stageHistory?.metering_results || []).filter((res: any) => res.internalCoreNo === coreId);
+    }
+
+    if (myResults.length === 0 && sourceStage && sourceStage !== stage) {
+      const sourceHistory = transformer.testHistory?.[`${sourceStage}_test` as keyof typeof transformer.testHistory] as any;
+      myResults = (sourceHistory?.metering_results || []).filter((res: any) => res.internalCoreNo === coreId);
+    }
+
+    if (myResults.length > 0) {
       return initial.map((item, idx) => {
         let matched = myResults.find((r: any) => r.ratioValue === item.ratioValue);
         if (!matched && myResults[idx]) {
@@ -143,14 +186,29 @@ export function SecondaryMeteringReport({
   useEffect(() => {
     const fetchLatestData = async () => {
       try {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`/transformers/${transformer.uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data;
-        const stageKey = `${stage}_test`;
-        const stageHistory = freshTransformer?.testHistory?.[stageKey];
+        let myResults = [];
 
-        if (stageHistory?.metering_results?.length > 0) {
-          const myResults = stageHistory.metering_results.filter((res: any) => res.internalCoreNo === coreId);
-          if (myResults.length > 0) {
+        const shouldLoadFromTreated = isFailedSection && failedStatus === 'TREATED' && (isFailedCore || hasBeenRetested);
+        if (shouldLoadFromTreated) {
+          const secHistory = freshTransformer.testHistory?.secondary_test;
+          if (secHistory?.metering_results?.length > 0) {
+            myResults = secHistory.metering_results.filter((res: any) => res.internalCoreNo === coreId);
+          }
+        }
+
+        if (myResults.length === 0) {
+          const stageHistory = freshTransformer?.testHistory?.[`${stage}_test`] as any;
+          myResults = (stageHistory?.metering_results || []).filter((res: any) => res.internalCoreNo === coreId);
+        }
+
+        if (myResults.length === 0 && sourceStage && sourceStage !== stage) {
+          const sourceHistory = freshTransformer?.testHistory?.[`${sourceStage}_test`] as any;
+          myResults = (sourceHistory?.metering_results || []).filter((res: any) => res.internalCoreNo === coreId);
+        }
+
+        if (myResults.length > 0) {
             setTestResults(prev => prev.map((item, idx) => {
               let matched = myResults.find((r: any) => r.ratioValue === item.ratioValue);
               if (!matched && myResults[idx]) {
@@ -159,13 +217,12 @@ export function SecondaryMeteringReport({
               return matched ? { ...item, rows: matched.rows } : item;
             }));
           }
-        }
       } catch (err) {
         console.error("Failed to load existing metering data", err);
       }
     };
     fetchLatestData();
-  }, [transformer.uniqueId, coreId, stage]);
+  }, [transformer.uniqueId, coreId, stage, failedStatus, isFailedCore, retestHistory]);
 
   const handleDataChange = (ratioIdx: number, rowIndex: number, field: string, value: string) => {
     if (readOnly) return;
@@ -179,11 +236,15 @@ export function SecondaryMeteringReport({
       updatedRow.r100_r_pass = v100.rPass;
       updatedRow.r100_p_pass = v100.pPass;
       updatedRow.r100_reason = v100.reason;
+      delete updatedRow.r100_pass;
+      delete updatedRow.p100_pass;
 
       const v25 = validateMeteringUI(accuracyClass, updatedRow.current, updatedRow.r25, updatedRow.p25, dbLimits);
       updatedRow.r25_r_pass = v25.rPass;
       updatedRow.r25_p_pass = v25.pPass;
       updatedRow.r25_reason = v25.reason;
+      delete updatedRow.r25_pass;
+      delete updatedRow.p25_pass;
 
       updatedRows[rowIndex] = updatedRow;
       ratioBlock.rows = updatedRows;
@@ -204,11 +265,25 @@ export function SecondaryMeteringReport({
           ratioValue: item.ratioValue,
           rows: item.rows,
           internalCoreNo: coreId,
+          coreId: coreId,
           accuracyClass: accuracyClass
         }))
       };
-      const baseUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
-      await axios.post(`${baseUrl}/transformer-${stage}-metering-tests`, payload, { withCredentials: true });
+
+      
+      if (isFailedSection && failedTransformerId) {
+        // Save to retest-save endpoint
+        await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/${failedTransformerId}/retest-save`, {
+            treatedReadings: payload.metering_results,
+            treatedBy: testerName,
+            remarks: "Treated After Primary Failure via Metering Report",
+            coreType: 'metering'
+        }, { withCredentials: true });
+      } else {
+        const baseUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+        await axios.post(`${baseUrl}/transformer-${stage}-metering-tests`, payload, { withCredentials: true });
+      }
+
       if (onCompleteTimer) await onCompleteTimer();
       toast.success("Data saved successfully!");
       if (onRefresh) onRefresh();
@@ -241,22 +316,22 @@ export function SecondaryMeteringReport({
         jobNumber: transformer.jobId || orderObj?.jobId || '',
         clientName: transformer.clientName || orderObj?.clientName || '',
         coreType: "Metering",
-        testType: "Secondary Metering",
+        testType: stage === 'primary' ? "After Primary Metering" : stage === 'final' ? "Final Metering" : "Secondary Metering",
         failureParameters: { failureStage: `${stage}_metering_test`, dynamicValues: testResults, coreId: coreId },
         failureReason: allReasons.length > 0 ? [...new Set(allReasons)].join(' | ') : "Accuracy Limits Exceeded",
         reportedBy: testerName,
-        stage: "SECONDARY_TESTING",
+        stage: stage === 'primary' ? "PRIMARY_TESTING" : stage === 'final' ? "FINAL_TESTING" : "SECONDARY_TESTING",
         status: "FAILED"
       };
 
       // Persist the entered test values to the transformer's history first
       await handleDatabaseSave();
 
-      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers`, payload, { withCredentials: true });
+      const response = await axios.post(`/failed-transformers`, payload, { withCredentials: true });
       if (response.data.success) {
         toast.success(response.data.message || "Transformer marked as failed successfully.");
         if (onRefresh) onRefresh();
-        onBack();
+        if (onFail) onFail(); else onBack();
       } else {
         toast.error("Failed to add to failed transformers.");
       }

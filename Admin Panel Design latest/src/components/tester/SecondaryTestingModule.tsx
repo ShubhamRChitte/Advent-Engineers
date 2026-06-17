@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Clock, RefreshCw } from 'lucide-react';
 import { SecondaryOrdersList } from './SecondaryOrdersList';
 import { SecondaryTransformersList, Transformer } from './SecondaryTransformersList';
@@ -101,7 +101,7 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
     // Re-fetch fresh transformer data so SecondaryCoreSelection sees latest test results
     if (selectedTransformer?.uniqueId) {
       try {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${selectedTransformer.uniqueId}`, { withCredentials: true });
+        const res = await axios.get(`/transformers/${selectedTransformer.uniqueId}`, { withCredentials: true });
         if (res.data) {
           setSelectedTransformer(prev => prev ? { ...prev, testHistory: res.data.testHistory } : prev);
         }
@@ -184,6 +184,7 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
                 coreId={enteredCoreId}
                 testerName={userName || 'Unknown Tester'}
                 onBack={handleBackFromReport}
+                onFail={handleBackToOrders}
                 stage="secondary"
                 accuracyClass={selectedAccuracyClass}
                 onRefresh={triggerRefresh}
@@ -197,6 +198,7 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
                 coreId={enteredCoreId}
                 testerName={userName || 'Unknown Tester'}
                 onBack={handleBackFromReport}
+                onFail={handleBackToOrders}
                 stage="secondary"
                 accuracyClass={selectedAccuracyClass}
                 onRefresh={triggerRefresh}
@@ -210,6 +212,7 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
                 coreId={enteredCoreId}
                 testerName={userName || 'Unknown Tester'}
                 onBack={handleBackFromReport}
+                onFail={handleBackToOrders}
                 stage="secondary"
                 accuracyClass={selectedAccuracyClass}
                 onRefresh={triggerRefresh}

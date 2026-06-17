@@ -61,5 +61,9 @@ export function CoreTestingModule({ user }: CoreTestingModuleProps) {
     );
   }
 
-  return <CoreOrdersList onStartTesting={handleStartTesting} onViewReports={handleViewReports} user={user!} />;
+  if (!user) {
+    return <div className="p-8 text-center text-gray-500">User session not found. Please log in again.</div>;
+  }
+
+  return <CoreOrdersList onStartTesting={handleStartTesting} onViewReports={handleViewReports} user={user} />;
 }

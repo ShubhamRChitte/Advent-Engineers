@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -53,7 +53,7 @@ export function FinalCoreSelection({
   useEffect(() => {
     const fetchTransformerData = async () => {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${initialTransformer.uniqueId}`, {
+        const response = await axios.get(`/transformers/${initialTransformer.uniqueId}`, {
           withCredentials: true
         });
         if (response.data) {
@@ -145,9 +145,9 @@ export function FinalCoreSelection({
         requestedBy: 'Final Tester'
       };
 
-      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/strict-approvals/request`, payload, { withCredentials: true });
+      await axios.post(`/strict-approvals/request`, payload, { withCredentials: true });
       
-      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}/approve-stage`, {
+      await axios.put(`/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'final',
         nextStage: 'admin_review'
       }, { withCredentials: true });
@@ -163,7 +163,7 @@ export function FinalCoreSelection({
   const handleApproveTransformer = async () => {
     try {
       if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} as Finalized and move to Shipped stage?`)) return;
-      const response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformer.uniqueId}/approve-stage`, {
+      const response = await axios.put(`/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'final',
         nextStage: 'shipped'
       }, { withCredentials: true });
@@ -370,25 +370,7 @@ export function FinalCoreSelection({
         </Card>
       )}
 
-      {isAllCoresCompleted && hasAnyFailures && (
-        <Card className="p-6 bg-red-50 border-red-200 border-l-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-12 h-12 text-red-600" />
-              <div>
-                <h4 className="font-black text-red-900 text-xl uppercase">Strict Approval Required</h4>
-                <p className="text-sm text-red-700 font-bold italic">This unit has core failures. Move to Admin Review stage for decision.</p>
-              </div>
-            </div>
-            <Button
-              className="bg-red-600 hover:bg-red-700 text-white gap-2 px-10 py-7 text-xl font-black shadow-xl"
-              onClick={handleStrictApproval}
-            >
-              Request Strict Approval
-            </Button>
-          </div>
-        </Card>
-      )}
+
 
       {/* Info Box */}
       <Card className="p-6 bg-blue-50 border-blue-200 border-l-4">

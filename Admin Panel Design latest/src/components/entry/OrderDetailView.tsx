@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -86,7 +86,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
   useEffect(() => {
     const fetchTransformers = async () => {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/order/${order.id}`, {
+        const response = await axios.get(`/transformers/order/${order.id}`, {
           withCredentials: true
         });
 
@@ -531,7 +531,6 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
                     <th className="text-center p-4 font-medium text-gray-700">Core Testing</th>
                     <th className="text-center p-4 font-medium text-gray-700">After Secondary</th>
                     <th className="text-center p-4 font-medium text-gray-700">After Primary</th>
-                    <th className="text-center p-4 font-medium text-gray-700">After Heating</th>
                     <th className="text-center p-4 font-medium text-gray-700">Final Testing</th>
                   </>
                 )}
@@ -639,26 +638,6 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
                           </div>
                         </td>
 
-                        {/* After Heating Test */}
-                        <td className="p-4">
-                          <div className="flex flex-col items-center gap-2">
-                            <Badge className={`${getStatusColor(unit.heatingStatus)} flex items-center gap-1`}>
-                              {getStatusIcon(unit.heatingStatus)}
-                              {unit.heatingStatus}
-                            </Badge>
-                            {unit.heatingStatus === 'Complete' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-xs h-7 gap-1"
-                                onClick={() => handleViewReport(unit.transformerId, 'After Heating Test')}
-                              >
-                                <FileText className="w-3 h-3" />
-                                View Report
-                              </Button>
-                            )}
-                          </div>
-                        </td>
 
                         {/* Final Test */}
                         <td className="p-4">

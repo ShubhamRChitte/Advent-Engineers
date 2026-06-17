@@ -26,6 +26,7 @@ import { useTesterStats } from './useTesterStats';
 import { CTReportsList } from './CTReportsList';
 import ReadyStockView from '../inventory/ReadyStockView';
 import { FailedTransformersSection } from './FailedTransformersSection';
+import { PTFailedTransformersSection } from './PTFailedTransformersSection';
 
 
 interface TesterLayoutProps {
@@ -112,6 +113,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
 
       if (activeView === 'view-orders') return <OrdersListViewEnhanced userRole={user.role} />;
       if (activeView === 'reports') return <PTReportsList onBack={setViewHome} />;
+      if (activeView === 'pt-failed') return <PTFailedTransformersSection stage="PT_TESTING" />;
       return <PTTesterDashboard setActiveView={setActiveView} stats={stats} recentActivity={recentActivity} loading={loading} />;
     }
 
@@ -122,6 +124,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
 
       if (activeView === 'view-orders') return <OrdersListViewEnhanced userRole={user.role} />;
       if (activeView === 'reports') return <PTPretestReportsList onBack={setViewHome} />;
+      if (activeView === 'pt-failed') return <PTFailedTransformersSection stage="PT_PRETEST_TESTING" />;
       return <PTPretestDashboard setActiveView={setActiveView} stats={stats} recentActivity={recentActivity} loading={loading} />;
     }
 

@@ -6,6 +6,7 @@ interface FinalProtectionReportProps {
   core: { coreNumber: number; coreId: string; accuracyClass?: string; };
   testerName: string;
   onBack: () => void;
+  onFail?: () => void;
   primaryCurrent?: string;
   secondaryCurrent?: string;
   order?: any;
@@ -16,6 +17,7 @@ export function FinalProtectionReport({
   core,
   testerName,
   onBack,
+  onFail,
   primaryCurrent,
   secondaryCurrent,
   order,
@@ -28,6 +30,7 @@ export function FinalProtectionReport({
       coreNumber={core.coreNumber}
       testerName={testerName}
       onBack={onBack}
+      onFail={onFail}
       stage="final"
       accuracyClass={core.accuracyClass}
       primaryCurrent={primaryCurrent || ''}

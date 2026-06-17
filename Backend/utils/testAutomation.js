@@ -56,7 +56,36 @@ const saveTestResults = async ({
       ...(isPreTest ? { batchId, isPreTest: true } : { orderId })
     };
 
-    // 2. UPSERT Test Record
+    // 2. UPSERT Test Record (with merging of existing readings)
+    let finalReadings = processedReadings;
+    try {
+      const existingRecord = await Model.findOne(query).lean();
+      if (existingRecord && existingRecord.readings && existingRecord.readings.length > 0) {
+        const readingsMap = {};
+        
+        // Populate map with existing readings
+        existingRecord.readings.forEach(r => {
+          if (r.internalCoreNo) {
+            readingsMap[r.internalCoreNo.trim().toUpperCase()] = r;
+          }
+        });
+
+        // Merge new readings
+        processedReadings.forEach(r => {
+          if (r.internalCoreNo) {
+            readingsMap[r.internalCoreNo.trim().toUpperCase()] = r;
+          }
+        });
+
+        // Convert map back to array
+        finalReadings = Object.values(readingsMap);
+      }
+    } catch (dbErr) {
+      console.warn("[saveTestResults] Failed to fetch existing record for merge, saving new only:", dbErr);
+    }
+
+    updateData.readings = finalReadings;
+
     let testRecord = await Model.findOneAndUpdate(
       query,
       { $set: updateData },

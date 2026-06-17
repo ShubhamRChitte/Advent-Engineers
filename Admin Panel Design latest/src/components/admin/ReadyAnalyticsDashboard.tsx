@@ -8,7 +8,7 @@ import {
   Cell
 } from 'recharts';
 import { TrendingUp, Package, Clock, AlertCircle } from 'lucide-react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Skeleton } from '../ui/skeleton';
 
 interface AnalyticsData {
@@ -26,7 +26,7 @@ export default function ReadyAnalyticsDashboard() {
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/ready-transformers/analytics`, {
+        const res = await axios.get(`/ready-transformers/analytics`, {
           withCredentials: true
         });
         setData(res.data);

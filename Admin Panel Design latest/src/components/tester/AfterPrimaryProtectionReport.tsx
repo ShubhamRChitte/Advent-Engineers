@@ -3,9 +3,10 @@ import { Transformer } from './AfterPrimaryTransformersList';
 
 interface PrimaryProtectionReportProps {
   transformer: Transformer;
-  core: { coreNumber: number; coreId: string; accuracyClass?: string | undefined };
+  core: { coreNumber: number; coreId: string; accuracyClass?: string; };
   testerName: string;
   onBack: () => void;
+  onFail?: () => void;
   primaryCurrent?: string;
   secondaryCurrent?: string;
   order?: any;
@@ -17,6 +18,7 @@ export function AfterPrimaryProtectionReport({
   core,
   testerName,
   onBack,
+  onFail,
   primaryCurrent,
   secondaryCurrent,
   order,
@@ -30,6 +32,7 @@ export function AfterPrimaryProtectionReport({
       coreNumber={core.coreNumber}
       testerName={testerName}
       onBack={onBack}
+      onFail={onFail}
       stage="primary"
       accuracyClass={core.accuracyClass}
       primaryCurrent={primaryCurrent || ''}

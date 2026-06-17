@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { User } from '../App';
+import axios from '../utils/axiosConfig';
 import logoImage from 'figma:asset/d4d1bc6f9b0c444f1821bbe84a4da57caf7080d2.png';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
@@ -25,23 +26,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [debugUsers, setDebugUsers] = useState<DebugUser[]>([]);
 
-  useEffect(() => {
-    // Fetch users for debugging purposes
-    const fetchDebugUsers = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/debug-users`);
-        const data = await response.json();
-        if (data.success) {
-          setDebugUsers(data.users);
-        }
-      } catch (err) {
-        console.error("Failed to fetch debug users:", err);
-      }
-    };
-    fetchDebugUsers();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,18 +34,10 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setLoading(true);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ employeeId, password }),
-      });
+      const response = await axios.post('/auth/login', { employeeId, password });
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (data.success) {
         // Store token for Bearer authentication
         if (data.token) localStorage.setItem('token', data.token);
         
@@ -137,30 +114,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           </Button>
         </form>
 
-        <div className="mt-6 pt-6 border-t border-gray-200">
-          <p className="text-sm text-gray-600 mb-3">Demo Credentials:</p>
-          <div className="space-y-2 text-xs h-48 overflow-y-auto pr-2">
-            {debugUsers.length > 0 ? (
-              debugUsers.map(user => {
-                // Infer correct sample password based on seed data
-                const isSystemAdmin = user.employeeId === 'EMP001' || user.designation === 'Admin';
-                const isPTTester = user.department?.includes('PT') || ['EMP010', 'EMP011', 'EMP108'].includes(user.employeeId);
-                const displayPassword = isSystemAdmin ? 'admin' : isPTTester ? 'password@123' : 'password123';
-
-                return (
-                  <div key={user._id} className="bg-slate-50 p-2 rounded border border-slate-200">
-                    <p className="font-medium text-[#003a70]">{user.department} ({user.designation}):</p>
-                    <p className="text-gray-600 font-mono mt-1">
-                      {user.employeeId} / {displayPassword}
-                    </p>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center text-gray-500 py-4">Loading credentials...</div>
-            )}
-          </div>
-        </div>
       </Card>
     </div>
   );

@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Package, Plus, Trash2, AlertCircle, User } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 
 // --- Types ---
 interface Tester {
@@ -69,7 +69,7 @@ export function CreateOrderView() {
   useEffect(() => {
     const fetchTesters = async () => {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/testers`);
+        const response = await axios.get('/auth/testers');
         if (response.data.success) {
           setTesters(response.data.users);
         }
@@ -191,7 +191,7 @@ export function CreateOrderView() {
   // --- Assignment Logic ---
   const addAssignmentRow = (stage: string) => {
     const newRow: Assignment = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
       stage: stage as any,
       testerName: '',
       unitRange: { from: '', to: '' }
@@ -350,7 +350,7 @@ export function CreateOrderView() {
         ratio: formData.ratio ? formData.ratio.split(',').map(r => r.trim()).filter(Boolean) : []
       };
 
-      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/create-order`, payload);
+      const res = await axios.post(`/create-order`, payload);
 
       if (res.data.success) {
         toast.success(`Order ${res.data.jobId} Created & ${qty} Units Generated!`);

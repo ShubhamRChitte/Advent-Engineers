@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import useSWR from 'swr';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -44,7 +44,7 @@ export function OrdersListView(_props: OrdersListViewProps) {
 
   const fetcher = (url: string) => axios.get(url, { withCredentials: true }).then(res => res.data);
   const { data: orders = [], isLoading: loading, mutate: fetchOrders } = useSWR<Order[]>(
-    `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/admin/orders`,
+    `/admin/orders`,
     fetcher
   );
 

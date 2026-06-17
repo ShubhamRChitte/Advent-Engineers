@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import useSWR from 'swr';
+import axios from '../../utils/axiosConfig';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -49,10 +50,10 @@ export function EmployeeManagement() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [page, setPage] = useState(1);
 
-  const fetcher = (url: string) => fetch(url).then(res => res.json());
+  const fetcher = (url: string) => axios.get(url).then(res => res.data);
   
   const { data, mutate, isLoading: isSWRLoading } = useSWR(
-    `${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/all-employees?paginated=true&limit=${page * 20}`,
+    `/auth/all-employees?paginated=true&limit=${page * 20}`,
     fetcher
   );
   
@@ -132,10 +133,8 @@ export function EmployeeManagement() {
     if (!window.confirm('Are you sure you want to delete this employee?')) return;
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/delete-employee/${id}`, {
-        method: 'DELETE'
-      });
-      const data = await response.json();
+      const response = await axios.delete(`/auth/delete-employee/${id}`);
+      const data = response.data;
       if (data.success) {
         toast.success('Employee deleted');
         mutate();
@@ -171,18 +170,17 @@ export function EmployeeManagement() {
       };
 
       const url = editingEmployee 
-        ? `${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/update-employee/${editingEmployee._id}`
-        : `${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/add-employee`;
+        ? `/auth/update-employee/${editingEmployee._id}`
+        : `/auth/add-employee`;
       
-      const method = editingEmployee ? 'PUT' : 'POST';
+      let response;
+      if (editingEmployee) {
+        response = await axios.put(url, payload);
+      } else {
+        response = await axios.post(url, payload);
+      }
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
+      const data = response.data;
 
       if (data.success) {
         toast.success(editingEmployee ? 'Employee updated!' : `Employee added! ID: ${data.employeeId}`);
@@ -259,7 +257,7 @@ export function EmployeeManagement() {
               <div className="space-y-2">
                 <Label htmlFor="designation">Designation *</Label>
                 <Select value={formData.designation} onValueChange={(v: string) => handleSelectChange('designation', v)}>
-                  <SelectTrigger><SelectValue placeholder="Select Designation" /></SelectTrigger>
+                  <SelectTrigger id="designation"><SelectValue placeholder="Select Designation" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Admin">Admin</SelectItem>
                     <SelectItem value="Entry Operator">Entry Operator</SelectItem>
@@ -270,7 +268,7 @@ export function EmployeeManagement() {
               <div className="space-y-2">
                 <Label htmlFor="department">Department *</Label>
                 <Select value={formData.department} onValueChange={(v: string) => handleSelectChange('department', v)}>
-                  <SelectTrigger><SelectValue placeholder="Select Department" /></SelectTrigger>
+                  <SelectTrigger id="department"><SelectValue placeholder="Select Department" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Management">Management</SelectItem>
                     <SelectItem value="Operations">Operations</SelectItem>
@@ -293,7 +291,7 @@ export function EmployeeManagement() {
               <div className="space-y-2">
                 <Label htmlFor="employmentType">Employment Type *</Label>
                 <Select value={formData.employmentType} onValueChange={(v: string) => handleSelectChange('employmentType', v)}>
-                  <SelectTrigger><SelectValue placeholder="Select Type" /></SelectTrigger>
+                  <SelectTrigger id="employmentType"><SelectValue placeholder="Select Type" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Permanent">Permanent</SelectItem>
                     <SelectItem value="Contract">Contract</SelectItem>

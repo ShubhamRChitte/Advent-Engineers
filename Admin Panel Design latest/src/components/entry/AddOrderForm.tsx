@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Plus, Upload, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 
 interface CoreData {
   id: string;
@@ -95,7 +95,7 @@ export function AddOrderForm({ onCancel, onSuccess }: AddOrderFormProps) {
       return;
     }
 
-    const jobId = `JOB-2025-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+    const jobId = `JOB-2025-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
     toast.success(`Order created successfully! Job ID: ${jobId}`);
 
     // Reset form
@@ -145,7 +145,7 @@ export function AddOrderForm({ onCancel, onSuccess }: AddOrderFormProps) {
                   handleInputChange('transformerType', value);
                   handleInputChange('isStandard', ''); // reset standard
                 }}>
-                  <SelectTrigger className="mt-1">
+                  <SelectTrigger id="transformerType" className="mt-1">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -159,7 +159,7 @@ export function AddOrderForm({ onCancel, onSuccess }: AddOrderFormProps) {
                 <div>
                   <Label htmlFor="isStandard">IS Standard *</Label>
                   <Select value={formData.isStandard} onValueChange={(value: string) => handleInputChange('isStandard', value)}>
-                    <SelectTrigger className="mt-1">
+                    <SelectTrigger id="isStandard" className="mt-1">
                       <SelectValue placeholder="Select IS Standard" />
                     </SelectTrigger>
                     <SelectContent>
@@ -174,7 +174,7 @@ export function AddOrderForm({ onCancel, onSuccess }: AddOrderFormProps) {
               <div>
                 <Label htmlFor="voltage">Voltage *</Label>
                 <Select value={formData.voltage} onValueChange={(value: string) => handleInputChange('voltage', value)}>
-                  <SelectTrigger className="mt-1">
+                  <SelectTrigger id="voltage" className="mt-1">
                     <SelectValue placeholder="Select voltage" />
                   </SelectTrigger>
                   <SelectContent>
@@ -218,7 +218,7 @@ export function AddOrderForm({ onCancel, onSuccess }: AddOrderFormProps) {
                   <div>
                     <Label htmlFor="indoorOutdoor">Indoor/Outdoor</Label>
                     <Select value={formData.indoorOutdoor} onValueChange={(value: string) => handleInputChange('indoorOutdoor', value)}>
-                      <SelectTrigger className="mt-1">
+                      <SelectTrigger id="indoorOutdoor" className="mt-1">
                         <SelectValue placeholder="Select location" />
                       </SelectTrigger>
                       <SelectContent>
@@ -230,7 +230,7 @@ export function AddOrderForm({ onCancel, onSuccess }: AddOrderFormProps) {
                   <div>
                     <Label htmlFor="insulationType">Insulation Type</Label>
                     <Select value={formData.insulationType} onValueChange={(value: string) => handleInputChange('insulationType', value)}>
-                      <SelectTrigger className="mt-1">
+                      <SelectTrigger id="insulationType" className="mt-1">
                         <SelectValue placeholder="Select insulation" />
                       </SelectTrigger>
                       <SelectContent>
@@ -243,7 +243,7 @@ export function AddOrderForm({ onCancel, onSuccess }: AddOrderFormProps) {
                     <div>
                       <Label htmlFor="tankType">Tank Type</Label>
                       <Select value={formData.tankType} onValueChange={(value: string) => handleInputChange('tankType', value)}>
-                        <SelectTrigger className="mt-1">
+                        <SelectTrigger id="tankType" className="mt-1">
                           <SelectValue placeholder="Select tank type" />
                         </SelectTrigger>
                         <SelectContent>

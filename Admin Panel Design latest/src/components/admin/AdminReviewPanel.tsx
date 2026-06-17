@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/utils/axiosConfig';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { ShieldAlert, User, CheckCircle, RefreshCw } from 'lucide-react';
@@ -34,7 +34,7 @@ export function AdminReviewPanel() {
 
     const fetchTesters = async () => {
         try {
-            const response = await axios.get(`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5001'}/auth/testers`);
+            const response = await axios.get('/auth/testers');
             if (response.data.success) {
                 setEmployees(response.data.users);
             }
@@ -46,7 +46,7 @@ export function AdminReviewPanel() {
     const fetchReviewTransformers = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/admin-review`, {
+            const res = await axios.get(`/transformers/admin-review`, {
                 withCredentials: true
             });
             if (res.data.success) {
@@ -63,7 +63,7 @@ export function AdminReviewPanel() {
     const handleApproveRetest = async (uniqueId: string) => {
         try {
             const newTester = selectedEmployees[uniqueId] || undefined;
-            const res = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${uniqueId}/approve-retest`,
+            const res = await axios.put(`/transformers/${uniqueId}/approve-retest`,
                 { newTester },
                 { withCredentials: true }
             );
