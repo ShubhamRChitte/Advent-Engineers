@@ -299,7 +299,8 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
 
           if (t.currentStage === 'final') {
             if (isFullyComplete) status = 'completed';
-            else if (isFilled) status = 'in-progress'; 
+            else if (isFilled) status = 'ready-for-approval'; 
+            else if (finalHistory.status === 'In Progress' || finalHistory.tester) status = 'in-progress';
             else status = 'pending';
           } else if (t.currentStage === 'shipped' || t.currentStage === 'completed') {
             status = 'completed';
@@ -406,7 +407,8 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
     switch (status) {
       case 'pending': return 'bg-blue-100 text-blue-700';
       case 'in-progress': return 'bg-yellow-100 text-yellow-700';
-      case 'completed': return 'bg-green-100 text-green-700';
+      case 'ready-for-approval': return 'bg-green-100 text-green-700 border border-green-300';
+      case 'completed': return 'bg-green-600 text-white';
       case 'locked': return 'bg-gray-100 text-gray-500 border-dashed';
       default: return 'bg-gray-100 text-gray-700';
     }
@@ -415,7 +417,8 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
   const getStatusText = (status: string, currentStage: string) => {
     if (status === 'locked') return `In ${currentStage} Stage`;
     if (status === 'completed') return 'Approved';
-    if (status === 'in-progress') return 'Ready for Approval';
+    if (status === 'ready-for-approval') return 'Ready for Approval';
+    if (status === 'in-progress') return 'In Progress (Draft)';
     return 'Pending';
   };
 

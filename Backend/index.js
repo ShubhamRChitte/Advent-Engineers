@@ -556,7 +556,7 @@ app.post('/api/strict-approvals/:id/resolve', async (req, res) => {
           targetStageApprove = 'final';
           targetStageReject = 'primary';
         } else if (approval.testType === 'Final Testing') {
-          historyKey = 'final_test_login';
+          historyKey = 'final_test';
           targetStageApprove = 'shipped';
           targetStageReject = 'final';
         }

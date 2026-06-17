@@ -49,27 +49,27 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
   const validateEnhancedField = (field: string, value: string): string | null => {
     switch (field) {
       case 'clientName':
-         return !value.trim() ? 'Client Name is required' : null;
+        return !value.trim() ? 'Client Name is required' : null;
       case 'clientContact':
-         if (value.trim().length > 10) return 'your contact no must be 10 digits';
-         if (value.trim().length > 0 && !/^[0-9]+$/.test(value.trim())) return 'character cannot add only the digits are requires';
-         return null;
+        if (value.trim().length > 10) return 'your contact no must be 10 digits';
+        if (value.trim().length > 0 && !/^[0-9]+$/.test(value.trim())) return 'character cannot add only the digits are requires';
+        return null;
       case 'quantity':
-         return (!value || parseInt(value) < 1) ? 'Valid quantity required (>0)' : null;
+        return (!value || parseInt(value) < 1) ? 'Valid quantity required (>0)' : null;
       case 'numberOfCores':
-         return (!value || parseInt(value) < 1 || parseInt(value) > 5) ? 'Number of cores must be 1-5' : null;
+        return (!value || parseInt(value) < 1 || parseInt(value) > 5) ? 'Number of cores must be 1-5' : null;
       case 'transformerType':
-         return !value ? 'Type is required' : null;
+        return !value ? 'Type is required' : null;
       case 'isStandard':
-         return !value ? 'IS Standard is required' : null;
+        return !value ? 'IS Standard is required' : null;
       case 'voltageRating':
-         return !value ? 'Nominal System Voltage is required' : null;
+        return !value ? 'Nominal System Voltage is required' : null;
       case 'burden':
-         return !value.trim() ? 'Burden is required' : null;
+        return !value.trim() ? 'Burden is required' : null;
       case 'ratedSecondaryCurrent':
-         return !value ? 'Rated Secondary Current is required' : null;
+        return !value ? 'Rated Secondary Current is required' : null;
       default:
-         return null;
+        return null;
     }
   };
 
@@ -217,14 +217,14 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
     if (!clientContact.trim()) errors['clientContact'] = 'Contact No is required';
     else if (!/^[0-9]+$/.test(clientContact.trim())) errors['clientContact'] = 'character cannot add only the digits are requires';
     else if (clientContact.trim().length !== 10) errors['clientContact'] = 'your contact no must be 10 digits';
-    
+
     if (!quantity || parseInt(quantity) < 1) errors['quantity'] = 'Valid quantity required (>0)';
     if (!numberOfCores || parseInt(numberOfCores) < 1 || parseInt(numberOfCores) > 5) errors['numberOfCores'] = 'Number of cores must be 1-5';
     if (!transformerType) errors['transformerType'] = 'Type is required';
-    
+
     if (!burden.trim()) errors['burden'] = 'Burden is required';
     if (!voltageRating) errors['voltageRating'] = 'Nominal System Voltage is required';
-    
+
     if (transformerType === 'CT' && primaryCurrents.length === 0) {
       errors['primaryCurrents'] = 'Primary Current is required';
     }
@@ -233,7 +233,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
       if (!ratedPrimaryVoltage) errors['ratedPrimaryVoltage'] = 'Primary Voltage is required';
       if (!ratedSecondaryVoltage) errors['ratedSecondaryVoltage'] = 'Secondary Voltage is required';
     }
-    
+
     if (Object.keys(errors).length > 0) {
       setFormErrors(prev => ({ ...prev, ...errors }));
       toast.error("Please fix the validation errors marked in red.");
@@ -359,12 +359,12 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                       const newType = e.target.value;
                       handleInputChange('transformerType', newType, setTransformerType);
                       handleInputChange('isStandard', '', setIsStandard);
-                      
-                      if(newType === 'PT') {
-                         setCoreConfigs(prev => prev.map(config => 
-                           config.coreType === 'ps' ? { ...config, coreType: 'metering', accuracyClass: '', vendorNo: '' } : { ...config, vendorNo: '' }
-                         ));
-                         
+
+                      if (newType === 'PT') {
+                        setCoreConfigs(prev => prev.map(config =>
+                          config.coreType === 'ps' ? { ...config, coreType: 'metering', accuracyClass: '', vendorNo: '' } : { ...config, vendorNo: '' }
+                        ));
+
                       }
                     }}
                     className={`w-full mt-1 h-10 px-3 rounded-md border bg-white ${formErrors['transformerType'] ? "border-red-500 bg-red-50" : "border-gray-300"}`}
@@ -769,7 +769,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
                         >
                           <option value="">Add Primary Current...</option>
                           {[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000].map(val => (
-                             <option key={val} value={val.toString()}>{val}</option>
+                            <option key={val} value={val.toString()}>{val}</option>
                           ))}
                           <option value="custom">Custom...</option>
                         </select>
@@ -819,29 +819,29 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
 
                 </div>
               )}
-               <div>
-                 <Label className={formErrors['burden'] ? "text-red-600" : ""}>Burden *</Label>
-                 <Input
-                   placeholder="e.g., 15 VA"
-                   value={burden}
-                   onChange={(e) => handleInputChange('burden', e.target.value, setBurden)}
-                   className={`mt-1 ${formErrors['burden'] ? "border-red-500 bg-red-50" : ""}`}
-                 />
-                 {formErrors['burden'] && <span className="text-xs text-red-600 font-semibold">{formErrors['burden']}</span>}
-               </div>
-               {transformerType === 'CT' && (
-                 <div>
-                   <Label>STC (Short Time Current)</Label>
-                   <Input
-                     value={stc}
-                     onChange={(e) => setStc(e.target.value)}
-                     placeholder="e.g. 31.5 kA for 3s"
-                     className="mt-1"
-                   />
-                 </div>
-               )}
-             </div>
-           </div>
+              <div>
+                <Label className={formErrors['burden'] ? "text-red-600" : ""}>Burden *</Label>
+                <Input
+                  placeholder="e.g., 15 VA"
+                  value={burden}
+                  onChange={(e) => handleInputChange('burden', e.target.value, setBurden)}
+                  className={`mt-1 ${formErrors['burden'] ? "border-red-500 bg-red-50" : ""}`}
+                />
+                {formErrors['burden'] && <span className="text-xs text-red-600 font-semibold">{formErrors['burden']}</span>}
+              </div>
+              {transformerType === 'CT' && (
+                <div>
+                  <Label>STC (Short Time Current)</Label>
+                  <Input
+                    value={stc}
+                    onChange={(e) => setStc(e.target.value)}
+                    placeholder="e.g. 31.5 kA for 3s"
+                    className="mt-1"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Additional Parameters Section */}
           <div className="space-y-4">
@@ -937,7 +937,7 @@ export function EnhancedOrderForm({ transformer, allVendors, onSubmit, onBack, i
               onClick={handleSubmit}
               className={`flex-1 ${isEntryOperator ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'}`}
             >
-              {isEditMode ? "Update Order" : (isEntryOperator ? "Submit for Approval" : "Continue to Assign Testing")}
+              {isEditMode ? "Continue to Assign Testing" : (isEntryOperator ? "Submit for Approval" : "Continue to Assign Testing")}
             </Button>
           </div>
         </div>

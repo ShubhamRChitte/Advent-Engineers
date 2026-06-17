@@ -59,17 +59,24 @@ router.post('/:id', isAuthenticated, async (req, res) => {
         }
 
         // Automatic Megger Test Validations
-        // Pri-Sec > 1000, Pri-Earth > 1000, Sec-Earth > 500, Core-Core > 200
-        const m1 = parseFloat(payload.meggarPrimaryToSecondary) || 0;
-        const m2 = parseFloat(payload.meggarPrimaryToEarth) || 0;
-        const m3 = parseFloat(payload.meggarSecondaryToEarth) || 0;
-        const m4 = parseFloat(payload.meggarCoreToCore) || 0;
+        const parseMegger = (val) => {
+            if (!val) return null;
+            const str = String(val).toLowerCase();
+            if (str.includes('ok') || str.includes('>')) return 999999;
+            const parsed = parseFloat(str.replace(/[^0-9.]/g, ''));
+            return isNaN(parsed) ? null : parsed;
+        };
+
+        const m1 = parseMegger(payload.meggarPrimaryToSecondary);
+        const m2 = parseMegger(payload.meggarPrimaryToEarth);
+        const m3 = parseMegger(payload.meggarSecondaryToEarth);
+        const m4 = parseMegger(payload.meggarCoreToCore);
 
         let automaticMeggarFailures = [];
-        if (m1 > 1000) automaticMeggarFailures.push("Megger Primary to Secondary exceeds 1000 MΩ");
-        if (m2 > 1000) automaticMeggarFailures.push("Megger Primary to Earth exceeds 1000 MΩ");
-        if (m3 > 500) automaticMeggarFailures.push("Megger Secondary to Earth exceeds 500 MΩ");
-        if (m4 > 200) automaticMeggarFailures.push("Megger Core to Core exceeds 200 MΩ");
+        if (m1 !== null && m1 < 1000) automaticMeggarFailures.push("Megger Primary to Secondary is less than 1000 MΩ");
+        if (m2 !== null && m2 < 1000) automaticMeggarFailures.push("Megger Primary to Earth is less than 1000 MΩ");
+        if (m3 !== null && m3 < 500) automaticMeggarFailures.push("Megger Secondary to Earth is less than 500 MΩ");
+        if (m4 !== null && m4 < 200) automaticMeggarFailures.push("Megger Core to Core is less than 200 MΩ");
 
         // Determine Failures & Routing
         let failedStage = null;
@@ -109,7 +116,7 @@ router.post('/:id', isAuthenticated, async (req, res) => {
         transformer.testHistory = transformer.testHistory || {};
         transformer.testHistory.final_test = {
             ...transformer.testHistory.final_test,
-            status: failedStage ? "Failed" : "Completed",
+            status: failedStage ? "Failed" : "In Progress",
             tester: testerName,
             polarityResult: payload.polarityResult,
             hvSecondaryWinding: payload.hvSecondaryWinding,
