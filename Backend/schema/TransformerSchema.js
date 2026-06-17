@@ -237,7 +237,7 @@ const TransformerSchema = new Schema({
   // Workflow tracking
   currentStage: {
     type: String,
-    enum: ["core", "secondary", "secondary_failed", "primary", "heating", "final", "shipped", "pt", "pt_pretest", "admin_review"],
+    enum: ["core", "secondary", "secondary_failed", "primary", "heating", "final", "shipped", "pt", "pt_pretest", "pt_pretest_failed", "pt_failed", "admin_review"],
     default: "core"
   },
 

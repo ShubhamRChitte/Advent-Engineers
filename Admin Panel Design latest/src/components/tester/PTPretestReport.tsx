@@ -445,6 +445,26 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
     }
   };
 
+  const handleAddToFailed = async () => {
+    if (!window.confirm('Are you sure you want to mark this transformer as failed? The timer will be stopped and the transformer will be moved to the Failed section.')) return;
+    try {
+        const t = transformersData[0];
+        if (!t) return;
+        await axios.post(`/pt-pretests/failed`, {
+            transformerId: t._id,
+            orderId: order._id,
+            jobNumber: order.jobId,
+            reportedBy: user?.name || user?.fullName || 'PT Pretester'
+        }, { withCredentials: true });
+        await endTimer();
+        toast.success('Transformer marked as failed.');
+        onBack();
+    } catch (err: any) {
+        console.error('Error marking as failed:', err);
+        toast.error(err.response?.data?.message || 'Failed to mark as failed.');
+    }
+  };
+
   const handleApproveActiveTransformer = async () => {
     try {
       if (!activeTabId) return;
@@ -730,6 +750,12 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
                 {!isReadOnly && hasAnyFailures && (
                     <Button variant="destructive" size="sm" onClick={() => setShowFailureModal(true)} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
                         <AlertTriangle className="w-4 h-4" /> Add to Failed Transformers
+                    </Button>
+                )}
+
+                {!isReadOnly && (
+                    <Button variant="destructive" size="sm" onClick={handleAddToFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
+                        <AlertTriangle className="w-4 h-4" /> Add to Failed
                     </Button>
                 )}
 

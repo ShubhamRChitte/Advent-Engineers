@@ -94,7 +94,35 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
         const orderData = selectedTransformer.orderId || {};
         const ptTest = selectedTransformer.testHistory?.pt_test || {};
         const pretestData = selectedTransformer.testHistory?.pt_pretest_test?.preTesting || {};
-        const activeCores = selectedTransformer.coreDetails?.map((c: any) => c.coreType || c.type || 'metering') || ['metering'];
+        
+        const cores = orderData?.coreDetails || orderData?.coreConfigs || [];
+        let countMetering = 0;
+        let countProtection = 0;
+        let countPS = 0;
+        const activeCores: string[] = [];
+        
+        cores.forEach((core: any) => {
+            const type = typeof core === 'string' ? core : core.coreType;
+            if (type?.toLowerCase() === 'metering') {
+                countMetering++;
+                const coreId = countMetering > 1 ? `metering${countMetering}` : 'metering';
+                activeCores.push(coreId);
+            }
+            if (type?.toLowerCase() === 'protection') {
+                countProtection++;
+                const coreId = `protection${countProtection}`;
+                activeCores.push(coreId);
+            }
+            if (type?.toLowerCase() === 'ps') {
+                countPS++;
+                const coreId = `ps${countPS}`;
+                activeCores.push(coreId);
+            }
+        });
+
+        if (activeCores.length === 0) {
+            activeCores.push('metering');
+        }
 
         return (
             <div>

@@ -30,16 +30,24 @@ interface Page3Props {
 
 export function CTPage3Results(props: Page3Props) {
   const [isEditing, setIsEditing] = React.useState(false);
-  const meteringAcc = props.reportData?.accuracyTest?.metering || {};
-  const [accuracyRows, setAccuracyRows] = React.useState<AccuracyRow[]>(() => 
-    ['120', '100', '20', '5', '1'].map(pct => ({
-      percentage: pct,
-      ratioError100: meteringAcc[pct]?.ratioError100 || '-',
-      phaseError100: meteringAcc[pct]?.phaseError100 || '-',
-      ratioError25: meteringAcc[pct]?.ratioError25 || '-',
-      phaseError25: meteringAcc[pct]?.phaseError25 || '-',
-    }))
-  );
+  
+  const [meteringResults, setMeteringResults] = React.useState<any[]>(() => {
+    if (props.reportData?.metering_results && props.reportData.metering_results.length > 0) {
+      return props.reportData.metering_results;
+    }
+    const fallbackAcc = props.reportData?.accuracyTest?.metering || {};
+    return [{
+      ratioValue: props.ctRatio,
+      internalCoreNo: '1',
+      rows: ['120', '100', '20', '5', '1'].map(pct => ({
+        current: pct + '%',
+        r100: fallbackAcc[pct]?.ratioError100 || '-',
+        p100: fallbackAcc[pct]?.phaseError100 || '-',
+        r25: fallbackAcc[pct]?.ratioError25 || '-',
+        p25: fallbackAcc[pct]?.phaseError25 || '-',
+      }))
+    }];
+  });
 
   const [reportInfo, setReportInfo] = React.useState({
     reportNo: props.reportNo,
@@ -59,10 +67,33 @@ export function CTPage3Results(props: Page3Props) {
     });
   }, [props.reportNo, props.date, props.ctRatio, props.burden, props.accuracyClass]);
 
-  const handleRowChange = (index: number, field: keyof AccuracyRow, value: string) => {
-    const newRows = [...accuracyRows];
-    newRows[index] = { ...newRows[index], [field]: value } as AccuracyRow;
-    setAccuracyRows(newRows);
+  React.useEffect(() => {
+    if (props.reportData?.metering_results && props.reportData.metering_results.length > 0) {
+      setMeteringResults(props.reportData.metering_results);
+    } else {
+      const fallbackAcc = props.reportData?.accuracyTest?.metering || {};
+      setMeteringResults([{
+        ratioValue: props.ctRatio,
+        internalCoreNo: '1',
+        rows: ['120', '100', '20', '5', '1'].map(pct => ({
+          current: pct + '%',
+          r100: fallbackAcc[pct]?.ratioError100 || '-',
+          p100: fallbackAcc[pct]?.phaseError100 || '-',
+          r25: fallbackAcc[pct]?.ratioError25 || '-',
+          p25: fallbackAcc[pct]?.phaseError25 || '-',
+        }))
+      }]);
+    }
+  }, [props.reportData, props.ctRatio]);
+
+  const handleRowChange = (blockIdx: number, rowIdx: number, field: string, value: string) => {
+    const newResults = [...meteringResults];
+    const targetBlock = { ...newResults[blockIdx] };
+    const targetRows = [...targetBlock.rows];
+    targetRows[rowIdx] = { ...targetRows[rowIdx], [field]: value };
+    targetBlock.rows = targetRows;
+    newResults[blockIdx] = targetBlock;
+    setMeteringResults(newResults);
   };
 
   const inputStyle = {
@@ -202,22 +233,55 @@ export function CTPage3Results(props: Page3Props) {
             </tr>
           </thead>
           <tbody>
-            {accuracyRows.map((row, idx) => (
-              <tr key={idx}>
-                <td className="ct-td ct-center">
-                  {isEditing ? <input style={inputStyle} value={row.ratioError100} onChange={(e) => handleRowChange(idx, 'ratioError100', e.target.value)} /> : row.ratioError100}
-                </td>
-                <td className="ct-td ct-center">
-                  {isEditing ? <input style={inputStyle} value={row.phaseError100} onChange={(e) => handleRowChange(idx, 'phaseError100', e.target.value)} /> : row.phaseError100}
-                </td>
-                <td className="ct-td ct-center">{row.percentage}</td>
-                <td className="ct-td ct-center">
-                  {isEditing ? <input style={inputStyle} value={row.ratioError25} onChange={(e) => handleRowChange(idx, 'ratioError25', e.target.value)} /> : row.ratioError25}
-                </td>
-                <td className="ct-td ct-center">
-                  {isEditing ? <input style={inputStyle} value={row.phaseError25} onChange={(e) => handleRowChange(idx, 'phaseError25', e.target.value)} /> : row.phaseError25}
-                </td>
-              </tr>
+            {meteringResults.map((block, blockIdx) => (
+              <React.Fragment key={blockIdx}>
+                <tr>
+                  <td colSpan={5} className="ct-td" style={{ fontWeight: 'bold', textAlign: 'center', background: '#f0f0f0', textTransform: 'uppercase' }}>
+                    Core {blockIdx + 1} - METERING {block.ratioValue ? `(Ratio: ${block.ratioValue})` : ''} {block.internalCoreNo ? `(Core ID: ${block.internalCoreNo})` : ''}
+                  </td>
+                </tr>
+                {block.rows?.map((row: any, rowIdx: number) => (
+                  <tr key={rowIdx}>
+                    <td className="ct-td ct-center">
+                      {isEditing ? (
+                        <input
+                          style={inputStyle}
+                          value={row.r100}
+                          onChange={(e) => handleRowChange(blockIdx, rowIdx, 'r100', e.target.value)}
+                        />
+                      ) : row.r100}
+                    </td>
+                    <td className="ct-td ct-center">
+                      {isEditing ? (
+                        <input
+                          style={inputStyle}
+                          value={row.p100}
+                          onChange={(e) => handleRowChange(blockIdx, rowIdx, 'p100', e.target.value)}
+                        />
+                      ) : row.p100}
+                    </td>
+                    <td className="ct-td ct-center">{row.current || row.percentage}</td>
+                    <td className="ct-td ct-center">
+                      {isEditing ? (
+                        <input
+                          style={inputStyle}
+                          value={row.r25}
+                          onChange={(e) => handleRowChange(blockIdx, rowIdx, 'r25', e.target.value)}
+                        />
+                      ) : row.r25}
+                    </td>
+                    <td className="ct-td ct-center">
+                      {isEditing ? (
+                        <input
+                          style={inputStyle}
+                          value={row.p25}
+                          onChange={(e) => handleRowChange(blockIdx, rowIdx, 'p25', e.target.value)}
+                        />
+                      ) : row.p25}
+                    </td>
+                  </tr>
+                ))}
+              </React.Fragment>
             ))}
           </tbody>
         </table>

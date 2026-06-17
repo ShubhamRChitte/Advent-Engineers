@@ -160,8 +160,19 @@ router.get('/', isAuthenticated, async (req, res) => {
 // GET /api/failed-transformers/count
 router.get('/count', isAuthenticated, async (req, res) => {
     try {
+        const { stage } = req.query;
+        let stageFilter;
+
+        if (stage) {
+            // Support comma-separated stage values
+            stageFilter = stage.includes(',') ? { $in: stage.split(',') } : stage;
+        } else {
+            // Default: CT stages
+            stageFilter = { $in: ["SECONDARY_TESTING", "PRIMARY_TESTING", "FINAL_TESTING"] };
+        }
+
         const query = {
-            stage: { $in: ["SECONDARY_TESTING", "PRIMARY_TESTING", "FINAL_TESTING"] },
+            stage: stageFilter,
             status: "FAILED"
         };
         

@@ -2,22 +2,14 @@ import React from 'react';
 import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
 import { ImageWithFallback } from '../../figma/ImageWithFallback';
 
-interface AccuracyRow {
-  percentage: string;
-  ratioError100: string;
-  phaseError100: string;
-  ratioError25: string;
-  phaseError25: string;
-}
-
 interface Page3Props {
   reportNo: string;
   date: string;
   ptRatio: string;
   burden: string;
   accuracyClass: string;
-  // Accuracy test rows (metering core)
-  meteringRows: AccuracyRow[];
+  accuracyTest: any;
+  activeCores: string[];
   // Terminal marking
   primaryTerminals: string;
   secondaryTerminals: string;
@@ -32,9 +24,18 @@ interface Page3Props {
   authorisedByTitle: string;
 }
 
+function getCoreLabel(core: string) {
+  const num = core.replace(/[a-z]/gi, '');
+  const suffix = num === '1' || num === '' ? '' : ` ${num}`;
+  if (core.startsWith('protection')) return `Protection${suffix}`;
+  if (core.startsWith('metering')) return `Metering${suffix}`;
+  if (core.startsWith('ps')) return `PS${suffix}`;
+  return core;
+}
+
 export function Page3TestResults({
   reportNo, date, ptRatio, burden, accuracyClass,
-  meteringRows,
+  accuracyTest, activeCores,
   primaryTerminals, secondaryTerminals, terminalMarkingResult,
   hvPrimaryResult,
   preparedBy, preparedByTitle, checkedBy, checkedByTitle, authorisedBy, authorisedByTitle
@@ -118,21 +119,35 @@ export function Page3TestResults({
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td colSpan={6} className="cr-td" style={{ fontWeight: 'bold', textAlign: 'center', background: '#f0f0f0' }}>
-                Core I - METERING
-              </td>
-            </tr>
-            {meteringRows.map((row, i) => (
-              <tr key={i}>
-                <td className="cr-td cr-center">{row.ratioError100}</td>
-                <td className="cr-td cr-center">{row.phaseError100}</td>
-                <td className="cr-td cr-center">{row.percentage}</td>
-                <td className="cr-td cr-center">{row.ratioError25}</td>
-                <td className="cr-td cr-center">{row.phaseError25}</td>
-                <td className="cr-td cr-center">{row.phaseError25}</td>
-              </tr>
-            ))}
+            {activeCores.map((core, coreIdx) => {
+              const isProtection = core.startsWith('protection');
+              const percentages = isProtection ? ['100'] : ['120', '100', '80'];
+              const coreLabel = getCoreLabel(core);
+              const coreAcc = accuracyTest?.[core] || {};
+
+              return (
+                <React.Fragment key={core}>
+                  <tr>
+                    <td colSpan={6} className="cr-td" style={{ fontWeight: 'bold', textAlign: 'center', background: '#f0f0f0', textTransform: 'uppercase' }}>
+                      Core {coreIdx + 1} - {coreLabel}
+                    </td>
+                  </tr>
+                  {percentages.map((pct) => {
+                    const row = coreAcc[pct] || {};
+                    return (
+                      <tr key={pct}>
+                        <td className="cr-td cr-center">{row.ratioError100 || '-'}</td>
+                        <td className="cr-td cr-center">{row.phaseError100 || '-'}</td>
+                        <td className="cr-td cr-center">{pct}</td>
+                        <td className="cr-td cr-center">{row.ratioError25 || '-'}</td>
+                        <td className="cr-td cr-center">{row.phaseError25 || '-'}</td>
+                        <td className="cr-td cr-center">{row.phaseError25 || '-'}</td>
+                      </tr>
+                    );
+                  })}
+                </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
         <div className="cr-remark"><strong>REMARK:</strong> Confirms</div>

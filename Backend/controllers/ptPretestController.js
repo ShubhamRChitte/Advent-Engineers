@@ -224,18 +224,32 @@ exports.logFailed = async (req, res) => {
     try {
         const { transformerId, orderId, jobNumber, coreType, failureParameters, failureReason, reportedBy } = req.body;
 
-        if (!transformerId || !orderId || !coreType || !failureReason || !reportedBy) {
+        if (!transformerId || !orderId || !reportedBy) {
             return res.status(400).json({ success: false, message: "Missing required fields for failure logging." });
         }
+
+        const effectiveCoreType = coreType || "PT_PRETEST";
+        const effectiveReason = failureReason || "Marked as failed by tester";
+
+        // Lookup transformer to get uniqueId and update stage
+        const transformer = await TransformerModel.findById(transformerId);
+        if (!transformer) {
+            return res.status(404).json({ success: false, message: "Transformer not found." });
+        }
+
+        // Set transformer stage to pt_pretest_failed
+        transformer.currentStage = 'pt_pretest_failed';
+        await transformer.save();
 
         const failedRecord = new FailedTransformerModel({
             transformerId,
             orderId,
             jobNumber,
-            coreType,
+            coreType: effectiveCoreType,
             failureParameters,
-            failureReason,
+            failureReason: effectiveReason,
             reportedBy,
+            transformerUniqueId: transformer.uniqueId,
             stage: "PT_PRETEST_TESTING",
             status: "FAILED"
         });
@@ -295,7 +309,7 @@ exports.getReports = async (req, res) => {
             .populate({
                 path: 'orderId',
                 match: { transformerType: 'PT' },
-                select: 'clientName quantity deadline ratio accuracyClass burden voltageRating jobId'
+                select: 'clientName quantity deadline ratio accuracyClass burden voltageRating jobId coreDetails coreConfigs'
             })
             .sort({ 'testHistory.pt_pretest_test.date': -1 })
             .lean();

@@ -262,7 +262,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                         // Merge pretest data into the preTesting field (will be rendered read-only)
                         newReportsData[t._id].preTesting = {
                             ...(pretestRes.data.data.preTesting || {}),
-                            testedBy: pretestRes.data.data.testedBy || ''
+                            testedBy: pretestRes.data.data.testedBy || pretestRes.data.data.savedBy || ''
                         };
                     }
 
@@ -292,7 +292,10 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                     const pretestResNew = await axios.get(`/pt-pretests/${t._id}`, { withCredentials: true }).catch(() => null);
                     let defaultPreTesting: any = {};
                     if (pretestResNew?.data?.success && pretestResNew.data.data?.preTesting) {
-                        defaultPreTesting = pretestResNew.data.data.preTesting;
+                        defaultPreTesting = {
+                            ...(pretestResNew.data.data.preTesting || {}),
+                            testedBy: pretestResNew.data.data.testedBy || pretestResNew.data.data.savedBy || ''
+                        };
                     } else {
                         coresList.forEach(core => {
                             defaultPreTesting[core] = { ratioError100: '', phaseError100: '', ratioError25: '', phaseError25: '' };
@@ -521,6 +524,26 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
     } catch (err: any) {
         console.error("Error logging failure:", err);
         toast.error(err.response?.data?.message || "Failed to log errors.");
+    }
+  };
+
+  const handleAddToFailed = async () => {
+    if (!window.confirm('Are you sure you want to mark this transformer as failed? The timer will be stopped and the transformer will be moved to the Failed section.')) return;
+    try {
+        const t = transformersData[0];
+        if (!t) return;
+        await axios.post(`/pt-tests/failed`, {
+            transformerId: t._id,
+            orderId: order._id,
+            jobNumber: order.jobId,
+            reportedBy: user?.name || user?.fullName || 'PT Tester'
+        }, { withCredentials: true });
+        await endTimer();
+        toast.success('Transformer marked as failed.');
+        onBack();
+    } catch (err: any) {
+        console.error('Error marking as failed:', err);
+        toast.error(err.response?.data?.message || 'Failed to mark as failed.');
     }
   };
 
@@ -796,6 +819,12 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                 {!isReadOnly && hasAnyFailures && (
                     <Button variant="destructive" size="sm" onClick={() => setShowFailureModal(true)} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
                         <AlertTriangle className="w-4 h-4" /> Add to Failed Transformers
+                    </Button>
+                )}
+
+                {!isReadOnly && (
+                    <Button variant="destructive" size="sm" onClick={handleAddToFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
+                        <AlertTriangle className="w-4 h-4" /> Add to Failed
                     </Button>
                 )}
 

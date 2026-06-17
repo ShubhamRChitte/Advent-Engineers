@@ -82,15 +82,7 @@ export function PTCustomerReport({ order, transformer, reportData, pretestData, 
   const checkedBy    = 'M. Ali';
   const authorisedBy = 'M. Ali';
 
-  const meteringCore = activeCores.find(c => c.startsWith('metering')) || 'metering';
-  const meteringAcc  = reportData?.accuracyTest?.[meteringCore] || {};
-  const meteringRows = ['120', '100', '80'].map(pct => ({
-    percentage:    pct,
-    ratioError100: meteringAcc[pct]?.ratioError100 || '',
-    phaseError100: meteringAcc[pct]?.phaseError100 || '',
-    ratioError25:  meteringAcc[pct]?.ratioError25  || '',
-    phaseError25:  meteringAcc[pct]?.phaseError25  || '',
-  }));
+  const accuracyTest = reportData?.accuracyTest || {};
 
   const sharedSig = {
     preparedBy, preparedByTitle: 'Testing Engineer',
@@ -162,7 +154,8 @@ export function PTCustomerReport({ order, transformer, reportData, pretestData, 
           ptRatio={order?.ratio?.[0] || '33KV/√3/110V/√3'}
           burden={`${order?.burden || '50'}VA`}
           accuracyClass={order?.accuracyClass || '0.2'}
-          meteringRows={meteringRows}
+          accuracyTest={accuracyTest}
+          activeCores={activeCores}
           primaryTerminals="A-N"
           secondaryTerminals="a-n"
           terminalMarkingResult="Confirms"
