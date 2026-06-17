@@ -50,24 +50,6 @@ export function SecondaryOrdersList({ onStartTesting, refreshTrigger = 0 }: Seco
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'assigned': return 'bg-blue-100 text-blue-700';
-      case 'in-testing': return 'bg-yellow-100 text-yellow-700';
-      case 'completed': return 'bg-green-100 text-green-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'Low': return 'bg-green-100 text-green-700';
-      case 'Medium': return 'bg-orange-100 text-orange-700';
-      case 'High': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
-
   const filteredOrders = orders.filter((order) => {
     const q = searchQuery.toLowerCase().trim();
     const status = order.status || '';

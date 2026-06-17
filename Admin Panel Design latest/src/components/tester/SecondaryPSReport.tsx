@@ -562,8 +562,17 @@ import { Input } from '../ui/input';
 import { ArrowLeft, Save, Printer, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Transformer } from './SecondaryTransformersList';
-import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
-import { ImageWithFallback } from '../figma/ImageWithFallback';
+import {
+  ReportHeader,
+  ReportSectionTitle,
+  CoreInformationBar,
+  ReportSignatures,
+  formatReportDate,
+  secondaryReportPrintStyles,
+  ReportSpecBox,
+} from './SecondaryReportPrintLayout';
+
+const renderVal = (v: any) => (v === null || v === undefined || String(v).trim() === '') ? '-' : String(v);
 
 interface PSRow {
   ratioValue: string;
@@ -661,6 +670,7 @@ export function SecondaryPSReport({
     const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
     return order?.stc || order?.STC || (transformer as any).stc || 'N/A';
   })();
+
 
   const [psData, setPsData] = useState<PSRow[]>(() => {
     const initial = dynamicRatios.map((ratio: string) => ({
@@ -977,91 +987,10 @@ export function SecondaryPSReport({
   };
 
   return (
-    <div className="space-y-6 p-4 bg-gray-50 flex justify-center">
-      <style>{`
-        .report-wrapper { background: white; width: 210mm; min-height: 297mm; padding: 15mm; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: black; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; box-sizing: border-box; }
-        .report-header-top { display: flex; align-items: center; justify-content: center; position: relative; padding-bottom: 10px; border-bottom: 2px solid #000; margin-bottom: 5px; }
-        .header-logo { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 120px; height: 60px; display: flex; align-items: center; }
-        .header-titles { text-align: center; }
-        .header-titles h1 { font-size: 24px; font-weight: bold; color: #1e3a8a; margin: 0; letter-spacing: 1px; }
-        .header-titles p { font-size: 12px; color: #4b5563; margin: 0; }
-        .report-metadata { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 2px solid #000; padding-bottom: 10px; }
-        .meta-column { width: 48%; }
-        .meta-field { display: flex; margin-bottom: 4px; font-size: 12px; }
-        .meta-label { font-weight: 600; width: 80px; }
-        .meta-value { flex: 1; }
-        .report-main-title { text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
-        .section-container { border: 1px solid #000; margin-bottom: 15px; }
-        .section-title { padding: 4px; text-align: center; font-weight: bold; font-size: 13px; border-bottom: 1px solid #000; }
-        .spec-table { width: 100%; border-collapse: collapse; }
-        .spec-table td { border-bottom: 1px solid #000; padding: 4px 8px; font-size: 12px; }
-        .spec-table tr:last-child td { border-bottom: none; }
-        .nested-table { width: 100%; border-collapse: collapse; table-layout: fixed; border-top: 1px solid #000; }
-        .nested-table th, .nested-table td { border: 1px solid #000; padding: 4px; text-align: center; font-size: 11px; }
-        .nested-table th { font-weight: bold; }
+    <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll">
+      <style>{secondaryReportPrintStyles}</style>
 
-        .input-cell { padding: 0 !important; }
-        .input-field { width: 100%; height: 24px; text-align: center; border: none; background: transparent; font-size: 11px; outline: none; }
-        .input-field:focus { background-color: #fef08a; }
-        .footer-sig { margin-top: 60px; display: flex; justify-content: space-between; padding: 0 40px; page-break-inside: avoid; }
-        .sig-block { text-align: center; width: 200px; display: flex; flex-direction: column; align-items: center; }
-        .sig-name { font-size: 12px; font-weight: bold; min-height: 18px; margin-bottom: 5px; }
-        .sig-line { width: 100%; border-top: 1px dashed #000; padding-top: 5px; font-weight: bold; font-size: 12px; }
-        .bg-yellow { background-color: #f9fafb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        @media print {
-          @page { size: A4 portrait; margin: 10mm; }
-          body { background: white; margin: 0; padding: 0; }
-          .print-container { width: 100% !important; margin: 0 !important; padding: 0 !important; }
-          .report-wrapper { box-shadow: none; width: 100%; min-height: auto; padding: 0; margin: 0; border: none; }
-          .bg-gray-50 { background: white !important; }
-          .no-print { display: none !important; }
-          .overflow-x-auto { overflow: visible !important; }
-          table { page-break-inside: avoid; width: 100% !important; }
-          tr { page-break-inside: avoid; page-break-after: auto; }
-
-          /* Strip browser default input box appearance for print — make inputs look like plain text */
-          .nested-table input {
-            -webkit-appearance: none !important;
-            appearance: none !important;
-            border: none !important;
-            outline: none !important;
-            background: transparent !important;
-            box-shadow: none !important;
-            border-radius: 0 !important;
-            padding: 2px 0 !important;
-            margin: 0 !important;
-            height: 28px !important;
-            min-height: 28px !important;
-            line-height: 28px !important;
-            display: block !important;
-            width: 100% !important;
-            font-size: 11px !important;
-            font-weight: bold !important;
-            text-align: center !important;
-            color: inherit !important;
-          }
-
-          /* Fix PS table rowSpan row heights so the 2-row structure stays aligned */
-          .nested-table tbody td[rowspan="2"] {
-            height: 56px !important;
-            min-height: 56px !important;
-            vertical-align: middle !important;
-          }
-          .nested-table tbody td:not([rowspan]) {
-            height: 28px !important;
-            min-height: 28px !important;
-            vertical-align: middle !important;
-          }
-          .nested-table tbody td .flex {
-            display: flex !important;
-            align-items: center !important;
-            height: 28px !important;
-            min-height: 28px !important;
-          }
-        }
-      `}</style>
-
-      <div className="print-container w-[210mm]">
+      <div className="print-container w-[210mm] min-w-[210mm] secondary-print-page">
         {!readOnly && (
           <div className="flex items-center justify-between no-print mb-4 w-full">
             <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
@@ -1083,102 +1012,70 @@ export function SecondaryPSReport({
           </div>
         )}
 
-        <div id="printable-report" className="report-wrapper">
-          <div className="report-header-top">
-            <div className="header-logo">
-              <ImageWithFallback src={logoImage} alt="Advent Logo" className="max-w-full max-h-full object-contain" />
-            </div>
-            <div className="header-titles">
-              <h1>ADVENT ENGINEERS</h1>
-              <p>Excellence in Transformer Core Testing</p>
-            </div>
+        <div id="secondary-printable-report" className="report-wrapper secondary-report-wrapper">
+          <ReportHeader
+            stage={stage}
+            date={formatReportDate(stage && transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate)}
+            orderNo={(transformer as any).jobId || (transformer as any).uniqueId}
+            client={(transformer as any).clientName || 'N/A'}
+            unitNo={transformer.uniqueId}
+            accuracyClass={accuracyClass || 'PS'}
+          />
+
+          <div className="ae-section-container">
+            <ReportSectionTitle index={1} title="Testing Record of Current Transformer" />
+            <ReportSpecBox
+              items={[
+                { label: 'Specification', value: `${(transformer as any).voltageRating || '33'} KV` },
+                { label: 'CT Ratio', value: `${dynamicRatios.join('-')} A` },
+                { label: 'Burden', value: `${displayBurden} VA` },
+                { label: 'Class', value: accuracyClass || 'PS' },
+                { label: 'STC', value: displaySTC }
+              ]}
+            />
           </div>
 
-          <div className="report-metadata">
-            <div className="meta-column">
-              <div className="meta-field"><span className="meta-label">Date</span><span className="meta-value">: {stage && transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate
-                  ? new Date(transformer.testHistory[`${stage}_test` as keyof typeof transformer.testHistory].reportDate).toLocaleDateString('en-GB')
-                  : new Date().toLocaleDateString('en-GB')}</span></div>
-              <div className="meta-field"><span className="meta-label">Order No</span><span className="meta-value">: {(transformer as any).jobId || (transformer as any).uniqueId}</span></div>
-              <div className="meta-field"><span className="meta-label">Client</span><span className="meta-value">: {(transformer as any).clientName || 'N/A'}</span></div>
-            </div>
-            <div className="meta-column">
-              <div className="meta-field"><span className="meta-label">Unit No</span><span className="meta-value">: {transformer.uniqueId}</span></div>
-              <div className="meta-field"><span className="meta-label">Class</span><span className="meta-value">: {accuracyClass || 'PS'}</span></div>
-            </div>
-          </div>
-
-          <div className="report-main-title">PS CORE TEST REPORT</div>
-
-          <div className="section-container">
-            <div className="section-title bg-gray-100">Secondary Winding Verification - {coreId}</div>
-            <table className="spec-table">
-              <tbody>
-                <tr>
-                  <td colSpan={2}><span className="font-bold mr-2">Specification :</span> {(transformer as any).voltageRating || '33'} KV {(transformer as any).clientName || 'N/A'}</td>
-                </tr>
-                <tr>
-                  <td colSpan={2}><span className="font-bold mr-2">CT Ratio :</span> {dynamicRatios.join('-')} A</td>
-                </tr>
-                <tr>
-                  <td style={{ width: '50%', borderRight: '1px solid #000' }}><span className="font-bold mr-2">Burden :</span> {displayBurden} VA</td>
-                  <td style={{ width: '50%' }}><span className="font-bold mr-2">Class :</span> {accuracyClass || 'PS'}</td>
-                </tr>
-                <tr>
-                  <td colSpan={2}><span className="font-bold mr-2">STC :</span> {displaySTC}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-        <div className="mt-4">
-
-          <div className="overflow-x-auto">
-            <table className="nested-table">
+          <div className="ae-section-container">
+            <ReportSectionTitle index={2} title="CLASS PS SPECIAL PROTECTION CORE TEST" />
+            <CoreInformationBar label="PS Core No" value={coreId} />
+            <table className="ae-report-table secondary-report-table ps-core-table">
+              <colgroup>
+                <col style={{ width: '14%' }} />
+                <col style={{ width: '15%' }} />
+                <col style={{ width: '14%' }} />
+                <col style={{ width: '20%' }} />
+                <col style={{ width: '18%' }} />
+                <col style={{ width: '19%' }} />
+              </colgroup>
               <thead>
-                <tr className="bg-white">
-                  <th className="border border-gray-400 p-2" colSpan={5}></th>
-                  <th className="border border-gray-400 p-2 text-right" colSpan={2}>
-                    <div className="flex justify-end items-center gap-2">
-                      <span className="font-bold text-sm">PS core no.</span>
-                      <span className="border-b border-gray-600 px-2 min-w-[60px] text-blue-700 font-medium">{coreId}</span>
-                    </div>
-                  </th>
-                </tr>
-                <tr className="bg-yellow">
-                  <th className="w-[160px]" rowSpan={2}>PS Core Ratio</th>
-                  <th className="w-[120px]" rowSpan={2}>Turn Ratio Error at 100%</th>
-                  <th className="w-[100px]" rowSpan={2}>Resistance (Ω)</th>
-                  <th className="text-center" colSpan={3}>Excitation Current Details</th>
-                  <th className="w-[100px] text-center" rowSpan={2}>Result</th>
-                </tr>
-                <tr className="bg-yellow">
-                  <th className="text-center w-[180px]">Vk / 1.1Vk (V)</th>
-                  <th className="text-center">lex at Vk</th>
-                  <th className="text-center">lex at 1.1Vk</th>
+                <tr>
+                  <th>PS Core Ratio</th>
+                  <th>Turn Ratio Error @ 100% (%)</th>
+                  <th>Resistance (Ω)</th>
+                  <th>Vk (V)</th>
+                  <th>Iex at Vk (mA)</th>
+                  <th>Iex at 1.1Vk (mA)</th>
                 </tr>
               </thead>
               <tbody>
-                {psData.map((row: PSRow, i: number) => (
-                  <React.Fragment key={i}>
-                    <tr>
-                      <td rowSpan={2} className="border border-gray-400 p-2 bg-[#ffff00] font-bold text-center align-middle">
-                        PS Core Ratio - {row.ratioValue}
+                {psData.map((row: PSRow, i: number) => {
+
+                  const ratioErrorHasError = row.turnRatioError && !isNaN(parseFloat(row.turnRatioError)) && !(parseFloat(row.turnRatioError) > -(psLimit?.psRatioErrorLimit ?? 0.25) && parseFloat(row.turnRatioError) < (psLimit?.psRatioErrorLimit ?? 0.25));
+                  const iexHasError = row.iexVk && row.iex11Vk && !isNaN(parseFloat(row.iexVk)) && !isNaN(parseFloat(row.iex11Vk)) && !((parseFloat(row.iexVk) * (psLimit?.psExcitationMultiplier ?? 1.5)) > parseFloat(row.iex11Vk));
+
+                  return (
+                    <tr key={i}>
+                      <td className="ae-ratio-cell font-bold">
+                        {row.ratioValue}
                       </td>
-                      <td className="border border-gray-400 p-0" rowSpan={2}>
+                      <td className="input-cell">
                         {readOnly ? (
-                          <div className={`p-2 text-center font-bold text-xs h-16 flex items-center justify-center ${row.turnRatioError && !isNaN(parseFloat(row.turnRatioError)) && !(parseFloat(row.turnRatioError) > -(psLimit?.psRatioErrorLimit ?? 0.25) && parseFloat(row.turnRatioError) < (psLimit?.psRatioErrorLimit ?? 0.25))
-                            ? 'text-red-700'
-                            : 'text-blue-800'
-                            }`}>
-                            {row.turnRatioError || '-'}
+                          <div className={`p-2 text-center font-bold text-xs ${ratioErrorHasError ? 'invalid-reading' : 'text-[#103b63]'}`}>
+                            {renderVal(row.turnRatioError)}
                           </div>
                         ) : (
                           <Input
-                            className={`border-none text-center h-16 shadow-none font-bold disabled:opacity-100 disabled:cursor-not-allowed ${row.turnRatioError && !isNaN(parseFloat(row.turnRatioError)) && !(parseFloat(row.turnRatioError) > -(psLimit?.psRatioErrorLimit ?? 0.25) && parseFloat(row.turnRatioError) < (psLimit?.psRatioErrorLimit ?? 0.25))
-                              ? 'text-red-700'
-                              : 'text-blue-800'
-                              }`}
+                            className={`input-field ps-input ${ratioErrorHasError ? 'invalid-reading' : ''}`}
                             value={row.turnRatioError}
                             onKeyDown={(e) => {
                               if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
@@ -1189,14 +1086,14 @@ export function SecondaryPSReport({
                           />
                         )}
                       </td>
-                      <td className="border border-gray-400 p-0" rowSpan={2}>
+                      <td className="input-cell">
                         {readOnly ? (
-                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-16 flex items-center justify-center">
-                            {row.resistance || '-'}
+                          <div className="p-2 text-center text-[#103b63] font-bold text-xs">
+                            {renderVal(row.resistance)}
                           </div>
                         ) : (
                           <Input
-                            className="border-none text-center h-16 shadow-none text-blue-800 font-bold disabled:opacity-100 disabled:cursor-not-allowed"
+                            className="input-field ps-input"
                             value={row.resistance}
                             onKeyDown={(e) => {
                               if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
@@ -1207,39 +1104,58 @@ export function SecondaryPSReport({
                           />
                         )}
                       </td>
-                      <td className="border border-gray-400 p-1 bg-white">
-                        <div className="flex items-center w-full h-full min-h-[24px]">
-                          <span className="font-bold text-[#0070c0] mr-2 whitespace-nowrap text-xs">Vk :</span>
-                          {readOnly ? (
-                            <span className="text-[#0070c0] font-bold text-xs">{row.vk || '-'}</span>
-                          ) : (
-                            <Input
-                              className="border-none text-[#0070c0] font-bold h-6 shadow-none flex-1 min-w-[60px] disabled:opacity-100 disabled:cursor-not-allowed px-0"
-                              value={row.vk || ''}
-                              onKeyDown={(e) => {
-                                if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                                if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                              }}
-                              onChange={e => handleUpdate(i, 'vk', e.target.value.replace(/[^0-9+\-.]/g, ''))}
-                              disabled={readOnly}
-                            />
-                          )}
+                      <td className="p-2 align-middle">
+                        <div className="vk-cell-fields">
+                          <div className="vk-cell-row">
+                            <span className="vk-cell-label">Vk=</span>
+                            {readOnly ? (
+                              <div className="text-left font-bold text-xs text-[#103b63] px-2 vk-input">
+                                {renderVal(row.vk)}
+                              </div>
+                            ) : (
+                              <Input
+                                className="input-field vk-input"
+                                value={row.vk || ''}
+                                placeholder=""
+                                onKeyDown={(e) => {
+                                  if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                                  if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                                }}
+                                onChange={e => handleUpdate(i, 'vk', e.target.value.replace(/[^0-9+\-.]/g, ''))}
+                                disabled={readOnly}
+                              />
+                            )}
+                          </div>
+                          <div className="vk-cell-row">
+                            <span className="vk-cell-label">1.1Vk=</span>
+                            {readOnly ? (
+                              <div className="text-left font-bold text-xs text-[#103b63] px-2 vk-input">
+                                {renderVal(row.vkVal)}
+                              </div>
+                            ) : (
+                              <Input
+                                className="input-field vk-input"
+                                value={row.vkVal || ''}
+                                placeholder=""
+                                onKeyDown={(e) => {
+                                  if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                                  if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                                }}
+                                onChange={e => handleUpdate(i, 'vkVal', e.target.value.replace(/[^0-9+\-.]/g, ''))}
+                                disabled={readOnly}
+                              />
+                            )}
+                          </div>
                         </div>
                       </td>
-                      <td className="border border-gray-400 p-0" rowSpan={2}>
+                      <td className="input-cell">
                         {readOnly ? (
-                          <div className={`p-2 text-center font-bold text-xs h-16 flex items-center justify-center ${row.iexVk && row.iex11Vk && !isNaN(parseFloat(row.iexVk)) && !isNaN(parseFloat(row.iex11Vk)) && !((parseFloat(row.iexVk) * (psLimit?.psExcitationMultiplier ?? 1.5)) > parseFloat(row.iex11Vk))
-                            ? 'text-red-700'
-                            : 'text-blue-800'
-                            }`}>
-                            {row.iexVk || '-'}
+                          <div className={`p-2 text-center font-bold text-xs ${iexHasError ? 'invalid-reading' : 'text-[#103b63]'}`}>
+                            {renderVal(row.iexVk)}
                           </div>
                         ) : (
                           <Input
-                            className={`border-none text-center h-16 shadow-none font-bold disabled:opacity-100 disabled:cursor-not-allowed ${row.iexVk && row.iex11Vk && !isNaN(parseFloat(row.iexVk)) && !isNaN(parseFloat(row.iex11Vk)) && !((parseFloat(row.iexVk) * (psLimit?.psExcitationMultiplier ?? 1.5)) > parseFloat(row.iex11Vk))
-                              ? 'text-red-700'
-                              : 'text-blue-800'
-                              }`}
+                            className={`input-field ps-input ${iexHasError ? 'invalid-reading' : ''}`}
                             value={row.iexVk}
                             onKeyDown={(e) => {
                               if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
@@ -1250,20 +1166,14 @@ export function SecondaryPSReport({
                           />
                         )}
                       </td>
-                      <td className="border border-gray-400 p-0" rowSpan={2}>
+                      <td className="input-cell">
                         {readOnly ? (
-                          <div className={`p-2 text-center font-bold text-xs h-16 flex items-center justify-center ${row.iexVk && row.iex11Vk && !isNaN(parseFloat(row.iexVk)) && !isNaN(parseFloat(row.iex11Vk)) && !((parseFloat(row.iexVk) * (psLimit?.psExcitationMultiplier ?? 1.5)) > parseFloat(row.iex11Vk))
-                            ? 'text-red-700'
-                            : 'text-blue-800'
-                            }`}>
-                            {row.iex11Vk || '-'}
+                          <div className={`p-2 text-center font-bold text-xs ${iexHasError ? 'invalid-reading' : 'text-[#103b63]'}`}>
+                            {renderVal(row.iex11Vk)}
                           </div>
                         ) : (
                           <Input
-                            className={`border-none text-center h-16 shadow-none font-bold disabled:opacity-100 disabled:cursor-not-allowed ${row.iexVk && row.iex11Vk && !isNaN(parseFloat(row.iexVk)) && !isNaN(parseFloat(row.iex11Vk)) && !((parseFloat(row.iexVk) * (psLimit?.psExcitationMultiplier ?? 1.5)) > parseFloat(row.iex11Vk))
-                              ? 'text-red-700'
-                              : 'text-blue-800'
-                              }`}
+                            className={`input-field ps-input ${iexHasError ? 'invalid-reading' : ''}`}
                             value={row.iex11Vk}
                             onKeyDown={(e) => {
                               if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
@@ -1274,59 +1184,16 @@ export function SecondaryPSReport({
                           />
                         )}
                       </td>
-                      <td className="border border-gray-400 p-1 bg-white text-center align-middle font-bold" rowSpan={2}>
-                        {(() => {
-                          const status = calculateRowStatus(row);
-                          if (status === null) return <span className="text-gray-400">-</span>;
-                          return status ? (
-                            <span className="text-green-600 bg-green-50 px-2 py-1 rounded inline-flex items-center gap-1"><span className="text-green-600">✅</span> PASS</span>
-                          ) : (
-                            <span className="text-red-600 bg-red-50 px-2 py-1 rounded inline-flex items-center gap-1"><span className="text-red-600">❌</span> FAIL</span>
-                          );
-                        })()}
-                      </td>
                     </tr>
-                    <tr>
-                      <td className="border border-gray-400 p-1 bg-white">
-                        <div className="flex items-center w-full h-full min-h-[24px]">
-                          <span className="font-bold text-[#0070c0] mr-2 whitespace-nowrap text-xs">1.1Vk :</span>
-                          {readOnly ? (
-                            <span className="text-[#0070c0] font-bold text-xs">{row.vkVal || '-'}</span>
-                          ) : (
-                            <Input
-                              className="border-none text-[#0070c0] font-bold h-6 shadow-none flex-1 min-w-[60px] disabled:opacity-100 disabled:cursor-not-allowed px-0"
-                              value={row.vkVal || ''}
-                              onKeyDown={(e) => {
-                                if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                                if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                              }}
-                              onChange={e => handleUpdate(i, 'vkVal', e.target.value.replace(/[^0-9+\-.]/g, ''))}
-                              disabled={readOnly}
-                            />
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  </React.Fragment>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
-          <div className="footer-sig">
-            <div className="sig-block">
-              <div className="sig-name">{testerName || 'Tester'}</div>
-              <div className="sig-line">Tested By</div>
-            </div>
-            <div className="sig-block">
-              <div className="sig-name italic text-gray-500 font-normal mt-1">Stamp & Signature</div>
-              <div className="sig-line">Authorised Signatory</div>
-            </div>
-          </div>
+          <ReportSignatures testerName={testerName} hideStampAndSignature={true} />
         </div>
       </div>
-      </div>
-
     </div>
   );
 }

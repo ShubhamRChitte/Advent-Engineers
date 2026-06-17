@@ -3,10 +3,11 @@ import axios from 'axios';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Printer, ArrowLeft, Loader2, Database } from 'lucide-react';
-import { SecondaryReportView } from '../components/tester/SecondaryReportView';
 import { CTTestReportView } from '../components/tester/CTTestReportView';
 import { PTReportView } from '../components/tester/PTReportView';
 import { PrintableCoreReport } from '../components/reports/PrintableCoreReport';
+import { ctReportViewStyles } from '../components/tester/CTTestReportView';
+import { secondaryReportPrintStyles } from '../components/tester/SecondaryReportPrintLayout';
 
 export function AdminReportViewPage() {
     const [transformer, setTransformer] = useState<any>(null);
@@ -150,6 +151,21 @@ export function AdminReportViewPage() {
             alert('Please allow pop-ups for this site to print reports.');
             return;
         }
+
+        const isSecondaryRelated = testType === 'secondary' || testType === 'primary' || testType === 'final';
+        const extraStyles = isSecondaryRelated ? `
+            ${secondaryReportPrintStyles}
+            ${ctReportViewStyles}
+            /* Extra overrides for popup window printing */
+            .secondary-print-page, .secondary-report-wrapper {
+                width: 190mm !important;
+                margin: 0 auto !important;
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+            }
+        ` : '';
+
         printWindow.document.write(`
             <!DOCTYPE html>
             <html>
@@ -187,6 +203,7 @@ export function AdminReportViewPage() {
                     @media print {
                         .divide-y > div + div { border-top: none; page-break-before: auto; }
                     }
+                    ${extraStyles}
                 </style>
             </head>
             <body>
@@ -421,9 +438,13 @@ export function AdminReportViewPage() {
             case 'secondary':
             case 'primary':
             case 'final':
-                return <div className="max-w-[1000px] mx-auto mt-6 print:mt-0 print:max-w-none">
-                    <CTTestReportView transformer={currentTransformer} stage={testType as 'secondary' | 'primary' | 'final'} />
-                </div>;
+                return (
+                    <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll print:p-0 print:bg-white">
+                        <div className="max-w-[1000px] mx-auto mt-6 print:mt-0 print:max-w-none">
+                            <CTTestReportView transformer={currentTransformer} stage={testType as 'secondary' | 'primary' | 'final'} />
+                        </div>
+                    </div>
+                );
             case 'heating':
                 return <div className="max-w-[1000px] mx-auto mt-6 print:mt-0 print:max-w-none">
                     <Card className="p-0 overflow-hidden shadow-xl border-none print:shadow-none print:border-none print:p-0 bg-white">

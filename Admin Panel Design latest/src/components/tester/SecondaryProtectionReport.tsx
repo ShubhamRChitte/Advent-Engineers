@@ -5,8 +5,17 @@ import { Input } from '../ui/input';
 import { ArrowLeft, Save, Printer, AlertTriangle } from 'lucide-react';
 import { Transformer } from './SecondaryTransformersList';
 import { toast } from 'sonner';
-import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
-import { ImageWithFallback } from '../figma/ImageWithFallback';
+import {
+  ReportHeader,
+  ReportSectionTitle,
+  CoreInformationBar,
+  ReportSignatures,
+  formatReportDate,
+  secondaryReportPrintStyles,
+  ReportSpecBox,
+} from './SecondaryReportPrintLayout';
+
+const renderVal = (v: any) => (v === null || v === undefined || String(v).trim() === '') ? '-' : String(v);
 
 interface SecondaryProtectionReportProps {
   transformer: Transformer;
@@ -561,96 +570,10 @@ export function SecondaryProtectionReport({
   };
 
   return (
-    <div className="space-y-6 p-4 bg-gray-50 flex justify-center">
-      <style>{`
-        .report-wrapper { background: white; width: 210mm; min-height: 297mm; padding: 15mm; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: black; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; box-sizing: border-box; }
-        .report-header-top { display: flex; align-items: center; justify-content: center; position: relative; padding-bottom: 10px; border-bottom: 2px solid #000; margin-bottom: 5px; }
-        .header-logo { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 120px; height: 60px; display: flex; align-items: center; }
-        .header-titles { text-align: center; }
-        .header-titles h1 { font-size: 24px; font-weight: bold; color: #1e3a8a; margin: 0; letter-spacing: 1px; }
-        .header-titles p { font-size: 12px; color: #4b5563; margin: 0; }
-        .report-metadata { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 2px solid #000; padding-bottom: 10px; }
-        .meta-column { width: 48%; }
-        .meta-field { display: flex; margin-bottom: 4px; font-size: 12px; }
-        .meta-label { font-weight: 600; width: 80px; }
-        .meta-value { flex: 1; }
-        .report-main-title { text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
-        .section-container { border: 1px solid #000; margin-bottom: 15px; }
-        .section-title { padding: 4px; text-align: center; font-weight: bold; font-size: 13px; border-bottom: 1px solid #000; }
-        .spec-table { width: 100%; border-collapse: collapse; }
-        .spec-table td { border-bottom: 1px solid #000; padding: 4px 8px; font-size: 12px; }
-        .spec-table tr:last-child td { border-bottom: none; }
-        .nested-table { width: 100%; border-collapse: collapse; table-layout: fixed; border-top: 1px solid #000; }
-        .nested-table th, .nested-table td { border: 1px solid #000; padding: 4px; text-align: center; font-size: 11px; }
-        .nested-table th { font-weight: bold; }
+    <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll">
+      <style>{secondaryReportPrintStyles}</style>
 
-        .input-cell { padding: 0 !important; }
-        .input-field { width: 100%; height: 24px; text-align: center; border: none; background: transparent; font-size: 11px; outline: none; }
-        .input-field:focus { background-color: #fef08a; }
-        .footer-sig { margin-top: 60px; display: flex; justify-content: space-between; padding: 0 40px; page-break-inside: avoid; }
-        .sig-block { text-align: center; width: 200px; display: flex; flex-direction: column; align-items: center; }
-        .sig-name { font-size: 12px; font-weight: bold; min-height: 18px; margin-bottom: 5px; }
-        .sig-line { width: 100%; border-top: 1px dashed #000; padding-top: 5px; font-weight: bold; font-size: 12px; }
-        .bg-yellow { background-color: #f9fafb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        @media print {
-          @page { size: A4 portrait; margin: 10mm; }
-          body { background: white; margin: 0; padding: 0; }
-          .print-container { width: 100% !important; margin: 0 !important; padding: 0 !important; }
-          .report-wrapper { box-shadow: none; width: 100%; min-height: auto; padding: 0; margin: 0; border: none; }
-          .bg-gray-50 { background: white !important; }
-          .no-print { display: none !important; }
-          .overflow-x-auto { overflow: visible !important; }
-          table { page-break-inside: avoid; width: 100% !important; }
-          tr { page-break-inside: avoid; page-break-after: auto; }
-
-          /* Strip browser default input box appearance for print */
-          .nested-table input {
-            -webkit-appearance: none !important;
-            appearance: none !important;
-            border: none !important;
-            outline: none !important;
-            background: transparent !important;
-            box-shadow: none !important;
-            border-radius: 0 !important;
-            padding: 2px 0 !important;
-            margin: 0 !important;
-            height: 28px !important;
-            min-height: 28px !important;
-            line-height: 28px !important;
-            display: block !important;
-            width: 100% !important;
-            font-size: 11px !important;
-            font-weight: bold !important;
-            text-align: center !important;
-            color: inherit !important;
-          }
-
-          /* Fix Protection table rowSpan heights (rowspan=3 → 84px, rowspan=2 → 56px) */
-          .nested-table tbody td[rowspan="3"] {
-            height: 84px !important;
-            min-height: 84px !important;
-            vertical-align: middle !important;
-          }
-          .nested-table tbody td[rowspan="2"] {
-            height: 56px !important;
-            min-height: 56px !important;
-            vertical-align: middle !important;
-          }
-          .nested-table tbody td:not([rowspan]) {
-            height: 28px !important;
-            min-height: 28px !important;
-            vertical-align: middle !important;
-          }
-          .nested-table tbody td .flex {
-            display: flex !important;
-            align-items: center !important;
-            height: 28px !important;
-            min-height: 28px !important;
-          }
-        }
-      `}</style>
-      
-      <div className="print-container w-[210mm]">
+      <div className="print-container w-[210mm] min-w-[210mm] secondary-print-page">
         {!readOnly && (
           <div className="flex items-center justify-between no-print mb-4 w-full">
             <div className="flex gap-2">
@@ -674,281 +597,251 @@ export function SecondaryProtectionReport({
           </div>
         )}
 
-        <div id="printable-report" className="report-wrapper">
-          <div className="report-header-top">
-            <div className="header-logo">
-              <ImageWithFallback src={logoImage} alt="Advent Logo" className="max-w-full max-h-full object-contain" />
-            </div>
-            <div className="header-titles">
-              <h1>ADVENT ENGINEERS</h1>
-              <p>Excellence in Transformer Core Testing</p>
+        <div id="secondary-printable-report" className="report-wrapper secondary-report-wrapper">
+          <ReportHeader
+            stage={stage}
+            date={formatReportDate(transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate)}
+            orderNo={transformer.jobId || transformer.uniqueId}
+            client={transformer.clientName || 'N/A'}
+            unitNo={transformer.uniqueId}
+            accuracyClass={protectionClass || '5P'}
+          />
+
+          <div className="ae-section-container">
+            <ReportSectionTitle index={1} title={`Secondary Winding Verification - ${coreId}`} />
+            <ReportSpecBox
+              items={[
+                { label: 'Specification', value: `${transformer.voltageRating || '33'} KV ${transformer.clientName || 'N/A'}` },
+                { label: 'CT Ratio', value: `${ratiosToUse.join('-')} A` },
+                { label: 'Burden', value: `${displayBurden} VA` },
+                { label: 'Class', value: protectionClass || '5P' },
+                { label: 'STC', value: displaySTC }
+              ]}
+            />
+          </div>
+
+          <div className="ae-section-container">
+            <ReportSectionTitle index={2} title="Protection Core Test" />
+            <CoreInformationBar label="Protection Core No" value={coreId} />
+            <div className="overflow-x-auto">
+              <table className="ae-report-table secondary-report-table">
+                <thead>
+                  <tr>
+                    <th colSpan={2}></th>
+                    <th className="text-center font-bold text-sm" colSpan={4}>
+                      100 % Burden
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {testResults.map((row, index) => {
+                    const limitConfig = dbLimits.find(l => l.protectionClass === (protectionClass || '5P').toUpperCase()) ||
+                                        (protectionClass?.toUpperCase().includes("15P") && dbLimits.find(l => l.protectionClass === "15P")) ||
+                                        (protectionClass?.toUpperCase().includes("10P") && dbLimits.find(l => l.protectionClass === "10P")) ||
+                                        (protectionClass?.toUpperCase().includes("5P") && dbLimits.find(l => l.protectionClass === "5P"));
+
+                    const isRatioErrorInvalid = (() => {
+                      if (!row.ratioError100 || String(row.ratioError100).trim() === '') return false;
+                      if (!limitConfig) return false;
+                      const cVal = parseFloat(String(row.ratioError100));
+                      return !isNaN(cVal) && Math.abs(cVal) >= limitConfig.maxCurrentError;
+                    })();
+
+                    const isPhaseErrorInvalid = (() => {
+                      if (!row.phaseError || String(row.phaseError).trim() === '') return false;
+                      if (!limitConfig || limitConfig.maxPhaseError === null) return false;
+                      const pVal = parseFloat(String(row.phaseError));
+                      return !isNaN(pVal) && Math.abs(pVal) >= limitConfig.maxPhaseError;
+                    })();
+
+                    const isCompositeErrorInvalid = (() => {
+                      if (!row.compositeError || String(row.compositeError).trim() === '') return false;
+                      if (!limitConfig) return false;
+                      const compClean = String(row.compositeError).replace('%', '');
+                      const compNum = parseFloat(compClean);
+                      return !isNaN(compNum) && Math.abs(compNum) >= limitConfig.maxCompositeError;
+                    })();
+
+                    return (
+                      <React.Fragment key={index}>
+                        <tr>
+                          <td rowSpan={3} className="bg-slate-50 font-bold text-center align-middle w-[150px]">
+                            Protection Core<br />Ratio - {row.ratio}
+                            {row.isPass !== undefined && row.isPass !== null && (
+                              <div className={`mt-2 text-[10px] font-bold px-2 py-1 rounded ${row.isPass ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                {row.isPass ? 'PASS' : 'FAIL'}
+                              </div>
+                            )}
+                            {row.isPass === false && row.reason && (
+                              <div className="text-[9px] text-red-600 mt-1 leading-tight font-normal text-left break-words">
+                                {row.reason}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="p-2 text-center bg-white font-bold text-xs w-[120px]">
+                            100%
+                          </td>
+
+                          <td className="input-cell w-[120px]">
+                            {readOnly ? (
+                              <div className={`p-2 text-center font-bold text-xs h-8 flex items-center justify-center ${isRatioErrorInvalid ? 'invalid-reading' : 'text-blue-800'}`}>
+                                {renderVal(row.ratioError100)}
+                              </div>
+                            ) : (
+                              <Input
+                                className={`input-field text-blue-800 font-medium ${isRatioErrorInvalid ? 'invalid-reading' : ''}`}
+                                value={row.ratioError100}
+                                onKeyDown={(e) => {
+                                  if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                                  if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                                }}
+                                onChange={(e) => handleInputChange(index, 'ratioError100', e.target.value.replace(/[^0-9+\-.]/g, ''))}
+                                placeholder=""
+                                disabled={readOnly}
+                              />
+                            )}
+                          </td>
+
+                          <td className="input-cell w-[120px]">
+                            {readOnly ? (
+                              <div className={`p-2 text-center font-bold text-xs h-8 flex items-center justify-center ${isPhaseErrorInvalid ? 'invalid-reading' : 'text-blue-800'}`}>
+                                {renderVal(row.phaseError)}
+                              </div>
+                            ) : (
+                              <Input
+                                className={`input-field text-blue-800 font-medium ${isPhaseErrorInvalid ? 'invalid-reading' : ''}`}
+                                value={row.phaseError}
+                                onKeyDown={(e) => {
+                                  if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                                  if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                                }}
+                                onChange={(e) => handleInputChange(index, 'phaseError', e.target.value.replace(/[^0-9+\-.]/g, ''))}
+                                placeholder=""
+                                disabled={readOnly}
+                              />
+                            )}
+                          </td>
+
+                          <td className="bg-white"></td>
+                          <td className="bg-white"></td>
+                        </tr>
+
+                        <tr>
+                          <td className="bg-slate-50 font-bold text-[10px]">
+                            Resistance
+                          </td>
+                          <td className="bg-slate-50 font-bold text-[10px]">
+                            ALF
+                          </td>
+                          <td className="bg-slate-50 font-bold text-[10px]">
+                            Excitation Current
+                          </td>
+                          <td className="bg-slate-50 font-bold text-[10px]">
+                            Secondary<br />Limiting Voltage
+                          </td>
+                          <td className="bg-slate-50 font-bold text-[10px]">
+                            Composite Error
+                          </td>
+                        </tr>
+
+                        <tr>
+                          <td className="input-cell">
+                            {readOnly ? (
+                              <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
+                                {renderVal(row.resistance)}
+                              </div>
+                            ) : (
+                              <Input
+                                className="input-field text-blue-800 font-bold"
+                                value={row.resistance}
+                                onKeyDown={(e) => {
+                                  if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                                  if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                                }}
+                                onChange={(e) => handleInputChange(index, 'resistance', e.target.value.replace(/[^0-9+\-.]/g, ''))}
+                                disabled={readOnly}
+                              />
+                            )}
+                          </td>
+                          <td className="input-cell">
+                            {readOnly ? (
+                              <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
+                                {renderVal(row.alf)}
+                              </div>
+                            ) : (
+                              <Input
+                                className="input-field text-blue-800 font-bold"
+                                value={row.alf}
+                                onKeyDown={(e) => {
+                                  if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                                  if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                                }}
+                                onChange={(e) => handleInputChange(index, 'alf', e.target.value.replace(/[^0-9+\-.]/g, ''))}
+                                disabled={readOnly}
+                              />
+                            )}
+                          </td>
+                          <td className="input-cell">
+                            {readOnly ? (
+                              <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
+                                {renderVal(row.excitationCurrent)}
+                              </div>
+                            ) : (
+                              <Input
+                                className="input-field text-blue-800 font-bold"
+                                value={row.excitationCurrent}
+                                onKeyDown={(e) => {
+                                  if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                                  if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                                }}
+                                onChange={(e) => handleInputChange(index, 'excitationCurrent', e.target.value.replace(/[^0-9+\-.]/g, ''))}
+                                disabled={readOnly}
+                              />
+                            )}
+                          </td>
+                          <td className="input-cell">
+                            {readOnly ? (
+                              <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center bg-slate-50">
+                                {renderVal(row.secondaryLimitingVoltage)}
+                              </div>
+                            ) : (
+                              <Input
+                                className="input-field text-blue-800 font-bold bg-slate-50"
+                                value={row.secondaryLimitingVoltage}
+                                onChange={() => { }}
+                                readOnly={true}
+                                disabled={readOnly}
+                              />
+                            )}
+                          </td>
+                          <td className="input-cell">
+                            {readOnly ? (
+                              <div className={`p-2 text-center font-bold text-xs h-8 flex items-center justify-center bg-slate-50 ${isCompositeErrorInvalid ? 'invalid-reading' : 'text-blue-800'}`}>
+                                {renderVal(row.compositeError)}
+                              </div>
+                            ) : (
+                              <Input
+                                className={`input-field text-blue-800 font-bold bg-slate-50 ${isCompositeErrorInvalid ? 'invalid-reading' : ''}`}
+                                value={row.compositeError}
+                                onChange={() => { }}
+                                readOnly={true}
+                                disabled={readOnly}
+                              />
+                            )}
+                          </td>
+                        </tr>
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
 
-          <div className="report-metadata">
-            <div className="meta-column">
-              <div className="meta-field"><span className="meta-label">Date</span><span className="meta-value">: {stage && transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate
-                  ? new Date(transformer.testHistory[`${stage}_test` as keyof typeof transformer.testHistory].reportDate).toLocaleDateString('en-GB')
-                  : new Date().toLocaleDateString('en-GB')}</span></div>
-              <div className="meta-field"><span className="meta-label">Order No</span><span className="meta-value">: {transformer.jobId || transformer.uniqueId}</span></div>
-              <div className="meta-field"><span className="meta-label">Client</span><span className="meta-value">: {transformer.clientName || 'N/A'}</span></div>
-            </div>
-            <div className="meta-column">
-              <div className="meta-field"><span className="meta-label">Unit No</span><span className="meta-value">: {transformer.uniqueId}</span></div>
-              <div className="meta-field"><span className="meta-label">Class</span><span className="meta-value">: {protectionClass || '5P'}</span></div>
-            </div>
-          </div>
-
-          <div className="report-main-title">PROTECTION CORE TEST REPORT</div>
-
-          <div className="section-container">
-            <div className="section-title bg-gray-100">Secondary Winding Verification - {coreId}</div>
-            <table className="spec-table">
-              <tbody>
-                <tr>
-                  <td colSpan={2}><span className="font-bold mr-2">Specification :</span> {transformer.voltageRating || '33'} KV {transformer.clientName || 'N/A'}</td>
-                </tr>
-                <tr>
-                  <td colSpan={2}><span className="font-bold mr-2">CT Ratio :</span> {ratiosToUse.join('-')} A</td>
-                </tr>
-                <tr>
-                  <td style={{ width: '50%', borderRight: '1px solid #000' }}><span className="font-bold mr-2">Burden :</span> {displayBurden} VA</td>
-                  <td style={{ width: '50%' }}><span className="font-bold mr-2">Class :</span> {protectionClass || '5P'}</td>
-                </tr>
-                <tr>
-                  <td colSpan={2}><span className="font-bold mr-2">STC :</span> {displaySTC}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-        <div className="mt-4">
-
-          <div className="overflow-x-auto">
-            <table className="nested-table">
-              <thead>
-
-                {/* HEADER BOX ROW 2: SUB-HEADERS */}
-                <tr className="bg-white">
-                  {/* Left Space (Aligns with Ratio & 100% cols) */}
-                  <th className="border border-gray-400 p-2" colSpan={2}></th>
-
-                  {/* Middle: 100% Burden (Aligns with Burden input cols) */}
-                  <th className="border border-gray-400 p-2 text-center font-bold text-sm" colSpan={2}>
-                    100 % Burden
-                  </th>
-
-                  {/* Right: Protection Core No (Aligns with Result cols) */}
-                  <th className="border border-gray-400 p-2 text-right" colSpan={2}>
-                    <div className="flex justify-end items-center gap-2">
-                      <span className="font-bold text-sm">protection core no.</span>
-                      <span className="border-b border-gray-600 px-2 min-w-[60px] text-blue-700 font-medium">{coreId}</span>
-                    </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {testResults.map((row, index) => (
-                  <React.Fragment key={index}>
-                    {/* --- ROW 1: Ratio (Span 3), 100% Label, Burden 1, Burden 2, Empty --- */}
-                    <tr className="border-t-2 border-gray-800"> {/* Thicker top border for separation between groups */}
-                      {/* COL 1: Ratio (Spans 3 Rows) */}
-                      <td rowSpan={3} className="bg-yellow font-bold text-center align-middle w-[150px]">
-                        Protection Core<br />Ratio - {row.ratio}
-                        {row.isPass !== undefined && row.isPass !== null && (
-                          <div className={`mt-2 text-[10px] font-bold px-2 py-1 rounded ${row.isPass ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                            {row.isPass ? 'PASS' : 'FAIL'}
-                          </div>
-                        )}
-                        {row.isPass === false && row.reason && (
-                          <div className="text-[9px] text-red-600 mt-1 leading-tight font-normal text-left break-words">
-                            {row.reason}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* COL 2: "100%" Label */}
-                      <td className="border border-gray-400 p-2 text-center bg-white font-bold text-xs w-[120px]">
-                        100%
-                      </td>
-
-                      {/* COL 3: Ratio Error (was Burden 1) */}
-                      <td className="border border-gray-400 p-0 w-[120px]">
-                        {readOnly ? (
-                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
-                            {row.ratioError100 || '-'}
-                          </div>
-                        ) : (
-                          <Input
-                            className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full shadow-none"
-                            value={row.ratioError100}
-                            onKeyDown={(e) => {
-                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                            }}
-                            onChange={(e) => handleInputChange(index, 'ratioError100', e.target.value.replace(/[^0-9+\-.]/g, ''))}
-                            placeholder=""
-                            disabled={readOnly}
-                          />
-                        )}
-                      </td>
-
-                      {/* COL 4: Phase Error (was Burden 2) */}
-                      <td className="border border-gray-400 p-0 w-[120px]">
-                        {readOnly ? (
-                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
-                            {row.phaseError || '-'}
-                          </div>
-                        ) : (
-                          <Input
-                            className="border-none text-center h-8 bg-transparent text-blue-800 font-medium w-full shadow-none"
-                            value={row.phaseError}
-                            onKeyDown={(e) => {
-                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                            }}
-                            onChange={(e) => handleInputChange(index, 'phaseError', e.target.value.replace(/[^0-9+\-.]/g, ''))}
-                            placeholder=""
-                            disabled={readOnly}
-                          />
-                        )}
-                      </td>
-
-                      {/* COL 5 & 6: Empty Cells */}
-                      <td className="border border-gray-400 bg-white"></td>
-                      <td className="border border-gray-400 bg-white"></td>
-                    </tr>
-
-                    {/* --- ROW 2: Labels Only --- */}
-                    <tr>
-                      {/* Ratio occupied above */}
-                      <td className="bg-gray-50 font-bold text-[10px]">
-                        Resistance
-                      </td>
-                      <td className="bg-gray-50 font-bold text-[10px]">
-                        ALF
-                      </td>
-                      <td className="bg-gray-50 font-bold text-[10px]">
-                        Excitation Current
-                      </td>
-                      <td className="bg-gray-50 font-bold text-[10px]">
-                        Secondary<br />Limiting Voltage
-                      </td>
-                      <td className="bg-gray-50 font-bold text-[10px]">
-                        Composite Error
-                      </td>
-                    </tr>
-
-                    {/* --- ROW 3: Values Inputs --- */}
-                    <tr>
-                      {/* Ratio occupied above */}
-                      <td className="border border-gray-400 p-0">
-                        {readOnly ? (
-                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
-                            {row.resistance || '-'}
-                          </div>
-                        ) : (
-                          <Input
-                            className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full shadow-none"
-                            value={row.resistance}
-                            onKeyDown={(e) => {
-                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                            }}
-                            onChange={(e) => handleInputChange(index, 'resistance', e.target.value.replace(/[^0-9+\-.]/g, ''))}
-                            disabled={readOnly}
-                          />
-                        )}
-                      </td>
-                      <td className="border border-gray-400 p-0">
-                        {/* ALF Input */}
-                        {readOnly ? (
-                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
-                            {row.alf || '-'}
-                          </div>
-                        ) : (
-                          <Input
-                            className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full shadow-none"
-                            value={row.alf}
-                            onKeyDown={(e) => {
-                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                            }}
-                            onChange={(e) => handleInputChange(index, 'alf', e.target.value.replace(/[^0-9+\-.]/g, ''))}
-                            disabled={readOnly}
-                          />
-                        )}
-                      </td>
-                      <td className="border border-gray-400 p-0">
-                        {readOnly ? (
-                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
-                            {row.excitationCurrent || '-'}
-                          </div>
-                        ) : (
-                          <Input
-                            className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full shadow-none"
-                            value={row.excitationCurrent}
-                            onKeyDown={(e) => {
-                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                            }}
-                            onChange={(e) => handleInputChange(index, 'excitationCurrent', e.target.value.replace(/[^0-9+\-.]/g, ''))}
-                            disabled={readOnly}
-                          />
-                        )}
-                      </td>
-                      <td className="border border-gray-400 p-0">
-                        {/* MAPPED to secondaryLimitingVoltage */}
-                        {readOnly ? (
-                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center bg-gray-50">
-                            {row.secondaryLimitingVoltage || '-'}
-                          </div>
-                        ) : (
-                          <Input
-                            className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50 shadow-none"
-                            value={row.secondaryLimitingVoltage}
-                            onChange={() => { }}
-                            readOnly={true}
-                            disabled={readOnly}
-                          />
-                        )}
-                      </td>
-                      <td className="border border-gray-400 p-0">
-                        {readOnly ? (
-                          <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center bg-gray-50">
-                            {row.compositeError || '-'}
-                          </div>
-                        ) : (
-                          <Input
-                            className="border-none text-center h-8 bg-transparent text-blue-800 font-bold w-full bg-gray-50 shadow-none"
-                            value={row.compositeError}
-                            onChange={() => { }}
-                            readOnly={true}
-                            disabled={readOnly}
-                          />
-                        )}
-                      </td>
-                    </tr>
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-          <div className="footer-sig">
-            <div className="sig-block">
-              <div className="sig-name">{testerName || 'Tester'}</div>
-              <div className="sig-line">Tested By</div>
-            </div>
-            <div className="sig-block">
-              <div className="sig-name italic text-gray-500 font-normal mt-1">Stamp & Signature</div>
-              <div className="sig-line">Authorised Signatory</div>
-            </div>
-          </div>
+          <ReportSignatures testerName={testerName} hideStampAndSignature={true} />
         </div>
       </div>
-
     </div>
   );
 }

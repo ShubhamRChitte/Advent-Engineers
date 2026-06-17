@@ -7,6 +7,8 @@ interface ReadOnlyCoreTableProps {
     data: any[]; // The results array
 }
 
+const renderVal = (v: any) => (v === null || v === undefined || String(v).trim() === '') ? '-' : String(v);
+
 export const ReadOnlyCoreTable: React.FC<ReadOnlyCoreTableProps> = ({ coreType, data }) => {
     if (!data || data.length === 0) {
         return <div className="p-4 text-gray-500 italic">No results recorded for this core type.</div>;
@@ -76,12 +78,12 @@ export const ReadOnlyCoreTable: React.FC<ReadOnlyCoreTableProps> = ({ coreType, 
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     <tr>
-                                        <td className="px-2 py-1">{result.burden100_1 || '-'}</td>
-                                        <td className="px-2 py-1">{result.burden100_2 || '-'}</td>
-                                        <td className="px-2 py-1">{result.resistance || '-'}</td>
-                                        <td className="px-2 py-1">{result.secondaryLimitingVtg || '-'}</td>
-                                        <td className="px-2 py-1">{result.excitationCurrent || '-'}</td>
-                                        <td className="px-2 py-1">{result.compositeError || '-'}</td>
+                                        <td className="px-2 py-1">{renderVal(result.burden100_1)}</td>
+                                        <td className="px-2 py-1">{renderVal(result.burden100_2)}</td>
+                                        <td className="px-2 py-1">{renderVal(result.resistance)}</td>
+                                        <td className="px-2 py-1">{renderVal(result.secondaryLimitingVtg)}</td>
+                                        <td className="px-2 py-1">{renderVal(result.excitationCurrent)}</td>
+                                        <td className="px-2 py-1">{renderVal(result.compositeError)}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -116,12 +118,12 @@ export const ReadOnlyCoreTable: React.FC<ReadOnlyCoreTableProps> = ({ coreType, 
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     <tr>
-                                        <td className="px-2 py-1">{result.turnRatioError || '-'}</td>
-                                        <td className="px-2 py-1">{result.resistance || '-'}</td>
-                                        <td className="px-2 py-1">{result.vk || '-'}</td>
-                                        <td className="px-2 py-1">{result.vkVal || '-'}</td>
-                                        <td className="px-2 py-1">{result.iexVk || '-'}</td>
-                                        <td className="px-2 py-1">{result.iex11Vk || '-'}</td>
+                                        <td className="px-2 py-1">{renderVal(result.turnRatioError)}</td>
+                                        <td className="px-2 py-1">{renderVal(result.resistance)}</td>
+                                        <td className="px-2 py-1">{renderVal(result.vk)}</td>
+                                        <td className="px-2 py-1">{renderVal(result.vkVal)}</td>
+                                        <td className="px-2 py-1">{renderVal(result.iexVk)}</td>
+                                        <td className="px-2 py-1">{renderVal(result.iex11Vk)}</td>
                                     </tr>
                                 </tbody>
                             </table>

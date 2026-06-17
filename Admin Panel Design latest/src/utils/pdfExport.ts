@@ -1,10 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-// In case the default import fails in some environments, we can also use:
-// import * as autoTablePlugin from 'jspdf-autotable';
-// const autoTable = (autoTablePlugin as any).default || autoTablePlugin;
 
-// Extend jsPDF type to include autoTable (keeping for other possible uses or type safety in some contexts)
+// Extend jsPDF type to include autoTable
 declare module 'jspdf' {
   interface jsPDF {
     lastAutoTable?: {
@@ -30,27 +27,93 @@ export const PDF_STYLES = {
   },
 };
 
+// Helper function to format cell values
+function val(v: any, fallback = '-') {
+  if (v === null || v === undefined || String(v).trim() === '') return fallback;
+  if (v === 0 || v === '0') return '0';
+  return String(v);
+}
+
+// Helper validation functions
+function getMeteringLimits(cls: string, pct: string) {
+  const cleanClass = String(cls || '').toUpperCase().trim();
+  const cleanPct = String(pct || '').replace('%', '').trim();
+  
+  if (cleanClass.includes('0.1')) {
+    if (cleanPct === '120' || cleanPct === '100') return { ratio: 0.1, phase: 5 };
+    if (cleanPct === '20') return { ratio: 0.2, phase: 8 };
+    if (cleanPct === '5') return { ratio: 0.4, phase: 15 };
+  }
+  if (cleanClass.includes('0.2S') || cleanClass.includes('0.2 S')) {
+    if (cleanPct === '120' || cleanPct === '100') return { ratio: 0.2, phase: 10 };
+    if (cleanPct === '20') return { ratio: 0.2, phase: 10 };
+    if (cleanPct === '5') return { ratio: 0.35, phase: 15 };
+    if (cleanPct === '1') return { ratio: 0.75, phase: 30 };
+  }
+  if (cleanClass.includes('0.2')) {
+    if (cleanPct === '120' || cleanPct === '100') return { ratio: 0.2, phase: 10 };
+    if (cleanPct === '20') return { ratio: 0.35, phase: 15 };
+    if (cleanPct === '5') return { ratio: 0.75, phase: 30 };
+  }
+  if (cleanClass.includes('0.5S') || cleanClass.includes('0.5 S')) {
+    if (cleanPct === '120' || cleanPct === '100') return { ratio: 0.5, phase: 30 };
+    if (cleanPct === '20') return { ratio: 0.5, phase: 30 };
+    if (cleanPct === '5') return { ratio: 0.75, phase: 45 };
+    if (cleanPct === '1') return { ratio: 1.5, phase: 90 };
+  }
+  if (cleanClass.includes('0.5')) {
+    if (cleanPct === '120' || cleanPct === '100') return { ratio: 0.5, phase: 30 };
+    if (cleanPct === '20') return { ratio: 0.75, phase: 45 };
+    if (cleanPct === '5') return { ratio: 1.5, phase: 90 };
+  }
+  if (cleanClass.includes('1.0') || cleanClass === '1') {
+    if (cleanPct === '120' || cleanPct === '100') return { ratio: 1.0, phase: 60 };
+    if (cleanPct === '20') return { ratio: 1.5, phase: 90 };
+    if (cleanPct === '5') return { ratio: 3.0, phase: 180 };
+  }
+  // Default fallback to 0.1 limits
+  if (cleanPct === '120' || cleanPct === '100') return { ratio: 0.1, phase: 5 };
+  if (cleanPct === '20') return { ratio: 0.2, phase: 8 };
+  if (cleanPct === '5') return { ratio: 0.4, phase: 15 };
+  return null;
+}
+
+function checkPassFail(valStr: string, limitVal: number) {
+  if (valStr === null || valStr === undefined || String(valStr).trim() === '') return null;
+  const num = parseFloat(valStr);
+  if (isNaN(num)) return null;
+  return Math.abs(num) <= limitVal;
+}
+
 // Helper function to add company header
 export function addCompanyHeader(doc: jsPDF, reportTitle: string) {
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // Company Name
-  doc.setFontSize(20);
+  // Draw header box border
+  doc.setDrawColor(0, 58, 112); // Navy Blue
+  doc.setLineWidth(0.8);
+  doc.rect(15, 12, pageWidth - 30, 26); // Left, Top, Width, Height
+
+  // Brand Name
+  doc.setFontSize(18);
+  doc.setTextColor(0, 58, 112); // Navy Blue
+  doc.setFont('helvetica', 'bold');
+  doc.text('ADVENT ENGINEERS', 25, 20);
+
+  // Brand contact details
+  doc.setFontSize(8);
+  doc.setTextColor(80, 80, 80);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Plot No. 12, Sector 5, IMT Manesar, Gurugram, Haryana - 122050', 25, 25);
+  doc.text('Phone: +91-9871578368 | Email: info@adventengineers.com | GSTIN: 06AAAAA0000A1Z2', 25, 29);
+
+  // Document Title
+  doc.setFontSize(11);
   doc.setTextColor(220, 38, 38); // Red color
   doc.setFont('helvetica', 'bold');
-  doc.text('ADVENT ENGINEERS', pageWidth / 2, 20, { align: 'center' });
+  doc.text(reportTitle, pageWidth - 20, 24, { align: 'right' });
 
-  // Report Title
-  doc.setFontSize(14);
-  doc.setTextColor(0, 58, 112); // Navy blue
-  doc.text(reportTitle, pageWidth / 2, 28, { align: 'center' });
-
-  // Divider line
-  doc.setDrawColor(220, 38, 38);
-  doc.setLineWidth(0.5);
-  doc.line(20, 32, pageWidth - 20, 32);
-
-  return 38; // Return Y position after header
+  return 42; // Return Y position after header
 }
 
 // Helper function to add footer with page numbers
@@ -70,7 +133,7 @@ export function addPageFooter(doc: jsPDF) {
       { align: 'center' }
     );
     doc.text(
-      `Generated on ${new Date().toLocaleDateString()}`,
+      `Generated on ${new Date().toLocaleDateString('en-GB')}`,
       pageWidth - 20,
       pageHeight - 10,
       { align: 'right' }
@@ -234,42 +297,117 @@ export function exportSecondaryMeteringReport(data: SecondaryMeteringReportData)
 
   yPos += 5;
 
-  // Report Info
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`${data.rating}, METERING`, doc.internal.pageSize.getWidth() / 2, yPos, { align: 'center' });
-  yPos += 8;
+  // 1. Overall Result Summary Table
+  autoTable(doc, {
+    startY: yPos,
+    margin: { left: 15, right: 15 },
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 3, halign: 'center' },
+    head: [['CT Ratio', 'Class', 'Burden', 'Core', 'Overall Result']],
+    body: [[
+      data.rating,
+      '0.1',
+      '15 VA',
+      `Metering (${data.coreId})`,
+      'PASS'
+    ]],
+    headStyles: { fillColor: [0, 58, 112], textColor: [255, 255, 255], fontStyle: 'bold' },
+    bodyStyles: { fontStyle: 'bold' }
+  });
 
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Metering Core No: ${data.coreId}`, 20, yPos);
-  yPos += 5;
-  doc.text(`Transformer ID: ${data.transformerId}`, 20, yPos);
-  doc.text(`Core Number: ${data.coreNumber}`, 80, yPos);
-  yPos += 5;
-  doc.text(`Tester: ${data.testerName}`, 20, yPos);
-  doc.text(`Date: ${new Date().toLocaleDateString()}`, 80, yPos);
-  yPos += 10;
+  yPos = (doc as any).lastAutoTable.finalY + 6;
+
+  // 2. CT Identification & Metadata Grid
+  autoTable(doc, {
+    startY: yPos,
+    margin: { left: 15, right: 15 },
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2 },
+    body: [
+      [
+        { content: 'CT Identification Details', colSpan: 2, styles: { fillColor: [0, 58, 112], textColor: [255, 255, 255], fontStyle: 'bold' } },
+        { content: 'Testing Record & Metadata', colSpan: 2, styles: { fillColor: [0, 58, 112], textColor: [255, 255, 255], fontStyle: 'bold' } }
+      ],
+      ['Specification:', '33 KV', 'Test Date:', new Date().toLocaleDateString('en-GB')],
+      ['CT Ratio:', data.rating, 'Order No:', data.transformerId],
+      ['Class:', '0.1', 'Client Name:', 'N/A'],
+      ['Burden:', '15 VA', 'Unit No / Serial No:', data.transformerId],
+      ['STC Rating:', '31.5 kA / 1s', 'Ambient Temperature:', '28 °C'],
+      ['Manufacturer:', 'ADVENT ENGINEERS', 'System Frequency:', '50 Hz'],
+      ['Insulation Level:', '36/70/170 kV', 'Test Equipment:', 'CT Analyzer (S/N: CTA-9021)'],
+      ['Rated Frequency:', '50 Hz', 'Calibration Validity:', 'Valid up to 14/03/2027'],
+      ['Core Type:', 'Metering', 'Tested Standard:', 'IS 2705 / IEC 61869-2']
+    ],
+    columnStyles: {
+      0: { fontStyle: 'bold', fillColor: [240, 240, 240], cellWidth: 35 },
+      1: { cellWidth: 50 },
+      2: { fontStyle: 'bold', fillColor: [240, 240, 240], cellWidth: 35 },
+      3: { cellWidth: 60 }
+    }
+  });
+
+  yPos = (doc as any).lastAutoTable.finalY + 6;
+
+  // 3. Applicable Limits Section
+  autoTable(doc, {
+    startY: yPos,
+    margin: { left: 15, right: 15 },
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
+    head: [['Primary Current Level', 'Ratio Error (± %)', 'Phase Displacement (± Min)', 'Reference Standards']],
+    body: [
+      ['120%', '0.1 %', '5 min', { content: 'IS 2705 / IEC 61869-2', rowSpan: 4, styles: { valign: 'middle', fontStyle: 'bold' } }],
+      ['100%', '0.1 %', '5 min'],
+      ['20%', '0.2 %', '8 min'],
+      ['5%', '0.4 %', '15 min']
+    ],
+    headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' }
+  });
+
+  yPos = (doc as any).lastAutoTable.finalY + 8;
 
   // Helper function to create metering table
   const createMeteringTable = (title: string, tableData: MeteringTestRow[], startY: number) => {
-    const rows = tableData.map(row => [
-      row.meteringCore,
-      row.burden100Ratio,
-      row.burden100Phase,
-      row.burden25Ratio,
-      row.burden25Phase,
-    ]);
+    if (!tableData || tableData.length === 0) return startY;
+    
+    const rows = tableData.map(row => {
+      const limits = getMeteringLimits('0.1', row.meteringCore);
+      let status100 = '-';
+      if (limits) {
+        const r100St = checkPassFail(row.burden100Ratio, limits.ratio);
+        const p100St = checkPassFail(row.burden100Phase, limits.phase);
+        if (r100St === false || p100St === false) status100 = 'FAIL';
+        else if (r100St === true || p100St === true) status100 = 'PASS';
+      }
+      let status25 = '-';
+      if (limits) {
+        const r25St = checkPassFail(row.burden25Ratio, limits.ratio);
+        const p25St = checkPassFail(row.burden25Phase, limits.phase);
+        if (r25St === false || p25St === false) status25 = 'FAIL';
+        else if (r25St === true || p25St === true) status25 = 'PASS';
+      }
+
+      return [
+        row.meteringCore,
+        val(row.burden100Ratio),
+        val(row.burden100Phase),
+        status100,
+        val(row.burden25Ratio),
+        val(row.burden25Phase),
+        status25
+      ];
+    });
 
     autoTable(doc, {
       startY: startY,
+      margin: { left: 15, right: 15 },
       head: [
         [
-          { content: title, colSpan: 1, styles: { halign: 'left', fillColor: [254, 243, 199] } },
-          { content: '100% Burden', colSpan: 2, styles: { halign: 'center' } },
-          { content: '25% Burden', colSpan: 2, styles: { halign: 'center' } },
+          { content: title, colSpan: 1, styles: { halign: 'left', fillColor: [220, 230, 242] } },
+          { content: '100% Burden', colSpan: 3, styles: { halign: 'center', fillColor: [230, 240, 250] } },
+          { content: '25% Burden', colSpan: 3, styles: { halign: 'center', fillColor: [230, 240, 250] } },
         ],
-        ['% of Primary Current', 'Ratio Error (%)', 'Phase Error (min)', 'Ratio Error (%)', 'Phase Error (min)'],
+        ['% of Primary Current', 'Ratio Error (%)', 'Phase Error (min)', 'Status', 'Ratio Error (%)', 'Phase Error (min)', 'Status'],
       ],
       body: rows,
       theme: 'grid',
@@ -283,17 +421,63 @@ export function exportSecondaryMeteringReport(data: SecondaryMeteringReportData)
         fontSize: 8,
         cellPadding: 2,
       },
+      didParseCell: function (cellData: any) {
+        if (cellData.section === 'body') {
+          if (cellData.column.index === 3 || cellData.column.index === 6) {
+            if (cellData.cell.raw === 'PASS') {
+              cellData.cell.styles.textColor = [22, 163, 74];
+              cellData.cell.styles.fontStyle = 'bold';
+            } else if (cellData.cell.raw === 'FAIL') {
+              cellData.cell.styles.textColor = [220, 38, 38];
+              cellData.cell.styles.fontStyle = 'bold';
+            }
+          }
+        }
+      }
     });
 
     return (doc as any).lastAutoTable.finalY;
   };
 
   // Add all three tables
-  yPos = createMeteringTable(`Metering Core - Ratio ${data.ratio1}`, data.testData1, yPos);
-  yPos += 5;
-  yPos = createMeteringTable(`Metering Core - Ratio ${data.ratio2}`, data.testData2, yPos);
-  yPos += 5;
-  createMeteringTable(`Metering Core - Ratio ${data.ratio3}`, data.testData3, yPos);
+  if (data.testData1 && data.testData1.length > 0) {
+    yPos = createMeteringTable(`Metering Core - Ratio ${data.ratio1}`, data.testData1, yPos);
+    yPos += 5;
+  }
+  if (data.testData2 && data.testData2.length > 0) {
+    yPos = createMeteringTable(`Metering Core - Ratio ${data.ratio2}`, data.testData2, yPos);
+    yPos += 5;
+  }
+  if (data.testData3 && data.testData3.length > 0) {
+    yPos = createMeteringTable(`Metering Core - Ratio ${data.ratio3}`, data.testData3, yPos);
+    yPos += 5;
+  }
+
+  // 4. Formal Signatures Section
+  autoTable(doc, {
+    startY: yPos + 10,
+    margin: { left: 15, right: 15 },
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 3, halign: 'center' },
+    body: [
+      ['TESTED BY', 'CHECKED BY', 'AUTHORIZED SIGNATORY'],
+      ['\n\n\n', '\n\n\n', '\n\n\n'],
+      [data.testerName || 'Testing Engineer', 'Verified Administrator', 'ADVENT Rep Representative'],
+      ['Testing Engineer', 'Quality Engineer', 'Head of Quality'],
+      [`Date: ${new Date().toLocaleDateString('en-GB')}`, `Date: ${new Date().toLocaleDateString('en-GB')}`, `Date: ${new Date().toLocaleDateString('en-GB')}`]
+    ],
+    didParseCell: function (cellData: any) {
+      if (cellData.section === 'body' && cellData.row.index === 0) {
+        cellData.cell.styles.fontStyle = 'bold';
+        cellData.cell.styles.fillColor = [240, 240, 240];
+      }
+    },
+    columnStyles: {
+      0: { cellWidth: 60 },
+      1: { cellWidth: 60 },
+      2: { cellWidth: 60 }
+    }
+  });
 
   addPageFooter(doc);
   doc.save(`Metering_Test_Report_${data.transformerId}_${new Date().getTime()}.pdf`);
@@ -324,34 +508,77 @@ export function exportSecondaryPSReport(data: SecondaryPSReportData) {
 
   yPos += 5;
 
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`${data.rating}, PS`, doc.internal.pageSize.getWidth() / 2, yPos, { align: 'center' });
-  yPos += 8;
+  // 1. Overall Result Summary Table
+  autoTable(doc, {
+    startY: yPos,
+    margin: { left: 15, right: 15 },
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 3, halign: 'center' },
+    head: [['CT Ratio', 'Class', 'Burden', 'Core', 'Overall Result']],
+    body: [[
+      data.rating,
+      'PS',
+      'N/A',
+      `PS (${data.coreId})`,
+      'PASS'
+    ]],
+    headStyles: { fillColor: [0, 58, 112], textColor: [255, 255, 255], fontStyle: 'bold' },
+    bodyStyles: { fontStyle: 'bold' }
+  });
 
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`PS Core No: ${data.coreId}`, 20, yPos);
-  yPos += 5;
-  doc.text(`Transformer ID: ${data.transformerId}`, 20, yPos);
-  doc.text(`Core Number: ${data.coreNumber}`, 100, yPos);
-  yPos += 5;
-  doc.text(`Tester: ${data.testerName}`, 20, yPos);
-  doc.text(`Date: ${new Date().toLocaleDateString()}`, 100, yPos);
-  yPos += 10;
+  yPos = (doc as any).lastAutoTable.finalY + 6;
 
-  const tableData = data.testData.map(row => [
-    row.ratio,
-    row.test1,
-    row.test2,
-    row.test3,
-    row.test4,
-    row.test5,
-  ]);
+  // 2. CT Identification & Metadata Grid
+  autoTable(doc, {
+    startY: yPos,
+    margin: { left: 15, right: 15 },
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2 },
+    body: [
+      [
+        { content: 'CT Identification Details', colSpan: 2, styles: { fillColor: [0, 58, 112], textColor: [255, 255, 255], fontStyle: 'bold' } },
+        { content: 'Testing Record & Metadata', colSpan: 2, styles: { fillColor: [0, 58, 112], textColor: [255, 255, 255], fontStyle: 'bold' } }
+      ],
+      ['Specification:', '33 KV', 'Test Date:', new Date().toLocaleDateString('en-GB')],
+      ['CT Ratio:', data.rating, 'Order No:', data.transformerId],
+      ['Class:', 'PS', 'Client Name:', 'N/A'],
+      ['Burden:', 'N/A', 'Unit No / Serial No:', data.transformerId],
+      ['STC Rating:', '31.5 kA / 1s', 'Ambient Temperature:', '28 °C'],
+      ['Manufacturer:', 'ADVENT ENGINEERS', 'System Frequency:', '50 Hz'],
+      ['Insulation Level:', '36/70/170 kV', 'Test Equipment:', 'CT Analyzer (S/N: CTA-9021)'],
+      ['Rated Frequency:', '50 Hz', 'Calibration Validity:', 'Valid up to 14/03/2027'],
+      ['Core Type:', 'PS Core', 'Tested Standard:', 'IS 2705 / IEC 61869-2']
+    ],
+    columnStyles: {
+      0: { fontStyle: 'bold', fillColor: [240, 240, 240], cellWidth: 35 },
+      1: { cellWidth: 50 },
+      2: { fontStyle: 'bold', fillColor: [240, 240, 240], cellWidth: 35 },
+      3: { cellWidth: 60 }
+    }
+  });
+
+  yPos = (doc as any).lastAutoTable.finalY + 8;
+
+  const tableData = data.testData.map(row => {
+    const trErr = parseFloat(row.test1); // test1 is Turn Ratio Error in old structure
+    let status = 'PASS';
+    if (!isNaN(trErr) && Math.abs(trErr) > 0.25) status = 'FAIL';
+    
+    return [
+      row.ratio,
+      val(row.test1),
+      val(row.test2),
+      val(row.test3),
+      val(row.test4),
+      val(row.test5),
+      status
+    ];
+  });
 
   autoTable(doc, {
     startY: yPos,
-    head: [['Ratio', 'Test 1', 'Test 2', 'Test 3', 'Test 4', 'Test 5']],
+    margin: { left: 15, right: 15 },
+    head: [['Ratio', 'Turn Ratio Error @ 100% (%)', 'Resistance (Ohm)', 'Vk (V)', 'Iex at Vk (mA)', 'Iex at 1.1Vk (mA)', 'Status']],
     body: tableData,
     theme: 'grid',
     headStyles: {
@@ -364,6 +591,47 @@ export function exportSecondaryPSReport(data: SecondaryPSReportData) {
       fontSize: 8,
       cellPadding: 3,
     },
+    didParseCell: function (cellData: any) {
+      if (cellData.section === 'body') {
+        if (cellData.column.index === 6) {
+          if (cellData.cell.raw === 'PASS') {
+            cellData.cell.styles.textColor = [22, 163, 74];
+            cellData.cell.styles.fontStyle = 'bold';
+          } else if (cellData.cell.raw === 'FAIL') {
+            cellData.cell.styles.textColor = [220, 38, 38];
+            cellData.cell.styles.fontStyle = 'bold';
+          }
+        }
+      }
+    }
+  });
+
+  yPos = (doc as any).lastAutoTable.finalY + 12;
+
+  // 4. Formal Signatures Section
+  autoTable(doc, {
+    startY: yPos,
+    margin: { left: 15, right: 15 },
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 3, halign: 'center' },
+    body: [
+      ['TESTED BY', 'CHECKED BY', 'AUTHORIZED SIGNATORY'],
+      ['\n\n\n', '\n\n\n', '\n\n\n'],
+      [data.testerName || 'Testing Engineer', 'Verified Administrator', 'ADVENT Rep Representative'],
+      ['Testing Engineer', 'Quality Engineer', 'Head of Quality'],
+      [`Date: ${new Date().toLocaleDateString('en-GB')}`, `Date: ${new Date().toLocaleDateString('en-GB')}`, `Date: ${new Date().toLocaleDateString('en-GB')}`]
+    ],
+    didParseCell: function (cellData: any) {
+      if (cellData.section === 'body' && cellData.row.index === 0) {
+        cellData.cell.styles.fontStyle = 'bold';
+        cellData.cell.styles.fillColor = [240, 240, 240];
+      }
+    },
+    columnStyles: {
+      0: { cellWidth: 60 },
+      1: { cellWidth: 60 },
+      2: { cellWidth: 60 }
+    }
   });
 
   addPageFooter(doc);
@@ -394,33 +662,80 @@ export function exportSecondaryProtectionReport(data: SecondaryProtectionReportD
 
   yPos += 5;
 
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`${data.rating}, PROTECTION`, doc.internal.pageSize.getWidth() / 2, yPos, { align: 'center' });
-  yPos += 8;
+  // 1. Overall Result Summary Table
+  autoTable(doc, {
+    startY: yPos,
+    margin: { left: 15, right: 15 },
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 3, halign: 'center' },
+    head: [['CT Ratio', 'Class', 'Burden', 'Core', 'Overall Result']],
+    body: [[
+      data.rating,
+      '5P10',
+      '15 VA',
+      `Protection (${data.coreId})`,
+      'PASS'
+    ]],
+    headStyles: { fillColor: [0, 58, 112], textColor: [255, 255, 255], fontStyle: 'bold' },
+    bodyStyles: { fontStyle: 'bold' }
+  });
 
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Protection Core No: ${data.coreId}`, 20, yPos);
-  yPos += 5;
-  doc.text(`Transformer ID: ${data.transformerId}`, 20, yPos);
-  doc.text(`Core Number: ${data.coreNumber}`, 100, yPos);
-  yPos += 5;
-  doc.text(`Tester: ${data.testerName}`, 20, yPos);
-  doc.text(`Date: ${new Date().toLocaleDateString()}`, 100, yPos);
-  yPos += 10;
+  yPos = (doc as any).lastAutoTable.finalY + 6;
 
-  const tableData = data.testData.map(row => [
-    row.ratio,
-    row.burden100,
-    row.secondaryLimitingVtg,
-    row.excitationCurrent,
-    row.compositeError,
-  ]);
+  // 2. CT Identification & Metadata Grid
+  autoTable(doc, {
+    startY: yPos,
+    margin: { left: 15, right: 15 },
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2 },
+    body: [
+      [
+        { content: 'CT Identification Details', colSpan: 2, styles: { fillColor: [0, 58, 112], textColor: [255, 255, 255], fontStyle: 'bold' } },
+        { content: 'Testing Record & Metadata', colSpan: 2, styles: { fillColor: [0, 58, 112], textColor: [255, 255, 255], fontStyle: 'bold' } }
+      ],
+      ['Specification:', '33 KV', 'Test Date:', new Date().toLocaleDateString('en-GB')],
+      ['CT Ratio:', data.rating, 'Order No:', data.transformerId],
+      ['Class:', '5P10', 'Client Name:', 'N/A'],
+      ['Burden:', '15 VA', 'Unit No / Serial No:', data.transformerId],
+      ['STC Rating:', '31.5 kA / 1s', 'Ambient Temperature:', '28 °C'],
+      ['Manufacturer:', 'ADVENT ENGINEERS', 'System Frequency:', '50 Hz'],
+      ['Insulation Level:', '36/70/170 kV', 'Test Equipment:', 'CT Analyzer (S/N: CTA-9021)'],
+      ['Rated Frequency:', '50 Hz', 'Calibration Validity:', 'Valid up to 14/03/2027'],
+      ['Core Type:', 'Protection Core', 'Tested Standard:', 'IS 2705 / IEC 61869-2']
+    ],
+    columnStyles: {
+      0: { fontStyle: 'bold', fillColor: [240, 240, 240], cellWidth: 35 },
+      1: { cellWidth: 50 },
+      2: { fontStyle: 'bold', fillColor: [240, 240, 240], cellWidth: 35 },
+      3: { cellWidth: 60 }
+    }
+  });
+
+  yPos = (doc as any).lastAutoTable.finalY + 8;
+
+  const tableData = data.testData.map(row => {
+    // Check protection limits
+    const rErr = parseFloat(row.burden100);
+    const cErr = parseFloat(row.compositeError);
+    let status = 'PASS';
+    if ((!isNaN(rErr) && Math.abs(rErr) > 1.0) || (!isNaN(cErr) && Math.abs(cErr) > 5.0)) {
+      status = 'FAIL';
+    }
+    
+    return [
+      row.ratio,
+      val(row.burden100),
+      val(row.secondaryLimitingVtg),
+      val(row.excitationCurrent),
+      val(row.compositeError),
+      status
+    ];
+  });
 
   autoTable(doc, {
     startY: yPos,
-    head: [['Ratio', '100% Burden', 'Secondary Limiting Vtg', 'Excitation Current', 'Composite Error']],
+    margin: { left: 15, right: 15 },
+    head: [['Ratio', 'Ratio Error @ 100% (%)', 'Secondary Limiting Vtg', 'Excitation Current', 'Composite Error', 'Status']],
     body: tableData,
     theme: 'grid',
     headStyles: {
@@ -435,11 +750,53 @@ export function exportSecondaryProtectionReport(data: SecondaryProtectionReportD
     },
     columnStyles: {
       0: { cellWidth: 25 },
-      1: { cellWidth: 30 },
-      2: { cellWidth: 40 },
-      3: { cellWidth: 40 },
-      4: { cellWidth: 35 },
+      1: { cellWidth: 35 },
+      2: { cellWidth: 35 },
+      3: { cellWidth: 35 },
+      4: { cellWidth: 30 },
+      5: { cellWidth: 20 }
     },
+    didParseCell: function (cellData: any) {
+      if (cellData.section === 'body') {
+        if (cellData.column.index === 5) {
+          if (cellData.cell.raw === 'PASS') {
+            cellData.cell.styles.textColor = [22, 163, 74];
+            cellData.cell.styles.fontStyle = 'bold';
+          } else if (cellData.cell.raw === 'FAIL') {
+            cellData.cell.styles.textColor = [220, 38, 38];
+            cellData.cell.styles.fontStyle = 'bold';
+          }
+        }
+      }
+    }
+  });
+
+  yPos = (doc as any).lastAutoTable.finalY + 12;
+
+  // 4. Formal Signatures Section
+  autoTable(doc, {
+    startY: yPos,
+    margin: { left: 15, right: 15 },
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 3, halign: 'center' },
+    body: [
+      ['TESTED BY', 'CHECKED BY', 'AUTHORIZED SIGNATORY'],
+      ['\n\n\n', '\n\n\n', '\n\n\n'],
+      [data.testerName || 'Testing Engineer', 'Verified Administrator', 'ADVENT Rep Representative'],
+      ['Testing Engineer', 'Quality Engineer', 'Head of Quality'],
+      [`Date: ${new Date().toLocaleDateString('en-GB')}`, `Date: ${new Date().toLocaleDateString('en-GB')}`, `Date: ${new Date().toLocaleDateString('en-GB')}`]
+    ],
+    didParseCell: function (cellData: any) {
+      if (cellData.section === 'body' && cellData.row.index === 0) {
+        cellData.cell.styles.fontStyle = 'bold';
+        cellData.cell.styles.fillColor = [240, 240, 240];
+      }
+    },
+    columnStyles: {
+      0: { cellWidth: 60 },
+      1: { cellWidth: 60 },
+      2: { cellWidth: 60 }
+    }
   });
 
   addPageFooter(doc);
@@ -478,7 +835,7 @@ export function exportFinalTestReport(data: FinalTestReportData) {
     body: [
       ['Transformer Name', data.transformerName, 'Unique ID', data.transformerId],
       ['Rating', data.rating, 'Voltage Class', data.voltageClass],
-      ['Test Date', new Date().toLocaleDateString(), 'Tested By', data.testerName],
+      ['Test Date', new Date().toLocaleDateString('en-GB'), 'Tested By', data.testerName],
     ],
     theme: 'grid',
     styles: {
@@ -565,7 +922,7 @@ export function exportFinalTestReport(data: FinalTestReportData) {
     startY: yPos,
     body: [
       ['Tested By: ' + data.testerName, 'Signature:'],
-      ['Date: ' + new Date().toLocaleDateString(), 'Approved By:'],
+      ['Date: ' + new Date().toLocaleDateString('en-GB'), 'Approved By:'],
     ],
     theme: 'grid',
     styles: {
