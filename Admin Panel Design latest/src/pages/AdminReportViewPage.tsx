@@ -3,11 +3,11 @@ import axios from '@/utils/axiosConfig';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Printer, ArrowLeft, Loader2, Database } from 'lucide-react';
-import { CTTestReportView } from '../components/tester/CTTestReportView';
 import { PTReportView } from '../components/tester/PTReportView';
 import { PrintableCoreReport } from '../components/reports/PrintableCoreReport';
 import { ctReportViewStyles } from '../components/tester/CTTestReportView';
 import { secondaryReportPrintStyles } from '../components/tester/SecondaryReportPrintLayout';
+import { SecondaryReportView } from '../components/tester/SecondaryReportView';
 
 export function AdminReportViewPage() {
     const [transformer, setTransformer] = useState<any>(null);
@@ -402,12 +402,12 @@ export function AdminReportViewPage() {
                 
                 <div className="report-section print:break-before-page">
                     <h2 className="text-xl font-bold mb-4 text-gray-700 print:hidden">Secondary Test Results</h2>
-                    <CTTestReportView transformer={transformer} stage="secondary" />
+                    <SecondaryReportView transformer={transformer} stage="secondary" onBack={handleBack} />
                 </div>
 
                 <div className="report-section print:break-before-page" style={{ marginTop: 32 }}>
                     <h2 className="text-xl font-bold mb-4 text-gray-700 print:hidden">Primary Test Results</h2>
-                    <CTTestReportView transformer={transformer} stage="primary" />
+                    <SecondaryReportView transformer={transformer} stage="primary" onBack={handleBack} />
                 </div>
 
                 <div className="pt-12 border-t-4 border-double border-gray-300 report-section print:break-before-page">
@@ -423,7 +423,7 @@ export function AdminReportViewPage() {
                 {transformer.testHistory?.final_test && (
                     <div className="report-section print:break-before-page" style={{ marginTop: 32 }}>
                         <h2 className="text-xl font-bold mb-4 text-gray-700 print:hidden">Final Test Results</h2>
-                        <CTTestReportView transformer={transformer} stage="final" />
+                        <SecondaryReportView transformer={transformer} stage="final" onBack={handleBack} />
                     </div>
                 )}
             </div>
@@ -440,8 +440,12 @@ export function AdminReportViewPage() {
             case 'final':
                 return (
                     <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll print:p-0 print:bg-white">
-                        <div className="max-w-[1000px] mx-auto mt-6 print:mt-0 print:max-w-none">
-                            <CTTestReportView transformer={currentTransformer} stage={testType as 'secondary' | 'primary' | 'final'} />
+                        <div className="max-w-[1000px] mx-auto mt-6 print:mt-0 print:max-w-none" id="secondary-printable-report">
+                            <SecondaryReportView
+                                transformer={currentTransformer}
+                                stage={testType as 'secondary' | 'primary' | 'final'}
+                                onBack={handleBack}
+                            />
                         </div>
                     </div>
                 );

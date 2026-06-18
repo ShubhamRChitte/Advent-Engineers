@@ -1,10 +1,7 @@
 import React from 'react';
 import adventLogo from '../../assets/advent_logo.jpg';
 import {
-  ReportHeader,
-  ReportSectionTitle,
   CoreInformationBar,
-  ReportSignatures,
   secondaryReportPrintStyles,
 } from './SecondaryReportPrintLayout';
 
@@ -752,11 +749,6 @@ export const CTTestReportView = React.forwardRef<HTMLDivElement, CTTestReportVie
             psCoreIds.length > 0 ? `PS (PS-${psCoreIds.join(',')})` : ''
         ].filter(Boolean).join(' | ') || '—';
 
-        // Stage labels
-        const isSecondary = stage === 'secondary';
-        const stageTitleSuffix = stage === 'primary' ? ' - Pretest After Primary Winding'
-            : stage === 'final' ? ' - Final Testing'
-            : ' - Metering & Protection Core Test';
 
         let secNum = 0;
         const sn = () => ++secNum;
