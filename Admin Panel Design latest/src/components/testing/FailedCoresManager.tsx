@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   Printer,
   Search,
+  Eye,
 } from 'lucide-react';
 import { FailedCore } from './CoreTestingForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
@@ -31,6 +32,73 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [returnModalVendor, setReturnModalVendor] = useState('');
   const [returnModalCores, setReturnModalCores] = useState<FailedCore[]>([]);
+
+  // Reason Modal State
+  const [reasonModalData, setReasonModalData] = useState<{
+    isOpen: boolean;
+    reason: string;
+    serialNo: string;
+  } | null>(null);
+
+  // Column Visibility State
+  const [visibleColumns, setVisibleColumns] = useState({
+    orderId: false,
+    jobId: true,
+    client: false,
+    coreType: true,
+    vendorNo: false,
+    failureStage: true,
+    failureReason: false,
+    testValues: false,
+    status: true
+  });
+
+  const toggleColumn = (colName: keyof typeof visibleColumns) => {
+    setVisibleColumns(prev => ({ ...prev, [colName]: !prev[colName] }));
+  };
+
+  const renderChipsRow = (colSpan: number, availableColumns: (keyof typeof visibleColumns)[]) => {
+    const columnLabels: Record<keyof typeof visibleColumns, string> = {
+      orderId: 'Order ID',
+      jobId: 'Job ID',
+      client: 'Client',
+      coreType: 'Core Type',
+      vendorNo: 'Vendor No',
+      failureStage: 'Failure Stage',
+      failureReason: 'Failure Reason',
+      testValues: 'Test Values',
+      status: 'Status'
+    };
+
+    return (
+      <tr className="bg-white">
+        <th colSpan={colSpan} className="px-4 py-3 font-normal text-left bg-white border-b border-gray-100">
+          <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
+            <span className="text-sm font-semibold text-gray-500 mr-2 whitespace-nowrap">Visible Columns:</span>
+            
+            <div className="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed select-none whitespace-nowrap">Date</div>
+            <div className="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed select-none whitespace-nowrap">Internal Core No</div>
+            
+            {availableColumns.map((colId) => (
+              <button
+                key={colId}
+                onClick={() => toggleColumn(colId)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
+                  visibleColumns[colId]
+                    ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                {columnLabels[colId]}
+              </button>
+            ))}
+            
+            <div className="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed select-none whitespace-nowrap">Actions</div>
+          </div>
+        </th>
+      </tr>
+    );
+  };
 
   useEffect(() => {
     // 1. Structural Protection: Ensure failedCores is always an array
@@ -443,11 +511,12 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
         <TabsContent value="all">
           <Card className="p-4">
             <h3 className="text-lg font-bold mb-4">All Failed Cores List</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="bg-gray-100 border-b border-gray-300">
-                    <th className="p-2 w-10">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-sm border-separate" style={{ borderSpacing: 0 }}>
+                <thead className="sticky top-0 z-30 shadow-md ring-1 ring-gray-200 bg-white">
+                  {renderChipsRow(12, ['orderId', 'jobId', 'client', 'coreType', 'vendorNo', 'failureStage', 'failureReason', 'status'])}
+                  <tr className="bg-gray-50">
+                    <th className="p-2 w-10 bg-gray-50 border-b border-gray-200">
                       <input
                         type="checkbox"
                         className="rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
@@ -455,20 +524,20 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                         onChange={() => toggleSelectAll(filteredCores)}
                       />
                     </th>
-                    <th className="p-2 text-left font-medium">Date</th>
-                    <th className="p-2 text-left font-medium">Order ID</th>
-                    <th className="p-2 text-left font-medium">Job ID</th>
-                    <th className="p-2 text-left font-medium">Client</th>
-                    <th className="p-2 text-left font-medium">Core Type</th>
-                    <th className="p-2 text-left font-medium">Internal Core No</th>
-                    <th className="p-2 text-left font-medium">Vendor No</th>
-                    <th className="p-2 text-left font-medium">Failure Stage</th>
-                    <th className="p-2 text-left font-medium">Failure Reason</th>
-                    <th className="p-2 text-left font-medium">Status</th>
-                    <th className="p-2 text-left font-medium">Actions</th>
+                    <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Date</th>
+                    {visibleColumns.orderId && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Order ID</th>}
+                    {visibleColumns.jobId && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Job ID</th>}
+                    {visibleColumns.client && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Client</th>}
+                    {visibleColumns.coreType && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Core Type</th>}
+                    <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Internal Core No</th>
+                    {visibleColumns.vendorNo && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Vendor No</th>}
+                    {visibleColumns.failureStage && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Failure Stage</th>}
+                    {visibleColumns.failureReason && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Failure Reason</th>}
+                    {visibleColumns.status && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Status</th>}
+                    <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="[&>tr>td]:border-b [&>tr>td]:border-gray-100 [&>tr:last-child>td]:border-b-0">
                   {filteredCores.map((core, index) => (
                     <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
                       <td className="p-2">
@@ -481,16 +550,32 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                           />
                         )}
                       </td>
-                      <td className="p-2">{core.failedAt ? new Date(core.failedAt).toLocaleDateString('en-GB') : (core.createdAt ? new Date(core.createdAt).toLocaleDateString('en-GB') : '-')}</td>
-                      <td className="p-2 font-mono text-xs">{String(core.orderId || '')}</td>
-                      <td className="p-2 font-mono text-xs">{String(core.jobId || '')}</td>
-                      <td className="p-2">{String(core.clientName || '')}</td>
-                      <td className="p-2">{String(core.coreType || '')}</td>
+                      <td className="p-2 whitespace-nowrap">{core.failedAt ? new Date(core.failedAt).toLocaleDateString('en-GB') : (core.createdAt ? new Date(core.createdAt).toLocaleDateString('en-GB') : '-')}</td>
+                      {visibleColumns.orderId && <td className="p-2 font-mono text-xs">{String(core.orderId || '')}</td>}
+                      {visibleColumns.jobId && <td className="p-2 font-mono text-xs">{String(core.jobId || '')}</td>}
+                      {visibleColumns.client && <td className="p-2 whitespace-nowrap">{String(core.clientName || '')}</td>}
+                      {visibleColumns.coreType && <td className="p-2 whitespace-nowrap">{String(core.coreType || '')}</td>}
                       <td className="p-2 font-mono font-medium text-red-700">{String(core.internalCoreNo || '')}</td>
-                      <td className="p-2">{String(core.coreVendorNo || core.vendorCoreNo || '')}</td>
-                      <td className="p-2 whitespace-nowrap text-xs font-semibold text-gray-700">{String(core.failureStage || '').replace(/_/g, ' ').toUpperCase()}</td>
-                      <td className="p-2 text-xs text-red-600">{String(core.failureReason || '')}</td>
-                      <td className="p-2">
+                      {visibleColumns.vendorNo && <td className="p-2 whitespace-nowrap">{String(core.coreVendorNo || core.vendorCoreNo || '')}</td>}
+                      {visibleColumns.failureStage && <td className="p-2 whitespace-nowrap text-xs font-semibold text-gray-700">{String(core.failureStage || '').replace(/_/g, ' ').toUpperCase()}</td>}
+                      {visibleColumns.failureReason && (
+                        <td className="p-2 min-w-[200px]">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center gap-1.5 h-8 px-2"
+                            onClick={() => setReasonModalData({ 
+                              isOpen: true, 
+                              reason: String(core.failureReason || ''), 
+                              serialNo: String(core.internalCoreNo || '')
+                            })}
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            View Reason
+                          </Button>
+                        </td>
+                      )}
+                      {visibleColumns.status && <td className="p-2 whitespace-nowrap">
                         {(core as any).status === "RETURNED" ? (
                           <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
                             🔄 RETURNED
@@ -508,7 +593,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                             ❌ FAILED
                           </span>
                         )}
-                      </td>
+                      </td>}
                       <td className="p-2 flex gap-2">
                         {(core as any).status !== "RETURNED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING" && (
                           <Button
@@ -562,11 +647,12 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                       Generate Return Form
                     </Button>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 border-b border-gray-200">
-                        <tr>
-                          <th className="p-2 w-10">
+                  <div className="overflow-x-auto w-full">
+                    <table className="w-full text-sm border-separate" style={{ borderSpacing: 0 }}>
+                      <thead className="sticky top-0 z-30 shadow-md ring-1 ring-gray-200 bg-white">
+                        {renderChipsRow(11, ['orderId', 'jobId', 'client', 'coreType', 'failureStage', 'failureReason', 'status'])}
+                        <tr className="bg-gray-50">
+                          <th className="p-2 w-10 bg-gray-50 border-b border-gray-200">
                             <input
                               type="checkbox"
                               className="rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
@@ -574,19 +660,19 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                               onChange={() => toggleSelectAll(cores)}
                             />
                           </th>
-                          <th className="p-2 text-left font-medium">Date</th>
-                          <th className="p-2 text-left font-medium">Order ID</th>
-                          <th className="p-2 text-left font-medium">Job ID</th>
-                          <th className="p-2 text-left font-medium">Client</th>
-                          <th className="p-2 text-left font-medium">Core Type</th>
-                          <th className="p-2 text-left font-medium">Internal Core No</th>
-                          <th className="p-2 text-left font-medium">Failure Stage</th>
-                          <th className="p-2 text-left font-medium">Failure Reason</th>
-                          <th className="p-2 text-left font-medium">Status</th>
-                          <th className="p-2 text-left font-medium">Actions</th>
+                          <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Date</th>
+                          {visibleColumns.orderId && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Order ID</th>}
+                          {visibleColumns.jobId && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Job ID</th>}
+                          {visibleColumns.client && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Client</th>}
+                          {visibleColumns.coreType && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Core Type</th>}
+                          <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Internal Core No</th>
+                          {visibleColumns.failureStage && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Failure Stage</th>}
+                          {visibleColumns.failureReason && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Failure Reason</th>}
+                          {visibleColumns.status && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Status</th>}
+                          <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Actions</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="[&>tr>td]:border-b [&>tr>td]:border-gray-100 [&>tr:last-child>td]:border-b-0">
                         {cores.map((core, idx) => (
                           <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
                             <td className="p-2">
@@ -599,15 +685,31 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                                 />
                               )}
                             </td>
-                            <td className="p-2">{core.failedAt ? new Date(core.failedAt).toLocaleDateString('en-GB') : (core.createdAt ? new Date(core.createdAt).toLocaleDateString('en-GB') : '-')}</td>
-                            <td className="p-2 font-mono text-xs">{String(core.orderId || '')}</td>
-                            <td className="p-2 font-mono text-xs">{String(core.jobId || '')}</td>
-                            <td className="p-2">{String(core.clientName || '')}</td>
-                            <td className="p-2">{String(core.coreType || '')}</td>
+                            <td className="p-2 whitespace-nowrap">{core.failedAt ? new Date(core.failedAt).toLocaleDateString('en-GB') : (core.createdAt ? new Date(core.createdAt).toLocaleDateString('en-GB') : '-')}</td>
+                            {visibleColumns.orderId && <td className="p-2 font-mono text-xs">{String(core.orderId || '')}</td>}
+                            {visibleColumns.jobId && <td className="p-2 font-mono text-xs">{String(core.jobId || '')}</td>}
+                            {visibleColumns.client && <td className="p-2 whitespace-nowrap">{String(core.clientName || '')}</td>}
+                            {visibleColumns.coreType && <td className="p-2 whitespace-nowrap">{String(core.coreType || '')}</td>}
                             <td className="p-2 font-mono font-medium text-red-700">{String(core.internalCoreNo || '')}</td>
-                            <td className="p-2 whitespace-nowrap text-xs font-semibold text-gray-700">{String(core.failureStage || '').replace(/_/g, ' ').toUpperCase()}</td>
-                            <td className="p-2 text-xs text-red-600">{String(core.failureReason || '')}</td>
-                            <td className="p-2">
+                            {visibleColumns.failureStage && <td className="p-2 whitespace-nowrap text-xs font-semibold text-gray-700">{String(core.failureStage || '').replace(/_/g, ' ').toUpperCase()}</td>}
+                            {visibleColumns.failureReason && (
+                              <td className="p-2 min-w-[200px]">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center gap-1.5 h-8 px-2"
+                                  onClick={() => setReasonModalData({ 
+                                    isOpen: true, 
+                                    reason: String(core.failureReason || ''), 
+                                    serialNo: String(core.internalCoreNo || '')
+                                  })}
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  View Reason
+                                </Button>
+                              </td>
+                            )}
+                            {visibleColumns.status && <td className="p-2 whitespace-nowrap">
                               {(core as any).status === "RETURNED" ? (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
                                   🔄 RETURNED
@@ -625,7 +727,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                                   ❌ FAILED
                                 </span>
                               )}
-                            </td>
+                            </td>}
                             <td className="p-2 flex gap-2">
                               {(core as any).status !== "RETURNED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING" && (
                                 <Button
@@ -674,11 +776,12 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                       {cores[0]?.jobId || 'Unknown Job'} - {cores[0]?.clientName || 'Unknown Client'} - Failed Cores: {cores.length}
                     </p>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 border-b border-gray-200">
-                        <tr>
-                          <th className="p-2 w-10">
+                  <div className="overflow-x-auto w-full">
+                    <table className="w-full text-sm border-separate" style={{ borderSpacing: 0 }}>
+                      <thead className="sticky top-0 z-30 shadow-md ring-1 ring-gray-200 bg-white">
+                        {renderChipsRow(10, ['coreType', 'vendorNo', 'failureStage', 'failureReason', 'testValues', 'status'])}
+                        <tr className="bg-gray-50">
+                          <th className="p-2 w-10 bg-gray-50 border-b border-gray-200">
                             <input
                               type="checkbox"
                               className="rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
@@ -686,18 +789,18 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                               onChange={() => toggleSelectAll(cores)}
                             />
                           </th>
-                          <th className="p-2 text-left font-medium">Date</th>
-                          <th className="p-2 text-left font-medium">Core Type</th>
-                          <th className="p-2 text-left font-medium">Internal Core No</th>
-                          <th className="p-2 text-left font-medium">Vendor No</th>
-                          <th className="p-2 text-left font-medium">Failure Stage</th>
-                          <th className="p-2 text-left font-medium">Failure Reason</th>
-                          <th className="p-2 text-left font-medium">Test Values</th>
-                          <th className="p-2 text-left font-medium">Status</th>
-                          <th className="p-2 text-left font-medium">Actions</th>
+                          <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Date</th>
+                          {visibleColumns.coreType && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Core Type</th>}
+                          <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Internal Core No</th>
+                          {visibleColumns.vendorNo && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Vendor No</th>}
+                          {visibleColumns.failureStage && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Failure Stage</th>}
+                          {visibleColumns.failureReason && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Failure Reason</th>}
+                          {visibleColumns.testValues && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Test Values</th>}
+                          {visibleColumns.status && <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Status</th>}
+                          <th className="p-2 text-left font-medium bg-gray-50 border-b border-gray-200 whitespace-nowrap">Actions</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="[&>tr>td]:border-b [&>tr>td]:border-gray-100 [&>tr:last-child>td]:border-b-0">
                         {cores.map((core, idx) => (
                           <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
                             <td className="p-2">
@@ -710,17 +813,33 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                                 />
                               )}
                             </td>
-                            <td className="p-2">{core.failedAt ? new Date(core.failedAt).toLocaleDateString('en-GB') : (core.createdAt ? new Date(core.createdAt).toLocaleDateString('en-GB') : '-')}</td>
-                            <td className="p-2">{String(core.coreType || '')}</td>
+                            <td className="p-2 whitespace-nowrap">{core.failedAt ? new Date(core.failedAt).toLocaleDateString('en-GB') : (core.createdAt ? new Date(core.createdAt).toLocaleDateString('en-GB') : '-')}</td>
+                            {visibleColumns.coreType && <td className="p-2 whitespace-nowrap">{String(core.coreType || '')}</td>}
                             <td className="p-2 font-mono font-medium text-red-700">{String(core.internalCoreNo || '')}</td>
-                            <td className="p-2">{String(core.coreVendorNo || core.vendorCoreNo || '')}</td>
-                            <td className="p-2 whitespace-nowrap text-xs font-semibold text-gray-700">{String(core.failureStage || '').replace(/_/g, ' ').toUpperCase()}</td>
-                            <td className="p-2 text-xs text-red-600">{String(core.failureReason || '')}</td>
-                            <td className="p-2 text-xs">
+                            {visibleColumns.vendorNo && <td className="p-2 whitespace-nowrap">{String(core.coreVendorNo || core.vendorCoreNo || '')}</td>}
+                            {visibleColumns.failureStage && <td className="p-2 whitespace-nowrap text-xs font-semibold text-gray-700">{String(core.failureStage || '').replace(/_/g, ' ').toUpperCase()}</td>}
+                            {visibleColumns.failureReason && (
+                              <td className="p-2 min-w-[200px]">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center gap-1.5 h-8 px-2"
+                                  onClick={() => setReasonModalData({ 
+                                    isOpen: true, 
+                                    reason: String(core.failureReason || ''), 
+                                    serialNo: String(core.internalCoreNo || '')
+                                  })}
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  View Reason
+                                </Button>
+                              </td>
+                            )}
+                            {visibleColumns.testValues && <td className="p-2 text-xs">
                               <span className="font-mono">
                                 1K:{String(core.value1000 || '-')} | 3K:{String(core.value3000 || '-')} | 5K:{String(core.value5000 || '-')} | 7K:{String(core.value7000 || '-')}
                               </span>
-                            </td>
+                            </td>}
                             <td className="p-2">
                               {(core as any).status === "RETURNED" ? (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
@@ -796,6 +915,46 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
         />
       )}
 
+      {/* Reason Modal */}
+      {reasonModalData?.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <Card className="w-full max-w-2xl p-6 bg-white shadow-2xl rounded-xl border border-gray-100 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
+            <div>
+              <h2 className="text-xl font-bold text-red-700 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" />
+                Failure Reason
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Detailed reason for failure for core <span className="font-mono font-bold text-red-600">{reasonModalData.serialNo}</span>.
+              </p>
+            </div>
+            
+            <div className="bg-red-50/50 border border-red-100 rounded-lg p-4 my-2 max-h-[60vh] overflow-y-auto">
+              {reasonModalData.reason ? (
+                <ul className="list-disc pl-5 space-y-2 text-sm text-red-800 font-medium">
+                  {reasonModalData.reason.split(' | ').map((r, i) => (
+                    <li key={i}>{r}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-gray-500 italic">No reason provided.</p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end pt-2 border-t border-gray-100">
+              <Button
+                variant="outline"
+                onClick={() => setReasonModalData(null)}
+                className="text-sm font-semibold"
+              >
+                Close
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
     </div>
   );
 }
+

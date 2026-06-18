@@ -10,9 +10,9 @@ import {
   CheckCircle2,
   RefreshCw,
   Loader2,
-  Calendar,
   Layers,
-  Wrench
+  Wrench,
+  Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -50,6 +50,32 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
   const [availableCoresPool, setAvailableCoresPool] = useState<any[]>([]);
   const [loadingPool, setLoadingPool] = useState(false);
   const [submittingReplacement, setSubmittingReplacement] = useState(false);
+
+  // Reason Modal State
+  const [reasonModalData, setReasonModalData] = useState<{
+    isOpen: boolean;
+    reason: string;
+    serialNo: string;
+  } | null>(null);
+
+  // Column Visibility State
+  const [visibleColumns, setVisibleColumns] = useState({
+    dateFailed: true, // Non-unselectable
+    serialNo: true,   // Non-unselectable
+    jobNumber: false,
+    clientName: false,
+    coreType: true,   // Default selected
+    failedIn: true,   // Default selected
+    failureReason: false,
+    status: true,     // Default selected
+    actions: true     // Non-unselectable
+  });
+
+  const toggleColumn = (colName: keyof typeof visibleColumns) => {
+    setVisibleColumns(prev => ({ ...prev, [colName]: !prev[colName] }));
+  };
+
+
 
   const fetchAvailablePool = async (item: any, selectedCoreNum: number) => {
     if (!item || !selectedCoreNum) return;
@@ -1301,7 +1327,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       <Card className="p-4">
         <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -1342,14 +1368,14 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       </Card>
 
       {/* Main Table Card */}
-      <Card className="p-4 overflow-hidden border-gray-200 shadow-sm">
+      <Card className="p-0 border-gray-200 shadow-sm bg-white mb-6">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="w-8 h-8 text-red-600 animate-spin mb-4" />
             <p className="text-gray-500">Loading failed transformers...</p>
           </div>
         ) : error ? (
-          <div className="text-center py-12 text-red-600 bg-red-50 rounded border border-red-100">
+          <div className="text-center py-12 text-red-600 bg-red-50 m-4 rounded border border-red-100">
             <p className="font-bold">Error Loading Data</p>
             <p className="text-sm mt-1">{error}</p>
             <Button size="sm" variant="outline" className="mt-4" onClick={fetchFailedTransformers}>
@@ -1357,30 +1383,71 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
             </Button>
           </div>
         ) : filteredList.length === 0 ? (
-          <div className="text-center py-16 text-gray-500">
-            <AlertTriangle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="font-semibold text-gray-700 text-lg">No Failed Transformers Found</p>
-            <p className="text-sm text-gray-400 max-w-sm mx-auto mt-1">
-              There are currently no active failed transformers matching your query filters.
+          <div className="text-center py-16 px-4 bg-gray-50 m-4 rounded-lg border border-dashed border-gray-300">
+            <div className="mx-auto w-12 h-12 bg-gray-100 flex items-center justify-center rounded-full mb-3">
+              <CheckCircle2 className="w-6 h-6 text-gray-400" />
+            </div>
+            <p className="font-semibold text-gray-700">No Failed Transformers</p>
+            <p className="text-sm text-gray-500 mt-1">
+              There are currently no transformers marked as failed that match your filters.
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="p-3 text-left font-semibold text-gray-600">Date Failed</th>
-                  <th className="p-3 text-left font-semibold text-gray-600">Serial No</th>
-                  <th className="p-3 text-left font-semibold text-gray-600">Job Number</th>
-                  <th className="p-3 text-left font-semibold text-gray-600">Client Name</th>
-                  <th className="p-3 text-left font-semibold text-gray-600">Core Type</th>
-                  <th className="p-3 text-left font-semibold text-gray-600">Failed In</th>
-                  <th className="p-3 text-left font-semibold text-gray-600">Failure Reason</th>
-                  <th className="p-3 text-left font-semibold text-gray-600">Status</th>
-                  <th className="p-3 text-center font-semibold text-gray-600">Actions</th>
+          <div className="w-full">
+            <table className="w-full text-sm border-separate" style={{ borderSpacing: 0 }}>
+              <thead className="bg-white">
+                <tr className="bg-white">
+                  <th colSpan={10} className="px-4 py-3 font-normal text-left bg-white border-b border-gray-100">
+                    <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
+                      <span className="text-sm font-semibold text-gray-500 mr-2 whitespace-nowrap">Visible Columns:</span>
+                      
+                      <div className="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed select-none whitespace-nowrap">
+                        Date Failed
+                      </div>
+                      <div className="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed select-none whitespace-nowrap">
+                        Serial No
+                      </div>
+
+                      {[
+                        { id: 'jobNumber', label: 'Job Number' },
+                        { id: 'clientName', label: 'Client Name' },
+                        { id: 'coreType', label: 'Core Type' },
+                        { id: 'failedIn', label: 'Failed In' },
+                        { id: 'failureReason', label: 'Failure Reason' },
+                        { id: 'status', label: 'Status' }
+                      ].map((col) => (
+                        <button
+                          key={col.id}
+                          onClick={() => toggleColumn(col.id as keyof typeof visibleColumns)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
+                            visibleColumns[col.id as keyof typeof visibleColumns]
+                              ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                              : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          {col.label}
+                        </button>
+                      ))}
+
+                      <div className="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed select-none whitespace-nowrap">
+                        Actions
+                      </div>
+                    </div>
+                  </th>
+                </tr>
+                <tr className="bg-gray-50">
+                  {visibleColumns.dateFailed && <th className="px-4 py-3 text-left font-semibold text-gray-600 bg-gray-50 border-b border-gray-200">Date Failed</th>}
+                  {visibleColumns.serialNo && <th className="px-4 py-3 text-left font-semibold text-gray-600 bg-gray-50 border-b border-gray-200">Serial No</th>}
+                  {visibleColumns.jobNumber && <th className="px-4 py-3 text-left font-semibold text-gray-600 bg-gray-50 border-b border-gray-200">Job Number</th>}
+                  {visibleColumns.clientName && <th className="px-4 py-3 text-left font-semibold text-gray-600 bg-gray-50 border-b border-gray-200">Client Name</th>}
+                  {visibleColumns.coreType && <th className="px-4 py-3 text-left font-semibold text-gray-600 bg-gray-50 border-b border-gray-200">Core Type</th>}
+                  {visibleColumns.failedIn && <th className="px-4 py-3 text-left font-semibold text-gray-600 bg-gray-50 border-b border-gray-200">Failed In</th>}
+                  {visibleColumns.failureReason && <th className="px-4 py-3 text-left font-semibold text-gray-600 bg-gray-50 border-b border-gray-200">Failure Reason</th>}
+                  {visibleColumns.status && <th className="px-4 py-3 text-left font-semibold text-gray-600 bg-gray-50 border-b border-gray-200">Status</th>}
+                  {visibleColumns.actions && <th className="px-4 py-3 text-center font-semibold text-gray-600 bg-gray-50 border-b border-gray-200">Actions</th>}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="[&>tr>td]:border-b [&>tr>td]:border-gray-100 [&>tr:last-child>td]:border-b-0">
                 {filteredList.map((item) => {
                   const dateToUse = item.date || item.updatedAt || item.createdAt;
                   const dateStr = dateToUse
@@ -1392,62 +1459,84 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
 
                   return (
                     <tr key={item._id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="p-3 text-gray-700 font-medium">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                      {visibleColumns.dateFailed && (
+                        <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">
                           {dateStr}
-                        </div>
-                      </td>
-                      <td className="p-3 font-mono font-semibold text-red-600">
-                        {item.transformerUniqueId || (item.transformerId && item.transformerId.uniqueId) || '-'}
-                      </td>
-                      <td className="p-3 text-gray-600 font-medium">{item.jobNumber || '-'}</td>
-                      <td className="p-3 text-gray-600">{item.clientName || '-'}</td>
-                      <td className="p-3">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-semibold bg-red-50 text-red-700 border border-red-100">
-                          <Layers className="w-3 h-3" />
-                          {item.coreType || '-'}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${
-                          item.stage === 'PRIMARY_TESTING' 
-                            ? 'bg-amber-50 text-amber-700 border-amber-100' 
-                            : item.stage === 'FINAL_TESTING'
-                              ? 'bg-purple-50 text-purple-700 border-purple-100'
-                              : 'bg-indigo-50 text-indigo-700 border-indigo-100'
-                        }`}>
-                          {item.stage === 'PRIMARY_TESTING' ? 'After Primary' : item.stage === 'FINAL_TESTING' ? 'Final Testing' : 'Secondary'}
-                        </span>
-                      </td>
-                      <td className="p-3 text-xs text-red-600 max-w-[280px] truncate" title={item.failureReason}>
-                        {item.failureReason || '-'}
-                      </td>
-                      <td className="p-3">
-                        {(() => {
-                          if (item.status === 'FAILED') {
-                            return (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">
-                                ❌ Failed
-                              </span>
-                            );
-                          } else if (isApproved) {
-                            return (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800">
-                                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                                Approved
-                              </span>
-                            );
-                          } else {
-                            return (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800">
-                                🔄 Retesting
-                              </span>
-                            );
-                          }
-                        })()}
-                      </td>
-                      <td className="p-3 text-center">
+                        </td>
+                      )}
+                      {visibleColumns.serialNo && (
+                        <td className="px-4 py-3 font-mono font-semibold text-red-600">
+                          {item.transformerUniqueId || (item.transformerId && item.transformerId.uniqueId) || '-'}
+                        </td>
+                      )}
+                      {visibleColumns.jobNumber && <td className="px-4 py-3 text-gray-600 font-medium">{item.jobNumber || '-'}</td>}
+                      {visibleColumns.clientName && <td className="px-4 py-3 text-gray-600">{item.clientName || '-'}</td>}
+                      {visibleColumns.coreType && (
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-semibold bg-red-50 text-red-700 border border-red-100">
+                            <Layers className="w-3 h-3" />
+                            {item.coreType || '-'}
+                          </span>
+                        </td>
+                      )}
+                      {visibleColumns.failedIn && (
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${
+                            item.stage === 'PRIMARY_TESTING' 
+                              ? 'bg-amber-50 text-amber-700 border-amber-100' 
+                              : item.stage === 'FINAL_TESTING'
+                                ? 'bg-purple-50 text-purple-700 border-purple-100'
+                                : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                          }`}>
+                            {item.stage === 'PRIMARY_TESTING' ? 'After Primary' : item.stage === 'FINAL_TESTING' ? 'Final Testing' : 'Secondary'}
+                          </span>
+                        </td>
+                      )}
+                      {visibleColumns.failureReason && (
+                        <td className="px-4 py-3">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center gap-1.5 h-8 px-2"
+                            onClick={() => setReasonModalData({ 
+                              isOpen: true, 
+                              reason: item.failureReason || '', 
+                              serialNo: item.transformerUniqueId || (item.transformerId && item.transformerId.uniqueId) || '-' 
+                            })}
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            View Reason
+                          </Button>
+                        </td>
+                      )}
+                      {visibleColumns.status && (
+                        <td className="px-4 py-3">
+                          {(() => {
+                            if (item.status === 'FAILED') {
+                              return (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">
+                                  ❌ Failed
+                                </span>
+                              );
+                            } else if (isApproved) {
+                              return (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                                  Approved
+                                </span>
+                              );
+                            } else {
+                              return (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800">
+                                  🔄 Retesting
+                                </span>
+                              );
+                            }
+                          })()}
+                        </td>
+                      )}
+                      {visibleColumns.actions && (
+                        <td className="px-4 py-3 text-center">
                         {(() => {
                           if (isApproved) {
                             return <span className="text-xs text-gray-400 italic">Resolved</span>;
@@ -1515,6 +1604,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                           );
                         })()}
                       </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -1601,6 +1691,45 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                     Confirm Replace
                   </>
                 )}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Reason Modal */}
+      {reasonModalData?.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <Card className="w-full max-w-2xl p-6 bg-white shadow-2xl rounded-xl border border-gray-100 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
+            <div>
+              <h2 className="text-xl font-bold text-red-700 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" />
+                Failure Reason
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Detailed reason for failure for transformer <span className="font-mono font-bold text-red-600">{reasonModalData.serialNo}</span>.
+              </p>
+            </div>
+            
+            <div className="bg-red-50/50 border border-red-100 rounded-lg p-4 my-2 max-h-[60vh] overflow-y-auto">
+              {reasonModalData.reason ? (
+                <ul className="list-disc pl-5 space-y-2 text-sm text-red-800 font-medium">
+                  {reasonModalData.reason.split(' | ').map((r, i) => (
+                    <li key={i}>{r}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-gray-500 italic">No reason provided.</p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end pt-2 border-t border-gray-100">
+              <Button
+                variant="outline"
+                onClick={() => setReasonModalData(null)}
+                className="text-sm font-semibold"
+              >
+                Close
               </Button>
             </div>
           </Card>
