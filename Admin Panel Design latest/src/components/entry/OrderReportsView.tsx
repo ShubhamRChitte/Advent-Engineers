@@ -268,7 +268,6 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
                     unit.coreTestStatus === 'Complete' &&
                     unit.secondaryTestStatus === 'Complete' &&
                     unit.primaryTestStatus === 'Complete' &&
-                    unit.heatingStatus === 'Complete' &&
                     unit.finalTestStatus === 'Complete'
                   );
 

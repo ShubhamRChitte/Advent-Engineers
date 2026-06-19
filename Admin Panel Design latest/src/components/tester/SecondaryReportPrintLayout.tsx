@@ -138,21 +138,33 @@ export function ReportSpecBox({ items, columns = 2 }: ReportSpecBoxProps) {
 export function ReportSignatures({
   testerName,
   hideStampAndSignature = false,
+  hideTesterName = false,
+  blankSignatureFields = false,
 }: {
   testerName: string;
   hideStampAndSignature?: boolean;
+  hideTesterName?: boolean;
+  blankSignatureFields?: boolean;
 }) {
+  const shouldHideTester = hideTesterName || blankSignatureFields;
+  const shouldHideStamp = hideStampAndSignature || blankSignatureFields;
+
   return (
-    <div className="ae-footer-sig secondary-signatures">
-      <div className="ae-sig-block">
-        <div className="ae-sig-name">{testerName || 'Tester'}</div>
-        <div className="ae-sig-line">Tested By</div>
-      </div>
-      <div className="ae-sig-block">
-        <div className="ae-sig-name italic text-gray-500 font-normal mt-1">
-          {hideStampAndSignature ? '\u00A0' : 'Stamp & Signature'}
+    <div className="report-signatures ae-footer-sig secondary-signatures">
+      <div className="signature-column ae-sig-block">
+        <div className="signature-space ae-sig-name">
+          {shouldHideTester ? '\u00A0' : (testerName || 'Tester')}
         </div>
-        <div className="ae-sig-line">Authorised Signatory</div>
+        <div className="signature-line" />
+        <div className="signature-label">Tested By</div>
+      </div>
+
+      <div className="signature-column ae-sig-block">
+        <div className="signature-space ae-sig-name italic text-gray-500 font-normal">
+          {shouldHideStamp ? '\u00A0' : 'Stamp & Signature'}
+        </div>
+        <div className="signature-line" />
+        <div className="signature-label">Authorised Signatory</div>
       </div>
     </div>
   );
@@ -698,6 +710,55 @@ export const secondaryReportPrintStyles = `
       padding: 0 !important;
       margin: 0 !important;
       color: inherit !important;
+    }
+  }
+
+  .report-signatures {
+    margin-top: 40px;
+    display: grid;
+    grid-template-columns: 200px 200px;
+    justify-content: space-between;
+    padding: 0 40px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .signature-column {
+    text-align: center;
+    width: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .signature-space {
+    font-size: 13px;
+    font-weight: 600;
+    height: 48px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+
+  .signature-line {
+    width: 100%;
+    border-top: 1px solid #1F2937;
+  }
+
+  .signature-label {
+    padding-top: 6px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #1F2937;
+  }
+
+  @media print {
+    .report-signatures {
+      margin-top: 18mm !important;
+      display: grid !important;
+      grid-template-columns: 200px 200px !important;
+      justify-content: space-between !important;
     }
   }
 `;

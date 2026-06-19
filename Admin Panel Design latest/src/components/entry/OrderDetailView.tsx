@@ -219,7 +219,6 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
       unit.coreTestStatus === 'Complete' &&
       unit.secondaryTestStatus === 'Complete' &&
       unit.primaryTestStatus === 'Complete' &&
-      unit.heatingStatus === 'Complete' &&
       unit.finalTestStatus === 'Complete'
     );
   };

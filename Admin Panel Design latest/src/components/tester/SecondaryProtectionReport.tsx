@@ -16,7 +16,7 @@ import {
   ReportSpecBox,
 } from './SecondaryReportPrintLayout';
 
-const renderVal = (v: any) => (v === null || v === undefined || String(v).trim() === '') ? '-' : String(v);
+const renderVal = (v: any) => (v === null || v === undefined || String(v).trim() === '') ? 'Not recorded' : String(v);
 
 
 interface SecondaryProtectionReportProps {
@@ -40,6 +40,7 @@ interface SecondaryProtectionReportProps {
   failedStatus?: string;
   isFailedCore?: boolean;
   retestHistory?: any[];
+  isUnified?: boolean;
 }
 
 interface ProtectionTestRow {
@@ -137,7 +138,8 @@ export function SecondaryProtectionReport({
   failedTransformerId,
   failedStatus,
   isFailedCore,
-  retestHistory
+  retestHistory,
+  isUnified = false
 }: SecondaryProtectionReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
     (!isNaN(parseInt(coreId.replace(/[^0-9]/g, ''))) ? parseInt(coreId.replace(/[^0-9]/g, '')) - 1 : 0);
@@ -661,6 +663,154 @@ export function SecondaryProtectionReport({
       toast.error(err.response?.data?.message || "Could not add to failed transformers");
     }
   };
+
+  if (isUnified) {
+    return (
+      <div className="ae-section-container print:break-inside-avoid print:mt-6" style={{ pageBreakInside: 'avoid', marginTop: 24 }}>
+        <ReportSectionTitle title={`${transformer.voltageRating || '33'} KV, CT, ${ratiosToUse.join('-')}A, ${displayBurden}VA, PROTECTION`} />
+        <div className="mt-2 mb-2">
+          <ReportSpecBox
+            items={[
+              { label: 'Core Number', value: `Core ${coreNumber || 1}` },
+              { label: 'Core ID', value: coreId },
+              { label: 'Core Type', value: 'Protection' },
+              { label: 'CT Ratio', value: `${ratiosToUse.join('-')} A` },
+              { label: 'Burden', value: `${displayBurden} VA` },
+              { label: 'Class', value: protectionClass || '5P' },
+              { label: 'STC', value: displaySTC }
+            ]}
+          />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="ae-report-table secondary-report-table">
+            <thead>
+              <tr>
+                <th colSpan={2}></th>
+                <th className="text-center font-bold text-sm" colSpan={4}>
+                  100 % Burden
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {testResults.map((row, index) => {
+                const limitConfig = dbLimits.find(l => l.protectionClass === (protectionClass || '5P').toUpperCase()) ||
+                                    (protectionClass?.toUpperCase().includes("15P") && dbLimits.find(l => l.protectionClass === "15P")) ||
+                                    (protectionClass?.toUpperCase().includes("10P") && dbLimits.find(l => l.protectionClass === "10P")) ||
+                                    (protectionClass?.toUpperCase().includes("5P") && dbLimits.find(l => l.protectionClass === "5P"));
+
+                const isRatioErrorInvalid = (() => {
+                  if (!row.ratioError100 || String(row.ratioError100).trim() === '') return false;
+                  if (!limitConfig) return false;
+                  const cVal = parseFloat(String(row.ratioError100));
+                  return !isNaN(cVal) && Math.abs(cVal) >= limitConfig.maxCurrentError;
+                })();
+
+                const isPhaseErrorInvalid = (() => {
+                  if (!row.phaseError || String(row.phaseError).trim() === '') return false;
+                  if (!limitConfig || limitConfig.maxPhaseError === null) return false;
+                  const pVal = parseFloat(String(row.phaseError));
+                  return !isNaN(pVal) && Math.abs(pVal) >= limitConfig.maxPhaseError;
+                })();
+
+                const isCompositeErrorInvalid = (() => {
+                  if (!row.compositeError || String(row.compositeError).trim() === '') return false;
+                  if (!limitConfig) return false;
+                  const compClean = String(row.compositeError).replace('%', '');
+                  const compNum = parseFloat(compClean);
+                  return !isNaN(compNum) && Math.abs(compNum) >= limitConfig.maxCompositeError;
+                })();
+
+                return (
+                  <React.Fragment key={index}>
+                    <tr>
+                      <td rowSpan={3} className="bg-slate-50 font-bold text-center align-middle w-[150px]">
+                        Protection Core<br />Ratio - {row.ratio}
+                        {row.isPass !== undefined && row.isPass !== null && (
+                          <div className={`mt-2 text-[10px] font-bold px-2 py-1 rounded ${row.isPass ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {row.isPass ? 'PASS' : 'FAIL'}
+                          </div>
+                        )}
+                        {row.isPass === false && row.reason && (
+                          <div className="text-[9px] text-red-600 mt-1 leading-tight font-normal text-left break-words">
+                            {row.reason}
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="p-2 text-center bg-white font-bold text-xs w-[120px]">
+                        100%
+                      </td>
+
+                      <td className="input-cell w-[120px]">
+                        <div className={`p-2 text-center font-bold text-xs h-8 flex items-center justify-center ${isRatioErrorInvalid ? 'invalid-reading' : 'text-blue-800'}`}>
+                          {renderVal(row.ratioError100)}
+                        </div>
+                      </td>
+
+                      <td className="input-cell w-[120px]">
+                        <div className={`p-2 text-center font-bold text-xs h-8 flex items-center justify-center ${isPhaseErrorInvalid ? 'invalid-reading' : 'text-blue-800'}`}>
+                          {renderVal(row.phaseError)}
+                        </div>
+                      </td>
+
+                      <td className="bg-white"></td>
+                      <td className="bg-white"></td>
+                    </tr>
+
+                    <tr>
+                      <td className="bg-slate-50 font-bold text-[10px]">
+                        Resistance
+                      </td>
+                      <td className="bg-slate-50 font-bold text-[10px]">
+                        ALF
+                      </td>
+                      <td className="bg-slate-50 font-bold text-[10px]">
+                        Excitation Current
+                      </td>
+                      <td className="bg-slate-50 font-bold text-[10px]">
+                        Secondary<br />Limiting Voltage
+                      </td>
+                      <td className="bg-slate-50 font-bold text-[10px]">
+                        Composite Error
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td className="input-cell">
+                        <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
+                          {renderVal(row.resistance)}
+                        </div>
+                      </td>
+                      <td className="input-cell">
+                        <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
+                          {renderVal(row.alf)}
+                        </div>
+                      </td>
+                      <td className="input-cell">
+                        <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center">
+                          {renderVal(row.excitationCurrent)}
+                        </div>
+                      </td>
+                      <td className="input-cell">
+                        <div className="p-2 text-center text-blue-800 font-bold text-xs h-8 flex items-center justify-center bg-slate-50">
+                          {renderVal(row.secondaryLimitingVoltage)}
+                        </div>
+                      </td>
+                      <td className="input-cell">
+                        <div className={`p-2 text-center font-bold text-xs h-8 flex items-center justify-center bg-slate-50 ${isCompositeErrorInvalid ? 'invalid-reading' : 'text-blue-800'}`}>
+                          {renderVal(row.compositeError)}
+                        </div>
+                      </td>
+                    </tr>
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll">

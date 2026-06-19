@@ -8,6 +8,7 @@ import { PrintableCoreReport } from '../components/reports/PrintableCoreReport';
 import { ctReportViewStyles } from '../components/tester/CTTestReportView';
 import { secondaryReportPrintStyles } from '../components/tester/SecondaryReportPrintLayout';
 import { SecondaryReportView } from '../components/tester/SecondaryReportView';
+import { UnifiedCTReport } from '../components/tester/reports/UnifiedCTReport';
 
 export function AdminReportViewPage() {
     const [transformer, setTransformer] = useState<any>(null);
@@ -152,7 +153,7 @@ export function AdminReportViewPage() {
             return;
         }
 
-        const isSecondaryRelated = testType === 'secondary' || testType === 'primary' || testType === 'final';
+        const isSecondaryRelated = testType === 'secondary' || testType === 'primary' || testType === 'final' || testType === 'all';
         const extraStyles = isSecondaryRelated ? `
             ${secondaryReportPrintStyles}
             ${ctReportViewStyles}
@@ -384,30 +385,7 @@ export function AdminReportViewPage() {
             );
         }
 
-        return (
-            <div className="space-y-12">
-                <div className="report-section">
-                    {renderCoreReport()}
-                </div>
-                
-                <div className="report-section print:break-before-page">
-                    <h2 className="text-xl font-bold mb-4 text-gray-700 print:hidden">Secondary Test Results</h2>
-                    <SecondaryReportView transformer={transformer} stage="secondary" onBack={handleBack} />
-                </div>
-
-                <div className="report-section print:break-before-page" style={{ marginTop: 32 }}>
-                    <h2 className="text-xl font-bold mb-4 text-gray-700 print:hidden">Primary Test Results</h2>
-                    <SecondaryReportView transformer={transformer} stage="primary" onBack={handleBack} />
-                </div>
-
-                {transformer.testHistory?.final_test && (
-                    <div className="report-section print:break-before-page" style={{ marginTop: 32 }}>
-                        <h2 className="text-xl font-bold mb-4 text-gray-700 print:hidden">Final Test Results</h2>
-                        <SecondaryReportView transformer={transformer} stage="final" onBack={handleBack} />
-                    </div>
-                )}
-            </div>
-        );
+        return <UnifiedCTReport transformer={transformer} order={orderData} />;
     };
 
     const renderContent = () => {

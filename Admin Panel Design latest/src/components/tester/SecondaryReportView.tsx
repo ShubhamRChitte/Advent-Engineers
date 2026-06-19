@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { SecondaryMeteringReport } from './SecondaryMeteringReport';
 import { SecondaryProtectionReport } from './SecondaryProtectionReport';
 import { SecondaryPSReport } from './SecondaryPSReport';
-import { FinalQASummary } from './FinalQASummary';
+import { FinalQAReport } from './FinalQAReport';
 
 interface SecondaryReportViewProps {
     transformer: any;
@@ -263,9 +263,10 @@ export function SecondaryReportView({
                 )}
 
                 {activeTab === 'QA' && (
-                    <FinalQASummary
+                    <FinalQAReport
                         transformer={transformer}
                         testerName={history?.tester || 'Verified Administrator'}
+                        mode="standalone"
                     />
                 )}
             </div>
