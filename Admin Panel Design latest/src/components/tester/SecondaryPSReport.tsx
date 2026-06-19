@@ -559,7 +559,6 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { ArrowLeft, Save, Printer, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import { SOCKET_URL } from '../../utils/socket';
 import { Transformer } from './SecondaryTransformersList';
 import {
   ReportHeader,
@@ -571,7 +570,7 @@ import {
   ReportSpecBox,
 } from './SecondaryReportPrintLayout';
 
-const renderVal = (v: any) => (v === null || v === undefined || String(v).trim() === '') ? '-' : String(v);
+const renderVal = (v: any) => (v === null || v === undefined || String(v).trim() === '') ? 'Not recorded' : String(v);
 
 interface PSRow {
   ratioValue: string;
@@ -605,6 +604,7 @@ interface SecondaryPSReportProps {
   failedStatus?: string;
   isFailedCore?: boolean;
   retestHistory?: any[];
+  isUnified?: boolean;
 }
 
 export function SecondaryPSReport({ 
@@ -627,7 +627,8 @@ export function SecondaryPSReport({
   failedTransformerId,
   failedStatus,
   isFailedCore,
-  retestHistory
+  retestHistory,
+  isUnified = false
 }: SecondaryPSReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
     (!isNaN(parseInt(coreId.replace(/[^0-9]/g, ''))) ? parseInt(coreId.replace(/[^0-9]/g, '')) - 1 : 0);
@@ -1061,6 +1062,97 @@ export function SecondaryPSReport({
       toast.error(error.response?.data?.message || "Error adding to failed transformers");
     }
   };
+
+  if (isUnified) {
+    return (
+      <div className="ae-section-container print:break-inside-avoid print:mt-6" style={{ pageBreakInside: 'avoid', marginTop: 24 }}>
+        <ReportSectionTitle title={`${(transformer as any).voltageRating || '33'} KV, CT, ${dynamicRatios.join('-')}A, CLASS PS SPECIAL PROTECTION CORE TEST`} />
+        <div className="mt-2 mb-2">
+          <ReportSpecBox
+            items={[
+              { label: 'Core Number', value: `Core ${coreNumber || 1}` },
+              { label: 'Core ID', value: coreId },
+              { label: 'Core Type', value: 'PS' },
+              { label: 'CT Ratio', value: `${dynamicRatios.join('-')} A` },
+              { label: 'Burden', value: `${displayBurden} VA` },
+              { label: 'Class', value: accuracyClass || 'PS' },
+              { label: 'STC', value: displaySTC }
+            ]}
+          />
+        </div>
+        <table className="ae-report-table secondary-report-table ps-core-table">
+          <colgroup>
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '15%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '18%' }} />
+            <col style={{ width: '19%' }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>PS Core Ratio</th>
+              <th>Turn Ratio Error @ 100% (%)</th>
+              <th>Resistance (Ω)</th>
+              <th>Vk (V)</th>
+              <th>Iex at Vk (mA)</th>
+              <th>Iex at 1.1Vk (mA)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {psData.map((row: PSRow, i: number) => {
+              const ratioErrorHasError = row.turnRatioError && !isNaN(parseFloat(row.turnRatioError)) && !(parseFloat(row.turnRatioError) > -(psLimit?.psRatioErrorLimit ?? 0.25) && parseFloat(row.turnRatioError) < (psLimit?.psRatioErrorLimit ?? 0.25));
+              const iexHasError = row.iexVk && row.iex11Vk && !isNaN(parseFloat(row.iexVk)) && !isNaN(parseFloat(row.iex11Vk)) && !((parseFloat(row.iexVk) * (psLimit?.psExcitationMultiplier ?? 1.5)) > parseFloat(row.iex11Vk));
+
+              return (
+                <tr key={i}>
+                  <td className="ae-ratio-cell font-bold">
+                    {row.ratioValue}
+                  </td>
+                  <td className="input-cell">
+                    <div className={`p-2 text-center font-bold text-xs ${ratioErrorHasError ? 'invalid-reading' : 'text-[#103b63]'}`}>
+                      {renderVal(row.turnRatioError)}
+                    </div>
+                  </td>
+                  <td className="input-cell">
+                    <div className="p-2 text-center text-[#103b63] font-bold text-xs">
+                      {renderVal(row.resistance)}
+                    </div>
+                  </td>
+                  <td className="p-2 align-middle">
+                    <div className="vk-cell-fields">
+                      <div className="vk-cell-row">
+                        <span className="vk-cell-label">Vk=</span>
+                        <div className="text-left font-bold text-xs text-[#103b63] px-2 vk-input">
+                          {renderVal(row.vk)}
+                        </div>
+                      </div>
+                      <div className="vk-cell-row">
+                        <span className="vk-cell-label">1.1Vk=</span>
+                        <div className="text-left font-bold text-xs text-[#103b63] px-2 vk-input">
+                          {renderVal(row.vkVal)}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="input-cell">
+                    <div className={`p-2 text-center font-bold text-xs ${iexHasError ? 'invalid-reading' : 'text-[#103b63]'}`}>
+                      {renderVal(row.iexVk)}
+                    </div>
+                  </td>
+                  <td className="input-cell">
+                    <div className={`p-2 text-center font-bold text-xs ${iexHasError ? 'invalid-reading' : 'text-[#103b63]'}`}>
+                      {renderVal(row.iex11Vk)}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll">

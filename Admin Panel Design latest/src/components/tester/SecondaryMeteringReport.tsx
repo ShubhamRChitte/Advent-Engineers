@@ -38,6 +38,7 @@ interface SecondaryMeteringReportProps {
   failedStatus?: string;
   isFailedCore?: boolean;
   retestHistory?: any[];
+  isUnified?: boolean;
 }
 
 export function SecondaryMeteringReport({
@@ -60,7 +61,8 @@ export function SecondaryMeteringReport({
   failedTransformerId,
   failedStatus,
   isFailedCore,
-  retestHistory
+  retestHistory,
+  isUnified = false
 }: SecondaryMeteringReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
     (!isNaN(parseInt(coreId.replace(/[^0-9]/g, ''))) ? parseInt(coreId.replace(/[^0-9]/g, '')) - 1 : 0);
@@ -341,6 +343,28 @@ export function SecondaryMeteringReport({
     row.r25_r_pass === false || row.r25_p_pass === false
   ));
 
+  if (isUnified) {
+    return (
+      <div className="ae-section-container print:break-inside-avoid print:mt-6" style={{ pageBreakInside: 'avoid', marginTop: 24 }}>
+        <ReportSectionTitle title={`${transformer.voltageRating || '33'} KV, CT, ${dynamicRatios.join('-')}A, ${displayBurden}VA, METERING`} />
+        <div className="mt-2 mb-2">
+          <ReportSpecBox
+            items={[
+              { label: 'Core Number', value: `Core ${coreNumber || 1}` },
+              { label: 'Core ID', value: coreId.startsWith('M-') ? coreId : `M-${coreId}` },
+              { label: 'Core Type', value: 'Metering' },
+              { label: 'CT Ratio', value: `${dynamicRatios.join('-')} A` },
+              { label: 'Burden', value: `${displayBurden} VA` },
+              { label: 'Class', value: accuracyClass },
+              { label: 'STC', value: displaySTC }
+            ]}
+          />
+        </div>
+        <MeteringTable testResults={testResults} onUpdate={() => {}} readOnly={true} />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll">
       <style>{secondaryReportPrintStyles}</style>
@@ -435,52 +459,76 @@ function MeteringTable({ testResults, onUpdate, readOnly }: MeteringTableProps) 
                   )}
                   <td className="ae-ratio-cell">{row.current}</td>
                   <td className="input-cell">
-                    <input
-                      className={`input-field ${row.r100_r_pass === false ? 'invalid-reading' : ''}`}
-                      value={row.r100}
-                      onKeyDown={(e) => {
-                        if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                        if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                      }}
-                      onChange={(e) => onUpdate(ratioIdx, rowIndex, 'r100', e.target.value.replace(/[^0-9+\-.]/g, ''))}
-                      disabled={readOnly}
-                    />
+                    {readOnly ? (
+                      <div className={`p-2 text-center font-bold text-xs h-8 flex items-center justify-center ${row.r100_r_pass === false ? 'invalid-reading' : 'text-[#103b63]'}`}>
+                        {row.r100 !== '' && row.r100 !== null && row.r100 !== undefined ? row.r100 : 'Not recorded'}
+                      </div>
+                    ) : (
+                      <input
+                        className={`input-field ${row.r100_r_pass === false ? 'invalid-reading' : ''}`}
+                        value={row.r100}
+                        onKeyDown={(e) => {
+                          if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                          if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                        }}
+                        onChange={(e) => onUpdate(ratioIdx, rowIndex, 'r100', e.target.value.replace(/[^0-9+\-.]/g, ''))}
+                        disabled={readOnly}
+                      />
+                    )}
                   </td>
                   <td className="input-cell">
-                    <input
-                      className={`input-field ${row.r100_p_pass === false ? 'invalid-reading' : ''}`}
-                      value={row.p100}
-                      onKeyDown={(e) => {
-                        if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                        if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                      }}
-                      onChange={(e) => onUpdate(ratioIdx, rowIndex, 'p100', e.target.value.replace(/[^0-9+\-.]/g, ''))}
-                      disabled={readOnly}
-                    />
+                    {readOnly ? (
+                      <div className={`p-2 text-center font-bold text-xs h-8 flex items-center justify-center ${row.r100_p_pass === false ? 'invalid-reading' : 'text-[#103b63]'}`}>
+                        {row.p100 !== '' && row.p100 !== null && row.p100 !== undefined ? row.p100 : 'Not recorded'}
+                      </div>
+                    ) : (
+                      <input
+                        className={`input-field ${row.r100_p_pass === false ? 'invalid-reading' : ''}`}
+                        value={row.p100}
+                        onKeyDown={(e) => {
+                          if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                          if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                        }}
+                        onChange={(e) => onUpdate(ratioIdx, rowIndex, 'p100', e.target.value.replace(/[^0-9+\-.]/g, ''))}
+                        disabled={readOnly}
+                      />
+                    )}
                   </td>
                   <td className="input-cell">
-                    <input
-                      className={`input-field ${row.r25_r_pass === false ? 'invalid-reading' : ''}`}
-                      value={row.r25}
-                      onKeyDown={(e) => {
-                        if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                        if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                      }}
-                      onChange={(e) => onUpdate(ratioIdx, rowIndex, 'r25', e.target.value.replace(/[^0-9+\-.]/g, ''))}
-                      disabled={readOnly}
-                    />
+                    {readOnly ? (
+                      <div className={`p-2 text-center font-bold text-xs h-8 flex items-center justify-center ${row.r25_r_pass === false ? 'invalid-reading' : 'text-[#103b63]'}`}>
+                        {row.r25 !== '' && row.r25 !== null && row.r25 !== undefined ? row.r25 : 'Not recorded'}
+                      </div>
+                    ) : (
+                      <input
+                        className={`input-field ${row.r25_r_pass === false ? 'invalid-reading' : ''}`}
+                        value={row.r25}
+                        onKeyDown={(e) => {
+                          if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                          if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                        }}
+                        onChange={(e) => onUpdate(ratioIdx, rowIndex, 'r25', e.target.value.replace(/[^0-9+\-.]/g, ''))}
+                        disabled={readOnly}
+                      />
+                    )}
                   </td>
                   <td className="input-cell">
-                    <input
-                      className={`input-field ${row.r25_p_pass === false ? 'invalid-reading' : ''}`}
-                      value={row.p25}
-                      onKeyDown={(e) => {
-                        if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                        if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                      }}
-                      onChange={(e) => onUpdate(ratioIdx, rowIndex, 'p25', e.target.value.replace(/[^0-9+\-.]/g, ''))}
-                      disabled={readOnly}
-                    />
+                    {readOnly ? (
+                      <div className={`p-2 text-center font-bold text-xs h-8 flex items-center justify-center ${row.r25_p_pass === false ? 'invalid-reading' : 'text-[#103b63]'}`}>
+                        {row.p25 !== '' && row.p25 !== null && row.p25 !== undefined ? row.p25 : 'Not recorded'}
+                      </div>
+                    ) : (
+                      <input
+                        className={`input-field ${row.r25_p_pass === false ? 'invalid-reading' : ''}`}
+                        value={row.p25}
+                        onKeyDown={(e) => {
+                          if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
+                          if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
+                        }}
+                        onChange={(e) => onUpdate(ratioIdx, rowIndex, 'p25', e.target.value.replace(/[^0-9+\-.]/g, ''))}
+                        disabled={readOnly}
+                      />
+                    )}
                   </td>
                 </tr>
               ))}
