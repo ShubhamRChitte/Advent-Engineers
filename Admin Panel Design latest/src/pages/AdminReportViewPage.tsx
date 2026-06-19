@@ -380,16 +380,6 @@ export function AdminReportViewPage() {
                     <div className="report-section print:border-none print:pt-0">
                         <PTReportView transformer={transformer} order={orderData} onBack={handleBack} readOnly={true} />
                     </div>
-                
-                    <div className="pt-12 border-t-4 border-double border-gray-300 report-section print:border-none print:pt-0 print:break-before-page">
-                        <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2 print:hidden">
-                            <span className="w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center text-sm">2</span>
-                            Heating Test Report
-                        </h2>
-                        <Card className="p-0 overflow-hidden shadow-xl border-none print:shadow-none print:border-none print:p-0 bg-white">
-                            {renderHeatingReport()}
-                        </Card>
-                    </div>
                 </div>
             );
         }
@@ -408,16 +398,6 @@ export function AdminReportViewPage() {
                 <div className="report-section print:break-before-page" style={{ marginTop: 32 }}>
                     <h2 className="text-xl font-bold mb-4 text-gray-700 print:hidden">Primary Test Results</h2>
                     <SecondaryReportView transformer={transformer} stage="primary" onBack={handleBack} />
-                </div>
-
-                <div className="pt-12 border-t-4 border-double border-gray-300 report-section print:break-before-page">
-                    <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2 print:hidden">
-                        <span className="w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center text-sm">4</span>
-                        Heating Test Report
-                    </h2>
-                    <Card className="p-0 overflow-hidden shadow-xl border-none print:shadow-none print:border-none print:p-0 bg-white">
-                        {renderHeatingReport()}
-                    </Card>
                 </div>
 
                 {transformer.testHistory?.final_test && (
