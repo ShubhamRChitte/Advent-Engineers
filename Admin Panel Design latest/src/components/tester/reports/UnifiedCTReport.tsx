@@ -1,6 +1,5 @@
 import { 
   ReportHeader, 
-  ReportSectionTitle, 
   ReportSignatures, 
   formatReportDate,
   secondaryReportPrintStyles,
@@ -19,43 +18,7 @@ interface UnifiedCTReportProps {
 export function UnifiedCTReport({ transformer, order }: UnifiedCTReportProps) {
   const finalTest = transformer.testHistory?.final_test || {};
 
-  const polarityResult = finalTest.polarityResult || '';
-  const meggarPrimaryToSecondary = finalTest.meggarPrimaryToSecondary || '';
-  const meggarPrimaryToEarth = finalTest.meggarPrimaryToEarth || '';
-  const meggarSecondaryToEarth = finalTest.meggarSecondaryToEarth || '';
-  const meggarCoreToCore = finalTest.meggarCoreToCore || '';
-  const hvSecondaryWinding = finalTest.hvSecondaryWinding || '';
-  const hvPrimaryWinding = finalTest.hvPrimaryWinding || '';
-  const hvBetweenCore = finalTest.hvBetweenCore || '';
-  const ovitTest = finalTest.ovitTest || '';
 
-  const parseMeggar = (val: string) => {
-    if (!val) return null;
-    if (val.toLowerCase().includes('ok') || val.includes('>')) return 999999;
-    const parsed = parseFloat(val.replace(/[^0-9.]/g, ''));
-    return isNaN(parsed) ? null : parsed;
-  };
-
-  const m1 = parseMeggar(meggarPrimaryToSecondary);
-  const m2 = parseMeggar(meggarPrimaryToEarth);
-  const m3 = parseMeggar(meggarSecondaryToEarth);
-  const m4 = parseMeggar(meggarCoreToCore);
-
-  const isM1Fail = m1 !== null && m1 < 1000;
-  const isM2Fail = m2 !== null && m2 < 1000;
-  const isM3Fail = m3 !== null && m3 < 500;
-  const isM4Fail = m4 !== null && m4 < 200;
-
-  const renderStatus = (val: string, isFail?: boolean) => {
-    if (val === 'Fail' || isFail) return 'FAIL';
-    if (val === 'Pass' || (val && !isFail)) return 'PASS';
-    return 'Not recorded';
-  };
-
-  const renderValWithUnit = (val: string, unit: string) => {
-    if (!val || val.trim() === '') return 'Not recorded';
-    return `${val} ${unit}`;
-  };
 
   const coreDetails = order?.coreDetails || [];
   const typeCounts: Record<string, number> = {};
