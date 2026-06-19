@@ -5,14 +5,6 @@ import { ImageWithFallback } from '../../figma/ImageWithFallback';
 import { Edit2, Save } from 'lucide-react';
 import { Button } from '../../ui/button';
 
-interface AccuracyRow {
-  percentage: string;
-  ratioError100: string;
-  phaseError100: string;
-  ratioError25: string;
-  phaseError25: string;
-}
-
 interface Page3Props {
   reportNo: string;
   date: string;
@@ -28,9 +20,27 @@ interface Page3Props {
   authorisedByTitle: string;
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function uniqueIds(arr: any[], field = 'internalCoreNo') {
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const item of arr) {
+    const k = item[field];
+    if (k && !seen.has(k)) { seen.add(k); ids.push(k); }
+  }
+  return ids;
+}
+
+function fval(v: any) {
+  if (v === null || v === undefined || String(v).trim() === '') return '-';
+  return String(v);
+}
+
 export function CTPage3Results(props: Page3Props) {
   const [isEditing, setIsEditing] = React.useState(false);
-  
+
+  // ── Metering results (editable) ──────────────────────────────────────────
   const [meteringResults, setMeteringResults] = React.useState<any[]>(() => {
     if (props.reportData?.metering_results && props.reportData.metering_results.length > 0) {
       return props.reportData.metering_results;
@@ -86,6 +96,15 @@ export function CTPage3Results(props: Page3Props) {
     }
   }, [props.reportData, props.ctRatio]);
 
+  // ── Protection results (read-only from stored data) ─────────────────────
+  const protectionResults: any[] = props.reportData?.protection_results || [];
+  const protectionCoreIds = uniqueIds(protectionResults);
+
+  // ── PS results (read-only from stored data) ─────────────────────────────
+  const psResults: any[] = props.reportData?.ps_results || [];
+  const psCoreIds = uniqueIds(psResults);
+
+  // ── Editable metering row handler ────────────────────────────────────────
   const handleRowChange = (blockIdx: number, rowIdx: number, field: string, value: string) => {
     const newResults = [...meteringResults];
     const targetBlock = { ...newResults[blockIdx] };
@@ -109,9 +128,9 @@ export function CTPage3Results(props: Page3Props) {
     <div className="ct-page" style={{ position: 'relative' }}>
       {/* Edit Toggle Button */}
       <div className="no-print" style={{ position: 'absolute', top: '-40px', right: '0', zIndex: 100 }}>
-        <Button 
-          variant={isEditing ? "default" : "outline"} 
-          size="sm" 
+        <Button
+          variant={isEditing ? "default" : "outline"}
+          size="sm"
           onClick={() => setIsEditing(!isEditing)}
           className="gap-2 shadow-md"
         >
@@ -176,8 +195,8 @@ export function CTPage3Results(props: Page3Props) {
       <div className="ct-test-section">
         <div className="ct-test-heading"><strong>2. Dry Power frequency withstand test on primary winding:</strong> (CI No: 7.3.1 of IS 16227 (Part 1): 2016)</div>
         <div className="ct-test-para" style={{ marginLeft: '15px' }}>
-          The power frequency voltage of 28KV (rms) was applied between the primary winding terminals & earth,
-          for one minute duration. The secondary winding terminals & base plate were connected together to earth.
+          The power frequency voltage of 28KV (rms) was applied between the primary winding terminals &amp; earth,
+          for one minute duration. The secondary winding terminals &amp; base plate were connected together to earth.
           The sample withstood the test voltage without any disruptive discharge.
         </div>
         <div className="ct-remark">REMARK: Confirms</div>
@@ -188,7 +207,7 @@ export function CTPage3Results(props: Page3Props) {
         <div className="ct-test-heading"><strong>3. Dry power frequency withstand test on secondary winding:</strong> (CI No: 7.3.4 of IS 16227 (Part 1): 2016)</div>
         <div className="ct-test-para" style={{ marginLeft: '15px' }}>
           The power frequency voltage of 3KV (rms) was applied between the secondary winding terminals, for one
-          minute duration. The primary windings terminals & base plate were connected together to earth. The sample
+          minute duration. The primary windings terminals &amp; base plate were connected together to earth. The sample
           withstood the test voltage without any disruptive discharge.
         </div>
         <div className="ct-remark">REMARK: Confirms</div>
@@ -210,6 +229,7 @@ export function CTPage3Results(props: Page3Props) {
           )}
         </div>
 
+        {/* ── Metering Cores ────────────────────────────────────────────── */}
         <table className="ct-main-table" style={{ marginTop: '5px' }}>
           <colgroup>
             <col style={{ width: '20%' }} />
@@ -285,6 +305,121 @@ export function CTPage3Results(props: Page3Props) {
             ))}
           </tbody>
         </table>
+
+        {/* ── Protection Cores (read-only, from stored final test data) ──── */}
+        {protectionCoreIds.length > 0 && (
+          <>
+            <div className="ct-test-subheading" style={{ marginTop: '8px' }}>
+              B. Test for protection current transformer
+            </div>
+            <table className="ct-main-table" style={{ marginTop: '4px' }}>
+              <colgroup>
+                <col style={{ width: '18%' }} />
+                <col style={{ width: '16%' }} />
+                <col style={{ width: '16%' }} />
+                <col style={{ width: '16%' }} />
+                <col style={{ width: '16%' }} />
+                <col style={{ width: '18%' }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th className="ct-th">Core / Ratio</th>
+                  <th className="ct-th">Ratio Error<br />@ 100% (%)</th>
+                  <th className="ct-th">Phase Error<br />(min)</th>
+                  <th className="ct-th">Resistance<br />(Ω)</th>
+                  <th className="ct-th">ALF</th>
+                  <th className="ct-th">Sec. Limiting<br />Voltage (V)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {protectionCoreIds.map((coreId, cIdx) => {
+                  const rows = protectionResults.filter(r => r.internalCoreNo === coreId);
+                  return (
+                    <React.Fragment key={coreId}>
+                      <tr>
+                        <td colSpan={6} className="ct-td" style={{ fontWeight: 'bold', textAlign: 'center', background: '#f0f0f0', textTransform: 'uppercase' }}>
+                          Protection Core {cIdx + 1} (Core ID: {coreId})
+                        </td>
+                      </tr>
+                      {rows.length > 0 ? rows.map((row: any, ri: number) => (
+                        <tr key={ri}>
+                          <td className="ct-td ct-center">{fval(row.ratioValue || row.ratio)}</td>
+                          <td className="ct-td ct-center">{fval(row.ratioError100)}</td>
+                          <td className="ct-td ct-center">{fval(row.phaseError)}</td>
+                          <td className="ct-td ct-center">{fval(row.resistance)}</td>
+                          <td className="ct-td ct-center">{fval(row.alf)}</td>
+                          <td className="ct-td ct-center">{fval(row.secondaryLimitingVoltage ?? row.secondaryLimitingVtg)}</td>
+                        </tr>
+                      )) : (
+                        <tr>
+                          <td colSpan={6} className="ct-td ct-center" style={{ color: '#888', fontStyle: 'italic' }}>No data recorded</td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {/* ── PS Cores (read-only, from stored final test data) ─────────── */}
+        {psCoreIds.length > 0 && (
+          <>
+            <div className="ct-test-subheading" style={{ marginTop: '8px' }}>
+              C. Test for PS (Special Purpose) current transformer
+            </div>
+            <table className="ct-main-table" style={{ marginTop: '4px' }}>
+              <colgroup>
+                <col style={{ width: '18%' }} />
+                <col style={{ width: '16%' }} />
+                <col style={{ width: '16%' }} />
+                <col style={{ width: '16%' }} />
+                <col style={{ width: '16%' }} />
+                <col style={{ width: '18%' }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th className="ct-th">Core / Ratio</th>
+                  <th className="ct-th">Turn Ratio<br />Error @ 100% (%)</th>
+                  <th className="ct-th">Resistance<br />(Ω)</th>
+                  <th className="ct-th">Vk (V)</th>
+                  <th className="ct-th">Iex at Vk<br />(mA)</th>
+                  <th className="ct-th">Iex at 1.1Vk<br />(mA)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {psCoreIds.map((coreId, cIdx) => {
+                  const rows = psResults.filter(r => r.internalCoreNo === coreId);
+                  return (
+                    <React.Fragment key={coreId}>
+                      <tr>
+                        <td colSpan={6} className="ct-td" style={{ fontWeight: 'bold', textAlign: 'center', background: '#f0f0f0', textTransform: 'uppercase' }}>
+                          PS Core {cIdx + 1} (Core ID: {coreId})
+                        </td>
+                      </tr>
+                      {rows.length > 0 ? rows.map((row: any, ri: number) => (
+                        <tr key={ri}>
+                          <td className="ct-td ct-center">{fval(row.ratioValue || row.ratio)}</td>
+                          <td className="ct-td ct-center">{fval(row.turnRatioError)}</td>
+                          <td className="ct-td ct-center">{fval(row.resistance)}</td>
+                          <td className="ct-td ct-center">{fval(row.vkVal ?? row.vk)}</td>
+                          <td className="ct-td ct-center">{fval(row.iexVk)}</td>
+                          <td className="ct-td ct-center">{fval(row.iex11Vk)}</td>
+                        </tr>
+                      )) : (
+                        <tr>
+                          <td colSpan={6} className="ct-td ct-center" style={{ color: '#888', fontStyle: 'italic' }}>No data recorded</td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </>
+        )}
+
         <div className="ct-remark">REMARK: Confirms</div>
       </div>
 
@@ -292,7 +427,7 @@ export function CTPage3Results(props: Page3Props) {
       <div className="ct-test-section">
         <div className="ct-test-heading"><strong>5. Inter-turn over voltage test:</strong> (CI No: 7.3.204 of IS 16227 (Part 2): 2016)</div>
         <div className="ct-test-para" style={{ marginLeft: '15px' }}>
-          With secondary winding connected to oscilloscope, a substantially sinusoidal current at 50 HZ frequency &
+          With secondary winding connected to oscilloscope, a substantially sinusoidal current at 50 HZ frequency &amp;
           of rms value equal to rated primary current (i.e. 200A) was applied for 60 seconds to the primary winding.
           The sample withstood the test voltage for secondary terminals (i.e S1-S2) of secondary side for 60 sec.
         </div>
