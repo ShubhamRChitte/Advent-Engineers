@@ -536,10 +536,19 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
                         <Button
                           size="sm"
                           onClick={() => onStartTest(transformer)}
-                          className="bg-blue-600 hover:bg-blue-700"
+                          className={transformer.status === 'completed' ? "bg-green-600 hover:bg-green-700 font-medium" : "bg-blue-600 hover:bg-blue-700"}
                           disabled={transformer.currentStage === 'admin_review'}
                         >
-                          <PlayCircle className="w-4 h-4 mr-2" /> Start Test
+                          {transformer.status === 'completed' ? (
+                            <>
+                              <FileText className="w-4 h-4 mr-2" /> View
+                            </>
+                          ) : (
+                            <>
+                              <PlayCircle className="w-4 h-4 mr-2" />
+                              {transformer.status === 'pending' ? 'Start Test' : 'Continue Test'}
+                            </>
+                          )}
                         </Button>
 
                         {transformer.canApprove && (

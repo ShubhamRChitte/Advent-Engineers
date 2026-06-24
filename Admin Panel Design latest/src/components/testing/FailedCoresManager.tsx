@@ -513,7 +513,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
             <h3 className="text-lg font-bold mb-4">All Failed Cores List</h3>
             <div className="overflow-x-auto w-full">
               <table className="w-full text-sm border-separate" style={{ borderSpacing: 0 }}>
-                <thead className="sticky top-0 z-30 shadow-md ring-1 ring-gray-200 bg-white">
+                <thead className="bg-white">
                   {renderChipsRow(12, ['orderId', 'jobId', 'client', 'coreType', 'vendorNo', 'failureStage', 'failureReason', 'status'])}
                   <tr className="bg-gray-50">
                     <th className="p-2 w-10 bg-gray-50 border-b border-gray-200">
@@ -649,7 +649,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                   </div>
                   <div className="overflow-x-auto w-full">
                     <table className="w-full text-sm border-separate" style={{ borderSpacing: 0 }}>
-                      <thead className="sticky top-0 z-30 shadow-md ring-1 ring-gray-200 bg-white">
+                      <thead className="bg-white">
                         {renderChipsRow(11, ['orderId', 'jobId', 'client', 'coreType', 'failureStage', 'failureReason', 'status'])}
                         <tr className="bg-gray-50">
                           <th className="p-2 w-10 bg-gray-50 border-b border-gray-200">
@@ -778,7 +778,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                   </div>
                   <div className="overflow-x-auto w-full">
                     <table className="w-full text-sm border-separate" style={{ borderSpacing: 0 }}>
-                      <thead className="sticky top-0 z-30 shadow-md ring-1 ring-gray-200 bg-white">
+                      <thead className="bg-white">
                         {renderChipsRow(10, ['coreType', 'vendorNo', 'failureStage', 'failureReason', 'testValues', 'status'])}
                         <tr className="bg-gray-50">
                           <th className="p-2 w-10 bg-gray-50 border-b border-gray-200">

@@ -66,7 +66,8 @@ export function HeatingTransformersList({ order, onStartTest, onBack }: HeatingT
   const handleStartHeating = async (transformer: Transformer) => {
     // If completed or approved, open the full-screen report view (Static Page)
     if (transformer.status === 'completed' || transformer.status === 'approved') {
-      window.open(`/admin/report/${transformer._id}?type=heating`, '_blank');
+      const from = encodeURIComponent(window.location.href);
+      window.location.href = `/admin/report/${transformer._id}?type=heating&from=${from}`;
       return;
     }
 

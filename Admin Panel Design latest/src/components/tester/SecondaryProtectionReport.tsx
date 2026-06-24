@@ -1,5 +1,6 @@
 import axios from '@/utils/axiosConfig';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { ArrowLeft, Save, Printer, AlertTriangle } from 'lucide-react';
@@ -149,6 +150,12 @@ export function SecondaryProtectionReport({
       r.internalCoreNo === coreId || r.coreId === coreId
     )
   ));
+
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Advent_Engineers_Test_Report_${transformer.uniqueId}`,
+  });
 
 
   // Use ratios from the transformer object, falling back to a default if empty
@@ -320,11 +327,28 @@ export function SecondaryProtectionReport({
     const fetchLatestData = async () => {
       try {
         const res = await axios.get(`/transformers/${transformer.uniqueId}`, { withCredentials: true });
-        const freshTransformer = res.data;
+        const freshTransformer = res.data.data || res.data;
 
         let myResults = [];
         
-        const shouldLoadFromTreated = isFailedSection && failedStatus === 'TREATED' && (isFailedCore || hasBeenRetested);
+        let currentFailedStatus = failedStatus;
+        let currentRetestHistory = retestHistory;
+
+        if (isFailedSection && failedTransformerId) {
+          try {
+            const failRes = await axios.get(`/failed-transformers/${failedTransformerId}`, { withCredentials: true });
+            if (failRes.data?.success && failRes.data?.data) {
+              currentFailedStatus = failRes.data.data.status;
+              currentRetestHistory = failRes.data.data.retestHistory;
+            }
+          } catch (e) {
+            console.error("Failed to fetch latest failed record", e);
+          }
+        }
+
+        const currentHasBeenRetested = currentRetestHistory && currentRetestHistory.length > 0;
+        const shouldLoadFromTreated = isFailedSection && currentFailedStatus === 'TREATED' && (isFailedCore || currentHasBeenRetested);
+        
         if (shouldLoadFromTreated) {
           const secHistory = freshTransformer.testHistory?.secondary_test;
           if (secHistory?.protection_results?.length > 0) {
@@ -585,15 +609,14 @@ export function SecondaryProtectionReport({
       let response;
       if (isFailedSection && failedTransformerId) {
         // Save to retest-save endpoint
-        response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/${failedTransformerId}/retest-save`, {
+        response = await axios.put(`/failed-transformers/${failedTransformerId}/retest-save`, {
             treatedReadings: payload.protection_results,
             treatedBy: testerName,
             remarks: "Treated After Primary Failure via Protection Report",
             coreType: 'protection'
         }, { withCredentials: true });
       } else {
-        const baseUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
-        const endpoint = `${baseUrl}/transformer-${stage}-protection-tests`;
+        const endpoint = `/transformer-${stage}-protection-tests`;
         console.log(`handleDatabaseSave: Sending Request to ${endpoint}...`);
 
 
@@ -816,7 +839,7 @@ export function SecondaryProtectionReport({
     <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll">
       <style>{secondaryReportPrintStyles}</style>
 
-      <div className="print-container w-[210mm] min-w-[210mm] secondary-print-page">
+      <div className="print-container w-[210mm] min-w-[210mm] print:w-full print:min-w-0 print:max-w-full secondary-print-page">
         {!readOnly && (
           <div className="flex items-center justify-between no-print mb-4 w-full">
             <div className="flex gap-2">
@@ -833,14 +856,14 @@ export function SecondaryProtectionReport({
                   <AlertTriangle className="w-4 h-4" /> Add to Failed Transformer
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
+              <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
                 <Printer className="w-4 h-4" /> Print
               </Button>
             </div>
           </div>
         )}
 
-        <div id="secondary-printable-report" className="report-wrapper secondary-report-wrapper">
+        <div ref={printRef} id="secondary-printable-report" className="report-wrapper secondary-report-wrapper">
           <ReportHeader
             stage={stage}
             date={formatReportDate(transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate)}

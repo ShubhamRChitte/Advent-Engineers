@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Download, ArrowLeft, Save, Loader2, Printer } from 'lucide-react';
@@ -65,6 +66,17 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
     role:          'core-tester',
     coreCount:     order.coresRequired || 1,
     enabled:       !!order._id
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [reportDate, setReportDate] = useState(() => {
+    const today = new Date();
+    return today.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  });
+
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
   });
 
   // Auto-generate rows based on Assignments
@@ -333,16 +345,7 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
             size: A4 portrait;
             margin: 10mm;
           }
-          body * {
-            visibility: hidden;
-          }
-          #print-section, #print-section * {
-            visibility: visible;
-          }
           #print-section {
-            position: absolute;
-            left: 0;
-            top: 0;
             width: 190mm;
           }
           input, select {
@@ -373,7 +376,7 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
           <Button onClick={handleSave} variant="outline">
             <Save className="w-4 h-4 mr-2" /> Save
           </Button>
-          <Button onClick={() => window.print()} variant="outline" className="bg-slate-800 text-white hover:bg-slate-900 border-none">
+          <Button onClick={handlePrint} variant="outline" className="bg-slate-800 text-white hover:bg-slate-900 border-none">
             <Printer className="w-4 h-4 mr-2" /> Print
           </Button>
           <Button onClick={handleDownload} className="bg-red-600 hover:bg-red-700">
@@ -385,7 +388,8 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
       <Card className="p-0 overflow-hidden shadow-xl border-none">
 
         {/* We use the extracted component here! */}
-        <PrintableCoreReport
+        <div ref={printRef}>
+          <PrintableCoreReport
           order={order}
           coreData={{
             coreName: toroidalType,
@@ -411,14 +415,14 @@ export function CoreTestingReport({ order, onBack }: CoreTestingReportProps) {
             tableData: coreTests
           }}
         />
-
-        {/* Download Button at Bottom (Screen Only) */}
+        </div>
+      </Card>
+      {/* Download Button at Bottom (Screen Only) */}
         <div className="flex justify-end p-6 no-print">
           <Button onClick={handleDownload} size="sm" className="bg-red-600 hover:bg-red-700">
             <Download className="w-4 h-4" />
           </Button>
         </div>
-      </Card>
 
       {/* Approve Section (Screen Only) */}
       <Card className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 no-print">

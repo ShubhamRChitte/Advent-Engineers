@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -142,10 +143,10 @@ export function ToroidalCoreTestingForm({
     onComplete();
   };
 
-  const handlePrintReport = () => {
-    toast.info('Printing report...');
-    window.print();
-  };
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrintReport = useReactToPrint({
+    contentRef: printRef,
+  });
 
   const getCurrentDate = () => {
     return new Date().toLocaleDateString('en-GB');
@@ -156,7 +157,7 @@ export function ToroidalCoreTestingForm({
   };
 
   return (
-    <div className="space-y-6 print:space-y-4">
+    <div ref={printRef} className="space-y-6 print:space-y-4">
       {/* Header */}
       <Card className="p-6 print:shadow-none">
         <div className="flex items-center justify-between mb-6 print:mb-4">

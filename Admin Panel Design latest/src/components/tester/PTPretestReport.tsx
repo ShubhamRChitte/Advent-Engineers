@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import axios from '@/utils/axiosConfig';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
@@ -102,6 +103,11 @@ export function PTPretestReport({ order, transformer, onBack, user, noTimer = fa
   const [activeCores, setActiveCores] = useState<string[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [coreClassesMap, setCoreClassesMap] = useState<Record<string, string>>({});
+
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+  });
 
   const [dbMeteringLimits, setDbMeteringLimits] = useState<any>(null);
 
@@ -691,12 +697,6 @@ export function PTPretestReport({ order, transformer, onBack, user, noTimer = fa
               size: A4 portrait;
               margin: 0;
             }
-            body * {
-              visibility: hidden !important;
-            }
-            .pt-pretest-print-wrapper, .pt-pretest-print-wrapper * {
-              visibility: visible !important;
-            }
             .pt-pretest-print-wrapper {
               position: static !important;
               left: 0 !important;
@@ -795,7 +795,7 @@ export function PTPretestReport({ order, transformer, onBack, user, noTimer = fa
                     </Button>
                 )}
 
-                <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
+                <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
                     <Printer className="w-4 h-4" /> Print
                 </Button>
             </div>
@@ -819,8 +819,8 @@ export function PTPretestReport({ order, transformer, onBack, user, noTimer = fa
             </div>
         )}
 
-        {/* Hidden print layout — only shown on window.print() */}
-        <div className="pt-pretest-print-wrapper" style={{ position: 'absolute', left: '-9999px', top: 0, width: '210mm', overflow: 'hidden' }}>
+        {/* Hidden print layout — used by react-to-print */}
+        <div ref={printRef} className="pt-pretest-print-wrapper hidden print:block" style={{ width: '210mm' }}>
             {transformersData.map((t) => (
                 <PTPretestPrintReport
                     key={t._id}

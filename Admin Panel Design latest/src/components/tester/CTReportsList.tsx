@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -43,6 +44,9 @@ export function CTReportsList({ onBack }: CTReportsListProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedTester, setSelectedTester] = useState<string>('All');
     const printRef = useRef<HTMLDivElement>(null);
+    const handlePrint = useReactToPrint({
+        contentRef: printRef,
+    });
 
     // Get Admin status
     const userStr = localStorage.getItem('user');
@@ -100,7 +104,7 @@ export function CTReportsList({ onBack }: CTReportsListProps) {
                     </Button>
                     <div className="flex gap-2">
                         <Badge className="bg-green-100 text-green-700 mt-1 self-center">Completed</Badge>
-                        <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
+                        <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
                             <Printer className="w-4 h-4" /> Print Report
                         </Button>
                     </div>

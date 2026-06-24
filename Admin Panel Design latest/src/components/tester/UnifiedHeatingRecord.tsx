@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Save, ArrowLeft, Loader2, CheckCircle, Clock, Printer } from 'lucide-react';
@@ -334,6 +335,11 @@ export function UnifiedHeatingRecord({
   readOnly
 }: UnifiedHeatingRecordProps) {
 
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+  });
+
   // Validation strictly for the current transformer's steps
   const allFieldsFilled = React.useMemo(() => {
     return record.processSteps.every(step => 
@@ -369,7 +375,7 @@ export function UnifiedHeatingRecord({
           <ArrowLeft className="w-4 h-4 mr-2" /> Back
         </Button>
         <div className="flex gap-3">
-          <Button onClick={() => window.print()} variant="outline" size="sm" className="border-[#003a70] text-[#003a70] hover:bg-blue-50">
+          <Button onClick={handlePrint} variant="outline" size="sm" className="border-[#003a70] text-[#003a70] hover:bg-blue-50">
             <Printer className="w-4 h-4 mr-2" />
             Print Report
           </Button>
@@ -395,7 +401,7 @@ export function UnifiedHeatingRecord({
 
 
 
-      <div id="printable-report" className="max-w-6xl mx-auto pb-24 space-y-4 print:block">
+      <div ref={printRef} id="printable-report" className="max-w-6xl mx-auto pb-24 space-y-4 print:block">
         <Card className="bg-white shadow-md rounded-none border border-gray-400 overflow-hidden">
           <SheetHeader />
           <SheetTitle voltage={voltage} type={type} />

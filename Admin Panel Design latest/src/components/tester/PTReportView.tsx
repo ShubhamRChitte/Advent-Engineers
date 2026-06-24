@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { Input } from '../ui/input';
@@ -10,6 +12,11 @@ interface PTReportViewProps {
 
 export function PTReportView({ transformer, order, onBack, readOnly = false }: PTReportViewProps & { readOnly?: boolean }) {
   const reportData = transformer?.testHistory?.pt_test || {};
+  
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+  });
 
   // Find if Config B (1 Metering, 2 Protection)
   let countMetering = 0;
@@ -34,7 +41,7 @@ export function PTReportView({ transformer, order, onBack, readOnly = false }: P
                     <ArrowLeft className="w-4 h-4" />
                     Back
                 </Button>
-                <Button onClick={() => window.print()} className="bg-[#003a70] hover:bg-[#002850] gap-2">
+                <Button onClick={handlePrint} className="bg-[#003a70] hover:bg-[#002850] gap-2">
                     <Printer className="w-4 h-4" />
                     Print Report
                 </Button>
@@ -42,7 +49,7 @@ export function PTReportView({ transformer, order, onBack, readOnly = false }: P
         )}
 
         {/* PRINTABLE REPORT FORMAT */}
-        <div className="bg-white p-8 rounded-lg border border-gray-300 shadow-sm max-w-[800px] mx-auto text-sm" id="printable-report">
+        <div ref={printRef} className="bg-white p-8 rounded-lg border border-gray-300 shadow-sm max-w-[800px] mx-auto text-sm" id="printable-report">
             
             {/* Header Title */}
             <div className="text-center mb-6 border-b-2 border-black pb-2">

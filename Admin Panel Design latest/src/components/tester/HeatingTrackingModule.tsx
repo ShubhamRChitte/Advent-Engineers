@@ -572,7 +572,10 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => window.open(`/admin/report/${t._id}?type=heating`, '_blank')}
+                                onClick={() => {
+                                  const from = encodeURIComponent(window.location.href);
+                                  window.location.href = `/admin/report/${t._id}?type=heating&from=${from}`;
+                                }}
                                 className="border-green-600 text-green-600 hover:bg-green-50 gap-2 font-bold"
                               >
                                 <FileText className="w-4 h-4" />

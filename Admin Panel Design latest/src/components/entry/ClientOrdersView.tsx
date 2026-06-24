@@ -54,7 +54,23 @@ export function ClientOrdersView({
   customDateFrom,
   customDateTo
 }: ClientOrdersViewProps) {
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('admin_reports_selectedOrder');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      console.error('Error parsing selectedOrder from sessionStorage', e);
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    if (selectedOrder) {
+      sessionStorage.setItem('admin_reports_selectedOrder', JSON.stringify(selectedOrder));
+    } else {
+      sessionStorage.removeItem('admin_reports_selectedOrder');
+    }
+  }, [selectedOrder]);
 
   // Sample orders for the client
   const [allOrders, setAllOrders] = useState<Order[]>([]);

@@ -18,11 +18,9 @@ const PRINT_STYLE = `
   @page { size: A4 portrait; margin: 0; }
   @media print {
     html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; }
-    body * { visibility: hidden !important; }
     /* Force absolute positioning on print so sidebar/header margins don't offset the page */
-    .pt-print-wrapper { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; margin: 0 !important; }
-    .cr-print-root, .cr-print-root * { visibility: visible !important; }
-    .cr-print-root { padding: 12mm 14mm !important; margin: 0 auto !important; box-shadow: none !important; border: none !important; border-radius: 0 !important; }
+    .pt-print-wrapper { position: relative !important; width: 100% !important; margin: 0 auto !important; }
+    .cr-print-root { padding: 12mm 14mm !important; margin: 0 auto !important; box-shadow: none !important; border: none !important; border-radius: 0 !important; width: 100% !important; max-width: 100% !important; }
     .screen-only { display: none !important; }
     .no-print { display: none !important; }
     .cr-page { page-break-after: always; page-break-inside: avoid; display: flex; flex-direction: column; min-height: 275mm; }

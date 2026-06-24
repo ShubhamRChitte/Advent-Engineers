@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { CoreTestingOrder } from './CoreTestingOrders';
@@ -22,12 +24,13 @@ interface CoreLabelsPrintProps {
 }
 
 export function CoreLabelsPrint({ cores, order, coreType, onBack }: CoreLabelsPrintProps) {
-  const handlePrint = () => {
-    window.print();
-  };
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+  });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div ref={printRef} className="min-h-screen bg-gray-50">
       {/* Header - Hidden on print */}
       <div className="no-print bg-white border-b sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">

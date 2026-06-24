@@ -24,8 +24,6 @@ const STYLE = `
       padding: 0;
     }
 
-    body * { visibility: hidden !important; }
-
     /* Bring the print wrapper back on-screen */
     .pt-print-wrapper {
       position: static !important;
@@ -33,12 +31,6 @@ const STYLE = `
       top: 0 !important;
       width: 100% !important;
       overflow: visible !important;
-    }
-
-    /* Make the print root and all its children visible */
-    .pt-final-print-root,
-    .pt-final-print-root * {
-      visibility: visible !important;
     }
 
     /* Add page margins via padding on the root (since @page margin is 0) */

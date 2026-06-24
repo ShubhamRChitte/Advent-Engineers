@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
 import { Printer } from 'lucide-react';
 import { 
@@ -17,6 +19,12 @@ interface FinalQAReportProps {
 
 export function FinalQAReport({ transformer, testerName, mode = 'standalone' }: FinalQAReportProps) {
   const finalTest = transformer.testHistory?.final_test || {};
+
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+  });
+
   const order = transformer.fullOrder || transformer.orderId;
 
   const polarityResult = finalTest.polarityResult || '';
@@ -190,17 +198,17 @@ export function FinalQAReport({ transformer, testerName, mode = 'standalone' }: 
         }
       `}</style>
 
-      <div className="print-container w-[210mm] min-w-[210mm] secondary-print-page">
+      <div className="print-container w-[210mm] min-w-[210mm] print:w-full print:min-w-0 print:max-w-full secondary-print-page">
         {/* Print Controls (Screen only) */}
         <div className="flex items-center justify-between no-print mb-4 w-full px-2">
           <div></div>
-          <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
+          <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
             <Printer className="w-4 h-4" />
             Print
           </Button>
         </div>
 
-        <div id="secondary-printable-report" className="report-wrapper secondary-report-wrapper">
+        <div ref={printRef} id="secondary-printable-report" className="report-wrapper secondary-report-wrapper">
           <ReportHeader
             stage="final"
             date={formatReportDate(finalTest.reportDate)}

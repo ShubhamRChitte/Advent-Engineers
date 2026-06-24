@@ -190,7 +190,7 @@ export const secondaryReportPrintStyles = `
   .report-wrapper {
     background: #fff;
     width: 210mm;
-    min-height: 297mm;
+    min-height: auto;
     padding: 10mm 10mm;
     margin: 0 auto;
     color: #1F2937;
@@ -633,28 +633,18 @@ export const secondaryReportPrintStyles = `
     html,
     body {
       background: #ffffff !important;
-      width: 210mm;
-      min-height: 297mm;
+      width: 100% !important;
+      min-height: auto;
       margin: 0 !important;
       padding: 0 !important;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
-    body * {
-      visibility: hidden;
-    }
-
-    .secondary-print-page,
-    .secondary-print-page * {
-      visibility: visible !important;
-    }
-
     .secondary-print-page {
-      position: absolute !important;
-      left: 0 !important;
-      top: 0 !important;
-      width: 190mm !important;
+      position: relative !important;
+      width: 100% !important;
+      max-width: 100% !important;
       min-height: auto;
       margin: 0 auto !important;
       padding: 0 !important;
@@ -665,7 +655,7 @@ export const secondaryReportPrintStyles = `
 
     .secondary-report-wrapper {
       width: 100% !important;
-      max-width: 190mm !important;
+      max-width: 100% !important;
       margin: 0 auto !important;
       padding: 0 !important;
       box-sizing: border-box;

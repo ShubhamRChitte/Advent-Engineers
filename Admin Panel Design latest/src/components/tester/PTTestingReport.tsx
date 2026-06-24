@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import axios from '@/utils/axiosConfig';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
@@ -99,6 +100,15 @@ export function PTTestingReport({ order, transformer, onBack, user, noTimer = fa
 
   const [transformersData, setTransformersData] = useState<any[]>([]);
   const [isApproving, setIsApproving] = useState(false);
+
+  const [retestHistory, setRetestHistory] = useState<any>({});
+
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+  });
+
+  const [limitsLoading, setLimitsLoading] = useState(true);
   const [activeCores, setActiveCores] = useState<string[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [coreClassesMap, setCoreClassesMap] = useState<Record<string, string>>({});
@@ -752,19 +762,6 @@ export function PTTestingReport({ order, transformer, onBack, user, noTimer = fa
               size: A4 portrait;
               margin: 10mm;
             }
-            body * {
-              visibility: hidden;
-            }
-            .print-container, .print-container * {
-              visibility: visible;
-            }
-            .print-container {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100%;
-              background-color: white !important;
-            }
             .print-page {
               width: 100%;
               box-sizing: border-box;
@@ -877,7 +874,7 @@ export function PTTestingReport({ order, transformer, onBack, user, noTimer = fa
                   </Button>
                 )}
 
-                <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
+                <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
                     <Printer className="w-4 h-4" /> Print Report
                 </Button>
             </div>
@@ -901,8 +898,8 @@ export function PTTestingReport({ order, transformer, onBack, user, noTimer = fa
             </div>
         )}
 
-        {/* Hidden print layout — only shown on window.print() */}
-        <div className="pt-print-wrapper" style={{ position: 'absolute', left: '-9999px', top: 0, width: '210mm', overflow: 'hidden' }}>
+        {/* Hidden print layout — used by react-to-print */}
+        <div ref={printRef} className="pt-print-wrapper hidden print:block" style={{ width: '210mm' }}>
             {transformersData.map((t) => (
                 <PTFinalPrintReport
                     key={t._id}

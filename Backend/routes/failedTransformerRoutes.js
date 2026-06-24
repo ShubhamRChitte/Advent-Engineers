@@ -377,7 +377,40 @@ router.put('/:id/status', isAuthenticated, async (req, res) => {
         if (status === "TREATED" || status === "RETESTED" || status === "RESOLVED") {
             const transformer = await TransformerModel.findById(record.transformerId);
             if (transformer) {
-                transformer.currentStage = record.stage === "PRIMARY_TESTING" ? "primary" : "secondary";
+                const targetStage = record.stage === "PRIMARY_TESTING" ? "primary" : "secondary";
+                transformer.currentStage = targetStage;
+                
+                // Clear history for the target stage so it's tested fresh
+                if (targetStage === 'primary') {
+                    transformer.testHistory.primary_test = {
+                        metering_results: [],
+                        ps_results: [],
+                        protection_results: [],
+                        tester: null,
+                        status: 'Pending',
+                        timestamp: null
+                    };
+                    transformer.testHistory.final_test = {
+                        metering_results: [],
+                        ps_results: [],
+                        protection_results: [],
+                        status: 'Pending',
+                        tester: null,
+                        timestamp: null
+                    };
+                    transformer.markModified('testHistory');
+                } else if (targetStage === 'final') {
+                    transformer.testHistory.final_test = {
+                        metering_results: [],
+                        ps_results: [],
+                        protection_results: [],
+                        status: 'Pending',
+                        tester: null,
+                        timestamp: null
+                    };
+                    transformer.markModified('testHistory');
+                }
+                
                 await transformer.save();
             }
         }

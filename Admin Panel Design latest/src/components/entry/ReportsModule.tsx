@@ -31,7 +31,25 @@ interface ReportsModuleProps {
 }
 
 export function ReportsModule({ fromAdmin = false }: ReportsModuleProps) {
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('admin_reports_selectedClient');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      console.error('Error parsing selectedClient from sessionStorage', e);
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    if (selectedClient) {
+      sessionStorage.setItem('admin_reports_selectedClient', JSON.stringify(selectedClient));
+      localStorage.setItem('system_admin_activeView', 'reports');
+      localStorage.setItem('admin_activeView', 'reports');
+    } else {
+      sessionStorage.removeItem('admin_reports_selectedClient');
+    }
+  }, [selectedClient]);
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState<'3months' | '1month' | 'custom'>('3months');
   const [customDateFrom, setCustomDateFrom] = useState('');

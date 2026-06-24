@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
 import { ArrowLeft, Save, Printer, AlertTriangle } from 'lucide-react';
 import { FinalTransformer } from './FinalTransformersList';
@@ -206,9 +207,10 @@ export function FinalTestReport({
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+  });
 
   const accuracyClass = (transformer.cores && transformer.cores.map((c: any) => c.accuracyClass).filter(Boolean).join('/')) || 'N/A';
 
@@ -226,17 +228,8 @@ export function FinalTestReport({
           <style>{secondaryReportPrintStyles}</style>
           <style>{`
             @media print {
-              body * {
-                visibility: hidden !important;
-              }
-              .secondary-print-page,
-              .secondary-print-page * {
-                visibility: visible !important;
-              }
               .secondary-print-page {
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
+                position: relative !important;
                 width: 190mm !important;
                 min-height: auto;
                 margin: 0 auto !important;
@@ -273,7 +266,7 @@ export function FinalTestReport({
             }
           `}</style>
 
-          <div className="print-container w-[210mm] min-w-[210mm] secondary-print-page">
+          <div className="print-container w-[210mm] min-w-[210mm] print:w-full print:min-w-0 print:max-w-full secondary-print-page">
             {/* Top Navigation / Controls */}
             <div className="flex items-center justify-between no-print mb-4 w-full px-2">
               <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
@@ -289,7 +282,7 @@ export function FinalTestReport({
             </div>
 
             {/* A4 Report Wrapper */}
-            <div id="final-printable-report" className="report-wrapper secondary-report-wrapper">
+            <div ref={printRef} id="final-printable-report" className="report-wrapper secondary-report-wrapper">
               {/* Header */}
               <header className="ae-report-header secondary-report-header">
                 <div className="ae-logo-panel">

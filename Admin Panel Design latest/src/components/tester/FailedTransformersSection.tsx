@@ -84,7 +84,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       const orderId = item.orderId?._id || item.orderId;
 
 
-      const orderRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}`, { withCredentials: true });
+      const orderRes = await axios.get(`/orders/${orderId}`, { withCredentials: true });
 
       const order = orderRes.data?.data || item.orderId;
 
@@ -188,7 +188,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
           const orderId = replacingCoreItem.orderId?._id || replacingCoreItem.orderId;
 
 
-          const orderRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}`, { withCredentials: true });
+          const orderRes = await axios.get(`/orders/${orderId}`, { withCredentials: true });
 
           const order = orderRes.data?.data || replacingCoreItem.orderId;
 
@@ -229,7 +229,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
           const transformerObj = retestingTransformer.transformerId;
           if (!orderId || !transformerObj) return;
 
-          const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}/transformers`, {
+          const response = await axios.get(`/orders/${orderId}/transformers`, {
             withCredentials: true
           });
           const dbTransformers = response.data || [];
@@ -277,25 +277,25 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
 
   const getMergedTestData = (transformer: any, stage: string) => {
     const primaryData = transformer.testHistory?.primary_test || {};
+    const finalData = transformer.testHistory?.final_test || {};
     const secondaryData = transformer.testHistory?.secondary_test || {};
 
     // If they failed in secondary, we only care about secondary
-    if (stage !== 'PRIMARY_TESTING') return secondaryData;
+    if (stage === 'SECONDARY_TESTING') return secondaryData;
 
-    // If they failed in primary, their retests are in secondary. We need to merge them.
+    // If they failed in primary or final, their retests are in secondary. We need to merge them.
     const mergeType = (type: string) => {
-      const pRes = primaryData[type] || [];
+      const baseData = stage === 'FINAL_TESTING' ? finalData[type] || [] : primaryData[type] || [];
       const sRes = secondaryData[type] || [];
       
       // Get all core IDs that have secondary test results
       const secondaryCoreIds = new Set(sRes.map((r: any) => r.internalCoreNo || r.coreId));
 
-      // Keep primary results ONLY for cores that DO NOT have secondary results
-      const merged = pRes.filter((pRow: any) => !secondaryCoreIds.has(pRow.internalCoreNo || pRow.coreId));
+      // Keep base results ONLY for cores that DO NOT have secondary results
+      const merged = baseData.filter((baseRow: any) => !secondaryCoreIds.has(baseRow.internalCoreNo || baseRow.coreId));
 
       // Add all secondary results
       merged.push(...sRes);
-      
       return merged;
     };
 
@@ -373,7 +373,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
     if (!retestingTransformer) return;
     try {
       const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/${retestingTransformer._id}`,
+        `/failed-transformers/${retestingTransformer._id}`,
         { withCredentials: true }
       );
       if (res.data.success) {
@@ -459,7 +459,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       const orderId = replacingCoreItem.orderId?._id || replacingCoreItem.orderId;
 
 
-      const orderRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}`, { withCredentials: true });
+      const orderRes = await axios.get(`/orders/${orderId}`, { withCredentials: true });
 
       const order = orderRes.data?.data || replacingCoreItem.orderId;
       const updatedItem = { ...replacingCoreItem, orderId: order };
@@ -522,7 +522,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
 
         // Fetch the updated failed transformer item and open retest view immediately!
         const retestRes = await axios.get(
-          `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/${replacingCoreItem._id}`,
+          `/failed-transformers/${replacingCoreItem._id}`,
           { withCredentials: true }
         );
 
@@ -566,7 +566,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
 
       const res = await axios.get(
 
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers?stage=SECONDARY_TESTING,PRIMARY_TESTING,FINAL_TESTING`,
+        `/failed-transformers?stage=SECONDARY_TESTING,PRIMARY_TESTING,FINAL_TESTING`,
 
         { withCredentials: true }
       );
@@ -605,7 +605,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
 
       // 1. Update Failed Transformer record status to TREATED
       await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/${item._id}/status`,
+        `/failed-transformers/${item._id}/status`,
 
         {
           status: "TREATED",
@@ -616,7 +616,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       );
 
       // 2. Approve stage of transformer (move to next stage)
-      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformerObj?.uniqueId}/approve-stage`, {
+      await axios.put(`/transformers/${transformerObj?.uniqueId}/approve-stage`, {
         stage: targetStage,
         nextStage: nextStage
       }, { withCredentials: true });
@@ -674,7 +674,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
         : "Accuracy Limits Exceeded";
 
       // 1. Post strict approval
-      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/strict-approvals/request`, {
+      await axios.post(`/strict-approvals/request`, {
         orderId: orderObj?._id || orderObj,
         jobId: transformerObj?.jobId,
         unitId: transformerObj?.uniqueId,
@@ -688,7 +688,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
 
       // 2. Set failed transformer record status to TREATED
       await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/${item._id}/status`,
+        `/failed-transformers/${item._id}/status`,
         {
           status: "TREATED",
           treatedBy: user.name || user.fullName || "Tester",
@@ -698,7 +698,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       );
 
       // 3. Set transformer stage to admin_review
-      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformerObj?.uniqueId}/approve-stage`, {
+      await axios.put(`/transformers/${transformerObj?.uniqueId}/approve-stage`, {
         stage: isPrimaryFail ? 'primary' : 'secondary',
         nextStage: 'admin_review'
       }, { withCredentials: true });
@@ -1146,7 +1146,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
 
                     // 1. Update Failed Transformer record status to TREATED
                     await axios.put(
-                      `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/${retestingTransformer._id}/status`,
+                      `/failed-transformers/${retestingTransformer._id}/status`,
                       {
                         status: "TREATED",
                         treatedBy: user.name || user.fullName || "Tester",
@@ -1156,7 +1156,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                     );
 
                     // 2. Approve stage of transformer (move to next stage)
-                    await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformerObj?.uniqueId}/approve-stage`, {
+                    await axios.put(`/transformers/${transformerObj?.uniqueId}/approve-stage`, {
                       stage: targetStage,
                       nextStage: nextStage
                     }, { withCredentials: true });
@@ -1223,7 +1223,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                       : "Accuracy Limits Exceeded";
 
                     // 1. Post strict approval
-                    await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/strict-approvals/request`, {
+                    await axios.post(`/strict-approvals/request`, {
                       orderId: orderObj?._id || orderObj,
                       jobId: transformerObj?.jobId,
                       unitId: transformerObj?.uniqueId,
@@ -1237,7 +1237,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
 
                     // 2. Set failed transformer record status to TREATED
                     await axios.put(
-                      `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/${retestingTransformer._id}/status`,
+                      `/failed-transformers/${retestingTransformer._id}/status`,
                       {
                         status: "TREATED",
                         treatedBy: user.name || user.fullName || "Tester",
@@ -1247,7 +1247,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                     );
 
                     // 3. Set transformer stage to admin_review
-                    await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/transformers/${transformerObj?.uniqueId}/approve-stage`, {
+                    await axios.put(`/transformers/${transformerObj?.uniqueId}/approve-stage`, {
                       stage: isPrimaryFail ? 'primary' : 'secondary',
                       nextStage: 'admin_review'
                     }, { withCredentials: true });

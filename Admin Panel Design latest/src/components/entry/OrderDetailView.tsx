@@ -242,6 +242,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
       // Explicitly persist the order context right before leaving so Back button restores here
       sessionStorage.setItem('admin_selectedOrderId', order._id || order.id);
       localStorage.setItem('admin_activeView', 'view-orders');
+      localStorage.setItem('system_admin_activeView', 'view-orders');
       const from = encodeURIComponent(window.location.href);
       window.location.href = `/admin/report/${id}?type=${type}&from=${from}`;
     }
@@ -258,6 +259,7 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
       // Explicitly persist the order context right before leaving
       sessionStorage.setItem('admin_selectedOrderId', order._id || order.id);
       localStorage.setItem('admin_activeView', 'view-orders');
+      localStorage.setItem('system_admin_activeView', 'view-orders');
       const from = encodeURIComponent(window.location.href);
       window.location.href = `/admin/report/${id}?type=all&from=${from}`;
     }

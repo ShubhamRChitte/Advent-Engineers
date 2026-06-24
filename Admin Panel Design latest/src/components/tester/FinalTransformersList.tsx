@@ -20,7 +20,7 @@ export interface FinalTransformer {
   rating: string;
   voltageClass: string;
   cores: CoreConfig[];
-  status: 'pending' | 'in-progress' | 'completed' | 'locked';
+  status: 'pending' | 'in-progress' | 'completed' | 'locked' | 'ready-for-approval';
   ratios: string[];
   testHistory?: any;
   jobId?: string;
@@ -105,7 +105,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
 
         // Map DB data + Order Specs to UI Model
         const mappedTransformers: FinalTransformer[] = dbTransformers.map((t: any) => {
-          let status: 'pending' | 'in-progress' | 'completed' | 'locked' = 'pending';
+          let status: 'pending' | 'in-progress' | 'completed' | 'locked' | 'ready-for-approval' = 'pending';
 
           if (t.currentStage === 'final') {
             if (t.testHistory?.final_test?.status === 'Completed') status = 'completed';
@@ -523,10 +523,18 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                           variant="outline"
                           size="sm"
                           onClick={() => onStartTest(transformer)}
-                          className="border-[#003a70] text-[#003a70] hover:bg-blue-50"
+                          className={transformer.status === 'completed' ? "bg-green-600 hover:bg-green-700 text-white font-medium border-green-600" : "border-[#003a70] text-[#003a70] hover:bg-blue-50"}
                         >
-                          <PlayCircle className="w-4 h-4 mr-2" />
-                          {transformer.status === 'pending' ? 'Start Test' : 'Edit / Continue'}
+                          {transformer.status === 'completed' ? (
+                            <>
+                              <FileText className="w-4 h-4 mr-2 text-white" /> View
+                            </>
+                          ) : (
+                            <>
+                              <PlayCircle className="w-4 h-4 mr-2" />
+                              {transformer.status === 'pending' ? 'Start Test' : 'Edit / Continue'}
+                            </>
+                          )}
                         </Button>
 
                         {transformer.canApprove && (

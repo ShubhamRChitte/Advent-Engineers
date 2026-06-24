@@ -14,10 +14,8 @@ const PRINT_STYLE = `
   @page { size: A4 portrait; margin: 0; }
   @media print {
     html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; }
-    body * { visibility: hidden !important; }
-    .ct-print-wrapper { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; margin: 0 !important; }
-    .ct-print-root, .ct-print-root * { visibility: visible !important; }
-    .ct-print-root { padding: 12mm 14mm !important; margin: 0 auto !important; box-shadow: none !important; border: none !important; border-radius: 0 !important; }
+    .ct-print-wrapper { position: relative !important; width: 100% !important; margin: 0 auto !important; }
+    .ct-print-root { padding: 12mm 14mm !important; margin: 0 auto !important; box-shadow: none !important; border: none !important; border-radius: 0 !important; width: 100% !important; max-width: 100% !important; }
     .no-print { display: none !important; }
     .ct-page { page-break-after: always; page-break-inside: avoid; display: flex; flex-direction: column; min-height: 275mm; }
     .ct-page:last-child { page-break-after: auto; }

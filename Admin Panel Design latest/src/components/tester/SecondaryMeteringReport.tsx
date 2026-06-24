@@ -1,5 +1,6 @@
 import axios from "axios";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
 
 import { Printer, ArrowLeft, Save, AlertTriangle } from 'lucide-react';
@@ -73,6 +74,11 @@ export function SecondaryMeteringReport({
     )
   ));
 
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Advent_Engineers_Test_Report_${transformer.uniqueId}`,
+  });
 
   const [dbLimits, setDbLimits] = useState<any[]>([]);
 
@@ -185,10 +191,27 @@ export function SecondaryMeteringReport({
     const fetchLatestData = async () => {
       try {
         const res = await axios.get(`/transformers/${transformer.uniqueId}`, { withCredentials: true });
-        const freshTransformer = res.data;
+        const freshTransformer = res.data.data || res.data;
         let myResults = [];
 
-        const shouldLoadFromTreated = isFailedSection && failedStatus === 'TREATED' && (isFailedCore || hasBeenRetested);
+        let currentFailedStatus = failedStatus;
+        let currentRetestHistory = retestHistory;
+
+        if (isFailedSection && failedTransformerId) {
+          try {
+            const failRes = await axios.get(`/failed-transformers/${failedTransformerId}`, { withCredentials: true });
+            if (failRes.data?.success && failRes.data?.data) {
+              currentFailedStatus = failRes.data.data.status;
+              currentRetestHistory = failRes.data.data.retestHistory;
+            }
+          } catch (e) {
+            console.error("Failed to fetch latest failed record", e);
+          }
+        }
+
+        const currentHasBeenRetested = currentRetestHistory && currentRetestHistory.length > 0;
+        const shouldLoadFromTreated = isFailedSection && currentFailedStatus === 'TREATED' && (isFailedCore || currentHasBeenRetested);
+        
         if (shouldLoadFromTreated) {
           const secHistory = freshTransformer.testHistory?.secondary_test;
           if (secHistory?.metering_results?.length > 0) {
@@ -271,15 +294,14 @@ export function SecondaryMeteringReport({
       
       if (isFailedSection && failedTransformerId) {
         // Save to retest-save endpoint
-        await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/${failedTransformerId}/retest-save`, {
+        await axios.put(`/failed-transformers/${failedTransformerId}/retest-save`, {
             treatedReadings: payload.metering_results,
             treatedBy: testerName,
             remarks: "Treated After Primary Failure via Metering Report",
             coreType: 'metering'
         }, { withCredentials: true });
       } else {
-        const baseUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
-        await axios.post(`${baseUrl}/transformer-${stage}-metering-tests`, payload, { withCredentials: true });
+        await axios.post(`/transformer-${stage}-metering-tests`, payload, { withCredentials: true });
       }
 
       if (onCompleteTimer) await onCompleteTimer();
@@ -369,7 +391,7 @@ export function SecondaryMeteringReport({
     <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll">
       <style>{secondaryReportPrintStyles}</style>
 
-      <div className="print-container w-[210mm] min-w-[210mm] secondary-print-page">
+      <div className="print-container w-[210mm] min-w-[210mm] print:w-full print:min-w-0 print:max-w-full secondary-print-page">
         {!readOnly && (
           <div className="flex items-center justify-between no-print mb-4 w-full">
             <Button variant="outline" size="sm" onClick={onBack} className="gap-2"><ArrowLeft className="w-4 h-4" /> Back</Button>
@@ -378,12 +400,12 @@ export function SecondaryMeteringReport({
                 <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2"><AlertTriangle className="w-4 h-4" /> Add to Failed Transformer</Button>
               )}
               <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2"><Save className="w-4 h-4" /> Save</Button>
-              <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2"><Printer className="w-4 h-4" /> Print</Button>
+              <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2"><Printer className="w-4 h-4" /> Print</Button>
             </div>
           </div>
         )}
 
-        <div id="secondary-printable-report" className="report-wrapper secondary-report-wrapper">
+        <div ref={printRef} id="secondary-printable-report" className="report-wrapper secondary-report-wrapper">
           <ReportHeader
             stage={stage}
             date={formatReportDate(transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory]?.reportDate)}

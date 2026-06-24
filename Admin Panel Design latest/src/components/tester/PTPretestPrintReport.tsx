@@ -22,19 +22,12 @@ const STYLE = `
       padding: 0;
     }
 
-    body * { visibility: hidden !important; }
-
     .pt-pretest-print-wrapper {
       position: static !important;
       left: 0 !important;
       top: 0 !important;
       width: 100% !important;
       overflow: visible !important;
-    }
-
-    .pt-pretest-print-root,
-    .pt-pretest-print-root * {
-      visibility: visible !important;
     }
 
     .pt-pretest-print-root {

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { ArrowLeft, Loader2, Save } from 'lucide-react';
@@ -374,8 +375,13 @@ export function HeatingRecord33KVPT({
   onSave,
   onUpdateProcessStep,
   onUpdateBlockField,
-  readOnly
+  readOnly = false
 }: HeatingRecord33KVPTProps) {
+
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+  });
 
   // Create empty placeholder block
   const createEmptyBlock = (index: number): HeatingRecordBlock => ({
@@ -415,7 +421,7 @@ export function HeatingRecord33KVPT({
               Editing Record
             </div>
           )}
-          <Button onClick={() => window.print()} variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
+          <Button onClick={handlePrint} variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
             Print Report
           </Button>
           {!readOnly && (
@@ -507,6 +513,7 @@ export function HeatingRecord33KVPT({
       </style>
 
       <div
+        ref={printRef}
         id="printable-report"
         className="max-w-6xl mx-auto pb-24 space-y-4 print:block"
       >

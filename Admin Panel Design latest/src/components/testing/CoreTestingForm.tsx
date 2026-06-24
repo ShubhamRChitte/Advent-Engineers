@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 // Forcing fresh state reload for activeRowsRef
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
@@ -1664,9 +1665,10 @@ export function CoreTestingForm({
     );
   };
 
-  const handlePrintReport = () => {
-    window.print();
-  };
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrintReport = useReactToPrint({
+    contentRef: printRef,
+  });
 
   const handlePrintLabels = () => {
     const passedCores = getPassedCores();
@@ -3465,7 +3467,7 @@ export function CoreTestingForm({
 
   // Metering/PS Core Template (Original)
   return (
-    <div className="space-y-4 p-2 sm:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
+    <div ref={printRef} className="space-y-4 p-2 sm:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
       <TimerDisplay />
       {isReadOnly && (
         <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4" role="alert">

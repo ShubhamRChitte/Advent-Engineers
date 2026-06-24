@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'; // Make sure these exist in ui/tabs
@@ -13,6 +14,11 @@ interface ReportDetailsProps {
 
 export function ReportDetails({ transformer, onBack }: ReportDetailsProps) {
     const [activeTab, setActiveTab] = useState('info');
+    
+    const printRef = useRef<HTMLDivElement>(null);
+    const handlePrint = useReactToPrint({
+        contentRef: printRef,
+    });
 
     // Extract Results
     const history = transformer.testHistory?.secondary_test || {};
@@ -25,7 +31,7 @@ export function ReportDetails({ transformer, onBack }: ReportDetailsProps) {
     const hasPS = psData.length > 0;
 
     return (
-        <div className="space-y-6" id="printable-report">
+        <div ref={printRef} className="space-y-6" id="printable-report">
             <div className="flex items-center justify-between no-print">
                 <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
                     <ArrowLeft className="w-4 h-4" />
@@ -33,7 +39,7 @@ export function ReportDetails({ transformer, onBack }: ReportDetailsProps) {
                 </Button>
                 <h2 className="text-xl font-bold text-gray-800">Test Report: {transformer.uniqueId}</h2>
                 <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
+                    <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
                         <Printer className="w-4 h-4" />
                         Print Report
                     </Button>

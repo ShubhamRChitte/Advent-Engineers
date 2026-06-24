@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Save, ArrowLeft, Loader2 } from 'lucide-react';
@@ -376,8 +377,13 @@ export function HeatingRecord33KVCT({
   onSave,
   onUpdateProcessStep,
   onUpdateBlockField,
-  readOnly
+  readOnly = false
 }: HeatingRecord33KVCTProps) {
+
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+  });
 
   // Standardize first block steps if empty
   const defaultSteps = [
@@ -494,7 +500,7 @@ export function HeatingRecord33KVCT({
           Back to Orders
         </Button>
         <div className="flex gap-3">
-          <Button onClick={() => window.print()} variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
+          <Button onClick={handlePrint} variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
             Print Report
           </Button>
           {!readOnly && (
@@ -507,6 +513,7 @@ export function HeatingRecord33KVCT({
       </div>
 
       <div
+        ref={printRef}
         id="printable-report"
         className="max-w-6xl mx-auto pb-24 space-y-4 print:block"
       >

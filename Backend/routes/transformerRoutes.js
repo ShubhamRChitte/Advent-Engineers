@@ -144,25 +144,25 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
             // ------------------------------
             
             if (nextStage === 'primary') {
-                if (transformer.testHistory.primary_test) {
-                    transformer.testHistory.primary_test.metering_results = [];
-                    transformer.testHistory.primary_test.ps_results = [];
-                    transformer.testHistory.primary_test.protection_results = [];
-                    transformer.testHistory.primary_test.tester = null;
-                    transformer.testHistory.primary_test.status = 'Pending';
-                    transformer.testHistory.primary_test.timestamp = null;
-                    transformer.markModified('testHistory.primary_test');
-                }
+                transformer.testHistory.primary_test = {
+                    metering_results: [],
+                    ps_results: [],
+                    protection_results: [],
+                    tester: null,
+                    status: 'Pending',
+                    timestamp: null
+                };
                 
                 // Clear final_test as well to ensure a fresh start for primary and above
-                if (transformer.testHistory.final_test) {
-                    transformer.testHistory.final_test = {
-                        status: 'Pending',
-                        tester: null,
-                        timestamp: null
-                    };
-                    transformer.markModified('testHistory.final_test');
-                }
+                transformer.testHistory.final_test = {
+                    metering_results: [],
+                    ps_results: [],
+                    protection_results: [],
+                    status: 'Pending',
+                    tester: null,
+                    timestamp: null
+                };
+                transformer.markModified('testHistory');
             }
         } else if (stage === 'primary') {
             if (!transformer.testHistory.primary_test) {
@@ -390,6 +390,37 @@ router.put('/:uniqueId/approve-retest', isAuthenticated, async (req, res) => {
 
         // 3. Update Stage back to the target testing stage
         transformer.currentStage = targetStage;
+
+        // 3.5 Clear history for the target stage so it's tested fresh
+        if (targetStage === 'primary') {
+            transformer.testHistory.primary_test = {
+                metering_results: [],
+                ps_results: [],
+                protection_results: [],
+                tester: null,
+                status: 'Pending',
+                timestamp: null
+            };
+            transformer.testHistory.final_test = {
+                metering_results: [],
+                ps_results: [],
+                protection_results: [],
+                status: 'Pending',
+                tester: null,
+                timestamp: null
+            };
+            transformer.markModified('testHistory');
+        } else if (targetStage === 'final') {
+            transformer.testHistory.final_test = {
+                metering_results: [],
+                ps_results: [],
+                protection_results: [],
+                status: 'Pending',
+                tester: null,
+                timestamp: null
+            };
+            transformer.markModified('testHistory');
+        }
 
         // 4. Clear Review Details
         transformer.adminReviewDetails = undefined;

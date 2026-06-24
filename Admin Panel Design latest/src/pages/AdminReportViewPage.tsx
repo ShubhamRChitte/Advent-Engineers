@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import axios from '@/utils/axiosConfig';
+import { useReactToPrint } from 'react-to-print';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Printer, ArrowLeft, Loader2, Database } from 'lucide-react';
@@ -141,87 +142,62 @@ export function AdminReportViewPage() {
     };
 
 
-    const handlePrint = () => {
-        const printContent = document.getElementById('printable-report');
-        if (!printContent) {
-            window.print();
-            return;
-        }
-        const printWindow = window.open('', '_blank', 'width=900,height=700');
-        if (!printWindow) {
-            alert('Please allow pop-ups for this site to print reports.');
-            return;
-        }
-
-        const isSecondaryRelated = testType === 'secondary' || testType === 'primary' || testType === 'final' || testType === 'all';
-        const extraStyles = isSecondaryRelated ? `
-            ${secondaryReportPrintStyles}
-            ${ctReportViewStyles}
-            /* Extra overrides for popup window printing */
-            .secondary-print-page, .secondary-report-wrapper {
-                width: 190mm !important;
-                margin: 0 auto !important;
-                box-shadow: none !important;
-                border: none !important;
-                padding: 0 !important;
+    const printRef = useRef<HTMLDivElement>(null);
+    const handlePrint = useReactToPrint({
+        contentRef: printRef,
+        pageStyle: `
+            @page { size: A4 portrait; margin: 15mm 10mm; }
+            @media print {
+                html, body {
+                    width: 190mm !important;
+                    max-width: 190mm !important;
+                    margin: 0 auto !important;
+                    padding: 0 !important;
+                    background: white !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+                #printable-report {
+                    width: 190mm !important;
+                    max-width: 190mm !important;
+                    margin: 0 auto !important;
+                    padding: 0 !important;
+                }
+                .secondary-print-page, .secondary-report-wrapper, .cr-print-root, .pt-final-print-root, .ct-print-root, #print-section {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    margin: 0 auto !important;
+                    box-shadow: none !important;
+                    border: none !important;
+                    padding: 0 !important;
+                }
+                /* Prevent Tailwind containers from breaking the print width */
+                .container, .max-w-\\[1200px\\], .max-w-\\[1000px\\], .w-full, .flex {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    min-width: 0 !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    display: block !important;
+                }
+                .no-print, .print\\:hidden {
+                    display: none !important;
+                }
             }
-        ` : '';
-
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Advent Engineers – Test Report</title>
-                <meta charset="utf-8" />
-                <style>
-                    *, *::before, *::after { box-sizing: border-box; }
-                    @page { size: A4 portrait; margin: 10mm; }
-                    body { margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Arial, sans-serif; background: white; color: black; }
-                    .no-print, .print\\:hidden, [class*="no-print"], button, .sticky { display: none !important; }
-                    table { border-collapse: collapse; width: 100%; }
-                    td, th { border: 1px solid #000; padding: 4px; font-size: 11px; }
-                    .report-header-grid { display: grid; grid-template-columns: 1fr 1fr; border: 1.5px solid #000; }
-                    .header-left { padding: 10px; border-right: 1.5px solid #000; display: flex; flex-direction: column; justify-content: center; }
-                    .header-right { display: grid; grid-template-rows: repeat(5, 1fr); }
-                    .header-field { display: grid; grid-template-columns: 100px 1fr; border-bottom: 1px solid #000; font-size: 11px; }
-                    .header-field:last-child { border-bottom: none; }
-                    .field-label { padding: 4px 8px; border-right: 1px solid #000; text-align: right; font-weight: 600; }
-                    .field-value { padding: 4px 8px; font-weight: 500; }
-                    .report-title-banner { border: 1.5px solid #000; text-align: center; padding: 6px; font-weight: bold; font-size: 18px; text-transform: uppercase; }
-                    .description-banner { border: 1.5px solid #000; border-top: none; text-align: center; padding: 4px; font-weight: bold; font-size: 14px; }
-                    .nested-table { width: 100%; border-collapse: collapse; border: 1.5px solid #000; table-layout: fixed; }
-                    .nested-table td, .nested-table th { border: 1px solid #000; padding: 4px; text-align: center; font-size: 11px; height: 24px; }
-                    .bg-yellow { background-color: #f1f5f9 !important; }
-                    .footer-sig { margin-top: 40px; display: flex; justify-content: space-between; padding: 0 40px; }
-                    .sig-item { text-align: center; width: 200px; }
-                    .sig-line { border-top: 1.5px solid #000; margin-top: 60px; padding-top: 5px; font-weight: bold; font-size: 13px; }
-                    input { border: none; text-align: center; font-size: 11px; background: transparent; width: 100%; }
-                    .text-red-600, .text-\\[\\#003a70\\] { color: black !important; }
-                    .text-2xl { font-size: 1.5rem; }
-                    .font-bold { font-weight: 700; }
-                    .italic { font-style: italic; }
-                    .divide-y > div + div { border-top: 2px solid #ccc; margin-top: 16px; padding-top: 16px; }
-                    @media print {
-                        .divide-y > div + div { border-top: none; page-break-before: auto; }
-                    }
-                    ${extraStyles}
-                </style>
-            </head>
-            <body>
-                ${printContent.innerHTML}
-                <script>
-                    window.onload = function() {
-                        setTimeout(function() { window.print(); window.close(); }, 400);
-                    };
-                <\/script>
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
-    };
-
+        `
+    });
     const handleBack = () => {
-        window.location.href = window.location.origin;
+        const params = new URLSearchParams(window.location.search);
+        const fromUrl = params.get('from');
+        if (fromUrl) {
+            window.location.href = fromUrl;
+        } else {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.close();
+            }
+        }
     };
 
     const renderCoreReport = () => {
@@ -240,7 +216,7 @@ export function AdminReportViewPage() {
         return (
             <div className="space-y-6">
                 {/* Tab Menu UI for Multiple Cores (Hidden in print) */}
-                <div className="flex items-center gap-2 mb-6 no-print overflow-x-auto pb-2 print:hidden backdrop-blur-sm sticky top-16 z-40">
+                <div className="flex items-center gap-2 mb-6 no-print overflow-x-auto pt-2 pb-2 print:hidden bg-gray-50/95 backdrop-blur-sm sticky top-0 z-40">
                     {unifiedReport.reportData.map((core: any, index: number) => {
                         const isSelected = globalCoreType === core.coreType;
                         return (
@@ -449,9 +425,9 @@ export function AdminReportViewPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-20 print:bg-white print:pb-0">
+        <div className="h-screen flex flex-col overflow-hidden bg-gray-50 print:h-auto print:block print:overflow-visible print:bg-white">
             {/* Top Toolbar (Matches screenshots exactly) */}
-            <header className="bg-white border-b border-gray-200 sticky top-0 z-[100] shadow-sm no-print print:hidden">
+            <header className="bg-white border-b border-gray-200 flex-none shadow-sm no-print print:hidden">
                 <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Button 
@@ -484,9 +460,11 @@ export function AdminReportViewPage() {
             </header>
 
             {/* Main Report Container */}
-            <main className="container mx-auto px-4 py-8 max-w-[1200px] print:max-w-none print:px-0 print:py-0">
-                <div id="printable-report" className="animate-in fade-in duration-500">
-                    {renderContent()}
+            <main className="flex-1 overflow-y-auto min-h-0 bg-gray-50 print:overflow-visible print:bg-white">
+                <div className="container mx-auto px-4 py-8 max-w-[1200px] print:max-w-none print:px-0 print:py-0">
+                    <div ref={printRef} id="printable-report" className="animate-in fade-in duration-500">
+                        {renderContent()}
+                    </div>
                 </div>
             </main>
 

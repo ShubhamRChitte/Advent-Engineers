@@ -21,6 +21,11 @@ export function SecondaryReportView({
 }: SecondaryReportViewProps) {
     const history = transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory];
     
+    const filterPendingIfValidExists = (cores: string[]) => {
+        const validCores = cores.filter(c => !c.toLowerCase().includes('pending'));
+        return validCores.length > 0 ? validCores : cores;
+    };
+
     // Extract all UNIQUE core IDs per type from the saved results
     const uniqueMeteringCores: string[] = (() => {
         const results = history?.metering_results || [];
@@ -29,7 +34,7 @@ export function SecondaryReportView({
             const id = r.internalCoreNo || r.coreId;
             if (id) seen.add(id);
         });
-        return Array.from(seen);
+        return filterPendingIfValidExists(Array.from(seen));
     })();
 
     const uniqueProtectionCores: string[] = (() => {
@@ -39,7 +44,7 @@ export function SecondaryReportView({
             const id = r.internalCoreNo || r.coreId;
             if (id) seen.add(id);
         });
-        return Array.from(seen);
+        return filterPendingIfValidExists(Array.from(seen));
     })();
 
     const uniquePSCores: string[] = (() => {
@@ -49,7 +54,7 @@ export function SecondaryReportView({
             const id = r.internalCoreNo || r.coreId;
             if (id) seen.add(id);
         });
-        return Array.from(seen);
+        return filterPendingIfValidExists(Array.from(seen));
     })();
 
     // Determine which tabs have data
@@ -111,7 +116,7 @@ export function SecondaryReportView({
     return (
         <div className="space-y-6">
             {/* Professional Tabs (Hidden in Print) */}
-            <div className="flex items-center gap-2 mb-4 no-print overflow-x-auto pb-2 print:hidden backdrop-blur-sm sticky top-16 z-40">
+            <div className="flex items-center gap-2 mb-4 no-print overflow-x-auto pt-2 pb-2 print:hidden bg-gray-50/95 backdrop-blur-sm sticky top-0 z-40">
                 {availableTypes.map((type) => {
                     const isSelected = activeTab === type;
                     // Show count badge for multi-core types
@@ -153,7 +158,7 @@ export function SecondaryReportView({
                     <div className="divide-y divide-gray-200 print:divide-y-0">
                         {uniqueMeteringCores.length > 0 ? (
                             uniqueMeteringCores.map((coreId, idx) => (
-                                <div key={coreId} className="print:break-before-auto">
+                                <div key={coreId} className="print:break-after-page last:print:break-after-auto">
                                     {uniqueMeteringCores.length > 1 && (
                                         <div className="bg-blue-50 px-4 py-2 border-b border-blue-200 print:hidden">
                                             <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">
@@ -191,7 +196,7 @@ export function SecondaryReportView({
                     <div className="divide-y divide-gray-200 print:divide-y-0">
                         {uniqueProtectionCores.length > 0 ? (
                             uniqueProtectionCores.map((coreId, idx) => (
-                                <div key={coreId} className="print:break-before-auto">
+                                <div key={coreId} className="print:break-after-page last:print:break-after-auto">
                                     {uniqueProtectionCores.length > 1 && (
                                         <div className="bg-amber-50 px-4 py-2 border-b border-amber-200 print:hidden">
                                             <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">
@@ -229,7 +234,7 @@ export function SecondaryReportView({
                     <div className="divide-y divide-gray-200 print:divide-y-0">
                         {uniquePSCores.length > 0 ? (
                             uniquePSCores.map((coreId, idx) => (
-                                <div key={coreId} className="print:break-before-auto">
+                                <div key={coreId} className="print:break-after-page last:print:break-after-auto">
                                     {uniquePSCores.length > 1 && (
                                         <div className="bg-purple-50 px-4 py-2 border-b border-purple-200 print:hidden">
                                             <span className="text-xs font-bold text-purple-700 uppercase tracking-wider">
