@@ -164,7 +164,7 @@ export function PTFailedTransformersSection({ stage, user }: PTFailedTransformer
 
   // If retesting, show the appropriate report form based on stage
   if (retestingItem && retestOrderData && retestTransformerData) {
-    if (stage === 'PT_PRETEST_TESTING') {
+    if (stage.includes('PT_PRETEST_TESTING')) {
       return (
         <PTPretestReport
           order={retestOrderData}
@@ -176,7 +176,7 @@ export function PTFailedTransformersSection({ stage, user }: PTFailedTransformer
         />
       );
     }
-    if (stage === 'PT_TESTING') {
+    if (stage.includes('PT_TESTING')) {
       return (
         <PTTestingReport
           order={retestOrderData}

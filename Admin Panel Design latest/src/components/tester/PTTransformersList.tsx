@@ -210,10 +210,22 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
             status: currentStatus,
             hasPtTest,
             testHistory: t.testHistory,
+            currentStage: t.currentStage,
             voltageClass: (order.voltageRating || order.nominalSystemVoltage) 
               ? `${order.voltageRating || order.nominalSystemVoltage}kV` 
               : 'N/A'
           };
+        });
+
+        // Filter by stage: 
+        // Pretest stage shows pt_pretest/pt_pretest_failed.
+        // Final stage shows pt/pt_failed.
+        const stageFiltered = mappedTransformers.filter((t: any) => {
+          if (testStage === 'pretest') {
+            return t.currentStage === 'pt_pretest' || t.currentStage === 'pt_pretest_failed';
+          } else {
+            return t.currentStage === 'pt' || t.currentStage === 'pt_failed';
+          }
         });
 
         // Filter: ONLY show transformers that are NOT yet approved for this stage in Pre-testing,
@@ -223,8 +235,8 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
           : (order.status || '').toLowerCase().includes('pt testing completed') || (order.status || '').toLowerCase() === 'completed';
 
         const activeUnitsOnly = !isOrderCompleted
-          ? mappedTransformers.filter(t => t.status !== 'approved')
-          : mappedTransformers;
+          ? stageFiltered.filter(t => t.status !== 'approved')
+          : stageFiltered;
 
         const filtered = (!order.assignedUnitIds || order.assignedUnitIds.length === 0)
           ? activeUnitsOnly

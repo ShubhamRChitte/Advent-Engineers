@@ -5,6 +5,7 @@ import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Printer, ArrowLeft, Loader2, Database } from 'lucide-react';
 import { PTReportView } from '../components/tester/PTReportView';
+import { PTFinalPrintReport } from '../components/tester/PTFinalPrintReport';
 import { PrintableCoreReport } from '../components/reports/PrintableCoreReport';
 import { ctReportViewStyles } from '../components/tester/CTTestReportView';
 import { secondaryReportPrintStyles } from '../components/tester/SecondaryReportPrintLayout';
@@ -352,10 +353,47 @@ export function AdminReportViewPage() {
         const isPT = transformer?.currentStage === 'pt' || transformer?.testHistory?.pt_test || orderData?.transformerType === 'PT';
         
         if (isPT) {
+            const cores = orderData?.coreDetails || orderData?.coreConfigs || [];
+            let countMetering = 0;
+            let countProtection = 0;
+            let countPS = 0;
+            const coresList: string[] = [];
+            cores.forEach((core: any) => {
+                const type = typeof core === 'string' ? core : core.coreType;
+                if (type?.toLowerCase() === 'metering') {
+                    countMetering++;
+                    const coreId = countMetering > 1 ? `metering${countMetering}` : 'metering';
+                    coresList.push(coreId);
+                }
+                if (type?.toLowerCase() === 'protection') {
+                    countProtection++;
+                    const coreId = `protection${countProtection}`;
+                    coresList.push(coreId);
+                }
+                if (type?.toLowerCase() === 'ps') {
+                    countPS++;
+                    const coreId = `ps${countPS}`;
+                    coresList.push(coreId);
+                }
+            });
+
             return (
                 <div className="space-y-12">
-                    <div className="report-section print:border-none print:pt-0">
+                    {/* Screen View */}
+                    <div className="report-section print:hidden no-print">
                         <PTReportView transformer={transformer} order={orderData} onBack={handleBack} readOnly={true} />
+                    </div>
+
+                    {/* Print View (hidden off-screen on browser, but rendered inside #printable-report for print popup) */}
+                    <div className="pt-print-wrapper" style={{ position: 'absolute', left: '-9999px', top: 0, width: '210mm', overflow: 'hidden' }}>
+                        <PTFinalPrintReport
+                            order={orderData}
+                            transformer={transformer}
+                            reportData={transformer?.testHistory?.pt_test || {}}
+                            pretestData={transformer?.testHistory?.pt_test?.preTesting || {}}
+                            activeCores={coresList}
+                            user={null}
+                        />
                     </div>
                 </div>
             );

@@ -122,11 +122,17 @@ router.get('/', isAuthenticated, async (req, res) => {
             query.status = status;
         }
 
-        // Non-admin users only see failed transformers reported by them, EXCEPT for SECONDARY_TESTING/PRIMARY_TESTING/FINAL_TESTING stages where they see all failures
+        // Non-admin users only see failed transformers reported by them, EXCEPT for SECONDARY_TESTING/PRIMARY_TESTING/FINAL_TESTING/PT_PRETEST_TESTING/PT_TESTING stages where they see all failures
         const user = req.user;
         const isAdmin = user.role === 'admin' || user.designation === 'Admin' || ['Management', 'Office', 'Admin'].includes(user.department);
-        const isCTStage = stage && (stage.includes("SECONDARY_TESTING") || stage.includes("PRIMARY_TESTING") || stage.includes("FINAL_TESTING"));
-        if (!isAdmin && !isCTStage) {
+        const isExcludedStage = stage && (
+            stage.includes("SECONDARY_TESTING") || 
+            stage.includes("PRIMARY_TESTING") || 
+            stage.includes("FINAL_TESTING") ||
+            stage.includes("PT_PRETEST_TESTING") ||
+            stage.includes("PT_TESTING")
+        );
+        if (!isAdmin && !isExcludedStage) {
             const namesToCheck = [user.name, user.fullName].filter(Boolean);
             query.reportedBy = { $in: namesToCheck };
         }

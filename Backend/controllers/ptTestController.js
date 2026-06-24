@@ -237,9 +237,40 @@ exports.logFailed = async (req, res) => {
             return res.status(404).json({ success: false, message: "Transformer not found." });
         }
 
-        // Set transformer stage to pt_failed
-        transformer.currentStage = 'pt_failed';
+        // Set transformer stage to pt_pretest_failed
+        transformer.currentStage = 'pt_pretest_failed';
         await transformer.save();
+
+        // Check duplicate: If failure already exists for same transformerId + coreType, update it.
+        const existingFailure = await FailedTransformerModel.findOne({
+            transformerId,
+            coreType: effectiveCoreType
+        });
+
+        if (existingFailure) {
+            existingFailure.status = "FAILED";
+            existingFailure.stage = "PT_PRETEST_TESTING";
+            existingFailure.failureReason = effectiveReason;
+            existingFailure.failureParameters = failureParameters || {};
+            existingFailure.reportedBy = reportedBy;
+            existingFailure.jobNumber = jobNumber;
+            existingFailure.transformerUniqueId = transformer.uniqueId;
+            existingFailure.orderId = orderId;
+            existingFailure.date = Date.now();
+            
+            // Clear treatment/resolution details since it is failing again
+            existingFailure.treatedBy = undefined;
+            existingFailure.treatedAt = undefined;
+            existingFailure.resolutionRemarks = undefined;
+
+            await existingFailure.save();
+            
+            return res.status(200).json({
+                success: true,
+                message: "Failed PT Transformer updated successfully",
+                data: existingFailure
+            });
+        }
 
         const failedRecord = new FailedTransformerModel({
             transformerId,
@@ -250,7 +281,7 @@ exports.logFailed = async (req, res) => {
             failureReason: effectiveReason,
             reportedBy,
             transformerUniqueId: transformer.uniqueId,
-            stage: "PT_TESTING",
+            stage: "PT_PRETEST_TESTING",
             status: "FAILED"
         });
 
@@ -356,12 +387,17 @@ exports.getAssignedOrders = async (req, res) => {
           if (t.orderId) {
               const oid = t.orderId._id.toString();
               if (!ordersMap.has(oid)) {
-                  const order = { ...t.orderId, assignedUnitIds: [] };
+                  const order = { ...t.orderId, assignedUnitIds: [], activeUnitsCount: 0 };
                   ordersMap.set(oid, order);
               }
               const order = ordersMap.get(oid);
               if (!order.assignedUnitIds.includes(t.uniqueId)) {
                   order.assignedUnitIds.push(t.uniqueId);
+              }
+              const isApproved = t.testHistory?.pt_test?.approved === true || t.testHistory?.pt_test?.approved === "true";
+              const isPtStage = t.currentStage === 'pt' || t.currentStage === 'pt_failed';
+              if (isPtStage && !isApproved) {
+                  order.activeUnitsCount++;
               }
           }
       });
