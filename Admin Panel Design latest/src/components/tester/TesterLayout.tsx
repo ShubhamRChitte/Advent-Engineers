@@ -113,7 +113,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
 
       if (activeView === 'view-orders') return <OrdersListViewEnhanced userRole={user.role} />;
       if (activeView === 'reports') return <PTReportsList onBack={setViewHome} />;
-      if (activeView === 'pt-failed') return <PTFailedTransformersSection stage="PT_TESTING" />;
+      if (activeView === 'pt-failed') return <PTFailedTransformersSection stage="PT_TESTING" user={user} />;
       return <PTTesterDashboard setActiveView={setActiveView} stats={stats} recentActivity={recentActivity} loading={loading} />;
     }
 
@@ -124,7 +124,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
 
       if (activeView === 'view-orders') return <OrdersListViewEnhanced userRole={user.role} />;
       if (activeView === 'reports') return <PTPretestReportsList onBack={setViewHome} />;
-      if (activeView === 'pt-failed') return <PTFailedTransformersSection stage="PT_PRETEST_TESTING" />;
+      if (activeView === 'pt-failed') return <PTFailedTransformersSection stage="PT_PRETEST_TESTING" user={user} />;
       return <PTPretestDashboard setActiveView={setActiveView} stats={stats} recentActivity={recentActivity} loading={loading} />;
     }
 

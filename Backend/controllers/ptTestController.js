@@ -158,15 +158,34 @@ exports.approveTransformer = async (req, res) => {
       });
     }
 
-    // Set approved flag on transformer's PT test
+    // Set approved flag on transformer's PT test and restore stage from pt_failed
     const ptTestUpdate = { 
       ...transformer.testHistory.pt_test, 
       approved: true,
       timestamp: new Date()
     };
     await TransformerModel.findByIdAndUpdate(transformerId, {
-      $set: { 'testHistory.pt_test': ptTestUpdate }
+      $set: { 
+        'testHistory.pt_test': ptTestUpdate,
+        currentStage: 'pt'
+      }
     });
+
+    // Mark failed transformer records as RESOLVED since this transformer has been approved
+    try {
+      await FailedTransformerModel.updateMany(
+        {
+          $or: [
+            { transformerId: transformer._id },
+            { transformerUniqueId: transformer.uniqueId }
+          ],
+          status: { $in: ["FAILED", "TREATED"] }
+        },
+        { $set: { status: "RESOLVED" } }
+      );
+    } catch (ftErr) {
+      console.error("Failed to mark failed transformer records as RESOLVED:", ftErr);
+    }
 
     // Check if ALL transformers for the same order are approved now
     const orderId = transformer.orderId;

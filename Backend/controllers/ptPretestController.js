@@ -173,6 +173,22 @@ exports.approveTransformer = async (req, res) => {
       }
     });
 
+    // Mark failed transformer records as RESOLVED since this transformer has been approved
+    try {
+      await FailedTransformerModel.updateMany(
+        {
+          $or: [
+            { transformerId: transformer._id },
+            { transformerUniqueId: transformer.uniqueId }
+          ],
+          status: { $in: ["FAILED", "TREATED"] }
+        },
+        { $set: { status: "RESOLVED" } }
+      );
+    } catch (ftErr) {
+      console.error("Failed to mark failed transformer records as RESOLVED:", ftErr);
+    }
+
     // Check if ALL transformers for the same order are approved now
     const orderId = transformer.orderId;
     const allTransformers = await TransformerModel.find({

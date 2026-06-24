@@ -10,17 +10,28 @@ import {
   RefreshCw,
   Loader2,
   Calendar,
+  PlayCircle,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { PTPretestReport } from './PTPretestReport';
+import { PTTestingReport } from './PTTestingReport';
 
 interface PTFailedTransformersSectionProps {
   stage: 'PT_PRETEST_TESTING' | 'PT_TESTING';
+  user?: any;
 }
 
-export function PTFailedTransformersSection({ stage }: PTFailedTransformersSectionProps) {
+export function PTFailedTransformersSection({ stage, user }: PTFailedTransformersSectionProps) {
   const [failedList, setFailedList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Retest state
+  const [retestingItem, setRetestingItem] = useState<any | null>(null);
+  const [retestOrderData, setRetestOrderData] = useState<any | null>(null);
+  const [retestTransformerData, setRetestTransformerData] = useState<any | null>(null);
+  const [loadingRetest, setLoadingRetest] = useState(false);
 
   const fetchFailedTransformers = async () => {
     try {
@@ -52,6 +63,8 @@ export function PTFailedTransformersSection({ stage }: PTFailedTransformersSecti
   const stageLabel = stage === 'PT_PRETEST_TESTING' ? 'PT Pretesting' : 'PT Final Testing';
 
   const filteredList = failedList.filter(item => {
+    if (item.status === 'RESOLVED') return false;
+
     const searchLow = searchTerm.toLowerCase();
     const serialNo = String(item.transformerUniqueId || '').toLowerCase();
     const jobNo = String(item.jobNumber || '').toLowerCase();
@@ -78,6 +91,104 @@ export function PTFailedTransformersSection({ stage }: PTFailedTransformersSecti
         return <Badge className="bg-gray-100 text-gray-700 border border-gray-200">{status}</Badge>;
     }
   };
+
+  const handleStartTesting = async (item: any) => {
+    try {
+      setLoadingRetest(true);
+
+      const orderId = item.orderId?._id || item.orderId;
+      const transformerId = item.transformerId?._id || item.transformerId;
+      const transformerUniqueId = item.transformerUniqueId || item.transformerId?.uniqueId;
+
+      if (!orderId) {
+        toast.error('Missing order information.');
+        return;
+      }
+
+      // Fetch full order data and all transformers for this order
+      const [orderRes, transformersRes] = await Promise.all([
+        axios.get(`/orders/${orderId}`, { withCredentials: true }),
+        axios.get(`/transformers/order/${orderId}`, { withCredentials: true }),
+      ]);
+
+      const orderData = orderRes.data?.data || orderRes.data;
+      const allTransformers = transformersRes.data?.data || transformersRes.data;
+
+      if (!orderData) {
+        toast.error('Could not load order data.');
+        return;
+      }
+
+      // Find the matching transformer by _id or uniqueId
+      let transformerData = null;
+      if (Array.isArray(allTransformers)) {
+        transformerData = allTransformers.find((t: any) =>
+          t._id === transformerId ||
+          t.uniqueId === transformerUniqueId
+        );
+      }
+
+      if (!transformerData) {
+        toast.error('Transformer not found in this order.');
+        return;
+      }
+
+      setRetestOrderData(orderData);
+      setRetestTransformerData(transformerData);
+      setRetestingItem(item);
+    } catch (err: any) {
+      console.error('Error loading retest data:', err);
+      toast.error(err.response?.data?.message || 'Failed to load testing data.');
+    } finally {
+      setLoadingRetest(false);
+    }
+  };
+
+  const handleRetestApproveSuccess = () => {
+    // Remove the item from the failed list after successful approval
+    if (retestingItem) {
+      setFailedList(prev => prev.filter(item => item._id !== retestingItem._id));
+    }
+    // Reset retest state
+    setRetestingItem(null);
+    setRetestOrderData(null);
+    setRetestTransformerData(null);
+    toast.success('Transformer approved and moved to the next stage.');
+  };
+
+  const handleRetestBack = () => {
+    setRetestingItem(null);
+    setRetestOrderData(null);
+    setRetestTransformerData(null);
+  };
+
+  // If retesting, show the appropriate report form based on stage
+  if (retestingItem && retestOrderData && retestTransformerData) {
+    if (stage === 'PT_PRETEST_TESTING') {
+      return (
+        <PTPretestReport
+          order={retestOrderData}
+          transformer={retestTransformerData}
+          onBack={handleRetestBack}
+          user={user}
+          noTimer={true}
+          onApproveSuccess={handleRetestApproveSuccess}
+        />
+      );
+    }
+    if (stage === 'PT_TESTING') {
+      return (
+        <PTTestingReport
+          order={retestOrderData}
+          transformer={retestTransformerData}
+          onBack={handleRetestBack}
+          user={user}
+          noTimer={true}
+          onApproveSuccess={handleRetestApproveSuccess}
+        />
+      );
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -143,6 +254,7 @@ export function PTFailedTransformersSection({ stage }: PTFailedTransformersSecti
                   <th className="text-left px-4 py-3 font-semibold text-gray-600">Reported By</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-600">Date</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-600">Status</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -165,6 +277,21 @@ export function PTFailedTransformersSection({ stage }: PTFailedTransformersSecti
                       </div>
                     </td>
                     <td className="px-4 py-3">{getStatusBadge(item.status)}</td>
+                    <td className="px-4 py-3">
+                        <Button
+                          size="sm"
+                          disabled={loadingRetest}
+                          onClick={() => handleStartTesting(item)}
+                          className="bg-[#003a70] hover:bg-[#002850] text-white gap-1.5"
+                        >
+                          {loadingRetest ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <PlayCircle className="w-3.5 h-3.5" />
+                          )}
+                          Start Testing
+                        </Button>
+                      </td>
                   </tr>
                 ))}
               </tbody>

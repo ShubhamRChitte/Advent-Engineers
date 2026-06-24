@@ -222,7 +222,7 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
           ? (order.status || '').toLowerCase().includes('pt testing assigned') || (order.status || '').toLowerCase().includes('pt testing')
           : (order.status || '').toLowerCase().includes('pt testing completed') || (order.status || '').toLowerCase() === 'completed';
 
-        const activeUnitsOnly = (testStage === 'pretest' && !isOrderCompleted)
+        const activeUnitsOnly = !isOrderCompleted
           ? mappedTransformers.filter(t => t.status !== 'approved')
           : mappedTransformers;
 

@@ -81,9 +81,11 @@ interface PTTestingReportProps {
   transformer: any; // The specific transformer to test
   onBack: () => void;
   user: any; // The logged-in PT Tester user
+  noTimer?: boolean; // If true, skip timer entirely (used for failed transformer retesting)
+  onApproveSuccess?: () => void; // Called after successful approval (e.g. to remove from failed list)
 }
 
-export function PTTestingReport({ order, transformer, onBack, user }: PTTestingReportProps) {
+export function PTTestingReport({ order, transformer, onBack, user, noTimer = false, onApproveSuccess }: PTTestingReportProps) {
   const [loading, setLoading] = useState(false);
   const [reportsData, setReportsData] = useState<Record<string, any>>({});
   const [isReadOnly, setIsReadOnly] = useState(false);
@@ -113,7 +115,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
     stage:         'pt',
     testerName:    user?.name || user?.fullName || 'PT Tester',
     role:          'pt-tester',
-    enabled:       !isReadOnly && !!transformer?._id
+    enabled:       !noTimer && !isReadOnly && !!transformer?._id
   });
 
   useEffect(() => {
@@ -455,13 +457,40 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
         ));
 
         if (responses.every(r => r.data.success)) {
-            toast.success(`Successfully submitted ${payloads.length} PT core test reports.`);
-            endTimer(); // Record timer end for delay tracking
+            toast.success(`Successfully submitted ${payloads.length} PT test reports.`);
+            if (!noTimer) endTimer(); // Record timer end for delay tracking
             setIsReadOnly(true);
         }
     } catch (err: any) {
         console.error("Submission error", err);
         toast.error(err.response?.data?.message || "Failed to submit test reports");
+    }
+  };
+
+  const handleApproveActiveTransformer = async () => {
+    const tId = activeTabId || transformersData[0]?._id;
+    if (!tId) {
+      toast.error('No transformer to approve.');
+      return;
+    }
+
+    if (!window.confirm("Are you sure you want to approve this unit?")) return;
+
+    try {
+      setIsApproving(true);
+      await axios.put(`/pt-tests/transformer/${tId}/approve`, {}, { withCredentials: true });
+      toast.success('Transformer approved successfully!');
+      if (!noTimer) endTimer(); // Record timer end for delay tracking
+      if (onApproveSuccess) {
+        setTimeout(() => onApproveSuccess(), 1000);
+      } else {
+        setTimeout(() => onBack(), 1000);
+      }
+    } catch (error: any) {
+      console.error("Unit Approval Error:", error);
+      toast.error(error.response?.data?.message || "Failed to approve transformer.");
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -473,6 +502,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
 
     try {
       setIsApproving(true);
+      // Full order approve
       const response = await axios.put(
         `/pt-tests/${order._id}/approve`,
         {},
@@ -481,7 +511,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
 
       if (response.data.success) {
         toast.success(response.data.message || 'PT Testing approved successfully!');
-        endTimer(); // Record timer end
+        if (!noTimer) endTimer(); // Record timer end
         setTimeout(() => {
           onBack();
         }, 1000);
@@ -538,7 +568,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
             jobNumber: order.jobId,
             reportedBy: user?.name || user?.fullName || 'PT Tester'
         }, { withCredentials: true });
-        await endTimer();
+        if (!noTimer) await endTimer();
         toast.success('Transformer marked as failed.');
         onBack();
     } catch (err: any) {
@@ -708,7 +738,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
   return (
     <>
     <div className="max-w-4xl mx-auto space-y-6">
-        {!isReadOnly && (
+        {!noTimer && !isReadOnly && (
           <PTTimerBadge 
             timeLeftMs={timeLeftMs} 
             isOverdue={isOverdue} 
@@ -803,7 +833,20 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                     </Button>
                 )}
 
-                {isReadOnly && (order.status || '').toLowerCase() !== 'pt testing completed' && (order.status || '').toLowerCase() !== 'pt final testing completed' && (
+                {isReadOnly && (
+                    <Button 
+                        variant="default" 
+                        size="sm" 
+                        onClick={handleApproveActiveTransformer}
+                        disabled={isApproving}
+                        className="gap-2 bg-purple-600 hover:bg-purple-700 text-white shadow-md transition-all hover:scale-105"
+                    >
+                        {isApproving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                        Approve Unit
+                    </Button>
+                )}
+
+                {isReadOnly && !noTimer && (order.status || '').toLowerCase() !== 'pt testing completed' && (order.status || '').toLowerCase() !== 'pt final testing completed' && (
                     <Button 
                         variant="default" 
                         size="sm" 
@@ -812,7 +855,7 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
                         className="gap-2 bg-green-600 hover:bg-green-700 text-white shadow-md transition-all hover:scale-105"
                     >
                         {isApproving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                        Approve & Complete
+                        Approve Order
                     </Button>
                 )}
 
@@ -1115,24 +1158,41 @@ export function PTTestingReport({ order, transformer, onBack, user }: PTTestingR
             </div>
         )}
         {/* Approve Section (Screen Only) */}
-        {isReadOnly && (order.status || '').toLowerCase() !== 'pt testing completed' && (order.status || '').toLowerCase() !== 'pt final testing completed' && (
+        {isReadOnly && (
           <Card className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 no-print mt-6 mb-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
-                <h3 className="text-green-900 font-bold mb-1">Approve & Complete testing</h3>
+                <h3 className="text-green-900 font-bold mb-1">Approve Testing</h3>
                 <p className="text-sm text-gray-700">
-                  Click approve to finalize the testing report and move the order to the Completed section.
+                  {noTimer 
+                    ? "Click approve unit to finalize testing and move this transformer to the next stage."
+                    : "You can approve the active unit individually, or approve the entire order if all units are completed."
+                  }
                 </p>
               </div>
-              <Button
-                onClick={handleApprove}
-                disabled={isApproving}
-                className="bg-green-600 hover:bg-green-700 gap-2 text-white"
-                size="lg"
-              >
-                {isApproving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
-                {isApproving ? 'Approving...' : 'Approve & Complete'}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={handleApproveActiveTransformer}
+                  disabled={isApproving}
+                  className="bg-purple-600 hover:bg-purple-700 gap-2 text-white"
+                  size="lg"
+                >
+                  {isApproving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
+                  Approve Unit
+                </Button>
+                
+                {!noTimer && (order.status || '').toLowerCase() !== 'pt testing completed' && (order.status || '').toLowerCase() !== 'pt final testing completed' && (
+                  <Button
+                    onClick={handleApprove}
+                    disabled={isApproving}
+                    className="bg-green-600 hover:bg-green-700 gap-2 text-white"
+                    size="lg"
+                  >
+                    {isApproving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
+                    Approve Order
+                  </Button>
+                )}
+              </div>
             </div>
           </Card>
         )}

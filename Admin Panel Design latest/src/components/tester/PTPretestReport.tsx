@@ -81,9 +81,11 @@ interface PTPretestReportProps {
   transformer: any; // The specific transformer to test
   onBack: () => void;
   user: any; // The logged-in PT Tester user
+  noTimer?: boolean; // If true, skip timer entirely (used for failed transformer retesting)
+  onApproveSuccess?: () => void; // Called after successful approval (e.g. to remove from failed list)
 }
 
-export function PTPretestReport({ order, transformer, onBack, user }: PTPretestReportProps) {
+export function PTPretestReport({ order, transformer, onBack, user, noTimer = false, onApproveSuccess }: PTPretestReportProps) {
   const [loading, setLoading] = useState(false);
   const [reportsData, setReportsData] = useState<Record<string, any>>({});
   const [isReadOnly, setIsReadOnly] = useState(false);
@@ -111,7 +113,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
     stage:         'pt_pretest',
     testerName:    user?.name || user?.fullName || 'PT Tester',
     role:          'pt-pretester',
-    enabled:       !isReadOnly && !!transformer?._id
+    enabled:       !noTimer && !isReadOnly && !!transformer?._id
   });
   const [dbProtectionLimits, setDbProtectionLimits] = useState<any>(null);
 
@@ -403,7 +405,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
 
         if (responses.every(r => r.data.success)) {
             toast.success(`Successfully submitted ${payloads.length} PT core test reports.`);
-            endTimer(); // Record timer end for delay tracking
+            if (!noTimer) endTimer(); // Record timer end for delay tracking
             setIsReadOnly(true);
         }
     } catch (err: any) {
@@ -456,7 +458,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
             jobNumber: order.jobId,
             reportedBy: user?.name || user?.fullName || 'PT Pretester'
         }, { withCredentials: true });
-        await endTimer();
+        if (!noTimer) await endTimer();
         toast.success('Transformer marked as failed.');
         onBack();
     } catch (err: any) {
@@ -472,9 +474,13 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
       
       await axios.put(`/pt-pretests/transformer/${activeTabId}/approve`, {}, { withCredentials: true });
       toast.success("Unit approved and sent to Final PT Testing!");
-      endTimer(); // Record timer end for delay tracking
+      if (!noTimer) endTimer(); // Record timer end for delay tracking
       
-      setTimeout(() => onBack(), 1500);
+      if (onApproveSuccess) {
+        setTimeout(() => onApproveSuccess(), 1500);
+      } else {
+        setTimeout(() => onBack(), 1500);
+      }
     } catch (e: any) {
       console.error("Error approving transformer:", e);
       toast.error(e.response?.data?.message || "Failed to approve transformer.");
@@ -497,9 +503,9 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
 
       if (response.data.success) {
         toast.success(response.data.message || 'PT Pretesting approved successfully!');
-        endTimer(); // Record timer end
+        if (!noTimer) endTimer(); // Record timer end
         setTimeout(() => {
-          onBack();
+          if (onApproveSuccess) onApproveSuccess(); else onBack();
         }, 1000);
       }
     } catch (error: any) {
@@ -671,7 +677,7 @@ export function PTPretestReport({ order, transformer, onBack, user }: PTPretestR
   return (
     <>
     <div className="max-w-4xl mx-auto space-y-6">
-        {!isReadOnly && (
+        {!noTimer && !isReadOnly && (
           <PTTimerBadge 
             timeLeftMs={timeLeftMs} 
             isOverdue={isOverdue} 
