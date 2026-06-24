@@ -17,6 +17,7 @@ interface Order {
   status: string;
   priority: string;
   assignedUnitIds?: string[]; // Added
+  activeUnitsCount?: number; // Added
 }
 
 interface PTAssignedOrdersProps {
@@ -56,9 +57,15 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0, endpoint 
           
           if (s === 'completed' || s === 'shipped' || s === 'dispatch') return false;
           if (isFinalEndpoint) {
+              if (o.activeUnitsCount !== undefined && o.activeUnitsCount === 0) {
+                  return false;
+              }
               // For Final PT, "PT Pre-Testing Completed" is actually the STARTING point
               return s !== 'pt testing completed' && s !== 'pt final testing completed';
           } else {
+              if (o.activeUnitsCount !== undefined && o.activeUnitsCount === 0) {
+                  return false;
+              }
               // For Pre-Testing, once it's "Pre-Testing Completed", it's done for this tester
               const isPreCompleted = s.includes('pre-testing completed') || 
                                      s.includes('pt testing assigned') || 

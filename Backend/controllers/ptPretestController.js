@@ -257,6 +257,37 @@ exports.logFailed = async (req, res) => {
         transformer.currentStage = 'pt_pretest_failed';
         await transformer.save();
 
+        // Check duplicate: If failure already exists for same transformerId + coreType, update it.
+        const existingFailure = await FailedTransformerModel.findOne({
+            transformerId,
+            coreType: effectiveCoreType
+        });
+
+        if (existingFailure) {
+            existingFailure.status = "FAILED";
+            existingFailure.stage = "PT_PRETEST_TESTING";
+            existingFailure.failureReason = effectiveReason;
+            existingFailure.failureParameters = failureParameters || {};
+            existingFailure.reportedBy = reportedBy;
+            existingFailure.jobNumber = jobNumber;
+            existingFailure.transformerUniqueId = transformer.uniqueId;
+            existingFailure.orderId = orderId;
+            existingFailure.date = Date.now();
+            
+            // Clear treatment/resolution details since it is failing again
+            existingFailure.treatedBy = undefined;
+            existingFailure.treatedAt = undefined;
+            existingFailure.resolutionRemarks = undefined;
+
+            await existingFailure.save();
+            
+            return res.status(200).json({
+                success: true,
+                message: "Failed PT Transformer updated successfully",
+                data: existingFailure
+            });
+        }
+
         const failedRecord = new FailedTransformerModel({
             transformerId,
             orderId,
@@ -372,12 +403,17 @@ exports.getAssignedOrders = async (req, res) => {
           if (t.orderId) {
               const oid = t.orderId._id.toString();
                if (!ordersMap.has(oid)) {
-                  const order = { ...t.orderId, assignedUnitIds: [] };
+                  const order = { ...t.orderId, assignedUnitIds: [], activeUnitsCount: 0 };
                   ordersMap.set(oid, order);
               }
               const order = ordersMap.get(oid);
               if (!order.assignedUnitIds.includes(t.uniqueId)) {
                   order.assignedUnitIds.push(t.uniqueId);
+              }
+              const isApproved = t.testHistory?.pt_pretest_test?.approved === true || t.testHistory?.pt_pretest_test?.approved === "true";
+              const isPretestStage = t.currentStage === 'pt_pretest' || t.currentStage === 'pt_pretest_failed';
+              if (isPretestStage && !isApproved) {
+                  order.activeUnitsCount++;
               }
           }
       });

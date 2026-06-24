@@ -68,7 +68,6 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
         { id: 'testing', label: 'Final PT Testing', icon: ClipboardCheck },
         { id: 'reports', label: 'Customer Reports', icon: FileText },
         { id: 'view-orders', label: 'View Orders', icon: FileText },
-        { id: 'pt-failed', label: 'Failed Transformers', icon: AlertTriangle, badge: ptFailedCount > 0 ? ptFailedCount : undefined },
       ];
     }
 
