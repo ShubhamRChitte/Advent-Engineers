@@ -115,16 +115,28 @@ exports.getBatchById = async (req, res) => {
 exports.updateBatchStatus = async (req, res) => {
   try {
     const { status, testSetup, testLimits, readings } = req.body;
-    const updateData = { status };
-    if (testSetup) updateData.testSetup = testSetup;
-    if (testLimits) updateData.testLimits = testLimits;
-    if (readings) updateData.readings = readings;
+    
+    // Fetch the batch to safely compute discard counts
+    const batch = await PreTestBatchModel.findOne({ batchId: req.params.batchId });
+    if (!batch) return res.status(404).json({ message: "Batch not found" });
 
-    const batch = await PreTestBatchModel.findOneAndUpdate(
-      { batchId: req.params.batchId },
-      updateData,
-      { new: true }
-    );
+    if (status) batch.status = status;
+    if (testSetup) batch.testSetup = testSetup;
+    if (testLimits) batch.testLimits = testLimits;
+    
+    if (readings) {
+      batch.readings = readings;
+      
+      // Recalculate passed and failed counts
+      batch.passedCount = readings.filter(r => 
+        r.result === 'P' || r.result === 'PRE_TESTED' || r.result === 'PRE TESTED'
+      ).length;
+      
+      const currentlyFailed = readings.filter(r => r.result === 'F').length;
+      batch.failedCount = (batch.discardedCount || 0) + currentlyFailed;
+    }
+
+    await batch.save();
     res.json(batch);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -168,7 +180,7 @@ exports.saveBatchReading = async (req, res) => {
       if (testLimits) batch.testLimits = testLimits;
 
       // Find if reading already exists (by internalCoreNo)
-      const existingIndex = batch.readings.findIndex(r => r.internalCoreNo === reading.internalCoreNo);
+      const existingIndex = batch.readings.findIndex(r => String(r.internalCoreNo) === String(reading.internalCoreNo));
 
       if (isEmptyReading(reading)) {
         // If the row was cleared, REMOVE it from readings so it doesn't persist stale 'F' result

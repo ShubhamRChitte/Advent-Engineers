@@ -403,15 +403,6 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <Button
-            variant="outline"
-            onClick={onBack}
-            size="sm"
-            className="mb-2 gap-1"
-          >
-            <ArrowLeft className="w-3 h-3" />
-            Back to Testing
-          </Button>
           <h2 className="text-2xl font-bold text-red-700 flex items-center gap-2">
             <AlertTriangle className="w-6 h-6" />
             Failed Cores Management

@@ -47,7 +47,7 @@ export function Orders(_props: OrdersProps) {
     };
 
     const handleViewReport = (jobId: string) => {
-        window.open(`/report/${jobId}`, '_blank');
+        window.location.href = `/report/${jobId}`;
     };
 
     const clients = useMemo(() => {

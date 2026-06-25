@@ -372,7 +372,7 @@ app.get("/allorders", require('./controllers/orderController').getAllOrders);
 app.use('/', require('./routes/reportRoutes'));
 //primary Metering test handle
 // Mounted legacy transformer test routes
-app.use('/', require('./routes/transformerTestRoutes'));
+app.use('/api', require('./routes/transformerTestRoutes'));
 
 // ✅ APPROVE TRANSFORMER STAGE (Secondary -> Primary)
 // ✅ APPROVE TRANSFORMER STAGE (Secondary -> Primary)
