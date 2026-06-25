@@ -13,7 +13,7 @@ export interface PTCustomerReportProps {
   user: any;
 }
 
-/** Shared print CSS — identical pattern to PTFinalPrintReport */
+/** Shared print CSS — identical pattern to PTFinalPrintableReport */
 const PRINT_STYLE = `
   @page { size: A4 portrait; margin: 0; }
   @media print {

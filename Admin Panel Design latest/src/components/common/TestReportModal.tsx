@@ -1,11 +1,11 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { SecondaryReportView } from "../tester/SecondaryReportView";
 import { Card } from "../ui/card";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import axios from "../../utils/axiosConfig";
 import { ScrollArea } from "../ui/scroll-area";
 
-import { PTReportView } from "../tester/PTReportView";
+import { PTFinalPrintableReport } from "../tester/PTFinalPrintableReport";
 
 interface TestReportModalProps {
     isOpen: boolean;
@@ -16,6 +16,7 @@ interface TestReportModalProps {
 }
 
 export function TestReportModal({ isOpen, onClose, transformer, order, testType }: TestReportModalProps) {
+    const dummyPrintRef = useRef<HTMLDivElement>(null);
     const isPTTransformer = () => {
         const rawType = String(
             order?.transformerType ||
@@ -350,10 +351,49 @@ export function TestReportModal({ isOpen, onClose, transformer, order, testType 
         const isPT = transformer?.currentStage === 'pt' || transformer?.testHistory?.pt_test || isPTTransformer();
         
         if (isPT) {
+            const orderData = order || transformer?.orderId || {};
+            const cores = orderData?.coreDetails || orderData?.coreConfigs || [];
+            let countMetering = 0;
+            let countProtection = 0;
+            let countPS = 0;
+            const activeCores: string[] = [];
+            
+            cores.forEach((core: any) => {
+                const type = typeof core === 'string' ? core : core.coreType;
+                if (type?.toLowerCase() === 'metering') {
+                    countMetering++;
+                    const coreId = countMetering > 1 ? `metering${countMetering}` : 'metering';
+                    activeCores.push(coreId);
+                }
+                if (type?.toLowerCase() === 'protection') {
+                    countProtection++;
+                    const coreId = `protection${countProtection}`;
+                    activeCores.push(coreId);
+                }
+                if (type?.toLowerCase() === 'ps') {
+                    countPS++;
+                    const coreId = `ps${countPS}`;
+                    activeCores.push(coreId);
+                }
+            });
+
+            if (activeCores.length === 0) {
+                activeCores.push('metering');
+            }
+
             return (
                 <div className="flex flex-col">
                     <div className="mb-4">
-                        <PTReportView transformer={transformer} order={order} onBack={onClose} />
+                        <PTFinalPrintableReport
+                            order={orderData}
+                            transformer={transformer}
+                            reportData={transformer?.testHistory?.pt_test || {}}
+                            pretestData={transformer?.testHistory?.pt_test?.preTesting || {}}
+                            activeCores={activeCores}
+                            user={null}
+                            isReadOnly={true}
+                            printRef={dummyPrintRef}
+                        />
                     </div>
                 </div>
             )
@@ -384,12 +424,54 @@ export function TestReportModal({ isOpen, onClose, transformer, order, testType 
     const renderContent = () => {
         const currentTransformer = reportData || transformer;
         
+        // Define dummy ref for the printable report since the modal handles scroll/printing externally
+        const orderData = order || transformer?.orderId || {};
+        const cores = orderData?.coreDetails || orderData?.coreConfigs || [];
+        let countMetering = 0;
+        let countProtection = 0;
+        let countPS = 0;
+        const activeCores: string[] = [];
+        
+        cores.forEach((core: any) => {
+            const type = typeof core === 'string' ? core : core.coreType;
+            if (type?.toLowerCase() === 'metering') {
+                countMetering++;
+                const coreId = countMetering > 1 ? `metering${countMetering}` : 'metering';
+                activeCores.push(coreId);
+            }
+            if (type?.toLowerCase() === 'protection') {
+                countProtection++;
+                const coreId = `protection${countProtection}`;
+                activeCores.push(coreId);
+            }
+            if (type?.toLowerCase() === 'ps') {
+                countPS++;
+                const coreId = `ps${countPS}`;
+                activeCores.push(coreId);
+            }
+        });
+
+        if (activeCores.length === 0) {
+            activeCores.push('metering');
+        }
+
         switch (testType) {
             case 'core': return renderCoreReport();
             case 'secondary': return <SecondaryReportView transformer={currentTransformer} onBack={onClose} stage="secondary" />;
             case 'primary': return <SecondaryReportView transformer={currentTransformer} onBack={onClose} stage="primary" />;
             case 'final': return <SecondaryReportView transformer={currentTransformer} onBack={onClose} stage="final" />;
-            case 'pt': return <PTReportView transformer={transformer} order={order} onBack={onClose} />;
+            case 'pt': return (
+                <PTFinalPrintableReport
+                    order={orderData}
+                    transformer={transformer}
+                    reportData={transformer?.testHistory?.pt_test || {}}
+                    pretestData={transformer?.testHistory?.pt_test?.preTesting || {}}
+                    activeCores={activeCores}
+                    user={null}
+                    isReadOnly={true}
+                    printRef={dummyPrintRef}
+                />
+            );
             case 'all': return renderAllReports();
             default: return <div>Unknown Report Type</div>;
         }

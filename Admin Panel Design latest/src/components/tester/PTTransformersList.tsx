@@ -57,6 +57,7 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [heatingRecords, setHeatingRecords] = useState<any[]>([]);
+  const [approvedTransformers, setApprovedTransformers] = useState<Transformer[]>([]);
 
   const historyKey = testStage === 'pretest' ? 'pt_pretest_test' : 'pt_test';
 
@@ -217,34 +218,52 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
           };
         });
 
-        // Filter by stage: 
-        // Pretest stage shows pt_pretest/pt_pretest_failed.
-        // Final stage shows pt/pt_failed.
-        const stageFiltered = mappedTransformers.filter((t: any) => {
-          if (testStage === 'pretest') {
-            return t.currentStage === 'pt_pretest' || t.currentStage === 'pt_pretest_failed';
-          } else {
-            return t.currentStage === 'pt' || t.currentStage === 'pt_failed';
-          }
-        });
-
         // Filter: ONLY show transformers that are NOT yet approved for this stage in Pre-testing,
         // unless the order is already completed/approved.
         const isOrderCompleted = testStage === 'pretest'
           ? (order.status || '').toLowerCase().includes('pt testing assigned') || (order.status || '').toLowerCase().includes('pt testing')
           : (order.status || '').toLowerCase().includes('pt testing completed') || (order.status || '').toLowerCase() === 'completed';
 
+        // Filter by stage: 
+        // Pretest stage shows pt_pretest/pt_pretest_failed.
+        // Final stage shows pt/pt_failed.
+        const stageFiltered = mappedTransformers.filter((t: any) => {
+          if (testStage === 'pretest') {
+            if (isOrderCompleted) {
+              return true;
+            }
+            return t.currentStage === 'pt_pretest' || t.currentStage === 'pt_pretest_failed';
+          } else {
+            const isFinalCompleted = (order.status || '').toLowerCase().includes('pt testing completed') || (order.status || '').toLowerCase() === 'completed';
+            if (isFinalCompleted) {
+              return true;
+            }
+            return t.currentStage === 'pt' || t.currentStage === 'pt_failed';
+          }
+        });
+
         const activeUnitsOnly = !isOrderCompleted
           ? stageFiltered.filter(t => t.status !== 'approved')
           : stageFiltered;
 
-        const filtered = (!order.assignedUnitIds || order.assignedUnitIds.length === 0)
+        const approvedUnitsOnly = !isOrderCompleted
+          ? stageFiltered.filter(t => t.status === 'approved')
+          : [];
+
+        const filteredActive = (!order.assignedUnitIds || order.assignedUnitIds.length === 0)
           ? activeUnitsOnly
           : activeUnitsOnly.filter(t => order.assignedUnitIds?.some(assignedId =>
             assignedId === t.uniqueId || assignedId.includes(t.uniqueId)
           ));
 
-        setTransformers(filtered);
+        const filteredApproved = (!order.assignedUnitIds || order.assignedUnitIds.length === 0)
+          ? approvedUnitsOnly
+          : approvedUnitsOnly.filter(t => order.assignedUnitIds?.some(assignedId =>
+            assignedId === t.uniqueId || assignedId.includes(t.uniqueId)
+          ));
+
+        setTransformers(filteredActive);
+        setApprovedTransformers(filteredApproved);
       } catch (err: any) {
         console.error("Error fetching transformers:", err);
         const detail = err.response?.data?.message || err.response?.data?.error || err.message || "";
@@ -273,8 +292,9 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
       const apiBasePath = testStage === 'pretest' ? 'pt-pretests' : 'pt-tests';
       await axios.put(`/${apiBasePath}/transformer/${transformer._id}/approve`, {}, { withCredentials: true });
       alert("Transformer approved successfully!");
-      // Update local state to reflect approval (remove from active list)
+      // Update local state to reflect approval
       setTransformers(prev => prev.filter(t => t._id !== transformer._id));
+      setApprovedTransformers(prev => [...prev, { ...transformer, status: 'approved' }]);
     } catch (e: any) {
       console.error("Error approving transformer:", e);
       alert(e.response?.data?.message || "Failed to approve transformer.");
@@ -435,6 +455,63 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
           </div>
         )}
       </Card>
+
+      {approvedTransformers.length > 0 && (
+        <Card className="overflow-hidden mt-6 border border-green-200">
+          <div className="bg-green-50 border-b border-green-100 p-4">
+            <h3 className="font-bold text-green-800 text-lg">Completed / Approved Units</h3>
+            <p className="text-sm text-green-600">These units have been approved and moved to the next stage.</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="p-4 text-sm font-semibold text-gray-600">Transformer Name</th>
+                  <th className="p-4 text-sm font-semibold text-gray-600">Unique ID</th>
+                  <th className="p-4 text-sm font-semibold text-gray-600">Voltage Class</th>
+                  <th className="p-4 text-sm font-semibold text-gray-600">Cores</th>
+                  <th className="p-4 text-sm font-semibold text-gray-600">Status</th>
+                  <th className="p-4 text-sm font-semibold text-gray-600 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {approvedTransformers.map((transformer) => (
+                  <tr key={transformer._id} className="border-b border-gray-100 bg-green-50/20 hover:bg-green-50/40 transition-colors">
+                    <td className="p-4 font-medium">{transformer.name}</td>
+                    <td className="p-4">{transformer.uniqueId}</td>
+                    <td className="p-4">{transformer.voltageClass}</td>
+                    <td className="p-4">
+                      <div className="flex flex-wrap gap-1">
+                        {transformer.cores.map((core) => (
+                          <Badge key={core.coreNumber} variant="outline" className="bg-gray-50 text-xs">
+                            {core.coreType === 'metering' ? 'M' : 'P'} - {core.accuracyClass}
+                          </Badge>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <Badge className={getStatusColor(transformer.status)}>
+                        Approved
+                      </Badge>
+                    </td>
+                    <td className="p-4 text-center">
+                      <div className="flex items-center gap-2 justify-center">
+                        <Button
+                          size="sm"
+                          onClick={() => onStartTest(transformer)}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" /> View Report
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

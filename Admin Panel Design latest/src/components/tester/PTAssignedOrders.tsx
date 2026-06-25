@@ -82,13 +82,13 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0, endpoint 
           
           if (s === 'completed' || s === 'shipped' || s === 'dispatch') return true;
           if (isFinalEndpoint) {
-              return s === 'pt testing completed' || s === 'pt final testing completed';
+              return s === 'pt testing completed' || s === 'pt final testing completed' || (o.activeUnitsCount !== undefined && o.activeUnitsCount === 0);
           } else {
               const isPreCompleted = s.includes('pre-testing completed') || 
                                      s.includes('pt testing assigned') || 
                                      s.includes('pt testing') || 
                                      s.includes('final testing');
-              return isPreCompleted;
+              return isPreCompleted || (o.activeUnitsCount !== undefined && o.activeUnitsCount === 0);
           }
         }));
       }
@@ -268,11 +268,11 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0, endpoint 
                         <div className="flex justify-center flex-col sm:flex-row gap-2">
                            <Button 
                             size="sm" 
-                            className={isCompleted ? "bg-green-600 hover:bg-green-700 w-full" : "bg-[#003a70] hover:bg-blue-900 w-full text-white"}
+                            className={(isCompleted || activeTab === 'completed') ? "bg-green-600 hover:bg-green-700 w-full" : "bg-[#003a70] hover:bg-blue-900 w-full text-white"}
                             onClick={() => onStartTesting && onStartTesting(order)}
                           >
-                            {isCompleted ? <Eye className="w-4 h-4 mr-2" /> : <PlayCircle className="w-4 h-4 mr-2" />}
-                            {isCompleted ? 'View Report' : 'Start / Continue'}
+                            {(isCompleted || activeTab === 'completed') ? <Eye className="w-4 h-4 mr-2" /> : <PlayCircle className="w-4 h-4 mr-2" />}
+                            {(isCompleted || activeTab === 'completed') ? 'View Report' : 'Start / Continue'}
                           </Button>
                         </div>
                       </td>

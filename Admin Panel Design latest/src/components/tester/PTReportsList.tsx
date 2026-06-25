@@ -7,7 +7,6 @@ import { Input } from '../ui/input';
 import { ChevronRight, FileText, Search, Calendar, LayoutGrid, Printer, X } from 'lucide-react';
 import axios from '@/utils/axiosConfig';
 import { Skeleton } from '../ui/skeleton';
-import { PTReportView } from './PTReportView';
 import { PTCompletedTransformersList } from './PTCompletedTransformersList';
 import { PTCustomerReport } from './customer-report/PTCustomerReport';
 

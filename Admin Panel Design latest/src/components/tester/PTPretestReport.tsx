@@ -9,7 +9,7 @@ import { Save, AlertCircle, ArrowLeft, AlertTriangle, Edit3, Printer, CheckCircl
 import { toast } from 'sonner';
 import { usePTTimer } from '../../utils/usePTTimer';
 import { PTTimerBadge } from './PTTimerBadge';
-import { PTPretestPrintReport } from './PTPretestPrintReport';
+import { PTPretestPrintableReport } from './PTPretestPrintableReport';
 
 export function validatePTMeteringUI(accClass: string, ratioErrorStr: string, phaseErrorStr: string, meteringLimits: any) {
   if (!meteringLimits) return { isPass: undefined, reason: null };
@@ -684,57 +684,20 @@ export function PTPretestReport({ order, transformer, onBack, user, noTimer = fa
     <>
     <div className="max-w-4xl mx-auto space-y-6">
         {!noTimer && !isReadOnly && (
-          <PTTimerBadge 
-            timeLeftMs={timeLeftMs} 
-            isOverdue={isOverdue} 
-            expectedMinutes={expectedMinutes} 
-            title="PT Pretest"
-          />
+          <div className="no-print">
+            <PTTimerBadge 
+              timeLeftMs={timeLeftMs} 
+              isOverdue={isOverdue} 
+              expectedMinutes={expectedMinutes} 
+              title="PT Pretest"
+            />
+          </div>
         )}
         <style>{`
           @media print {
             @page {
               size: A4 portrait;
               margin: 0;
-            }
-            .pt-pretest-print-wrapper {
-              position: static !important;
-              left: 0 !important;
-              top: 0 !important;
-              width: 100% !important;
-              padding: 4px !important;
-              font-size: 11px !important;
-              border-color: #000 !important;
-            }
-            .border, .border-b, .border-b-2, .border-t, .border-l, .border-r {
-              border-color: #000 !important;
-            }
-            .bg-gray-50, .bg-gray-100 {
-              background-color: #f9fafb !important;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            .text-\\[\\#003a70\\] {
-               color: #000 !important;
-            }
-            .mb-6 {
-              margin-bottom: 6px !important;
-            }
-            .mb-4 {
-              margin-bottom: 4px !important;
-            }
-            .py-1 {
-              padding-top: 2px !important;
-              padding-bottom: 2px !important;
-            }
-            input {
-              border: none !important;
-              background: transparent !important;
-              outline: none !important;
-              box-shadow: none !important;
-              color: black !important;
-              font-weight: 600 !important;
-              height: 16px !important;
             }
           }
         `}</style>
@@ -753,11 +716,6 @@ export function PTPretestReport({ order, transformer, onBack, user, noTimer = fa
                     </Button>
                 )}
 
-                {!isReadOnly && hasAnyFailures && (
-                    <Button variant="destructive" size="sm" onClick={() => setShowFailureModal(true)} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
-                        <AlertTriangle className="w-4 h-4" /> Add to Failed Transformers
-                    </Button>
-                )}
 
                 {!isReadOnly && (
                     <Button variant="destructive" size="sm" onClick={handleAddToFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
@@ -771,7 +729,7 @@ export function PTPretestReport({ order, transformer, onBack, user, noTimer = fa
                   </Button>
                 )}
 
-                {isReadOnly && (
+                {isReadOnly && activeTabId && (noTimer || !(reportsData[activeTabId]?.approved === true || reportsData[activeTabId]?.approved === 'true')) && (
                     <Button 
                         variant="default" 
                         size="sm" 
@@ -782,18 +740,6 @@ export function PTPretestReport({ order, transformer, onBack, user, noTimer = fa
                     </Button>
                 )}
 
-                {isReadOnly && (order.status || '').toLowerCase() !== 'pt testing assigned' && !(order.status || '').toLowerCase().includes('pt testing') && (
-                    <Button 
-                        variant="default" 
-                        size="sm" 
-                        onClick={handleApprove}
-                        disabled={isApproving}
-                        className="gap-2 bg-green-600 hover:bg-green-700 text-white shadow-md transition-all hover:scale-105"
-                    >
-                        {isApproving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                        Approve Order
-                    </Button>
-                )}
 
                 <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
                     <Printer className="w-4 h-4" /> Print
@@ -819,139 +765,33 @@ export function PTPretestReport({ order, transformer, onBack, user, noTimer = fa
             </div>
         )}
 
-        {/* Hidden print layout — used by react-to-print */}
-        <div ref={printRef} className="pt-pretest-print-wrapper hidden print:block" style={{ width: '210mm' }}>
-            {transformersData.map((t) => (
-                <PTPretestPrintReport
-                    key={t._id}
-                    order={order}
-                    transformer={t}
-                    reportData={reportsData[t._id] || {}}
-                    activeCores={activeCores}
-                    user={user}
-                />
-            ))}
-        </div>
-
         {/* INTERACTIVE REPORT FORMAT MULTI UNITS */}
-        <div className="print-container screen-only">
-            {transformersData.map((transformer) => {
-                const reportData = reportsData[transformer._id] || {};
-                const vState = getTransformerValidations(transformer._id, reportData);
-                const { preTestValidations } = vState;
-                const isActive = activeTabId === transformer._id;
+        <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll">
+            <div className="print-container w-[210mm] min-w-[210mm] print:w-full print:min-w-0 print:max-w-full">
+                {transformersData.map((transformer) => {
+                    const reportData = reportsData[transformer._id] || {};
+                    const vState = getTransformerValidations(transformer._id, reportData);
+                    const { preTestValidations } = vState;
+                    const isActive = activeTabId === transformer._id;
+                    if (!isActive) return null;
 
-                return (
-                    <div key={transformer._id} className={`print-page bg-white p-8 rounded-lg border border-gray-300 shadow-sm max-w-[800px] mx-auto text-sm mb-12 print:max-w-none print:w-full print:mx-0 print:my-0 print:p-0 print:border-none print:shadow-none print:rounded-none ${isActive ? 'block' : 'hidden'}`}>
-                        
-                        {/* Header Title */}
-                        <div className="text-center mb-6 border-b-2 border-black pb-3 print:pt-4">
-                            <h1 className="text-2xl font-bold text-[#003a70] print:text-black mb-1 tracking-widest uppercase">ADVENT ENGINEERS</h1>
-                            <h2 className="text-xl font-bold uppercase tracking-wide">Testing Record of Potential Transformer</h2>
-                        </div>
-
-                        {/* Section 1: Header Details */}
-                        <div className="border border-black mb-4 flex divide-x divide-black">
-                            <div className="flex-1 p-2 font-bold bg-gray-50 flex items-center">
-                                SERIAL NO. : <span className="ml-2 py-0 h-6 font-normal w-32 border-b border-gray-400">{transformer.uniqueId || 'N/A'}</span>
-                            </div>
-                            <div className="p-2 w-48 font-bold bg-gray-50 flex items-center justify-end">
-                                Date: <span className="ml-2 w-32 text-center text-sm p-1 inline-block border-b border-gray-400 font-normal">{reportData.date || new Date().toLocaleDateString('en-GB')}</span>
-                            </div>
-                        </div>
-
-                        <table className="w-full border-collapse border border-black mb-4 table-fixed text-sm">
-                            <tbody>
-                                <tr>
-                                    <td className="border border-black p-1 pl-2 font-medium w-1/4">Specification</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{order.voltageRating || '33'} KV PT</td>
-                                    <td className="border border-black p-1 pl-2 font-medium w-1/4">Type 1</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">O/D</td>
-                                </tr>
-                                <tr>
-                                    <td className="border border-black p-1 pl-2 font-medium w-1/4">PT Ratio</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{ptRatioDisplay}</td>
-                                    <td className="border border-black p-1 pl-2 font-medium w-1/4">Type 2</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">O/C</td>
-                                </tr>
-                                <tr>
-                                     <td className="border border-black p-1 pl-2 font-medium w-1/4">Burden</td>
-                                     <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{burdenDisplay} VA</td>
-                                    <td className="border border-black p-1 pl-2 font-medium w-1/4">Class</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{accuracyClassDisplay}</td>
-                                </tr>
-                                <tr>
-                                    <td className="border border-black p-1 pl-2 font-medium w-1/4">Voltage Factor</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">1.2 Cont.& 1.5 for 30 Sec</td>
-                                    <td className="border border-black p-1 pl-2 font-medium w-1/4">Job No.</td>
-                                    <td className="border border-black p-1 pl-2 w-1/4 bg-gray-50">{order.jobId || 'N/A'}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        {/* Section 2: Pre testing */}
-                        <div className="border border-black mb-4">
-                            <div className="text-center font-bold bg-gray-100 border-b border-black py-1">Pre testing</div>
-                            <table className="w-full border-collapse border-hidden table-fixed text-sm text-center">
-                                <thead>
-                                    <tr>
-                                        <td className="border border-black p-1 w-1/3" rowSpan={2}>% of Primary<br/>current</td>
-                                        <td className="border border-black p-1 font-bold w-1/3" colSpan={2}>100% Burden</td>
-                                        <td className="border border-black p-1 font-bold w-1/3" colSpan={2}>25% Burden</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="border border-black p-1">Ratio Error</td>
-                                        <td className="border border-black p-1">Phase Error</td>
-                                        <td className="border border-black p-1">Ratio Error</td>
-                                        <td className="border border-black p-1">Phase Error</td>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {activeCores.map((core) => {
-                                        const isProtection = core.startsWith('protection');
-                                        const label = isProtection 
-                                            ? `Protection 30%` 
-                                            : core.startsWith('metering') 
-                                                ? `Metering 30%` 
-                                                : `${core} 30%`;
-                                        
-                                        const validations = preTestValidations?.[core];
-                                        const v100 = validations?.val100 || { isPass: undefined, reason: null };
-                                        const v25 = validations?.val25 || { isPass: undefined, reason: null };
-
-                                        return (
-                                            <tr key={core}>
-                                                <td className="border border-black p-1 font-medium text-left pl-2 relative bg-gray-50">
-                                                    {label}
-                                                    {(v100.isPass === false || v25.isPass === false) ? (
-                                                        <div className="absolute right-1 top-1 text-[10px] font-bold px-1 py-0.5 rounded bg-red-100 text-red-700">FAIL</div>
-                                                    ) : (v100.isPass && v25.isPass) ? (
-                                                        <div className="absolute right-1 top-1 text-[10px] font-bold px-1 py-0.5 rounded bg-green-100 text-green-700">PASS</div>
-                                                    ) : null}
-                                                </td>
-                                                <td className="border border-black p-0.5"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${v100.isPass === false && v100.reason?.includes('Ratio') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.preTesting?.[core]?.ratioError100 || ''} onChange={(e) => handleInputChange(transformer._id, 'preTesting', core, e.target.value, 'ratioError100')} disabled={isReadOnly} /></td>
-                                                <td className="border border-black p-0.5"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${v100.isPass === false && v100.reason?.includes('Phase') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.preTesting?.[core]?.phaseError100 || ''} onChange={(e) => handleInputChange(transformer._id, 'preTesting', core, e.target.value, 'phaseError100')} disabled={isReadOnly} /></td>
-                                                <td className="border border-black p-0.5"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${v25.isPass === false && v25.reason?.includes('Ratio') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.preTesting?.[core]?.ratioError25 || ''} onChange={(e) => handleInputChange(transformer._id, 'preTesting', core, e.target.value, 'ratioError25')} disabled={isReadOnly} /></td>
-                                                <td className="border border-black p-0.5"><Input className={`h-7 border-none shadow-none text-center bg-transparent ${v25.isPass === false && v25.reason?.includes('Phase') ? 'text-red-700 font-bold' : 'text-blue-600'}`} value={reportData.preTesting?.[core]?.phaseError25 || ''} onChange={(e) => handleInputChange(transformer._id, 'preTesting', core, e.target.value, 'phaseError25')} disabled={isReadOnly} /></td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                            <div className="flex justify-between items-center p-2 text-sm">
-                                <div className="flex items-center">
-                                    <span className="font-bold mr-2">Tested By: -</span>
-                                    <Input value={reportData.testedBy || user?.name || user?.fullName || ''} className="w-48 h-7 text-blue-600 italic font-medium bg-transparent border-t-0 border-l-0 border-r-0 border-b border-gray-400 rounded-none px-1" readOnly />
-                                </div>
-                            </div>
-                        </div>
-
-
-
-
-                    </div>
-                );
-            })}
+                    return (
+                        <PTPretestPrintableReport
+                            key={transformer._id}
+                            printRef={printRef}
+                            order={order}
+                            transformer={transformer}
+                            reportData={reportData}
+                            activeCores={activeCores}
+                            user={user}
+                            isReadOnly={isReadOnly}
+                            preTestValidations={preTestValidations}
+                            onChange={(core, field, val) => handleInputChange(transformer._id, 'preTesting', core, val, field)}
+                            onTestedByChange={(val) => handleInputChange(transformer._id, '', 'testedBy', val)}
+                        />
+                    );
+                })}
+            </div>
         </div>
 
         {/* Failure Modal */}

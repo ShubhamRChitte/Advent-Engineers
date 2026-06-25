@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
-import { ChevronRight, FileText, Search, Calendar, LayoutGrid } from 'lucide-react';
+import { ChevronRight, FileText, Search, Calendar, LayoutGrid, Printer } from 'lucide-react';
 import axios from '@/utils/axiosConfig';
 import { Skeleton } from '../ui/skeleton';
-import { PTReportView } from './PTReportView';
+import { useReactToPrint } from 'react-to-print';
+import { PTPretestPrintableReport } from './PTPretestPrintableReport';
 import { PTCompletedTransformersList } from './PTCompletedTransformersList';
 
 // Types
@@ -42,6 +43,10 @@ export function PTPretestReportsList({ onBack }: PTPretestReportsListProps) {
     const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
     const [selectedTransformer, setSelectedTransformer] = useState<CompletedTransformer | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const printRef = useRef<HTMLDivElement>(null);
+    const handlePrint = useReactToPrint({
+        contentRef: printRef,
+    });
 
     useEffect(() => {
         fetchReports();
@@ -77,12 +82,68 @@ export function PTPretestReportsList({ onBack }: PTPretestReportsListProps) {
 
     // --- LEVEL 3: REPORT VIEW ---
     if (selectedTransformer) {
+        const orderData = selectedTransformer.orderId || {};
+        const ptPretest = selectedTransformer.testHistory?.pt_pretest_test || {};
+        
+        const cores = orderData?.coreDetails || orderData?.coreConfigs || [];
+        let countMetering = 0;
+        let countProtection = 0;
+        let countPS = 0;
+        const activeCores: string[] = [];
+        
+        cores.forEach((core: any) => {
+            const type = typeof core === 'string' ? core : core.coreType;
+            if (type?.toLowerCase() === 'metering') {
+                countMetering++;
+                const coreId = countMetering > 1 ? `metering${countMetering}` : 'metering';
+                activeCores.push(coreId);
+            }
+            if (type?.toLowerCase() === 'protection') {
+                countProtection++;
+                const coreId = `protection${countProtection}`;
+                activeCores.push(coreId);
+            }
+            if (type?.toLowerCase() === 'ps') {
+                countPS++;
+                const coreId = `ps${countPS}`;
+                activeCores.push(coreId);
+            }
+        });
+
+        if (activeCores.length === 0) {
+            activeCores.push('metering');
+        }
+
         return (
-            <PTReportView
-                transformer={selectedTransformer}
-                order={selectedTransformer.orderId}
-                onBack={() => setSelectedTransformer(null)}
-            />
+            <div>
+                {/* Toolbar */}
+                <div className="flex items-center justify-between no-print mb-6">
+                    <Button variant="outline" size="sm" onClick={() => setSelectedTransformer(null)} className="gap-2">
+                        <ChevronRight className="w-4 h-4 rotate-180" />
+                        Back to Transformers
+                    </Button>
+                    <div className="flex gap-2">
+                        <Badge className="bg-green-100 text-green-700 mt-1 self-center">Completed</Badge>
+                        <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
+                            <Printer className="w-4 h-4" /> Print Report
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll">
+                    <div className="print-container w-[210mm] min-w-[210mm] print:w-full print:min-w-0 print:max-w-full">
+                        <PTPretestPrintableReport
+                            order={orderData}
+                            transformer={selectedTransformer}
+                            reportData={ptPretest}
+                            activeCores={activeCores}
+                            user={null}
+                            isReadOnly={true}
+                            printRef={printRef}
+                        />
+                    </div>
+                </div>
+            </div>
         );
     }
 

@@ -4,8 +4,7 @@ import { useReactToPrint } from 'react-to-print';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Printer, ArrowLeft, Loader2, Database } from 'lucide-react';
-import { PTReportView } from '../components/tester/PTReportView';
-import { PTFinalPrintReport } from '../components/tester/PTFinalPrintReport';
+import { PTFinalPrintableReport } from '../components/tester/PTFinalPrintableReport';
 import { PrintableCoreReport } from '../components/reports/PrintableCoreReport';
 import { ctReportViewStyles } from '../components/tester/CTTestReportView';
 import { secondaryReportPrintStyles } from '../components/tester/SecondaryReportPrintLayout';
@@ -378,21 +377,17 @@ export function AdminReportViewPage() {
             });
 
             return (
-                <div className="space-y-12">
-                    {/* Screen View */}
-                    <div className="report-section print:hidden no-print">
-                        <PTReportView transformer={transformer} order={orderData} onBack={handleBack} readOnly={true} />
-                    </div>
-
-                    {/* Print View (hidden off-screen on browser, but rendered inside #printable-report for print popup) */}
-                    <div className="pt-print-wrapper" style={{ position: 'absolute', left: '-9999px', top: 0, width: '210mm', overflow: 'hidden' }}>
-                        <PTFinalPrintReport
+                <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll">
+                    <div className="print-container w-[210mm] min-w-[210mm] print:w-full print:min-w-0 print:max-w-full">
+                        <PTFinalPrintableReport
+                            printRef={printRef}
                             order={orderData}
                             transformer={transformer}
                             reportData={transformer?.testHistory?.pt_test || {}}
                             pretestData={transformer?.testHistory?.pt_test?.preTesting || {}}
                             activeCores={coresList}
                             user={null}
+                            isReadOnly={true}
                         />
                     </div>
                 </div>
