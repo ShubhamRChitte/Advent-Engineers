@@ -28,6 +28,40 @@ interface FailedTransformersSectionProps {
   };
 }
 
+const findResultForCore = (results: any[], coreNumber: number, coreType: string, coreDetails: any[]) => {
+  if (!results || !Array.isArray(results) || results.length === 0) return null;
+
+  const typeCores = coreDetails.filter((c: any) => {
+    const t = (c.coreType || 'Metering').toLowerCase();
+    if (coreType === 'ps') return t.includes('ps');
+    if (coreType === 'protection') return t.includes('protection');
+    return !t.includes('ps') && !t.includes('protection');
+  });
+
+  const typeIndex = typeCores.findIndex((c: any) => {
+    for (let i = 0; i < coreDetails.length; i++) {
+      if (coreDetails[i] === c) {
+        if (i + 1 === coreNumber) return true;
+      }
+    }
+    return false;
+  });
+
+  const suffix = `-${String(coreNumber).padStart(3, '0')}`;
+  const typeSeq = typeIndex !== -1 ? typeIndex + 1 : 1;
+  const typeSuffix = `-${String(typeSeq).padStart(3, '0')}`;
+
+  const match = results.find((r: any) => {
+    const id = r.internalCoreNo || r.coreId || '';
+    return id.endsWith(suffix) || id.includes(suffix) ||
+      id.endsWith(typeSuffix) || id.includes(typeSuffix);
+  });
+
+  if (match) return match;
+  if (typeIndex !== -1 && results[typeIndex]) return results[typeIndex];
+  return null;
+};
+
 export function FailedTransformersSection({ user }: FailedTransformersSectionProps) {
   const [failedList, setFailedList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,7 +166,10 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
     const order = item.orderId;
     const transformer = item.transformerId;
     const coreDetails = order.coreDetails || [];
-    const testStageKey = item.stage === 'PRIMARY_TESTING' ? 'primary_test' : 'secondary_test';
+    // For PRIMARY_TESTING failures, read from primary_test; for FINAL_TESTING from final_test; otherwise secondary_test
+    const testStageKey = item.stage === 'PRIMARY_TESTING' ? 'primary_test'
+      : item.stage === 'FINAL_TESTING' ? 'final_test'
+      : 'secondary_test';
 
     return coreDetails.map((coreGroup: any, idx: number) => {
       const coreNum = idx + 1;
@@ -141,33 +178,20 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       if (typeStr.includes('protection')) mappedType = 'protection';
       else if (typeStr.includes('ps')) mappedType = 'ps';
 
-      // Find current core ID from secondary or primary results based on failure stage
+      // Find current core ID from the appropriate stage results
       const results = transformer.testHistory?.[testStageKey]?.[`${mappedType}_results`] || [];
 
-      let typeIndex = 0;
-      let matchCount = 0;
-      for (let i = 0; i < coreDetails.length; i++) {
-        const c = coreDetails[i];
-        const t = (c.coreType || 'Metering').toLowerCase();
-        let matches = false;
-        if (mappedType === 'ps') matches = t.includes('ps');
-        else if (mappedType === 'protection') matches = t.includes('protection');
-        else matches = !t.includes('ps') && !t.includes('protection');
+      let foundResult = findResultForCore(results, coreNum, mappedType, coreDetails);
 
-        if (matches) {
-          if (i === idx) {
-            typeIndex = matchCount;
-            break;
-          }
-          matchCount++;
-        }
-      }
-
-      let foundResult = results[typeIndex];
-      if (item.stage === 'PRIMARY_TESTING' && (!foundResult || !(foundResult.internalCoreNo || foundResult.coreId))) {
+      // Fallback chain: if the primary stage didn't have a result, try secondary_test
+      // If FINAL_TESTING didn't have a result, try secondary_test then primary_test
+      if (!foundResult || !(foundResult.internalCoreNo || foundResult.coreId)) {
         const secResults = transformer.testHistory?.secondary_test?.[`${mappedType}_results`] || [];
-        if (secResults[typeIndex]) {
-          foundResult = secResults[typeIndex];
+        foundResult = findResultForCore(secResults, coreNum, mappedType, coreDetails);
+        
+        if (!foundResult) {
+          const primResults = transformer.testHistory?.primary_test?.[`${mappedType}_results`] || [];
+          foundResult = findResultForCore(primResults, coreNum, mappedType, coreDetails);
         }
       }
 
@@ -590,38 +614,43 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
 
   const handleApproveTransformerDirect = async (item: any) => {
     try {
-
       const transformerObj = item.transformerId;
       if (!transformerObj) {
         toast.error("Transformer detail not loaded. Cannot approve.");
         return;
       }
 
-      const targetStage = 'secondary';
-      const nextStage = 'primary';
-      const displayNext = 'Primary Testing';
+      // All failed transformer approvals go to Primary Testing (with secondary values preserved),
+      // so primary + final testing can be done fresh with the retested/replaced cores.
+      const stageLabel = item.stage === 'FINAL_TESTING' ? 'Final Testing'
+        : item.stage === 'PRIMARY_TESTING' ? 'Primary Testing'
+        : 'Secondary Testing';
 
-      if (!confirm(`Are you sure you want to approve Transformer ${transformerObj?.uniqueId} and move to ${displayNext}?`)) return;
+      if (!confirm(
+        `Are you sure you want to approve Transformer ${transformerObj?.uniqueId}?\n\n` +
+        `This will:\n` +
+        `• Mark the failed ${stageLabel} record as TREATED\n` +
+        `• Preserve all secondary retest values (latest passing values for all cores)\n` +
+        `• Reset primary and final test data for fresh retesting\n` +
+        `• Move transformer back to Primary Testing`
+      )) return;
 
-      // 1. Update Failed Transformer record status to TREATED
+      // Update Failed Transformer record status to TREATED.
+      // The backend status route handles:
+      //   1. Moving transformer to 'primary' stage
+      //   2. Clearing primary_test + final_test history
+      //   3. Preserving secondary_test (retest) values
       await axios.put(
         `/failed-transformers/${item._id}/status`,
-
         {
           status: "TREATED",
           treatedBy: user.name || user.fullName || "Tester",
-          resolutionRemarks: "Retest completed successfully. Approved from Failed Section table."
+          resolutionRemarks: `Retest completed successfully. All cores passed. Approved from Failed Section — returning to Primary Testing.`
         },
         { withCredentials: true }
       );
 
-      // 2. Approve stage of transformer (move to next stage)
-      await axios.put(`/transformers/${transformerObj?.uniqueId}/approve-stage`, {
-        stage: targetStage,
-        nextStage: nextStage
-      }, { withCredentials: true });
-
-      toast.success("Transformer Approved successfully!");
+      toast.success(`Transformer ${transformerObj?.uniqueId} approved! Moving to Primary Testing with fresh data.`);
       fetchFailedTransformers();
     } catch (err) {
       console.error("Failed to approve transformer:", err);
@@ -639,8 +668,11 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       }
       if (!confirm("Are you sure you want to request Strict Admin Approval?")) return;
 
+      const isFinalFail = item.stage === 'FINAL_TESTING';
       const isPrimaryFail = item.stage === 'PRIMARY_TESTING';
-      const testStageKey = isPrimaryFail ? 'primary_test' : 'secondary_test';
+      // Retest data is always stored in secondary_test; final failures read from final_test for the reason
+      const testStageKey = isFinalFail ? 'final_test' : isPrimaryFail ? 'primary_test' : 'secondary_test';
+      const testTypeLabel = isFinalFail ? 'Final Testing' : isPrimaryFail ? 'After Primary Testing' : 'Secondary Testing';
 
       // Generate reasons
       let failureReasons: string[] = [];
@@ -673,20 +705,21 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
         ? [...new Set(failureReasons)].join(' | ')
         : "Accuracy Limits Exceeded";
 
-      // 1. Post strict approval
+      // 1. Post strict approval request
       await axios.post(`/strict-approvals/request`, {
         orderId: orderObj?._id || orderObj,
         jobId: transformerObj?.jobId,
         unitId: transformerObj?.uniqueId,
         clientName: orderObj?.clientName || 'N/A',
         coreType: 'Multiple',
-        testType: isPrimaryFail ? 'After Primary Testing' : 'Secondary Testing',
+        testType: testTypeLabel,
         failureReason: finalReason,
         testData: transformerObj?.testHistory?.[testStageKey],
         requestedBy: user.name || user.fullName || 'Tester'
       }, { withCredentials: true });
 
-      // 2. Set failed transformer record status to TREATED
+      // 2. Set failed transformer record status to TREATED and move to admin_review
+      // (Backend status route handles moving to primary; we override with approve-stage to admin_review)
       await axios.put(
         `/failed-transformers/${item._id}/status`,
         {
@@ -697,9 +730,9 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
         { withCredentials: true }
       );
 
-      // 3. Set transformer stage to admin_review
+      // 3. Override to admin_review stage (strict approval bypasses normal primary flow)
       await axios.put(`/transformers/${transformerObj?.uniqueId}/approve-stage`, {
-        stage: isPrimaryFail ? 'primary' : 'secondary',
+        stage: 'primary',
         nextStage: 'admin_review'
       }, { withCredentials: true });
 
@@ -711,6 +744,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
     }
   };
 
+
   const handleRetestCoreSelect = (coreNumber: number) => {
     if (!retestingTransformer) return;
     setSelectedCore(coreNumber);
@@ -721,9 +755,11 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
     const config = cores.find((c: any) => c.coreNumber === coreNumber);
     if (!config) return;
 
-    // Auto-select ID if already saved in results or if in available pool
-    const testStageKey = retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary_test' : 'secondary_test';
-    const results = transformer.testHistory?.[testStageKey]?.[`${config.coreType}_results`] || [];
+    // Retest-save always writes to secondary_test, so check there first for saved retest values.
+    // Then fall back to the original failure stage results.
+    const testStageKey = retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary_test'
+      : retestingTransformer.stage === 'FINAL_TESTING' ? 'final_test'
+      : 'secondary_test';
     const coreDetails = order.coreDetails || [];
     const typeCores = coreDetails.filter((c: any) => {
       const t = (c.coreType || 'Metering').toLowerCase();
@@ -731,22 +767,38 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       if (config.coreType === 'protection') return t.includes('protection');
       return !t.includes('ps') && !t.includes('protection');
     });
-    const typeIndex = typeCores.findIndex((c: any) => {
-      for (let i = 0; i < coreDetails.length; i++) {
-        if (coreDetails[i] === c) {
-          if (i + 1 === coreNumber) return true;
-        }
-      }
-      return false;
-    });
+    // Check secondary_test first (retest-save always writes here)
+    const secResults = transformer.testHistory?.secondary_test?.[`${config.coreType}_results`] || [];
+    const secResult = findResultForCore(secResults, coreNumber, config.coreType, coreDetails);
 
-    const foundResult = typeIndex !== -1 ? results[typeIndex] : null;
+    // Then check original failure stage results
+    const stageResults = transformer.testHistory?.[testStageKey]?.[`${config.coreType}_results`] || [];
+    const stageResult = findResultForCore(stageResults, coreNumber, config.coreType, coreDetails);
 
-    if (foundResult) {
+    // Prefer secondary_test (latest saved retest), then original stage, then currentCoreId from getCoresForItem
+    const foundResult = secResult || stageResult;
+
+    if (foundResult && (foundResult.internalCoreNo || foundResult.coreId)) {
       setEnteredCoreId(foundResult.internalCoreNo || foundResult.coreId);
     } else if (config.currentCoreId && config.currentCoreId !== 'N/A') {
       setEnteredCoreId(config.currentCoreId);
     } else {
+      // Find the typeIndex to fall back to the available pool
+      const typeCores = coreDetails.filter((c: any) => {
+        const t = (c.coreType || 'Metering').toLowerCase();
+        if (config.coreType === 'ps') return t.includes('ps');
+        if (config.coreType === 'protection') return t.includes('protection');
+        return !t.includes('ps') && !t.includes('protection');
+      });
+      const typeIndex = typeCores.findIndex((c: any) => {
+        for (let i = 0; i < coreDetails.length; i++) {
+          if (coreDetails[i] === c) {
+            if (i + 1 === coreNumber) return true;
+          }
+        }
+        return false;
+      });
+      
       const expectedId = retestAvailablePool?.[config.coreType]?.[typeIndex];
       if (expectedId) {
         setEnteredCoreId(expectedId);
@@ -831,7 +883,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
           <div className="flex items-center gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
             <Button
               variant="outline"
-              onClick={() => setActiveReport(null)}
+              onClick={async () => { await refreshRetestingTransformer(); setActiveReport(null); }}
               size="sm"
               className="gap-2"
             >
@@ -853,7 +905,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
               coreNumber={activeReport.coreNumber}
               coreId={activeReport.coreId}
               testerName={user.name || user.fullName || 'Tester'}
-              onBack={() => setActiveReport(null)}
+              onBack={async () => { await refreshRetestingTransformer(); setActiveReport(null); }}
               stage={retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary' : retestingTransformer.stage === 'FINAL_TESTING' ? 'final' : 'secondary'}
               order={orderObj}
               onRefresh={refreshRetestingTransformer}
@@ -872,7 +924,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
               coreNumber={activeReport.coreNumber}
               coreId={activeReport.coreId}
               testerName={user.name || user.fullName || 'Tester'}
-              onBack={() => setActiveReport(null)}
+              onBack={async () => { await refreshRetestingTransformer(); setActiveReport(null); }}
               stage={retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary' : retestingTransformer.stage === 'FINAL_TESTING' ? 'final' : 'secondary'}
               order={orderObj}
               onRefresh={refreshRetestingTransformer}
@@ -891,7 +943,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
               coreNumber={activeReport.coreNumber}
               coreId={activeReport.coreId}
               testerName={user.name || user.fullName || 'Tester'}
-              onBack={() => setActiveReport(null)}
+              onBack={async () => { await refreshRetestingTransformer(); setActiveReport(null); }}
               stage={retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary' : retestingTransformer.stage === 'FINAL_TESTING' ? 'final' : 'secondary'}
               order={orderObj}
               onRefresh={refreshRetestingTransformer}

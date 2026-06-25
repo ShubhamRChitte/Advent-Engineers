@@ -260,10 +260,16 @@ router.put('/:id/retest-save', isAuthenticated, async (req, res) => {
             if (coreTypeLower.includes('meter') || testTypeLower.includes('meter')) {
                 if (!transformer.testHistory.secondary_test.metering_results) transformer.testHistory.secondary_test.metering_results = [];
                 const existingResults = transformer.testHistory.secondary_test.metering_results || [];
+                const firstIdx = existingResults.findIndex(r => r.internalCoreNo === coreSlot || r.coreId === coreSlot);
                 const otherCoresResults = existingResults.filter(r =>
                     r.internalCoreNo !== coreSlot && r.coreId !== coreSlot
                 );
-                transformer.testHistory.secondary_test.metering_results = [...otherCoresResults, ...formattedReadings];
+                if (firstIdx !== -1) {
+                    otherCoresResults.splice(firstIdx, 0, ...formattedReadings);
+                    transformer.testHistory.secondary_test.metering_results = otherCoresResults;
+                } else {
+                    transformer.testHistory.secondary_test.metering_results = [...otherCoresResults, ...formattedReadings];
+                }
 
                 // Clear from primary and final
                 ['primary_test', 'final_test'].forEach(stage => {
@@ -277,10 +283,16 @@ router.put('/:id/retest-save', isAuthenticated, async (req, res) => {
             } else if (coreTypeLower.includes('ps') || testTypeLower.includes('ps')) {
                 if (!transformer.testHistory.secondary_test.ps_results) transformer.testHistory.secondary_test.ps_results = [];
                 const existingResults = transformer.testHistory.secondary_test.ps_results || [];
+                const firstIdx = existingResults.findIndex(r => r.internalCoreNo === coreSlot || r.coreId === coreSlot);
                 const otherCoresResults = existingResults.filter(r =>
                     r.internalCoreNo !== coreSlot && r.coreId !== coreSlot
                 );
-                transformer.testHistory.secondary_test.ps_results = [...otherCoresResults, ...formattedReadings];
+                if (firstIdx !== -1) {
+                    otherCoresResults.splice(firstIdx, 0, ...formattedReadings);
+                    transformer.testHistory.secondary_test.ps_results = otherCoresResults;
+                } else {
+                    transformer.testHistory.secondary_test.ps_results = [...otherCoresResults, ...formattedReadings];
+                }
 
                 // Clear from primary and final
                 ['primary_test', 'final_test'].forEach(stage => {
@@ -294,10 +306,16 @@ router.put('/:id/retest-save', isAuthenticated, async (req, res) => {
             } else if (coreTypeLower.includes('protection') || testTypeLower.includes('protection')) {
                 if (!transformer.testHistory.secondary_test.protection_results) transformer.testHistory.secondary_test.protection_results = [];
                 const existingResults = transformer.testHistory.secondary_test.protection_results || [];
+                const firstIdx = existingResults.findIndex(r => r.internalCoreNo === coreSlot || r.coreId === coreSlot);
                 const otherCoresResults = existingResults.filter(r =>
                     r.internalCoreNo !== coreSlot && r.coreId !== coreSlot
                 );
-                transformer.testHistory.secondary_test.protection_results = [...otherCoresResults, ...formattedReadings];
+                if (firstIdx !== -1) {
+                    otherCoresResults.splice(firstIdx, 0, ...formattedReadings);
+                    transformer.testHistory.secondary_test.protection_results = otherCoresResults;
+                } else {
+                    transformer.testHistory.secondary_test.protection_results = [...otherCoresResults, ...formattedReadings];
+                }
 
                 // Clear from primary and final
                 ['primary_test', 'final_test'].forEach(stage => {
@@ -379,44 +397,54 @@ router.put('/:id/status', isAuthenticated, async (req, res) => {
 
         await record.save();
 
-        // If the status is TREATED or RETESTED or RESOLVED, return the Transformer to correct testing stage
+        // If the status is TREATED or RETESTED or RESOLVED, return the Transformer to Primary stage for fresh retesting
         if (status === "TREATED" || status === "RETESTED" || status === "RESOLVED") {
             const transformer = await TransformerModel.findById(record.transformerId);
             if (transformer) {
-                const targetStage = record.stage === "PRIMARY_TESTING" ? "primary" : "secondary";
-                transformer.currentStage = targetStage;
+                // Regardless of which stage the transformer failed in (PRIMARY_TESTING, SECONDARY_TESTING, or FINAL_TESTING),
+                // after the failed core is treated/replaced and retested:
+                //   - Secondary test values (the retest results) are KEPT as the latest valid passing values
+                //   - Primary test data is CLEARED so primary testing starts fresh on all cores
+                //   - Final test data is CLEARED so final testing starts fresh on all cores
+                //   - Transformer moves to 'primary' stage for a complete fresh primary + final test cycle
                 
-                // Clear history for the target stage so it's tested fresh
-                if (targetStage === 'primary') {
-                    transformer.testHistory.primary_test = {
-                        metering_results: [],
-                        ps_results: [],
-                        protection_results: [],
-                        tester: null,
-                        status: 'Pending',
-                        timestamp: null
-                    };
-                    transformer.testHistory.final_test = {
-                        metering_results: [],
-                        ps_results: [],
-                        protection_results: [],
-                        status: 'Pending',
-                        tester: null,
-                        timestamp: null
-                    };
-                    transformer.markModified('testHistory');
-                } else if (targetStage === 'final') {
-                    transformer.testHistory.final_test = {
-                        metering_results: [],
-                        ps_results: [],
-                        protection_results: [],
-                        status: 'Pending',
-                        tester: null,
-                        timestamp: null
-                    };
-                    transformer.markModified('testHistory');
-                }
-                
+                transformer.currentStage = 'primary';
+
+                // Clear primary test history for fresh retesting
+                transformer.testHistory.primary_test = {
+                    metering_results: [],
+                    ps_results: [],
+                    protection_results: [],
+                    tester: null,
+                    status: 'Pending',
+                    timestamp: null
+                };
+
+                // Clear final test history for fresh retesting
+                transformer.testHistory.final_test = {
+                    metering_results: [],
+                    ps_results: [],
+                    protection_results: [],
+                    status: 'Pending',
+                    tester: null,
+                    timestamp: null,
+                    // Clear all comprehensive final test fields too
+                    polarityResult: null,
+                    meggarPrimaryToSecondary: null,
+                    meggarPrimaryToEarth: null,
+                    meggarSecondaryToEarth: null,
+                    meggarCoreToCore: null,
+                    hvSecondaryWinding: null,
+                    hvPrimaryWinding: null,
+                    hvBetweenCore: null,
+                    ovitTest: null,
+                    reportDate: null
+                };
+
+                // NOTE: secondary_test data is intentionally preserved — it holds the latest
+                // passing retest values which are now the canonical secondary test results.
+
+                transformer.markModified('testHistory');
                 await transformer.save();
             }
         }
@@ -562,69 +590,28 @@ router.put('/:id/replace-core', isAuthenticated, async (req, res) => {
             transformer.markModified(`testHistory.secondary_test.${typeKey}`);
         }
 
-        // Cleanse primary_test and final_test histories by updating the old core ID to the new one in-place and clearing readings
-        const cleanTestResults = (testStageKey) => {
-            const stageHistory = transformer.testHistory?.[testStageKey];
-            if (stageHistory && stageHistory[typeKey]) {
-                const stageResults = stageHistory[typeKey];
-                let idx = -1;
-                if (oldCoreId) {
-                    idx = stageResults.findIndex(r => r.internalCoreNo === oldCoreId || r.coreId === oldCoreId);
-                }
-                if (idx === -1 && matchingIndex !== -1) {
-                    idx = matchingIndex;
-                }
-                if (idx !== -1 && stageResults[idx]) {
-                    const block = stageResults[idx].toObject ? stageResults[idx].toObject() : stageResults[idx];
-                    block.internalCoreNo = newCoreId;
-                    block.coreId = newCoreId;
-                    
-                    // Clear readings/values
-                    if (coreType.toLowerCase() === 'metering') {
-                        if (block.rows && Array.isArray(block.rows)) {
-                            block.rows.forEach(row => {
-                                row.r100 = "";
-                                row.p100 = "";
-                                row.r25 = "";
-                                row.p25 = "";
-                                row.r100_r_pass = null;
-                                row.r100_p_pass = null;
-                                row.r100_pass = null;
-                                row.r100_reason = null;
-                                row.r25_r_pass = null;
-                                row.r25_p_pass = null;
-                                row.r25_pass = null;
-                                row.r25_reason = null;
-                            });
-                        }
-                    } else if (coreType.toLowerCase() === 'ps') {
-                        block.turnRatioError = "";
-                        block.resistance = "";
-                        block.vk = "";
-                        block.vkVal = "";
-                        block.iexVk = "";
-                        block.iex11Vk = "";
-                        block.isPass = null;
-                        block.reason = null;
-                    } else if (coreType.toLowerCase() === 'protection') {
-                        block.ratioError100 = 0;
-                        block.phaseError = 0;
-                        block.resistance = 0;
-                        block.secondaryLimitingVoltage = 0;
-                        block.secondaryLimitingVtg = 0;
-                        block.excitationCurrent = 0;
-                        block.compositeError = 0;
-                        block.alf = 0;
-                        block.isPass = null;
-                        block.reason = null;
-                    }
-                    stageResults[idx] = block;
-                    transformer.markModified(`testHistory.${testStageKey}.${typeKey}`);
-                }
+        // Cleanse primary_test and final_test histories completely if we are returning to primary stage
+        // This ensures every core starts with blank primary values, forcing a complete fresh retest.
+        if (failedRecord.stage === "PRIMARY_TESTING") {
+            if (transformer.testHistory && transformer.testHistory.primary_test) {
+                transformer.testHistory.primary_test.metering_results = [];
+                transformer.testHistory.primary_test.ps_results = [];
+                transformer.testHistory.primary_test.protection_results = [];
+                transformer.testHistory.primary_test.tester = null;
+                transformer.testHistory.primary_test.status = 'Pending';
+                transformer.testHistory.primary_test.timestamp = null;
+                transformer.markModified('testHistory.primary_test');
             }
-        };
-        cleanTestResults('primary_test');
-        cleanTestResults('final_test');
+            if (transformer.testHistory && transformer.testHistory.final_test) {
+                transformer.testHistory.final_test.metering_results = [];
+                transformer.testHistory.final_test.ps_results = [];
+                transformer.testHistory.final_test.protection_results = [];
+                transformer.testHistory.final_test.status = 'Pending';
+                transformer.testHistory.final_test.tester = null;
+                transformer.testHistory.final_test.timestamp = null;
+                transformer.markModified('testHistory.final_test');
+            }
+        }
 
         // Update Ready Stock status if this core was selected from ready stock
         try {

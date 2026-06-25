@@ -6,7 +6,6 @@ import { FinalTransformer } from './FinalTransformersList';
 import { toast } from 'sonner';
 import axios from '@/utils/axiosConfig';
 import { useCTTimer } from '../../utils/useCTTimer';
-import { CTTimerBadge } from './CTTimerBadge';
 import { 
   ReportSectionTitle, 
   ReportSpecBox,
@@ -147,10 +146,10 @@ export function FinalTestReport({
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (skipValidation = false) => {
     try {
-      if (hasFailures) {
-        toast.error("There are failed conditions. Please use 'Mark as Failed Core' instead.");
+      if (hasFailures && !skipValidation) {
+        toast.error("There are failed conditions. Please use 'Add to Failed Transformer' instead.");
         return false;
       }
 
@@ -185,31 +184,30 @@ export function FinalTestReport({
   };
 
   const handleMarkAsFailed = async () => {
-    const finalReason = getValidationFailures().join(' | ') || "Failed during final testing.";
-
+    if (readOnly) return;
+    
     try {
-      // Persist the actual test data and trigger the Failed Transformer workflow
-      const testPayload = {
-        polarityResult, meggarPrimaryToSecondary, meggarPrimaryToEarth, meggarSecondaryToEarth, meggarCoreToCore,
-        hvSecondaryWinding, hvPrimaryWinding, hvBetweenCore, ovitTest,
-        failedStage: 'FINAL_TESTING',
-        failureReason: finalReason
-      };
-      const response = await axios.post(`/final/${encodeURIComponent(transformer.uniqueId)}`, testPayload, { withCredentials: true });
+      // Persist the entered test values to the transformer's history first
+      // The backend finalTestRoutes.js will automatically detect the failure limits
+      // and log it to FailedTransformerModel with coreType: "COMPLETE UNIT"
+      const success = await handleSave(true);
 
-      if (response.data?.success || response.status === 200 || response.status === 201) {
-        toast.success("Transformer marked as failed successfully.");
+      if (success) {
+        toast.success("Transformer added to failed list successfully.");
         if (onBack) onBack();
+      } else {
+        toast.error("Failed to add to failed transformers.");
       }
     } catch (error: any) {
       console.error("Mark as failed error:", error);
-      toast.error(error.response?.data?.message || "Error adding to failed cores");
+      toast.error(error.response?.data?.message || "Error adding to failed transformers");
     }
   };
 
   const printRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({
     contentRef: printRef,
+    documentTitle: `Advent_Engineers_Final_Test_Report_${transformer.uniqueId}`,
   });
 
   const accuracyClass = (transformer.cores && transformer.cores.map((c: any) => c.accuracyClass).filter(Boolean).join('/')) || 'N/A';
@@ -217,14 +215,8 @@ export function FinalTestReport({
   return (
     <>
       <div className="space-y-6">
-        <CTTimerBadge 
-          timeLeftMs={timeLeftMs} 
-          isOverdue={isOverdue} 
-          expectedMinutes={expectedMinutes} 
-          title="Final Testing"
-        />
         
-        <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll">
+        <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll print:block print:w-auto print:overflow-visible print:bg-white print:p-0">
           <style>{secondaryReportPrintStyles}</style>
           <style>{`
             @media print {
@@ -274,6 +266,11 @@ export function FinalTestReport({
                 Back
               </Button>
               <div className="flex gap-2">
+                {!readOnly && hasFailures && (
+                  <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2">
+                    <AlertTriangle className="w-4 h-4" /> Add to Failed Transformer
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
                   <Printer className="w-4 h-4" />
                   Print
@@ -516,7 +513,7 @@ export function FinalTestReport({
                 </div>
                 <div className="flex gap-3">
                   <Button 
-                    onClick={handleSave} 
+                    onClick={() => handleSave()} 
                     variant="outline" 
                     className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold"
                   >
@@ -541,16 +538,6 @@ export function FinalTestReport({
                     </div>
                   )}
 
-                  {hasFailures && (
-                    <Button 
-                      onClick={handleMarkAsFailed} 
-                      variant="destructive" 
-                      className="bg-red-600 hover:bg-red-700 font-bold gap-2 text-md h-10 shadow-lg border border-red-800 animate-pulse"
-                    >
-                      <AlertTriangle className="w-5 h-5 mr-1" />
-                      MARK AS FAILED CORE
-                    </Button>
-                  )}
                 </div>
               </div>
             )}

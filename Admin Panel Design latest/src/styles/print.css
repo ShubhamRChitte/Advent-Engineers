@@ -27,7 +27,9 @@
      Target the specific report container using ID.
      This enforces "Opt-In" printing.
   */
-  #printable-report {
+  #printable-report,
+  #final-printable-report,
+  #secondary-printable-report {
     visibility: visible !important;
 
     /* COMPLETE LAYOUT RESET */
@@ -57,7 +59,9 @@
      Ensure all children of the report are also visible 
      (Visibility property inherits, but good to be explicit for nested contexts)
   */
-  #printable-report * {
+  #printable-report *,
+  #final-printable-report *,
+  #secondary-printable-report * {
     visibility: visible !important;
   }
 

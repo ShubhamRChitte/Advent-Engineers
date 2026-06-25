@@ -272,10 +272,12 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
   // Comprehensive Report View
   if (currentView === 'comprehensive-report' && selectedTransformer) {
     return (
-      <div className="space-y-6">
-        {timerBadge}
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <HeaderWithTimer title="Comprehensive Final Test Report" onBack={handleBackToCores} />
+        <div className="space-y-6 print:space-y-0">
+          {timerBadge}
+          <div className="bg-white p-6 rounded-lg shadow-sm print:p-0 print:shadow-none print:bg-transparent">
+            <div className="no-print">
+              <HeaderWithTimer title="Comprehensive Final Test Report" onBack={handleBackToCores} />
+            </div>
           <FinalTestReport
             transformer={selectedTransformer}
             testerName={testerName}

@@ -621,11 +621,17 @@ router.post("/transformer-secondary-metering-tests", async (req, res) => {
     const newResults = validatedResults; // use the array that already has r100_pass etc
 
     const existingResults = transformer.testHistory.secondary_test.metering_results || [];
+    const firstIdx = existingResults.findIndex(r => r.internalCoreNo === coreId || r.coreId === coreId);
     const otherCoresResults = existingResults.filter(r =>
       r.internalCoreNo !== coreId && r.coreId !== coreId
     );
 
-    transformer.testHistory.secondary_test.metering_results = [...otherCoresResults, ...newResults];
+    if (firstIdx !== -1) {
+      otherCoresResults.splice(firstIdx, 0, ...newResults);
+      transformer.testHistory.secondary_test.metering_results = otherCoresResults;
+    } else {
+      transformer.testHistory.secondary_test.metering_results = [...otherCoresResults, ...newResults];
+    }
 
     // Mark modified (sometimes needed for mixed types, though these are schemas)
     transformer.markModified('testHistory');
