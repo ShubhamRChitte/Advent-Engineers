@@ -232,6 +232,7 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
           user={user}
           onLogout={onLogout}
           onNotificationClick={() => setActiveView('notifications')}
+          onAddOrderClick={() => setActiveView('add-order')}
         />
         <main className="flex-1 overflow-y-auto p-6 bg-slate-50">
           {renderView()}

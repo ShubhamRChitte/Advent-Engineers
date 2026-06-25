@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, LogOut } from 'lucide-react';
+import { Bell, LogOut, PlusCircle } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { User } from '../../App';
@@ -9,9 +9,10 @@ interface AdminHeaderProps {
   user: User;
   onLogout: () => void;
   onNotificationClick?: () => void;
+  onAddOrderClick?: () => void;
 }
 
-export function AdminHeader({ user, onLogout, onNotificationClick }: AdminHeaderProps) {
+export function AdminHeader({ user, onLogout, onNotificationClick, onAddOrderClick }: AdminHeaderProps) {
   const [unreadCount, setUnreadCount] = useState<number>(0);
 
   const fetchUnreadCount = async () => {
@@ -52,8 +53,22 @@ export function AdminHeader({ user, onLogout, onNotificationClick }: AdminHeader
             className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer group" 
             onClick={(e) => {
               e.preventDefault();
+              if (onAddOrderClick) onAddOrderClick();
+            }}
+            title="Add Order"
+            aria-label="Add Order"
+          >
+            <PlusCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          </button>
+          
+          <button 
+            type="button"
+            className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer group" 
+            onClick={(e) => {
+              e.preventDefault();
               if (onNotificationClick) onNotificationClick();
             }}
+            title="Notifications"
             aria-label="Toggle notifications"
           >
             <Bell className="w-5 h-5 group-hover:scale-110 transition-transform" />
