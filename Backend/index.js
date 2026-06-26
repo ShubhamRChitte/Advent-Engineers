@@ -182,6 +182,7 @@ app.use('/api/core-vendors', require('./routes/coreVendorRoutes')); // Core Vend
 app.use('/api/notifications', notificationRoutes); // Persistent Notifications
 app.use('/api/ready-transformers', require('./routes/readyTransformerRoutes')); // Ready Transformers System
 app.use('/api/pre-test-batches', require('./routes/preTestBatchRoutes')); // Pre-Test Batch Management
+app.use('/api/database-admin', require('./routes/databaseAdminRoutes')); // Database Management (Delete/Cleanup)
 
 // Provide configuration for Protection Classes dynamically to the frontend
 app.get('/api/protection-limits', (req, res) => {

@@ -64,7 +64,6 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
     if (userRole === 'pt-tester') {
       return [
         { id: 'home', label: 'Home Dashboard', icon: Home },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'testing', label: 'Final PT Testing', icon: ClipboardCheck },
         { id: 'reports', label: 'Customer Reports', icon: FileText },
         { id: 'view-orders', label: 'View Orders', icon: FileText },
@@ -74,7 +73,6 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
     if (userRole === 'pt-pretester') {
       return [
         { id: 'home', label: 'Home Dashboard', icon: Home },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'testing', label: 'PT Pretesting', icon: ClipboardCheck },
         { id: 'view-orders', label: 'View Orders', icon: FileText },
         { id: 'pt-failed', label: 'Failed Transformers', icon: AlertTriangle, badge: ptFailedCount > 0 ? ptFailedCount : undefined },
@@ -84,7 +82,6 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
     if (userRole === 'core-tester') {
       return [
         { id: 'home', label: 'Home', icon: Home },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'view-orders', label: 'View Orders', icon: FileText },
         { id: 'core-tracking', label: 'Core Tracking', icon: Zap },
         { id: 'ready-stock', label: 'Ready Stock', icon: Warehouse },
@@ -96,7 +93,6 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
     // For secondary, after-primary, and final testers
     const baseItems: MenuItem[] = [
       { id: 'home', label: 'Home', icon: Home },
-      { id: 'notifications', label: 'Notifications', icon: Bell },
       { id: 'testing', label: 'Testing', icon: ClipboardCheck },
       { id: 'view-orders', label: 'View Orders', icon: FileText },
     ];
@@ -107,8 +103,6 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
 
     if (userRole === 'secondary-tester') {
       baseItems.push({ id: 'failed-transformers', label: 'Failed Transformers', icon: AlertTriangle, badge: failedTransformersCount > 0 ? failedTransformersCount : undefined });
-    } else {
-      baseItems.push({ id: 'failed-cores', label: 'Failed Cores', icon: AlertTriangle, badge: failedCount > 0 ? failedCount : undefined });
     }
 
     return baseItems;
@@ -140,10 +134,10 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
                 : 'text-gray-700 hover:bg-slate-50'
                 }`}
             >
-              <Icon className="w-5 h-5" />
-              <span className="text-sm">{item.label}</span>
+              <Icon className="w-5 h-5 flex-shrink-0" />
+              <span className="text-sm text-left leading-snug flex-1">{item.label}</span>
               {item.badge !== undefined && (
-                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
+                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
                   {item.badge}
                 </span>
               )}

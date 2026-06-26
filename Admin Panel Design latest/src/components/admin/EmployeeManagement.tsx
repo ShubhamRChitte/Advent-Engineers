@@ -9,7 +9,7 @@ import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '../ui/dialog';
 import { Checkbox } from '../ui/checkbox';
-import { UserPlus, Edit, Trash2, Mail, Shield, Smartphone, Calendar, Briefcase, Activity, Zap } from 'lucide-react';
+import { UserPlus, Edit, Trash2, Mail, Shield, Smartphone, Calendar, Briefcase, Activity, Zap, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface TransformerSkills {
@@ -49,6 +49,7 @@ export function EmployeeManagement() {
   const [isLoading, setIsLoading] = useState(false); // For form submission
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [page, setPage] = useState(1);
+  const [showPassword, setShowPassword] = useState(false);
 
   const fetcher = (url: string) => axios.get(url).then(res => res.data);
   
@@ -147,7 +148,7 @@ export function EmployeeManagement() {
   };
 
   const handleSubmit = async () => {
-    const requiredFields = ['fullName', 'designation', 'department', 'mobileNumber', 'dateOfJoining', 'employmentType'];
+    const requiredFields = ['fullName', 'emailId', 'designation', 'department', 'mobileNumber', 'dateOfJoining', 'employmentType'];
     if (!editingEmployee) requiredFields.push('password');
 
     for (const field of requiredFields) {
@@ -155,6 +156,18 @@ export function EmployeeManagement() {
         toast.error(`Please fill in ${field}`);
         return;
       }
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.emailId)) {
+      toast.error('Please enter a valid email address.');
+      return;
+    }
+
+    const mobileRegex = /^[0-9]{10}$/;
+    if (!mobileRegex.test(formData.mobileNumber)) {
+      toast.error('Please enter a valid 10-digit mobile number.');
+      return;
     }
 
     setIsLoading(true);
@@ -242,15 +255,43 @@ export function EmployeeManagement() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password {editingEmployee ? '(Leave blank to keep current)' : '*'}</Label>
-                <Input id="password" type="password" value={formData.password} onChange={handleInputChange} placeholder="Secret" />
+                <div className="relative w-full flex items-center">
+                  <Input 
+                    id="password" 
+                    type={showPassword ? "text" : "password"} 
+                    value={formData.password} 
+                    onChange={handleInputChange} 
+                    placeholder="Secret" 
+                    style={{ paddingRight: '2.5rem' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute text-gray-500 hover:text-gray-700 focus:outline-none flex items-center justify-center"
+                    style={{ right: '0.75rem' }}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="mobileNumber">Mobile Number *</Label>
-                <Input id="mobileNumber" value={formData.mobileNumber} onChange={handleInputChange} placeholder="9876543210" />
+                <Input 
+                  id="mobileNumber" 
+                  value={formData.mobileNumber} 
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, ''); // Allow only digits
+                    if (val.length <= 10) {
+                      setFormData(prev => ({ ...prev, mobileNumber: val }));
+                    }
+                  }} 
+                  placeholder="9876543210" 
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="emailId">Email ID</Label>
-                <Input id="emailId" value={formData.emailId} onChange={handleInputChange} placeholder="john@example.com" />
+                <Label htmlFor="emailId">Email ID *</Label>
+                <Input id="emailId" type="email" value={formData.emailId} onChange={handleInputChange} placeholder="john@example.com" />
               </div>
 
               {/* Work Info */}

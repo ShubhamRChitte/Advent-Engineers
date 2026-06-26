@@ -20,6 +20,8 @@ import { CustomerReportsPage } from './CustomerReportsPage';
 import { PTDelayDashboard } from './PTDelayDashboard';
 import { CTDelayDashboard } from './CTDelayDashboard';
 import { FailedTransformersSection } from '../tester/FailedTransformersSection';
+import { DataCleanupPage } from '@/pages/DataCleanupPage';
+import { SystemConfigurationsPage } from '@/pages/SystemConfigurationsPage';
 
 interface AdminLayoutProps {
   user: User;
@@ -219,6 +221,10 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
         return <PTDelayDashboard />;
       case 'ct-delay-tracker':
         return <CTDelayDashboard />;
+      case 'data-cleanup':
+        return <DataCleanupPage />;
+      case 'system-configs':
+        return <SystemConfigurationsPage />;
       default:
         return <AdminDashboard setActiveView={setActiveView} />;
     }

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, List, FileText, AlertTriangle, Warehouse, Timer, ChevronDown, ChevronRight, PackageSearch, AlertCircle, BarChart2 } from 'lucide-react';
+import { LayoutDashboard, Users, List, FileText, AlertTriangle, Warehouse, Timer, ChevronDown, ChevronRight, PackageSearch, AlertCircle, BarChart2, Database, Settings, Trash2 } from 'lucide-react';
 import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { useState, useEffect } from 'react';
@@ -93,7 +93,16 @@ export function AdminSidebar({ activeView, setActiveView }: AdminSidebarProps) {
         { id: 'ct-delay-tracker', label: 'CT Delay Tracker', icon: Timer },
       ]
     },
-    { type: 'item', id: 'employees', label: 'Employees', icon: Users },
+    {
+      type: 'group',
+      label: 'Database & Admin',
+      icon: Database,
+      items: [
+        { id: 'employees', label: 'Employees', icon: Users },
+        { id: 'data-cleanup', label: 'Data Cleanup', icon: Trash2 },
+        { id: 'system-configs', label: 'System Configurations', icon: Settings },
+      ]
+    },
   ];
 
   // Auto-expand group if a child is active

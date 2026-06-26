@@ -3,6 +3,7 @@ import { Bell, LogOut, PlusCircle } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { User } from '../../App';
+import { NotificationsPanel } from '../NotificationsPanel';
 import axios from '@/utils/axiosConfig';
 
 interface AdminHeaderProps {
@@ -61,23 +62,7 @@ export function AdminHeader({ user, onLogout, onNotificationClick, onAddOrderCli
             <PlusCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
           </button>
           
-          <button 
-            type="button"
-            className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer group" 
-            onClick={(e) => {
-              e.preventDefault();
-              if (onNotificationClick) onNotificationClick();
-            }}
-            title="Notifications"
-            aria-label="Toggle notifications"
-          >
-            <Bell className="w-5 h-5 group-hover:scale-110 transition-transform" />
-            {unreadCount > 0 && (
-              <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center bg-[#dc2626] text-white text-[10px] animate-in zoom-in duration-300">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </Badge>
-            )}
-          </button>
+          <NotificationsPanel />
           
           <div className="flex items-center gap-3">
             <div className="text-right">

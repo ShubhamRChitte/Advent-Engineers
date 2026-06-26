@@ -1,6 +1,7 @@
 import { Bell, LogOut } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
+import { NotificationsPanel } from '../NotificationsPanel';
 import { User } from '../../App';
 
 interface TesterHeaderProps {
@@ -31,12 +32,7 @@ export function TesterHeader({ user, onLogout }: TesterHeaderProps) {
         </div>
         
         <div className="flex items-center gap-4">
-          <button className="relative p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
-            <Bell className="w-5 h-5" />
-            <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center bg-[#dc2626] text-white text-xs">
-              0
-            </Badge>
-          </button>
+          <NotificationsPanel />
           
           <div className="flex items-center gap-3">
             <div className="text-right">

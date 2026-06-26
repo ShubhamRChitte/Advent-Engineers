@@ -3,9 +3,10 @@ import { User } from '../../App';
 import { HeatingDashboard } from './HeatingDashboard';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import logoImage from 'figma:asset/9d5dbd3020690d903579eb3ff66bac216cd36f83.png';
-import { Zap, LogOut, Flame, Bell } from 'lucide-react';
+import { Zap, LogOut, Flame } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { NotificationsPanel } from '../NotificationsPanel';
 
 interface HeatingOperatorLayoutProps {
   user: User;
@@ -50,8 +51,8 @@ export function HeatingOperatorLayout({ user, onLogout }: HeatingOperatorLayoutP
                   isActive ? 'bg-orange-600 text-white' : 'text-gray-700 hover:bg-orange-50'
                 }`}
               >
-                <Icon className="w-5 h-5" />
-                <span className="text-sm font-medium">{item.label}</span>
+                <Icon className="w-5 h-5 flex-shrink-0" />
+                <span className="text-sm font-medium text-left leading-snug flex-1">{item.label}</span>
               </button>
             );
           })}
@@ -69,12 +70,7 @@ export function HeatingOperatorLayout({ user, onLogout }: HeatingOperatorLayoutP
           </div>
           
           <div className="flex items-center gap-4">
-            <button className="relative p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
-              <Bell className="w-5 h-5" />
-              <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center bg-[#dc2626] text-white text-xs">
-                0
-              </Badge>
-            </button>
+            <NotificationsPanel />
             
             <div className="flex items-center gap-3">
               <div className="text-right">
