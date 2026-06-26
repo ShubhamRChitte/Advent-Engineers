@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui
 
 interface Notification {
   _id: string;
-  type: 'ASSIGNMENT' | 'STAGE_TRANSITION' | 'REASSIGNMENT' | 'ALERT';
+  type: 'ASSIGNMENT' | 'STAGE_TRANSITION' | 'REASSIGNMENT' | 'ALERT' | 'STRICT_APPROVAL_REQUESTED' | 'STRICT_APPROVAL_RESOLVED';
   message: string;
   jobId?: string;
   createdAt: string;
@@ -18,7 +18,21 @@ interface Notification {
 export function NotificationsPanel() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [filter, setFilter] = useState<'all' | 'unread' | 'approval'>('all');
+  const [strictApprovals, setStrictApprovals] = useState<any[]>([]);
+
+  const fetchStrictApprovals = async () => {
+    try {
+      const res = await axios.get('/strict-approvals', { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      if (Array.isArray(res.data)) {
+        setStrictApprovals(res.data);
+      } else if (res.data.success && Array.isArray(res.data.data)) {
+        setStrictApprovals(res.data.data);
+      }
+    } catch (err) {
+      console.error("Error fetching strict approvals:", err);
+    }
+  };
 
   const fetchUnreadCount = () => {
     axios.get(`/notifications/unread-count`, { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
@@ -35,9 +49,13 @@ export function NotificationsPanel() {
   useEffect(() => {
     fetchUnreadCount();
     fetchNotifications();
+    fetchStrictApprovals();
 
     // Polling for new notifications every 30 seconds
-    const interval = setInterval(fetchUnreadCount, 30000);
+    const interval = setInterval(() => {
+      fetchUnreadCount();
+      fetchStrictApprovals();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -64,6 +82,28 @@ export function NotificationsPanel() {
   const removeNotification = (id: string) => {
     // Optionally implement delete API, or just local hide
     setNotifications(notifications.filter(n => n._id !== id));
+  };
+
+  const handleResolveApproval = async (e: React.MouseEvent, id: string, notificationId: string, approved: boolean) => {
+    e.stopPropagation();
+    try {
+      const action = approved ? 'approve' : 'reject';
+      if (!window.confirm(`Are you sure you want to ${action} this strict approval request?`)) return;
+
+      const res = await axios.post(`/strict-approvals/${id}/resolve`, {
+        approved,
+        adminComments: approved ? "Approved from Notifications Panel" : "Rejected from Notifications Panel"
+      }, { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+
+      if (res.data.success) {
+        // Refresh strict approvals and remove this notification
+        fetchStrictApprovals();
+        removeNotification(notificationId);
+      }
+    } catch (err) {
+      console.error("Error resolving approval:", err);
+      alert("Failed to resolve request. You might not have permission.");
+    }
   };
 
   const getIcon = (type: string) => {
@@ -139,6 +179,12 @@ export function NotificationsPanel() {
                   </span>
                 )}
               </button>
+              <button 
+                onClick={() => setFilter('approval')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === 'approval' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Approval
+              </button>
             </div>
             
             {unreadCount > 0 && (
@@ -150,16 +196,31 @@ export function NotificationsPanel() {
         </div>
         
         <div className="flex-1 overflow-y-auto p-6 pt-4 space-y-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300">
-            {notifications.filter(n => filter === 'all' || !n.isRead).length === 0 ? (
+            {notifications.filter(n => {
+              if (filter === 'all') return true;
+              if (filter === 'unread') return !n.isRead;
+              if (filter === 'approval') return n.type === 'STRICT_APPROVAL_REQUESTED' || n.message.includes('Strict Approval');
+              return true;
+            }).length === 0 ? (
               <div className="text-center py-12">
                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="w-8 h-8 text-slate-300" />
                 </div>
-                <p className="text-slate-500 font-medium">No {filter === 'unread' ? 'unread ' : ''}notifications</p>
+                <p className="text-slate-500 font-medium">No {filter === 'unread' ? 'unread ' : filter === 'approval' ? 'approval ' : ''}notifications</p>
                 <p className="text-slate-400 text-sm mt-1">You're all caught up!</p>
               </div>
             ) : (
-              notifications.filter(n => filter === 'all' || !n.isRead).map((notification) => {
+              notifications.filter(n => {
+                if (filter === 'all') return true;
+                if (filter === 'unread') return !n.isRead;
+                if (filter === 'approval') return n.type === 'STRICT_APPROVAL_REQUESTED' || n.message.includes('Strict Approval');
+                return true;
+              }).map((notification) => {
+              const isStrictApproval = notification.message.includes('Strict Approval Required');
+              const approvalReq = isStrictApproval 
+                ? strictApprovals.find(req => notification.message.includes(req.jobId) || (req.unitId && notification.message.includes(req.unitId))) 
+                : null;
+
               return (
                 <Card 
                   key={notification._id}
@@ -201,6 +262,32 @@ export function NotificationsPanel() {
                           </Button>
                         )}
                       </div>
+                      
+                      {approvalReq && (approvalReq.status === 'Pending' || approvalReq.status === 'pending') ? (
+                        <div className="mt-3 pt-3 border-t border-blue-100 flex items-center gap-2">
+                          <Button 
+                            size="sm" 
+                            onClick={(e) => handleResolveApproval(e, approvalReq._id, notification._id, true)}
+                            className="bg-orange-600 hover:bg-orange-700 text-white flex-1 h-8 text-xs font-bold shadow-sm"
+                          >
+                            Approve Unit
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={(e) => handleResolveApproval(e, approvalReq._id, notification._id, false)}
+                            className="border-red-200 text-red-600 hover:bg-red-50 flex-1 h-8 text-xs font-bold"
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      ) : isStrictApproval ? (
+                        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-center">
+                          <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full uppercase tracking-wider">
+                            {approvalReq ? `Status: ${approvalReq.status}` : 'Request No Longer Available'}
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
 
                     <button

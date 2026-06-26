@@ -8,10 +8,10 @@ export interface CTCustomerReportProps {
   transformer: any;
   reportData: any;
   user: any;
+  printRef?: any;
 }
 
 const PRINT_STYLE = `
-  @page { size: A4 portrait; margin: 0; }
   @media print {
     html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; }
     .ct-print-wrapper { position: relative !important; width: 100% !important; margin: 0 auto !important; }
@@ -20,7 +20,7 @@ const PRINT_STYLE = `
     .ct-page { page-break-after: always; page-break-inside: avoid; display: flex; flex-direction: column; min-height: 275mm; }
     .ct-page:last-child { page-break-after: auto; }
   }
-  .ct-page { display: flex; flex-direction: column; min-height: 275mm; }
+  .ct-page { display: flex; flex-direction: column; min-height: 275mm; padding-bottom: 20px; }
   .ct-print-root { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #000; background: #fff; width: 210mm; margin: 0 auto; padding: 16px; box-sizing: border-box; }
   .ct-header-table, .ct-main-table { width:100%; border-collapse:collapse; table-layout:fixed; }
   .ct-main-table td, .ct-main-table th { border:1px solid #000; padding:4px 6px; vertical-align:middle; word-break:break-word; }
@@ -43,13 +43,13 @@ const PRINT_STYLE = `
   .ct-remark { font-size:11px; font-weight:bold; margin-top:5px; }
   .ct-notes-block { font-size:10.5px; margin:10px 0; line-height:1.4; }
   .ct-notes-block ol { margin:5px 0; padding-left:20px; }
-  .ct-sig-table { width:100%; border-collapse:collapse; table-layout:fixed; margin-top:auto; }
+  .ct-sig-table { width:100%; border-collapse:collapse; table-layout:fixed; margin-top: auto; }
   .ct-sig-cell { padding:10px 5px; vertical-align:bottom; font-size:11px; text-align: center; }
   .ct-sig-line { width:80%; margin: 0 auto 5px; border-bottom: 1px solid #000; height: 30px; }
   .ct-qr-footer { text-align:right; font-size:10px; font-weight: bold; margin-top:10px; }
 `;
 
-export function CTCustomerReport({ order, transformer, reportData, user }: CTCustomerReportProps) {
+export function CTCustomerReport({ order, transformer, reportData, user, printRef }: CTCustomerReportProps) {
   const today = new Date().toLocaleDateString('en-GB').replace(/\//g, '.');
   const testDate = reportData?.date || today;
   const reportNo = order?.jobId
@@ -88,24 +88,22 @@ export function CTCustomerReport({ order, transformer, reportData, user }: CTCus
   };
 
   return (
-    <>
+    <div ref={printRef} id="printable-report" className="ct-print-root ct-print-wrapper bg-white rounded-lg shadow-sm border border-gray-200"
+         style={{ maxWidth: '210mm', margin: '0 auto', marginBottom: '3rem' }}>
       <style>{PRINT_STYLE}</style>
-      <div className="ct-print-root ct-print-wrapper bg-white rounded-lg shadow-sm border border-gray-200"
-           style={{ maxWidth: '210mm', margin: '0 auto', marginBottom: '3rem' }}>
-        <CTPage1Overview {...page1Props} />
-        <div className="no-print" style={{ height: '20px', background: '#f8fafc', borderTop: '1px dashed #e2e8f0', borderBottom: '1px dashed #e2e8f0', margin: '20px 0' }}></div>
-        <CTPage2TestDetails reportNo={reportNo} date={testDate} {...sharedSig} />
-        <div className="no-print" style={{ height: '20px', background: '#f8fafc', borderTop: '1px dashed #e2e8f0', borderBottom: '1px dashed #e2e8f0', margin: '20px 0' }}></div>
-        <CTPage3Results 
-          reportNo={reportNo} 
-          date={testDate}
-          ctRatio={order?.ratio?.[0] || '200/1A'}
-          burden={`${order?.burden || '15'}VA`}
-          accuracyClass={order?.accuracyClass || '0.2S'}
-          reportData={reportData}
-          {...sharedSig} 
-        />
-      </div>
-    </>
+      <CTPage1Overview {...page1Props} />
+      <div className="no-print" style={{ height: '20px', background: '#f8fafc', borderTop: '1px dashed #e2e8f0', borderBottom: '1px dashed #e2e8f0', margin: '20px 0' }}></div>
+      <CTPage2TestDetails reportNo={reportNo} date={testDate} {...sharedSig} />
+      <div className="no-print" style={{ height: '20px', background: '#f8fafc', borderTop: '1px dashed #e2e8f0', borderBottom: '1px dashed #e2e8f0', margin: '20px 0' }}></div>
+      <CTPage3Results 
+        reportNo={reportNo} 
+        date={testDate}
+        ctRatio={order?.ratio?.[0] || '200/1A'}
+        burden={`${order?.burden || '15'}VA`}
+        accuracyClass={order?.accuracyClass || '0.2S'}
+        reportData={reportData}
+        {...sharedSig} 
+      />
+    </div>
   );
 }

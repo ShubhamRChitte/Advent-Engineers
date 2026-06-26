@@ -46,6 +46,7 @@ export function CTReportsList({ onBack }: CTReportsListProps) {
     const printRef = useRef<HTMLDivElement>(null);
     const handlePrint = useReactToPrint({
         contentRef: printRef,
+        documentTitle: `Advent_Engineers_CT_Customer_Report_${selectedTransformer?.uniqueId || 'Report'}`,
     });
 
     // Get Admin status
@@ -110,12 +111,13 @@ export function CTReportsList({ onBack }: CTReportsListProps) {
                     </div>
                 </div>
 
-                <div ref={printRef}>
+                <div>
                     <CTCustomerReport
                         order={orderData}
                         transformer={selectedTransformer}
                         reportData={finalTest}
                         user={null}
+                        printRef={printRef}
                     />
                 </div>
             </div>
@@ -213,12 +215,9 @@ export function CTReportsList({ onBack }: CTReportsListProps) {
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-4">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-800">CT Customer Reports</h2>
-                        <p className="text-gray-500 mt-1">View history of your approved CT tests</p>
-                    </div>
-                    <Button variant="outline" onClick={onBack}>Back to Dashboard</Button>
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800">CT Customer Reports</h2>
+                    <p className="text-gray-500 mt-1">View history of your approved CT tests</p>
                 </div>
 
                 <div className="flex items-center gap-3 w-full">

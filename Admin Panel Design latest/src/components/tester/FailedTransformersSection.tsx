@@ -1339,15 +1339,6 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
             Review and perform re-testing/treatment for failed transformer units
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={fetchFailedTransformers}
-          size="sm"
-          className="gap-2 self-start md:self-auto"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Refresh List
-        </Button>
       </div>
 
       {/* Metrics Cards */}
@@ -1379,18 +1370,18 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       </div>
 
       {/* Filter and Search Bar */}
-      <Card className="p-4">
-        <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by Serial No, Job ID, Client, or Reason..."
-              className="pl-9"
-            />
-          </div>
+      <Card className="p-4 flex flex-col gap-4">
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by Serial No, Job ID, Client, or Reason..."
+            className="pl-9"
+          />
+        </div>
 
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3">
             <div>
               <label className="text-xs font-semibold text-gray-400 block mb-1 uppercase">Core Type</label>
@@ -1419,6 +1410,16 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
               </select>
             </div>
           </div>
+          
+          <Button
+            variant="outline"
+            onClick={fetchFailedTransformers}
+            size="sm"
+            className="gap-2 shrink-0"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh List
+          </Button>
         </div>
       </Card>
 

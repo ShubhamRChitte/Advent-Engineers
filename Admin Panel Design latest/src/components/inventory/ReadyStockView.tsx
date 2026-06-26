@@ -196,10 +196,6 @@ export default function ReadyStockView() {
           <p className="text-gray-500">Manage pre-tested cores available for immediate replacement</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleManualRefresh} className="gap-2">
-            <RefreshCw className={`w-4 h-4 ${(isBatchesLoading || isStockLoading) ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
           <Button onClick={() => setView('pre-test')} className="gap-2 bg-[#003a70]">
             <Plus className="w-4 h-4" />
             Add Pre-Tested Core (Batch)

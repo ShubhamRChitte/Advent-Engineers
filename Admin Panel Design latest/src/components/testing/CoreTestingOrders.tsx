@@ -8,7 +8,8 @@ import {
   Clock,
   ChevronRight,
   Zap,
-  Shield
+  Shield,
+  Search
 } from 'lucide-react';
 
 
@@ -56,6 +57,7 @@ export function CoreTestingOrders({ onStartTesting, user: _user, type = 'active'
 
 
   const [orders, setOrders] = useState<CoreTestingOrder[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
 
 
@@ -134,14 +136,36 @@ export function CoreTestingOrders({ onStartTesting, user: _user, type = 'active'
   };
 
   // Hide orders that are strictly meant to be in the completed tab (approved === true)
-  const activeOrders = orders.filter(o => !o.approved);
+  const activeOrders = orders.filter(o => {
+    if (o.approved) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const jobMatch = o.jobId?.toLowerCase().includes(q);
+      const clientMatch = o.clientName?.toLowerCase().includes(q);
+      const transMatch = o.transformerName?.toLowerCase().includes(q);
+      return jobMatch || clientMatch || transMatch;
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-4">
       {/* Header */}
       <div>
         <h2 className="text-xl font-semibold">Active Core Testing Orders</h2>
-        <p className="text-sm text-gray-600 mt-1">{activeOrders.length} active orders pending testing</p>
+        <p className="text-sm text-gray-600 mt-1">{activeOrders.length} active order{activeOrders.length !== 1 ? 's' : ''} pending testing</p>
+      </div>
+
+      {/* Search Bar */}
+      <div className="relative w-full">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Search Job ID, Client, Transformer Name..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#003a70]/20 focus:border-[#003a70] transition-shadow"
+        />
       </div>
 
       {/* Orders List */}

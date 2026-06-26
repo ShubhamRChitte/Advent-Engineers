@@ -511,7 +511,7 @@ app.post('/api/strict-approvals/request', async (req, res) => {
 
 app.get('/api/strict-approvals', async (req, res) => {
   try {
-    const approvals = await StrictApproval.find({ status: 'Pending' }).populate('orderId').sort({ createdAt: -1 }).lean();
+    const approvals = await StrictApproval.find({}).populate('orderId').sort({ createdAt: -1 }).lean();
     res.json(approvals);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
