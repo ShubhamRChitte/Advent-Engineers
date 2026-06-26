@@ -970,7 +970,10 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
           <div className="flex items-center gap-4">
             <Button
               variant="outline"
-              onClick={() => setRetestingTransformer(null)}
+              onClick={() => {
+                setRetestingTransformer(null);
+                fetchFailedTransformers();
+              }}
               size="sm"
               className="gap-2"
             >
@@ -1180,7 +1183,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
         })()}
 
         {/* Approval Footer inside Dashboard */}
-        {isAllCompleted && !hasFailures && (
+        {retestingTransformer.status !== 'FAILED' && isAllCompleted && !hasFailures && (
           <Card className="p-6 bg-green-50 border-green-200 shadow-sm animate-in fade-in">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
               <div>
@@ -1229,7 +1232,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
           </Card>
         )}
 
-        {isAllCompleted && hasFailures && (
+        {retestingTransformer.status !== 'FAILED' && isAllCompleted && hasFailures && (
           <Card className="p-6 bg-red-50 border-red-200 shadow-sm animate-in fade-in">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
               <div>
@@ -1631,7 +1634,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                                 Core Replace
                               </Button>
 
-                              {isAllCompleted && !hasFailures && (
+                              {item.status !== 'FAILED' && isAllCompleted && !hasFailures && (
                                 <Button
                                   onClick={() => handleApproveTransformerDirect(item)}
                                   className="bg-green-600 hover:bg-green-700 text-white text-xs h-8 px-4 flex items-center justify-center gap-1.5 rounded-md shadow-sm transition-all hover:scale-105 active:scale-95 font-semibold"
@@ -1642,7 +1645,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                                 </Button>
                               )}
 
-                              {isAllCompleted && hasFailures && (
+                              {item.status !== 'FAILED' && isAllCompleted && hasFailures && (
                                 <Button
                                   onClick={() => handleRequestStrictApprovalDirect(item)}
                                   className="bg-red-600 hover:bg-red-700 text-white text-xs h-8 px-4 flex items-center justify-center gap-1.5 rounded-md shadow-sm transition-all hover:scale-105 active:scale-95 font-semibold"

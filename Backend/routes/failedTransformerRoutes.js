@@ -257,7 +257,7 @@ router.put('/:id/retest-save', isAuthenticated, async (req, res) => {
 
             const formattedReadings = treatedReadings.map(r => ({ ...r, internalCoreNo: coreSlot, coreId: coreSlot }));
 
-            if (coreTypeLower.includes('meter') || testTypeLower.includes('meter')) {
+            if (coreTypeLower.includes('meter') || (!coreType && testTypeLower.includes('meter'))) {
                 if (!transformer.testHistory.secondary_test.metering_results) transformer.testHistory.secondary_test.metering_results = [];
                 const existingResults = transformer.testHistory.secondary_test.metering_results || [];
                 const firstIdx = existingResults.findIndex(r => r.internalCoreNo === coreSlot || r.coreId === coreSlot);
@@ -280,7 +280,7 @@ router.put('/:id/retest-save', isAuthenticated, async (req, res) => {
                     }
                 });
 
-            } else if (coreTypeLower.includes('ps') || testTypeLower.includes('ps')) {
+            } else if (coreTypeLower.includes('ps') || (!coreType && testTypeLower.includes('ps'))) {
                 if (!transformer.testHistory.secondary_test.ps_results) transformer.testHistory.secondary_test.ps_results = [];
                 const existingResults = transformer.testHistory.secondary_test.ps_results || [];
                 const firstIdx = existingResults.findIndex(r => r.internalCoreNo === coreSlot || r.coreId === coreSlot);
@@ -303,7 +303,7 @@ router.put('/:id/retest-save', isAuthenticated, async (req, res) => {
                     }
                 });
 
-            } else if (coreTypeLower.includes('protection') || testTypeLower.includes('protection')) {
+            } else if (coreTypeLower.includes('protect') || (!coreType && testTypeLower.includes('protect'))) {
                 if (!transformer.testHistory.secondary_test.protection_results) transformer.testHistory.secondary_test.protection_results = [];
                 const existingResults = transformer.testHistory.secondary_test.protection_results || [];
                 const firstIdx = existingResults.findIndex(r => r.internalCoreNo === coreSlot || r.coreId === coreSlot);
