@@ -13,12 +13,17 @@
     "appId": "com.adventengineers.admin",
     "productName": "Advent Admin Panel",
     "win": {
-      "target": "nsis",
-      "icon": "assets/advent_logo.ico"
+      "target": "nsis"
     },
     "directories": {
       "output": "desktop-dist"
-    }
+    },
+    "files": [
+      "**/*",
+      ".env",
+      "frontend-build/**/*"
+    ],
+    "asar": false
   },
   "keywords": [],
   "author": "",

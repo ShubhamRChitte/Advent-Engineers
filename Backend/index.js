@@ -859,12 +859,12 @@ const io = new Server(server, {
 });
 
 const path = require('path');
-app.use(express.static(path.join(__dirname, 'build')));
+app.use(express.static(path.join(__dirname, 'frontend-build')));
 app.use((req, res, next) => {
   if (req.url.startsWith('/api') || req.url.startsWith('/socket.io')) {
     return next();
   }
-  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+  res.sendFile(path.join(__dirname, 'frontend-build', 'index.html'));
 });
 
 // Global Error Handler

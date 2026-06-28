@@ -3,7 +3,7 @@ const path = require('path');
 const dotenv = require('dotenv');
 
 // Load env before starting express
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 function createWindow () {
   // Start the Express backend after Electron is fully ready
