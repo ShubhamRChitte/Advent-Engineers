@@ -143,48 +143,12 @@ export function AdminReportViewPage() {
 
 
     const printRef = useRef<HTMLDivElement>(null);
+    // No custom pageStyle — the PTFinalPrintableReport component already embeds its own
+    // complete @media print and @page CSS. Overriding it here (especially forcing
+    // .flex { display: block } or width: 190mm on html/body) destroys the report layout.
+    // This matches exactly how PTTestingReport (the working reference) calls useReactToPrint.
     const handlePrint = useReactToPrint({
         contentRef: printRef,
-        pageStyle: `
-            @page { size: A4 portrait; margin: 15mm 10mm; }
-            @media print {
-                html, body {
-                    width: 190mm !important;
-                    max-width: 190mm !important;
-                    margin: 0 auto !important;
-                    padding: 0 !important;
-                    background: white !important;
-                    -webkit-print-color-adjust: exact !important;
-                    print-color-adjust: exact !important;
-                }
-                #printable-report {
-                    width: 190mm !important;
-                    max-width: 190mm !important;
-                    margin: 0 auto !important;
-                    padding: 0 !important;
-                }
-                .secondary-print-page, .secondary-report-wrapper, .cr-print-root, .pt-final-print-root, .ct-print-root, #print-section {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                    margin: 0 auto !important;
-                    box-shadow: none !important;
-                    border: none !important;
-                    padding: 0 !important;
-                }
-                /* Prevent Tailwind containers from breaking the print width */
-                .container, .max-w-\\[1200px\\], .max-w-\\[1000px\\], .w-full, .flex {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                    min-width: 0 !important;
-                    padding: 0 !important;
-                    margin: 0 !important;
-                    display: block !important;
-                }
-                .no-print, .print\\:hidden {
-                    display: none !important;
-                }
-            }
-        `
     });
     const handleBack = () => {
         const params = new URLSearchParams(window.location.search);
@@ -376,6 +340,10 @@ export function AdminReportViewPage() {
                 }
             });
 
+            // Identical wrapper structure to PTTestingReport — printRef is passed into
+            // PTFinalPrintableReport which sets it on its own root div.pt-report-wrapper.
+            // The no-print-scroll/print-container wrappers are intentionally OUTSIDE the
+            // printRef scope, matching how PTTestingReport works.
             return (
                 <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll">
                     <div className="print-container w-[210mm] min-w-[210mm] print:w-full print:min-w-0 print:max-w-full">
@@ -394,20 +362,28 @@ export function AdminReportViewPage() {
             );
         }
 
-        return <UnifiedCTReport transformer={transformer} order={orderData} />;
+        // CT full report — wrap in printRef so the print button captures this element.
+        return <div ref={printRef}><UnifiedCTReport transformer={transformer} order={orderData} /></div>;
     };
 
     const renderContent = () => {
         const currentTransformer = reportData || transformer;
         
         switch (testType) {
-            case 'core': return <div className="max-w-[850px] mx-auto mt-6 print:mt-0 print:max-w-none">{renderCoreReport()}</div>;
+            // ref={printRef} lives on each case's innermost content element.
+            // For 'pt', PTFinalPrintableReport manages the ref internally (same as PTTestingReport).
+            case 'core':
+                return (
+                    <div ref={printRef} className="max-w-[850px] mx-auto mt-6 print:mt-0 print:max-w-none">
+                        {renderCoreReport()}
+                    </div>
+                );
             case 'secondary':
             case 'primary':
             case 'final':
                 return (
                     <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll print:p-0 print:bg-white">
-                        <div className="max-w-[1000px] mx-auto mt-6 print:mt-0 print:max-w-none" id="secondary-printable-report">
+                        <div ref={printRef} className="max-w-[1000px] mx-auto mt-6 print:mt-0 print:max-w-none" id="secondary-printable-report">
                             <SecondaryReportView
                                 transformer={currentTransformer}
                                 stage={testType as 'secondary' | 'primary' | 'final'}
@@ -417,17 +393,23 @@ export function AdminReportViewPage() {
                     </div>
                 );
             case 'heating':
-                return <div className="max-w-[1000px] mx-auto mt-6 print:mt-0 print:max-w-none">
-                    <Card className="p-0 overflow-hidden shadow-xl border-none print:shadow-none print:border-none print:p-0 bg-white">
-                        {renderHeatingReport()}
-                    </Card>
-                </div>;
-            case 'pt': 
-                return <div className="max-w-[1000px] mx-auto mt-6 print:mt-0 print:max-w-none">
-                    {renderAllReports()}
-                </div>;
-            case 'all': return <div className="max-w-6xl mx-auto">{renderAllReports()}</div>;
-            default: return <div className="p-12 text-center text-red-500">Unknown Report Type</div>;
+                return (
+                    <div ref={printRef} className="max-w-[1000px] mx-auto mt-6 print:mt-0 print:max-w-none">
+                        <Card className="p-0 overflow-hidden shadow-xl border-none print:shadow-none print:border-none print:p-0 bg-white">
+                            {renderHeatingReport()}
+                        </Card>
+                    </div>
+                );
+            case 'pt':
+                // printRef flows through to PTFinalPrintableReport which sets it on its own
+                // root div.pt-report-wrapper — identical to how PTTestingReport works.
+                return <>{renderAllReports()}</>;
+            case 'all':
+                // For PT: PTFinalPrintableReport manages printRef internally.
+                // For CT: renderAllReports() wraps UnifiedCTReport in a ref={printRef} div.
+                return <div className="max-w-6xl mx-auto">{renderAllReports()}</div>;
+            default:
+                return <div className="p-12 text-center text-red-500">Unknown Report Type</div>;
         }
     };
 
@@ -495,7 +477,10 @@ export function AdminReportViewPage() {
             {/* Main Report Container */}
             <main className="flex-1 overflow-y-auto min-h-0 bg-gray-50 print:overflow-visible print:bg-white">
                 <div className="container mx-auto px-4 py-8 max-w-[1200px] print:max-w-none print:px-0 print:py-0">
-                    <div ref={printRef} id="printable-report" className="animate-in fade-in duration-500">
+                    {/* No ref={printRef} here — each report case places its own ref on the
+                        correct innermost element. For PT, PTFinalPrintableReport manages
+                        the ref internally, identical to PTTestingReport's architecture. */}
+                    <div id="printable-report" className="animate-in fade-in duration-500">
                         {renderContent()}
                     </div>
                 </div>
