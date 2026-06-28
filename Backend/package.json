@@ -1,11 +1,24 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "main.js",
   "scripts": {
     "start": "node index.js",
+    "start-desktop": "electron .",
+    "build-exe": "electron-builder --win",
     "dev": "nodemon index.js",
     "test": "echo \"No tests yet\""
+  },
+  "build": {
+    "appId": "com.adventengineers.admin",
+    "productName": "Advent Admin Panel",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/advent_logo.ico"
+    },
+    "directories": {
+      "output": "desktop-dist"
+    }
   },
   "keywords": [],
   "author": "",
@@ -37,6 +50,8 @@
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
+    "electron": "^42.5.0",
+    "electron-builder": "^26.15.3",
     "nodemon": "^3.1.11"
   }
 }

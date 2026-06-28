@@ -253,9 +253,10 @@ const getWorkerTasks = async (req, res) => {
   }
 };
 
-app.get("/", (req, res) => {
-  res.send("Backend running successfully");
-});
+// Default root route removed so React frontend can be served
+// app.get("/", (req, res) => {
+//   res.send("Backend running successfully");
+// });
 
 
 // --- BATCH APPROVAL ROUTE (New) ---
@@ -855,6 +856,15 @@ const io = new Server(server, {
     },
     credentials: true
   }
+});
+
+const path = require('path');
+app.use(express.static(path.join(__dirname, 'build')));
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api') || req.url.startsWith('/socket.io')) {
+    return next();
+  }
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
 // Global Error Handler
