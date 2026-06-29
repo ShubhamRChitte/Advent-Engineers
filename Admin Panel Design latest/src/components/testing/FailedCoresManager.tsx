@@ -304,7 +304,6 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
   </div>
 
 </div>
-<script>window.onload = function(){ window.print(); window.close(); };</script>
 </body>
 </html>`;
 
@@ -315,6 +314,10 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
     }
     win.document.write(html);
     win.document.close();
+    win.focus();
+    setTimeout(() => {
+      win.print();
+    }, 250);
   };
 
   const handleReturnToVendor = async (coreId?: string) => {
