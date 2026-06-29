@@ -1,6 +1,7 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const dotenv = require('dotenv');
+const { autoUpdater } = require('electron-updater');
 
 // Load env before starting express
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -35,7 +36,11 @@ function createWindow () {
   }, 1000);
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  // Check for updates silently in the background
+  autoUpdater.checkForUpdatesAndNotify();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

@@ -24,7 +24,12 @@
       ".env",
       "frontend-build/**/*"
     ],
-    "asar": false
+    "asar": false,
+    "publish": [{
+      "provider": "github",
+      "owner": "ShubhamRChitte",
+      "repo": "Advent-Engineers"
+    }]
   },
   "keywords": [],
   "author": "",
@@ -38,6 +43,7 @@
     "connect-mongo": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
+    "electron-updater": "^6.8.9",
     "express": "^5.2.1",
     "express-async-handler": "^1.2.0",
     "express-mongo-sanitize": "^2.2.0",
