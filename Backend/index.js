@@ -45,7 +45,7 @@ const app = express();
 app.set('trust proxy', 1); // Trust first proxy for Render deployment and rate limiting
 
 mongoose
-  .connect(uri)
+  .connect(uri, { serverSelectionTimeoutMS: 5000, socketTimeoutMS: 45000 })
   .then(async () => {
     console.log("MongoDB is connected successfully");
 
@@ -253,9 +253,10 @@ const getWorkerTasks = async (req, res) => {
   }
 };
 
-app.get("/", (req, res) => {
-  res.send("Backend running successfully");
-});
+// Default root route removed so React frontend can be served
+// app.get("/", (req, res) => {
+//   res.send("Backend running successfully");
+// });
 
 
 // --- BATCH APPROVAL ROUTE (New) ---
@@ -857,6 +858,15 @@ const io = new Server(server, {
   }
 });
 
+const path = require('path');
+app.use(express.static(path.join(__dirname, 'frontend-build')));
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api') || req.url.startsWith('/socket.io')) {
+    return next();
+  }
+  res.sendFile(path.join(__dirname, 'frontend-build', 'index.html'));
+});
+
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error("Global Error:", err);
@@ -889,3 +899,5 @@ initReservationCleanup();
 server.listen(PORT, () => {
   console.log(`App Started! Server running on port ${PORT}`);
 });
+
+module.exports = server;
