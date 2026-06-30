@@ -120,6 +120,10 @@ export function CoreTestingForm({
   batchData
 }: CoreTestingFormProps) {
 
+  const txnOrderId = (order as any).mainOrderId
+    || ((typeof (order as any).orderId === 'object') ? (order as any).orderId?._id : (order as any).orderId)
+    || (order as any)._id
+    || order.id;
 
   // 1. REFINE ID GENERATION
   const generateCoreId = (transformerNum: number) => {
@@ -665,7 +669,7 @@ export function CoreTestingForm({
     transformerId: order._id || '',
     orderId: order._id || '',
     jobId: order.jobId || 'N/A',
-    stage: 'core',
+    stage: ('core_' + coreType.toLowerCase()) as any,
     testerName: user?.fullName || user?.name || 'Tester',
     role: 'core-tester',
     coreCount: calculateTotalRowsNeeded(),
@@ -1623,8 +1627,30 @@ export function CoreTestingForm({
         toast.success(`${coreType} Data Saved Successfully!`);
       }
 
-      // Hide and complete the old timer upon successful save
-      endTimer();
+      // Complete the order-wise core-wise timer only when all readings are filled
+      const allReadingsFilled = processedRows.every(row => {
+        if (!row.internalCoreNo) return false;
+        if (row.remark === 'P' || row.remark === 'F' || row.remark === 'PRE_TESTED' || row.remark === 'PRE TESTED') return true;
+        const hasAnyValue = Object.values(row.dynamicValues || {}).some(v => v !== '' && v !== null);
+        const hasSingleValue = row.singleValue !== '' && row.singleValue !== null;
+        return hasAnyValue || hasSingleValue;
+      });
+
+      if (allReadingsFilled) {
+        if (!isPreTest && txnOrderId) {
+          try {
+            await axios.post(`/orders/${txnOrderId}/update-timer`, {
+              action: 'complete',
+              coreType: coreType.toLowerCase()
+            }, { withCredentials: true });
+          } catch (timerErr) {
+            console.error("Failed to complete timer for core type:", timerErr);
+          }
+        }
+
+        // Hide and complete the old timer upon successful save
+        endTimer();
+      }
 
     } catch (error: any) {
       console.error("Save Error:", error);
@@ -1833,6 +1859,15 @@ export function CoreTestingForm({
         // Save config immediately
         debouncedSaveConfig(specs);
         updatePreTestBatchStatus("CONFIGURED");
+        // Start the order-wise core-wise timer
+        if (!isPreTest && txnOrderId) {
+          axios.post(`/orders/${txnOrderId}/update-timer`, {
+            action: 'start',
+            coreType: 'protection'
+          }, { withCredentials: true }).catch(err => {
+            console.error("Failed to start Protection timer:", err);
+          });
+        }
         alert('Configuration saved successfully! You can now enter core testing data.');
       };
 
@@ -2556,6 +2591,15 @@ export function CoreTestingForm({
         // Save config immediately
         debouncedSaveConfig(specs);
         updatePreTestBatchStatus("CONFIGURED");
+        // Start the order-wise core-wise timer
+        if (!isPreTest && txnOrderId) {
+          axios.post(`/orders/${txnOrderId}/update-timer`, {
+            action: 'start',
+            coreType: 'ps'
+          }, { withCredentials: true }).catch(err => {
+            console.error("Failed to start PS timer:", err);
+          });
+        }
         alert('Configuration saved successfully! You can now enter core testing data.');
       };
 
@@ -3275,6 +3319,15 @@ export function CoreTestingForm({
 
       setMeteringConfigured(true);
       updatePreTestBatchStatus("CONFIGURED");
+      // Start the order-wise core-wise timer
+      if (!isPreTest && txnOrderId) {
+        axios.post(`/orders/${txnOrderId}/update-timer`, {
+          action: 'start',
+          coreType: 'metering'
+        }, { withCredentials: true }).catch(err => {
+          console.error("Failed to start Metering timer:", err);
+        });
+      }
       alert('Configuration saved successfully! You can now enter core testing data.');
     };
 

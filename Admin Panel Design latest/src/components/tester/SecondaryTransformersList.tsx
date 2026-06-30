@@ -317,10 +317,26 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
         };
 
         const totalQty = order.quantity || order.transformerQuantity || 0;
+        const details = order.coreDetails || order.coreConfiguration || [];
+
+        const getCoresCountForType = (type: string) => {
+          return details.filter((c: any) => {
+            const cType = (c.coreType || c.type || '').toLowerCase();
+            const isPS = cType === 'protection' && (c.iexLimit || c.leLimit || c.class === 'PS' || (c.description && c.description.includes('PS')));
+            if (type === 'ps') return isPS || cType === 'ps';
+            if (type === 'protection') return cType === 'protection' && !isPS;
+            return cType === type;
+          }).length || 1;
+        };
+
+        const totalMeteringCores = totalQty * getCoresCountForType('metering');
+        const totalPsCores = totalQty * getCoresCountForType('ps');
+        const totalProtectionCores = totalQty * getCoresCountForType('protection');
+
         const availablePool = {
-          metering: Array.from({ length: totalQty }, (_, i) => generateCoreId('metering', i + 1)).filter(id => !getUsedIds('metering').has(id)),
-          ps: Array.from({ length: totalQty }, (_, i) => generateCoreId('ps', i + 1)).filter(id => !getUsedIds('ps').has(id)),
-          protection: Array.from({ length: totalQty }, (_, i) => generateCoreId('protection', i + 1)).filter(id => !getUsedIds('protection').has(id))
+          metering: Array.from({ length: totalMeteringCores }, (_, i) => generateCoreId('metering', i + 1)).filter(id => !getUsedIds('metering').has(id)),
+          ps: Array.from({ length: totalPsCores }, (_, i) => generateCoreId('ps', i + 1)).filter(id => !getUsedIds('ps').has(id)),
+          protection: Array.from({ length: totalProtectionCores }, (_, i) => generateCoreId('protection', i + 1)).filter(id => !getUsedIds('protection').has(id))
         };
 
         return {
