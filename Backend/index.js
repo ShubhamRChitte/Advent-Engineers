@@ -45,7 +45,7 @@ const app = express();
 app.set('trust proxy', 1); // Trust first proxy for Render deployment and rate limiting
 
 mongoose
-  .connect(uri)
+  .connect(uri, { serverSelectionTimeoutMS: 5000, socketTimeoutMS: 45000 })
   .then(async () => {
     console.log("MongoDB is connected successfully");
 
@@ -899,3 +899,5 @@ initReservationCleanup();
 server.listen(PORT, () => {
   console.log(`App Started! Server running on port ${PORT}`);
 });
+
+module.exports = server;

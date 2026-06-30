@@ -2,16 +2,24 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const dotenv = require('dotenv');
 const { autoUpdater } = require('electron-updater');
+const log = require('electron-log');
+
+// Configure electron-log
+Object.assign(console, log.functions);
+log.transports.file.level = 'info';
 
 // Load env before starting express
 dotenv.config({ path: path.join(__dirname, '.env') });
+
+// Force Express to use a dynamic port so we don't crash on EADDRINUSE
+process.env.PORT = 0;
 
 let mainWindow = null;
 
 function createWindow () {
   // Start the Express backend after Electron is fully ready
   // This fixes the Mongoose mongodb+srv:// DNS resolution bugs in Electron
-  require('./index.js'); 
+  const server = require('./index.js'); 
   
   mainWindow = new BrowserWindow({
     title: "Advent Engineers Admin Panel",
@@ -28,14 +36,21 @@ function createWindow () {
   mainWindow.setMaximizable(false); // Gray out the middle button
   mainWindow.show(); // Show it securely locked
 
-  // The backend runs on process.env.PORT or 5000 by default (but index.js says 3002 default)
-  // Let's use the actual port being listened to
-  const PORT = process.env.PORT || 3002;
+  // Wait for the Express server to actually start listening on its dynamic port
+  const loadFrontend = () => {
+    const port = server.address().port;
+    console.log(`Electron detected Express running on dynamically assigned port ${port}`);
+    mainWindow.loadURL(`http://localhost:${port}`).catch((err) => {
+      console.error("Failed to load React frontend:", err);
+      mainWindow.loadFile(path.join(__dirname, 'assets', 'error.html'));
+    });
+  };
 
-  // Give Express a tiny bit of time to start up, then load the URL
-  setTimeout(() => {
-    mainWindow.loadURL(`http://localhost:${PORT}`);
-  }, 1000);
+  if (server.listening) {
+    loadFrontend();
+  } else {
+    server.on('listening', loadFrontend);
+  }
 }
 
 const gotTheLock = app.requestSingleInstanceLock();
