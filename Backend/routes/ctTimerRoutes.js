@@ -34,8 +34,13 @@ async function getExpectedMinutes(stage, coreCount = 1) {
     key        = isMulti ? SETTINGS_KEYS.after_primary_multi : SETTINGS_KEYS.after_primary_single;
     defaultVal = isMulti ? 20 : 5;
   } else {
-    key        = SETTINGS_KEYS[stage];
-    defaultVal = DEFAULT_LIMITS[stage] || 5;
+    if (stage && stage.startsWith('core_')) {
+      key        = SETTINGS_KEYS['core'];
+      defaultVal = DEFAULT_LIMITS['core'] || 3;
+    } else {
+      key        = SETTINGS_KEYS[stage];
+      defaultVal = DEFAULT_LIMITS[stage] || 5;
+    }
   }
 
   if (!key) return defaultVal;
@@ -60,7 +65,7 @@ router.post('/start', isAuthenticated, async (req, res) => {
       return res.status(400).json({ success: false, message: 'transformerId, orderId, and stage are required.' });
     }
 
-    const validStages = ['core', 'secondary', 'after_primary', 'final'];
+    const validStages = ['core', 'secondary', 'after_primary', 'final', 'core_metering', 'core_protection', 'core_ps'];
     if (!validStages.includes(stage)) {
       return res.status(400).json({ success: false, message: `stage must be one of: ${validStages.join(', ')}` });
     }
@@ -84,15 +89,18 @@ router.post('/start', isAuthenticated, async (req, res) => {
     const testerName = user.name || user.fullName || 'CT Tester';
 
     const roleMap = {
-      core:          'core-tester',
-      secondary:     'secondary-tester',
-      after_primary: 'after-primary-tester',
-      final:         'final-tester'
+      core:            'core-tester',
+      core_metering:   'core-tester',
+      core_protection: 'core-tester',
+      core_ps:         'core-tester',
+      secondary:       'secondary-tester',
+      after_primary:   'after-primary-tester',
+      final:           'final-tester'
     };
     const role = roleMap[stage] || stage;
 
     let cores = parseInt(coreCount, 10) || 1;
-    if (stage === 'secondary' || stage === 'core') {
+    if (stage === 'secondary' || stage === 'core' || stage.startsWith('core_')) {
       const orQuery = [];
       if (mongoose.Types.ObjectId.isValid(transformerId)) {
         orQuery.push({ _id: new mongoose.Types.ObjectId(transformerId) });
@@ -102,9 +110,33 @@ router.post('/start', isAuthenticated, async (req, res) => {
       const transformer = await TransformerModel.findOne({ $or: orQuery }).populate('orderId');
       if (transformer) {
         if (transformer.cores && Array.isArray(transformer.cores)) {
-          cores = transformer.cores.length;
+          if (stage.startsWith('core_')) {
+            const specificType = stage.split('_')[1]; // metering, protection, ps
+            cores = transformer.cores.filter(c => {
+              const cType = (c.coreType || c.type || '').toLowerCase();
+              const isPS = cType === 'protection' && (c.iexLimit || c.leLimit || c.class === 'PS' || (c.description && c.description.includes('PS')));
+              if (specificType === 'ps') return isPS || cType === 'ps';
+              if (specificType === 'protection') return cType === 'protection' && !isPS;
+              return cType === specificType;
+            }).length;
+          } else {
+            cores = transformer.cores.length;
+          }
         } else if (transformer.orderId) {
-          cores = transformer.orderId.noOfCores || (transformer.orderId.coreDetails ? transformer.orderId.coreDetails.length : 1);
+          if (stage.startsWith('core_')) {
+            const specificType = stage.split('_')[1]; // metering, protection, ps
+            const details = transformer.orderId.coreDetails || transformer.orderId.coreConfiguration || [];
+            const coresPerTransformer = details.filter(c => {
+              const cType = (c.coreType || c.type || '').toLowerCase();
+              const isPS = cType === 'protection' && (c.iexLimit || c.leLimit || c.class === 'PS' || (c.description && c.description.includes('PS')));
+              if (specificType === 'ps') return isPS || cType === 'ps';
+              if (specificType === 'protection') return cType === 'protection' && !isPS;
+              return cType === specificType;
+            }).length;
+            cores = (transformer.orderId.quantity || 1) * coresPerTransformer;
+          } else {
+            cores = transformer.orderId.noOfCores || (transformer.orderId.coreDetails ? transformer.orderId.coreDetails.length : 1);
+          }
         }
       }
     }
@@ -112,7 +144,7 @@ router.post('/start', isAuthenticated, async (req, res) => {
     let expectedMinutes = await getExpectedMinutes(stage, cores);
     if (stage === 'secondary') {
       expectedMinutes = cores * 5;
-    } else if (stage === 'core') {
+    } else if (stage === 'core' || stage.startsWith('core_')) {
       expectedMinutes = cores * 3;
     }
 
@@ -166,7 +198,7 @@ router.post('/end', isAuthenticated, async (req, res) => {
     const actualTimeMs = endTime - new Date(record.startTime);
     const expectedMinutesVal = record.expectedMinutes || 
       (stage === 'secondary' ? (record.totalCores || record.coreCount || 1) * 5 : 
-       stage === 'core' ? (record.totalCores || record.coreCount || 1) * 3 : 
+       (stage === 'core' || stage.startsWith('core_')) ? (record.totalCores || record.coreCount || 1) * 3 : 
        (DEFAULT_LIMITS[stage] || 5));
     const expectedMs   = expectedMinutesVal * 60 * 1000;
     const delayMs      = Math.max(0, actualTimeMs - expectedMs);
@@ -218,7 +250,7 @@ router.post('/complete-core', isAuthenticated, async (req, res) => {
       const actualTimeMs = endTime - new Date(record.startTime);
       const expectedMinutesVal = record.expectedMinutes || 
         (stage === 'secondary' ? (record.totalCores || record.coreCount || 1) * 5 : 
-         stage === 'core' ? (record.totalCores || record.coreCount || 1) * 3 : 
+         (stage === 'core' || stage.startsWith('core_')) ? (record.totalCores || record.coreCount || 1) * 3 : 
          (DEFAULT_LIMITS[stage] || 5));
       const expectedMs   = expectedMinutesVal * 60 * 1000;
       const delayMs      = Math.max(0, actualTimeMs - expectedMs);
@@ -283,7 +315,7 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
     const { stage, startDate, endDate } = req.query;
 
     const filter = { status: 'Completed' };
-    const validStages = ['core', 'secondary', 'after_primary', 'final'];
+    const validStages = ['core', 'secondary', 'after_primary', 'final', 'core_metering', 'core_protection', 'core_ps'];
     if (stage && validStages.includes(stage)) filter.stage = stage;
     if (startDate || endDate) {
       filter.startTime = {};

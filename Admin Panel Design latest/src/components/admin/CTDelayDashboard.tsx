@@ -27,20 +27,26 @@ function formatDateTime(d: string | Date): string {
 
 function stageLabel(stage: string): string {
   const map: Record<string, string> = {
-    core:          'Core Test',
-    secondary:     'Secondary Test',
-    after_primary: 'After Primary',
-    final:         'Final Test'
+    core:            'Core Test (Total)',
+    core_metering:   'Core Metering',
+    core_protection: 'Core Protection',
+    core_ps:         'Core PS',
+    secondary:       'Secondary Test',
+    after_primary:   'After Primary',
+    final:           'Final Test'
   };
   return map[stage] || stage;
 }
 
 function stageBadgeColor(stage: string): string {
   const map: Record<string, string> = {
-    core:          'bg-blue-100 text-blue-700',
-    secondary:     'bg-purple-100 text-purple-700',
-    after_primary: 'bg-orange-100 text-orange-700',
-    final:         'bg-teal-100 text-teal-700'
+    core:            'bg-blue-100 text-blue-700',
+    core_metering:   'bg-purple-100 text-purple-700',
+    core_protection: 'bg-orange-100 text-orange-700',
+    core_ps:         'bg-blue-100 text-blue-700',
+    secondary:       'bg-purple-100 text-purple-700',
+    after_primary:   'bg-orange-100 text-orange-700',
+    final:           'bg-teal-100 text-teal-700'
   };
   return map[stage] || 'bg-gray-100 text-gray-700';
 }
@@ -172,7 +178,10 @@ export function CTDelayDashboard() {
             className="border border-gray-300 rounded-md text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#003a70]"
           >
             <option value="">All CT Stages</option>
-            <option value="core">Core Test</option>
+            <option value="core">Core Test (Total)</option>
+            <option value="core_metering">Core Metering</option>
+            <option value="core_protection">Core Protection</option>
+            <option value="core_ps">Core PS</option>
             <option value="secondary">Secondary Test</option>
             <option value="after_primary">After Primary</option>
             <option value="final">Final Test</option>
