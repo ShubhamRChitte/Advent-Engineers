@@ -583,13 +583,22 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                               });
                               const finalReason = reasons.length > 0 ? [...new Set(reasons)].join(' | ') : "Accuracy Limits Exceeded during Final Test";
 
+                              const extractedTypes = new Set<string>();
+                              reasons.forEach(r => {
+                                if (r.toLowerCase().includes('metering')) extractedTypes.add('METERING');
+                                else if (r.toLowerCase().includes('protection')) extractedTypes.add('PROTECTION');
+                                else if (r.toLowerCase().includes('ps')) extractedTypes.add('PS');
+                              });
+                              const uniqueTypes = Array.from(extractedTypes);
+                              const dynamicCoreType = uniqueTypes.length === 1 ? uniqueTypes[0] : (uniqueTypes.length > 1 ? 'Multiple' : 'COMPLETE UNIT');
+
                               try {
                                 await axios.post(`/strict-approvals/request`, {
                                   orderId: transformer.orderId?._id || transformer.orderId,
                                   jobId: order.jobId,
                                   unitId: transformer.uniqueId,
                                   clientName: order.clientName,
-                                  coreType: 'Multiple',
+                                  coreType: dynamicCoreType,
                                   testType: 'Final Testing',
                                   failureReason: finalReason,
                                   testData: transformer.testHistory?.final_test,

@@ -267,11 +267,21 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
         ? [...new Set(failureReasons)].join(' | ')
         : "Accuracy Limits Exceeded";
 
+      const extractedTypes = new Set<string>();
+      failureReasons.forEach(r => {
+        if (r.toLowerCase().includes('metering')) extractedTypes.add('METERING');
+        else if (r.toLowerCase().includes('protection')) extractedTypes.add('PROTECTION');
+        else if (r.toLowerCase().includes('ps')) extractedTypes.add('PS');
+      });
+      const uniqueTypes = Array.from(extractedTypes);
+      const dynamicCoreType = uniqueTypes.length === 1 ? uniqueTypes[0] : (uniqueTypes.length > 1 ? 'Multiple' : 'COMPLETE UNIT');
+
       const payload = {
         orderId: transformer.orderId?._id || transformer.orderId,
         jobId: transformer.jobId,
+        unitId: transformer.uniqueId,
         clientName: transformer.clientName || 'N/A',
-        coreType: 'Multiple',
+        coreType: dynamicCoreType,
         testType: 'Secondary Testing',
         failureReason: finalReason,
         testData: transformer.testHistory?.secondary_test,

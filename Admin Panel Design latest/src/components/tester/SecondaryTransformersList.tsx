@@ -598,13 +598,22 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
                               });
                               const finalReason = reasons.length > 0 ? [...new Set(reasons)].join(' | ') : "Limits Exceeded";
                               
+                              const extractedTypes = new Set<string>();
+                              reasons.forEach(r => {
+                                if (r.toLowerCase().includes('metering')) extractedTypes.add('METERING');
+                                else if (r.toLowerCase().includes('protection')) extractedTypes.add('PROTECTION');
+                                else if (r.toLowerCase().includes('ps')) extractedTypes.add('PS');
+                              });
+                              const uniqueTypes = Array.from(extractedTypes);
+                              const dynamicCoreType = uniqueTypes.length === 1 ? uniqueTypes[0] : (uniqueTypes.length > 1 ? 'Multiple' : 'COMPLETE UNIT');
+                              
                               try {
                                 await axios.post(`/strict-approvals/request`, {
                                   orderId: order._id,
                                   jobId: order.jobId,
                                   unitId: transformer.uniqueId,
                                   clientName: order.clientName,
-                                  coreType: 'Multiple',
+                                  coreType: dynamicCoreType,
                                   testType: 'Secondary Testing',
                                   failureReason: finalReason,
                                   testData: transformer.testHistory?.secondary_test,

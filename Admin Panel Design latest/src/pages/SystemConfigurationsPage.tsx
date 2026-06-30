@@ -37,8 +37,7 @@ export function SystemConfigurationsPage() {
             { key: 'ct_after_primary_single_minutes', label: 'CT After Primary (Single) (mins)' },
             { key: 'ct_after_primary_multi_minutes', label: 'CT After Primary (Multi) (mins)' },
             { key: 'ct_final_minutes', label: 'CT Final Test (mins)' },
-            { key: 'pt_core_minutes', label: 'PT Core Test (mins)' },
-            { key: 'pt_secondary_minutes', label: 'PT Secondary Test (mins)' },
+            { key: 'pt_pretest_minutes', label: 'PT Pre-Test (mins)' },
             { key: 'pt_final_minutes', label: 'PT Final Test (mins)' }
           ];
           
@@ -158,22 +157,56 @@ export function SystemConfigurationsPage() {
                   Loading timer settings...
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                  {timers.map(timer => (
-                    <div key={timer.key} className="space-y-2">
-                      <label className="text-sm font-semibold text-gray-700">{timer.label}</label>
-                      <div className="relative">
-                        <Input 
-                          type="number" 
-                          min="0"
-                          value={timer.value}
-                          onChange={(e) => handleTimerChange(timer.key, e.target.value)}
-                          className="pl-4 pr-12 py-2 h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-lg shadow-sm"
-                        />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">min</span>
-                      </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* CT Timers Panel */}
+                  <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
+                    <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700">CT</div>
+                      Current Transformer Timers
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {timers.filter(t => t.key.startsWith('ct_')).map(timer => (
+                        <div key={timer.key} className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">{timer.label}</label>
+                          <div className="relative">
+                            <Input 
+                              type="number" 
+                              min="0"
+                              value={timer.value}
+                              onChange={(e) => handleTimerChange(timer.key, e.target.value)}
+                              className="pl-4 pr-12 py-2 h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-lg shadow-sm bg-white"
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">min</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+
+                  {/* PT Timers Panel */}
+                  <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
+                    <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700">PT</div>
+                      Potential Transformer Timers
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {timers.filter(t => t.key.startsWith('pt_')).map(timer => (
+                        <div key={timer.key} className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">{timer.label}</label>
+                          <div className="relative">
+                            <Input 
+                              type="number" 
+                              min="0"
+                              value={timer.value}
+                              onChange={(e) => handleTimerChange(timer.key, e.target.value)}
+                              className="pl-4 pr-12 py-2 h-11 border-gray-300 focus:border-purple-500 focus:ring-purple-500 text-lg shadow-sm bg-white"
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">min</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
             </CardContent>

@@ -17,7 +17,6 @@ const globalLimiter = rateLimit({
   message: { success: false, message: 'Too many requests from this IP, please try again after 15 minutes' }
 });
 
-const { CustomerModel } = require("./models/CustomerModel");
 const { OrderModel } = require('./models/OrderModel');
 const { UserModel } = require('./models/UserModel');
 const { MeteringCoreTestModel } = require("./models/MeteringCoreTestModel");
@@ -573,8 +572,42 @@ app.post('/api/strict-approvals/:id/resolve', async (req, res) => {
 
           console.log(`[STRICT APPROVAL] Transformer ${approval.unitId} approved and moved to ${targetStageApprove}.`);
         } else {
-          transformer.currentStage = targetStageReject;
-          console.log(`[STRICT APPROVAL] Transformer ${approval.unitId} rejected and moved back to ${targetStageReject}.`);
+          const { FailedTransformerModel } = require('./models/FailedTransformerModel');
+          transformer.currentStage = 'admin-review';
+          transformer.adminReviewDetails = {
+            lockedStage: targetStageReject,
+            returnTargetStage: targetStageReject,
+            failureReason: `Strict Approval Rejected: ${approval.failureReason}`,
+            timestamp: new Date()
+          };
+          console.log(`[STRICT APPROVAL] Transformer ${approval.unitId} rejected and moved to Failed Transformers (admin-review).`);
+          
+          const existingFailure = await FailedTransformerModel.findOne({
+              transformerId: transformer._id,
+              coreType: approval.coreType || "COMPLETE UNIT"
+          });
+
+          if (!existingFailure) {
+              const failedRecord = new FailedTransformerModel({
+                  transformerId: transformer._id,
+                  transformerUniqueId: transformer.uniqueId,
+                  orderId: transformer.orderId || approval.orderId,
+                  jobNumber: transformer.jobId || approval.jobId,
+                  clientName: transformer.clientName || approval.clientName,
+                  coreType: approval.coreType || "COMPLETE UNIT",
+                  testType: approval.testType || "Unknown Testing",
+                  failureParameters: { failedStage: targetStageReject },
+                  failureReason: `Strict Approval Rejected: ${approval.failureReason}`,
+                  reportedBy: "Admin",
+                  stage: targetStageReject.toUpperCase() + "_TESTING",
+                  status: "FAILED"
+              });
+              await failedRecord.save();
+          } else {
+              existingFailure.failureReason = `Strict Approval Rejected: ${approval.failureReason}`;
+              existingFailure.status = "FAILED";
+              await existingFailure.save();
+          }
         }
         await transformer.save();
 

@@ -201,13 +201,23 @@ export function DataCleanupPage() {
                       <thead className="bg-gray-50/50 text-gray-600 font-medium border-b border-gray-100">
                         <tr>
                           <th className="px-6 py-4 whitespace-nowrap">
-                            {activeCollection === 'customers' ? 'Name' : activeCollection === 'notifications' ? 'Type' : 'ID / Reference'}
+                            {activeCollection === 'notifications' ? 'Type' : 
+                             activeCollection === 'orders' ? 'Job ID' :
+                             activeCollection === 'transformers' ? 'Transformer ID' :
+                             activeCollection === 'failed-transformers' ? 'Transformer ID' :
+                             activeCollection === 'ready-stock' ? 'Core ID' : 'ID'}
                           </th>
                           <th className="px-6 py-4">
-                            {activeCollection === 'customers' ? 'Mail Id' : activeCollection === 'notifications' ? 'Message' : 'Details'}
+                            {activeCollection === 'notifications' ? 'Message' : 
+                             activeCollection === 'orders' ? 'Client Name' :
+                             activeCollection === 'transformers' ? 'Transformer Type' :
+                             activeCollection === 'failed-transformers' ? 'Core Type' :
+                             activeCollection === 'ready-stock' ? 'Core Type' : 'Details'}
                           </th>
                           <th className="px-6 py-4 whitespace-nowrap">
-                            {activeCollection === 'customers' ? 'Mobile / Date' : activeCollection === 'notifications' ? 'Job ID / Date' : 'Status / Date'}
+                            {activeCollection === 'notifications' ? 'Job ID / Date' : 
+                             activeCollection === 'transformers' ? 'Current Stage / Date' :
+                             'Status / Date'}
                           </th>
                           <th className="px-6 py-4 text-right whitespace-nowrap">Actions</th>
                         </tr>

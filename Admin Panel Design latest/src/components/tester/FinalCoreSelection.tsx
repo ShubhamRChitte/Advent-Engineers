@@ -134,11 +134,21 @@ export function FinalCoreSelection({
 
       const finalReason = failureReasons.length > 0 ? [...new Set(failureReasons)].join(' | ') : "Accuracy Limits Exceeded during Final Test";
 
+      const extractedTypes = new Set<string>();
+      failureReasons.forEach(r => {
+        if (r.toLowerCase().includes('metering')) extractedTypes.add('METERING');
+        else if (r.toLowerCase().includes('protection')) extractedTypes.add('PROTECTION');
+        else if (r.toLowerCase().includes('ps')) extractedTypes.add('PS');
+      });
+      const uniqueTypes = Array.from(extractedTypes);
+      const dynamicCoreType = uniqueTypes.length === 1 ? uniqueTypes[0] : (uniqueTypes.length > 1 ? 'Multiple' : 'COMPLETE UNIT');
+
       const payload = {
         orderId: order._id || (transformer as any).orderId?._id || (transformer as any).orderId,
         jobId: order.jobId,
+        unitId: transformer.uniqueId,
         clientName: order.clientName || order.client || 'N/A',
-        coreType: 'Multiple',
+        coreType: dynamicCoreType,
         testType: 'Final Testing',
         failureReason: finalReason,
         testData: transformer.testHistory?.final_test,

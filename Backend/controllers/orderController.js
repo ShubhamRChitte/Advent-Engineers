@@ -554,9 +554,9 @@ exports.updateOrderTimer = async (req, res) => {
     if (action === 'start') {
       if (!stageData.allocatedMinutes) {
         const { SettingsModel } = require('../models/SettingsModel');
-        let timeSetting = await SettingsModel.findOne({ key: 'core_core_minutes' });
+        let timeSetting = await SettingsModel.findOne({ key: 'ct_core_minutes' });
         if (!timeSetting) {
-          timeSetting = await SettingsModel.create({ key: 'core_core_minutes', value: 3 });
+          timeSetting = await SettingsModel.create({ key: 'ct_core_minutes', value: 3 });
         }
         
         const coresPerTransformer = (order.coreDetails || []).filter(

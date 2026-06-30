@@ -16,12 +16,15 @@ interface Notification {
 }
 
 export function NotificationsPanel() {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const isAdmin = user.role === 'admin';
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [filter, setFilter] = useState<'all' | 'unread' | 'approval'>('all');
   const [strictApprovals, setStrictApprovals] = useState<any[]>([]);
 
   const fetchStrictApprovals = async () => {
+    if (!isAdmin) return;
     try {
       const res = await axios.get('/strict-approvals', { withCredentials: true, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
       if (Array.isArray(res.data)) {
@@ -179,12 +182,14 @@ export function NotificationsPanel() {
                   </span>
                 )}
               </button>
-              <button 
-                onClick={() => setFilter('approval')}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === 'approval' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                Approval
-              </button>
+              {isAdmin && (
+                <button 
+                  onClick={() => setFilter('approval')}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === 'approval' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Approval
+                </button>
+              )}
             </div>
             
             {unreadCount > 0 && (

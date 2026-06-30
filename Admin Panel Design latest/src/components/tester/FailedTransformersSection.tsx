@@ -705,13 +705,22 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
         ? [...new Set(failureReasons)].join(' | ')
         : "Accuracy Limits Exceeded";
 
+      const extractedTypes = new Set<string>();
+      failureReasons.forEach(r => {
+        if (r.toLowerCase().includes('metering')) extractedTypes.add('METERING');
+        else if (r.toLowerCase().includes('protection')) extractedTypes.add('PROTECTION');
+        else if (r.toLowerCase().includes('ps')) extractedTypes.add('PS');
+      });
+      const uniqueTypes = Array.from(extractedTypes);
+      const dynamicCoreType = uniqueTypes.length === 1 ? uniqueTypes[0] : (uniqueTypes.length > 1 ? 'Multiple' : 'COMPLETE UNIT');
+
       // 1. Post strict approval request
       await axios.post(`/strict-approvals/request`, {
         orderId: orderObj?._id || orderObj,
         jobId: transformerObj?.jobId,
         unitId: transformerObj?.uniqueId,
         clientName: orderObj?.clientName || 'N/A',
-        coreType: 'Multiple',
+        coreType: dynamicCoreType,
         testType: testTypeLabel,
         failureReason: finalReason,
         testData: transformerObj?.testHistory?.[testStageKey],
@@ -1277,13 +1286,22 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                       ? [...new Set(failureReasons)].join(' | ')
                       : "Accuracy Limits Exceeded";
 
+                    const extractedTypes = new Set<string>();
+                    failureReasons.forEach(r => {
+                      if (r.toLowerCase().includes('metering')) extractedTypes.add('METERING');
+                      else if (r.toLowerCase().includes('protection')) extractedTypes.add('PROTECTION');
+                      else if (r.toLowerCase().includes('ps')) extractedTypes.add('PS');
+                    });
+                    const uniqueTypes = Array.from(extractedTypes);
+                    const dynamicCoreType = uniqueTypes.length === 1 ? uniqueTypes[0] : (uniqueTypes.length > 1 ? 'Multiple' : 'COMPLETE UNIT');
+
                     // 1. Post strict approval
                     await axios.post(`/strict-approvals/request`, {
                       orderId: orderObj?._id || orderObj,
                       jobId: transformerObj?.jobId,
                       unitId: transformerObj?.uniqueId,
                       clientName: orderObj?.clientName || 'N/A',
-                      coreType: 'Multiple',
+                      coreType: dynamicCoreType,
                       testType: isPrimaryFail ? 'After Primary Testing' : 'Secondary Testing',
                       failureReason: finalReason,
                       testData: transformerObj?.testHistory?.[testStageKey],

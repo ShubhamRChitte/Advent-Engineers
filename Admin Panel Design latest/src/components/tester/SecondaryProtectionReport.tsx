@@ -851,7 +851,7 @@ export function SecondaryProtectionReport({
               <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2">
                 <Save className="w-4 h-4" /> Save
               </Button>
-              {hasFailures && (
+              {hasFailures && !isFailedSection && (
                 <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2">
                   <AlertTriangle className="w-4 h-4" /> Add to Failed Transformer
                 </Button>

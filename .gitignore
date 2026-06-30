@@ -3,3 +3,5 @@ node_modules/
 dist/
 build/
 temp/
+desktop-dist/
+frontend-build/

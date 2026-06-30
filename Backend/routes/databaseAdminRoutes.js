@@ -5,7 +5,6 @@ const { OrderModel } = require('../models/OrderModel');
 const { TransformerModel } = require('../models/TransformerModel');
 const { FailedTransformerModel } = require('../models/FailedTransformerModel');
 const ReadyTransformerModel = require('../models/ReadyTransformerModel');
-const { CustomerModel } = require('../models/CustomerModel');
 const { NotificationModel } = require('../models/NotificationModel');
 const { SettingsModel } = require('../models/SettingsModel');
 
@@ -15,7 +14,6 @@ const modelsMap = {
     'transformers': TransformerModel,
     'failed-transformers': FailedTransformerModel,
     'ready-stock': ReadyTransformerModel,
-    'customers': CustomerModel,
     'notifications': NotificationModel
 };
 
@@ -25,7 +23,6 @@ const displayPropsMap = {
     'transformers': { titleField: 'uniqueId', descField: 'name', subField: 'currentStage' },
     'failed-transformers': { titleField: 'transformerUniqueId', descField: 'coreType', subField: 'status' },
     'ready-stock': { titleField: 'coreId', descField: 'coreType', subField: 'status' },
-    'customers': { titleField: 'name', descField: 'email', subField: 'contactNumber' },
     'notifications': { titleField: 'type', descField: 'message', subField: 'jobId' }
 };
 
@@ -76,17 +73,28 @@ router.get('/records/:collection', isAuthenticated, isAdmin, async (req, res) =>
             };
         }
 
-        const records = await Model.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean();
+        let recordsQuery = Model.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit);
+        if (collectionKey === 'transformers') {
+            recordsQuery = recordsQuery.populate('orderId', 'transformerType');
+        }
+        const records = await recordsQuery.lean();
         const total = await Model.countDocuments(query);
 
         // Format uniformly for the frontend table
-        const formattedRecords = records.map(r => ({
-            _id: r._id,
-            title: r[displayProps.titleField] || 'N/A',
-            description: r[displayProps.descField] || 'N/A',
-            sub: r[displayProps.subField] || 'N/A',
-            createdAt: r.createdAt || r.created_at || new Date()
-        }));
+        const formattedRecords = records.map(r => {
+            let description = r[displayProps.descField];
+            if (collectionKey === 'transformers' && r.orderId) {
+                description = r.orderId.transformerType || description;
+            }
+            
+            return {
+                _id: r._id,
+                title: r[displayProps.titleField] || 'N/A',
+                description: description || 'N/A',
+                sub: r[displayProps.subField] || 'N/A',
+                createdAt: r.createdAt || r.created_at || new Date()
+            };
+        });
 
         res.status(200).json({
             success: true,
@@ -117,23 +125,13 @@ const cascadeDeleteOrder = async (orderId) => {
     await OrderModel.findByIdAndDelete(orderId);
 };
 
-const cascadeDeleteCustomer = async (customerId) => {
-    const orders = await OrderModel.find({ clientId: customerId }).lean();
-    for (const o of orders) {
-        await cascadeDeleteOrder(o._id);
-    }
-    await CustomerModel.findByIdAndDelete(customerId);
-};
-
 
 // DELETE /api/database-admin/records/:collection/:id
 router.delete('/records/:collection/:id', isAuthenticated, isAdmin, async (req, res) => {
     try {
         const { collection, id } = req.params;
 
-        if (collection === 'customers') {
-            await cascadeDeleteCustomer(id);
-        } else if (collection === 'orders') {
+        if (collection === 'orders') {
             await cascadeDeleteOrder(id);
         } else if (collection === 'transformers') {
             await cascadeDeleteTransformer(id);
@@ -157,10 +155,7 @@ router.delete('/records/:collection', isAuthenticated, isAdmin, async (req, res)
     try {
         const { collection } = req.params;
 
-        if (collection === 'customers') {
-            const allCustomers = await CustomerModel.find({}, '_id').lean();
-            for (const c of allCustomers) await cascadeDeleteCustomer(c._id);
-        } else if (collection === 'orders') {
+        if (collection === 'orders') {
             const allOrders = await OrderModel.find({}, '_id').lean();
             for (const o of allOrders) await cascadeDeleteOrder(o._id);
         } else if (collection === 'transformers') {
