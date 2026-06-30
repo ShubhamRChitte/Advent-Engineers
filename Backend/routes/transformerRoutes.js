@@ -490,29 +490,29 @@ router.post('/:uniqueId/update-timer', isAuthenticated, async (req, res) => {
                     let timeSetting;
                     
                     if (noOfCores === 1) {
-                        timeSetting = await SettingsModel.findOne({ key: 'primary_single_core_minutes' });
+                        timeSetting = await SettingsModel.findOne({ key: 'ct_after_primary_single_minutes' });
                         if (!timeSetting) {
-                            timeSetting = await SettingsModel.create({ key: 'primary_single_core_minutes', value: 5 });
+                            timeSetting = await SettingsModel.create({ key: 'ct_after_primary_single_minutes', value: 5 });
                         }
                     } else {
-                        timeSetting = await SettingsModel.findOne({ key: 'primary_multi_core_minutes' });
+                        timeSetting = await SettingsModel.findOne({ key: 'ct_after_primary_multi_minutes' });
                         if (!timeSetting) {
-                            timeSetting = await SettingsModel.create({ key: 'primary_multi_core_minutes', value: 20 });
+                            timeSetting = await SettingsModel.create({ key: 'ct_after_primary_multi_minutes', value: 20 });
                         }
                     }
                     stageData.allocatedMinutes = parseInt(timeSetting.value, 10);
                 } else if (stage === 'secondary_test') {
                     const { SettingsModel } = require('../models/SettingsModel');
-                    let timeSetting = await SettingsModel.findOne({ key: 'secondary_core_minutes' });
+                    let timeSetting = await SettingsModel.findOne({ key: 'ct_secondary_minutes' });
                     if (!timeSetting) {
-                        timeSetting = await SettingsModel.create({ key: 'secondary_core_minutes', value: 5 });
+                        timeSetting = await SettingsModel.create({ key: 'ct_secondary_minutes', value: 5 });
                     }
                     stageData.allocatedMinutes = noOfCores * parseInt(timeSetting.value, 10);
                 } else if (stage === 'final_test') {
                     const { SettingsModel } = require('../models/SettingsModel');
-                    let timeSetting = await SettingsModel.findOne({ key: 'final_test_minutes' });
+                    let timeSetting = await SettingsModel.findOne({ key: 'ct_final_minutes' });
                     if (!timeSetting) {
-                        timeSetting = await SettingsModel.create({ key: 'final_test_minutes', value: 22 });
+                        timeSetting = await SettingsModel.create({ key: 'ct_final_minutes', value: 22 });
                     }
                     stageData.allocatedMinutes = parseInt(timeSetting.value, 10);
                 } else {

@@ -49,13 +49,7 @@ export function OrderStatusTracker({
       color: 'orange',
       description: 'Primary side testing'
     },
-    {
-      id: 'heating',
-      label: 'After Heating Testing',
-      icon: Zap,
-      color: 'red',
-      description: 'Oven heating process'
-    },
+
     {
       id: 'final',
       label: 'Final Testing',
@@ -121,7 +115,6 @@ export function OrderStatusTracker({
         'core': 'core',
         'secondary': 'secondary',
         'primary': 'primary',
-        'heating': 'heating',
         'final': 'final',
         'shipped': 'completed',
         'completed': 'completed',

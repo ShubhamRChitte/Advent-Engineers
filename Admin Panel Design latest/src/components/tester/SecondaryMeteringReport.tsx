@@ -396,7 +396,7 @@ export function SecondaryMeteringReport({
           <div className="flex items-center justify-between no-print mb-4 w-full">
             <Button variant="outline" size="sm" onClick={onBack} className="gap-2"><ArrowLeft className="w-4 h-4" /> Back</Button>
             <div className="flex gap-2">
-              {!readOnly && hasAnyFailures && (
+              {!readOnly && hasAnyFailures && !isFailedSection && (
                 <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2"><AlertTriangle className="w-4 h-4" /> Add to Failed Transformer</Button>
               )}
               <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2"><Save className="w-4 h-4" /> Save</Button>

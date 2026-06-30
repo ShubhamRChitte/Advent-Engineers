@@ -317,10 +317,26 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
         };
 
         const totalQty = order.quantity || order.transformerQuantity || 0;
+        const details = order.coreDetails || order.coreConfiguration || [];
+
+        const getCoresCountForType = (type: string) => {
+          return details.filter((c: any) => {
+            const cType = (c.coreType || c.type || '').toLowerCase();
+            const isPS = cType === 'protection' && (c.iexLimit || c.leLimit || c.class === 'PS' || (c.description && c.description.includes('PS')));
+            if (type === 'ps') return isPS || cType === 'ps';
+            if (type === 'protection') return cType === 'protection' && !isPS;
+            return cType === type;
+          }).length || 1;
+        };
+
+        const totalMeteringCores = totalQty * getCoresCountForType('metering');
+        const totalPsCores = totalQty * getCoresCountForType('ps');
+        const totalProtectionCores = totalQty * getCoresCountForType('protection');
+
         const availablePool = {
-          metering: Array.from({ length: totalQty }, (_, i) => generateCoreId('metering', i + 1)).filter(id => !getUsedIds('metering').has(id)),
-          ps: Array.from({ length: totalQty }, (_, i) => generateCoreId('ps', i + 1)).filter(id => !getUsedIds('ps').has(id)),
-          protection: Array.from({ length: totalQty }, (_, i) => generateCoreId('protection', i + 1)).filter(id => !getUsedIds('protection').has(id))
+          metering: Array.from({ length: totalMeteringCores }, (_, i) => generateCoreId('metering', i + 1)).filter(id => !getUsedIds('metering').has(id)),
+          ps: Array.from({ length: totalPsCores }, (_, i) => generateCoreId('ps', i + 1)).filter(id => !getUsedIds('ps').has(id)),
+          protection: Array.from({ length: totalProtectionCores }, (_, i) => generateCoreId('protection', i + 1)).filter(id => !getUsedIds('protection').has(id))
         };
 
         return {
@@ -598,13 +614,22 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
                               });
                               const finalReason = reasons.length > 0 ? [...new Set(reasons)].join(' | ') : "Limits Exceeded";
                               
+                              const extractedTypes = new Set<string>();
+                              reasons.forEach(r => {
+                                if (r.toLowerCase().includes('metering')) extractedTypes.add('METERING');
+                                else if (r.toLowerCase().includes('protection')) extractedTypes.add('PROTECTION');
+                                else if (r.toLowerCase().includes('ps')) extractedTypes.add('PS');
+                              });
+                              const uniqueTypes = Array.from(extractedTypes);
+                              const dynamicCoreType = uniqueTypes.length === 1 ? uniqueTypes[0] : (uniqueTypes.length > 1 ? 'Multiple' : 'COMPLETE UNIT');
+                              
                               try {
                                 await axios.post(`/strict-approvals/request`, {
                                   orderId: order._id,
                                   jobId: order.jobId,
                                   unitId: transformer.uniqueId,
                                   clientName: order.clientName,
-                                  coreType: 'Multiple',
+                                  coreType: dynamicCoreType,
                                   testType: 'Secondary Testing',
                                   failureReason: finalReason,
                                   testData: transformer.testHistory?.secondary_test,
