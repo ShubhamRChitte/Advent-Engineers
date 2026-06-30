@@ -1,4 +1,4 @@
-require("dotenv").config({ override: true }); // trigger restart
+require("dotenv").config({ path: require('path').join(__dirname, '.env'), override: true });
 
 const express = require('express');
 const mongoose = require('mongoose');

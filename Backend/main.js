@@ -68,6 +68,31 @@ if (!gotTheLock) {
 
   app.whenReady().then(() => {
     createWindow();
+    
+    // Auto-Updater Events
+    autoUpdater.on('update-available', () => {
+      require('electron').dialog.showMessageBox({
+        type: 'info',
+        title: 'Update Available',
+        message: 'A new version of Advent Admin Panel is available. Downloading now...'
+      });
+    });
+
+    autoUpdater.on('update-downloaded', () => {
+      require('electron').dialog.showMessageBox({
+        type: 'info',
+        title: 'Update Ready',
+        message: 'Update downloaded! The application will now restart to install the latest version.',
+        buttons: ['Restart Now']
+      }).then(() => {
+        setImmediate(() => autoUpdater.quitAndInstall());
+      });
+    });
+
+    autoUpdater.on('error', (err) => {
+      log.error('AutoUpdater Error: ', err);
+    });
+
     // Check for updates silently in the background
     autoUpdater.checkForUpdatesAndNotify();
   });
