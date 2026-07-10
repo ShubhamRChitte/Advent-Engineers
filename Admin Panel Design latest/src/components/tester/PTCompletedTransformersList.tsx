@@ -67,7 +67,7 @@ export function PTCompletedTransformersList({
                                 <tr>
                                     <th className="p-4 font-medium">Transformer ID</th>
                                     <th className="p-4 font-medium">Test Date</th>
-                                    <th className="p-4 font-medium">Testers</th>
+                                    <th className="p-4 font-medium">Testing Engineers</th>
                                     <th className="p-4 font-medium text-center">Action</th>
                                 </tr>
                             </thead>

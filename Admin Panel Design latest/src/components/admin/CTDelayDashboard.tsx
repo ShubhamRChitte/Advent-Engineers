@@ -53,10 +53,10 @@ function stageBadgeColor(stage: string): string {
 
 function roleLabel(role: string): string {
   const map: Record<string, string> = {
-    'core-tester':          'Core Tester',
-    'secondary-tester':     'Secondary Tester',
-    'after-primary-tester': 'After-Primary Tester',
-    'final-tester':         'Final Tester'
+    'core-tester':          'Core Testing Engineer',
+    'secondary-tester':     'Secondary Testing Engineer',
+    'after-primary-tester': 'After-Primary Testing Engineer',
+    'final-tester':         'Final Testing Engineer'
   };
   return map[role] || role;
 }
@@ -255,7 +255,7 @@ export function CTDelayDashboard() {
       <div className="flex gap-1 border-b border-gray-200">
         {[
           { id: 'job',    label: 'Job-wise',    icon: Briefcase },
-          { id: 'tester', label: 'Tester-wise', icon: Users },
+          { id: 'tester', label: 'Testing Engineer-wise', icon: Users },
           { id: 'all',    label: 'All Records', icon: List }
         ].map(tab => {
           const Icon = tab.icon;
@@ -346,7 +346,7 @@ export function CTDelayDashboard() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      {['Tester Name', 'Role', 'Total Units', 'Delayed', 'Avg Time', 'Avg Delay', 'Total Delay'].map(h => (
+                      {['Testing Engineer Name', 'Role', 'Total Units', 'Delayed', 'Avg Time', 'Avg Delay', 'Total Delay'].map(h => (
                         <th key={h} className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider">
                           {h}
                         </th>
@@ -392,7 +392,7 @@ export function CTDelayDashboard() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      {['Job No.', 'Tester', 'Stage', 'Cores', 'Start', 'End', 'Expected', 'Actual', 'Delay', 'Status'].map(h => (
+                      {['Job No.', 'Testing Engineer', 'Stage', 'Cores', 'Start', 'End', 'Expected', 'Actual', 'Delay', 'Status'].map(h => (
                         <th key={h} className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider">
                           {h}
                         </th>

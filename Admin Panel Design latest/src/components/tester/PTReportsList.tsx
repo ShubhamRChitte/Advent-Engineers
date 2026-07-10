@@ -235,7 +235,7 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
                                     value={selectedTester}
                                     onChange={(e) => setSelectedTester(e.target.value)}
                                 >
-                                    <option value="All">All Testers</option>
+                                    <option value="All">All Testing Engineers</option>
                                     {allTesters.map(tester => (
                                         <option key={tester} value={tester}>{tester}</option>
                                     ))}

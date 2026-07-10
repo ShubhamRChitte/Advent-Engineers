@@ -149,7 +149,7 @@ export function AdminReviewPanel() {
                                 <div className="flex-1 bg-gray-50 p-4 rounded-lg border border-gray-200">
                                     <p className="text-sm font-medium text-gray-900 mb-2 flex items-center gap-1">
                                         <User className="w-4 h-4 text-blue-600" />
-                                        Reassign Tester for {targetStage.charAt(0).toUpperCase() + targetStage.slice(1)} Stage
+                                        Reassign Testing Engineer for {targetStage.charAt(0).toUpperCase() + targetStage.slice(1)} Stage
                                     </p>
                                     <p className="text-xs text-gray-500 mb-3">Current Assignment: {currentTester}</p>
 
@@ -158,7 +158,7 @@ export function AdminReviewPanel() {
                                         value={selectedEmployees[transformer.uniqueId] || ''}
                                         onChange={(e) => handleEmployeeChange(transformer.uniqueId, e.target.value)}
                                     >
-                                        <option value="">Keep current tester ({currentTester})</option>
+                                        <option value="">Keep current testing engineer ({currentTester})</option>
                                         {employees.map(emp => (
                                             <option key={emp._id || emp.fullName} value={emp.fullName}>
                                                 {emp.fullName}

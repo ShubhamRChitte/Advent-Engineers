@@ -129,7 +129,7 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 1. Active WIP by Stage */}
         <Card className="p-6">
-          <h3 className="text-lg font-bold mb-4 text-gray-800">Active Work-in-Progress (WIP) by Stage</h3>
+          <h3 className="text-lg font-bold mb-4 text-gray-800">Weekly Active Work-in-Progress (WIP) by Stage</h3>
           <ResponsiveContainer width="100%" height={320}>
             <BarChart
               layout="vertical"
@@ -150,7 +150,7 @@ export function AdminDashboard({ setActiveView }: AdminDashboardProps) {
 
         {/* 2. Tester Performance */}
         <Card className="p-6">
-          <h3 className="text-lg font-bold mb-4 text-gray-800">Top Tester Performance</h3>
+          <h3 className="text-lg font-bold mb-4 text-gray-800">Top Testing Engineer Performance</h3>
           <ResponsiveContainer width="100%" height={320}>
             <BarChart
               layout="vertical"

@@ -99,7 +99,7 @@ export function EfficiencyMonitor() {
               <div className="flex justify-between items-start mb-3">
                 <div>
                   <h4 className="font-bold text-gray-900">{timer.jobId}</h4>
-                  <p className="text-[11px] font-semibold text-blue-600">Tester: {timer.testerName}</p>
+                  <p className="text-[11px] font-semibold text-blue-600">Testing Engineer: {timer.testerName}</p>
                   <p className="text-[10px] text-gray-500 truncate max-w-[150px]">{timer.clientName}</p>
                 </div>
                 <Badge 

@@ -116,9 +116,14 @@ router.get('/stats', async (req, res) => {
         const totalTransformers = await TransformerModel.countDocuments({});
         const pendingTests = totalTransformers - testsCompleted;
 
-        // 2. Active WIP by Stage (Exclude Heating completely)
+        // 2. Weekly Active WIP by Stage (last 7 calendar days, excluding Heating)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        sevenDaysAgo.setHours(0, 0, 0, 0); // Start of day 7 days ago
+
         const activeTransformers = await TransformerModel.find({
-            currentStage: { $in: ['core', 'secondary', 'secondary_failed', 'primary', 'final', 'admin_review', 'pt_pretest', 'pt'] }
+            currentStage: { $in: ['core', 'secondary', 'secondary_failed', 'primary', 'final', 'admin_review', 'pt_pretest', 'pt'] },
+            updatedAt: { $gte: sevenDaysAgo }
         }, { currentStage: 1 }).lean();
 
         const wipMap = {

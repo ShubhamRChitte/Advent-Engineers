@@ -314,7 +314,7 @@ export function PTPretestPrintableReport({
   const getCoreLabel = (core: string) => {
     const num = core.replace(/[a-z]/gi, '');
     const suffix = num === '1' || num === '' ? '' : ` ${num}`;
-    if (core.startsWith('protection')) return `Protection${suffix}`;
+    if (core.startsWith('protection')) return `Protection`;
     if (core.startsWith('metering')) return `Metering${suffix}`;
     if (core.startsWith('ps')) return `PS${suffix}`;
     return core;
@@ -427,13 +427,15 @@ export function PTPretestPrintableReport({
 
                 return (
                   <tr key={core}>
-                    <td style={{ fontWeight: 'bold', background: '#fafafa', position: 'relative' }}>
-                      {label} 30%
-                      {(v100.isPass === false || v25.isPass === false) ? (
-                        <div className="absolute right-1 top-1 text-[10px] font-bold px-1 py-0.5 rounded bg-red-100 text-red-700 screen-only">FAIL</div>
-                      ) : (v100.isPass && v25.isPass) ? (
-                        <div className="absolute right-1 top-1 text-[10px] font-bold px-1 py-0.5 rounded bg-green-100 text-green-700 screen-only">PASS</div>
-                      ) : null}
+                    <td style={{ fontWeight: 'bold', background: '#fafafa' }}>
+                      <div className="relative w-full">
+                        {label} 30%
+                        {(v100.isPass === false || v25.isPass === false) ? (
+                          <div className="absolute right-1 top-1 text-[10px] font-bold px-1 py-0.5 rounded bg-red-100 text-red-700 screen-only">FAIL</div>
+                        ) : (v100.isPass && v25.isPass) ? (
+                          <div className="absolute right-1 top-1 text-[10px] font-bold px-1 py-0.5 rounded bg-green-100 text-green-700 screen-only">PASS</div>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="pf-text-center" style={{ padding: 0 }}>
                       {isReadOnly ? (
