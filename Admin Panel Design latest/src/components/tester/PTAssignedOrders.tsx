@@ -63,15 +63,14 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0, endpoint 
               // For Final PT, "PT Pre-Testing Completed" is actually the STARTING point
               return s !== 'pt testing completed' && s !== 'pt final testing completed';
           } else {
+              // For PT Pretesting: an order is Active only when there are still transformers
+              // that have NOT been approved. activeUnitsCount is computed by the backend
+              // by counting transformers in pt_pretest/pt_pretest_failed stage that are not approved.
+              // An order is completed ONLY when EVERY transformer has been approved (activeUnitsCount === 0).
               if (o.activeUnitsCount !== undefined && o.activeUnitsCount === 0) {
-                  return false;
+                  return false; // All transformers approved — belongs in Completed tab
               }
-              // For Pre-Testing, once it's "Pre-Testing Completed", it's done for this tester
-              const isPreCompleted = s.includes('pre-testing completed') || 
-                                     s.includes('pt testing assigned') || 
-                                     s.includes('pt testing') || 
-                                     s.includes('final testing');
-              return !isPreCompleted;
+              return true; // At least one transformer still pending — belongs in Active tab
           }
         }));
       } else {
@@ -84,11 +83,10 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0, endpoint 
           if (isFinalEndpoint) {
               return s === 'pt testing completed' || s === 'pt final testing completed' || (o.activeUnitsCount !== undefined && o.activeUnitsCount === 0);
           } else {
-              const isPreCompleted = s.includes('pre-testing completed') || 
-                                     s.includes('pt testing assigned') || 
-                                     s.includes('pt testing') || 
-                                     s.includes('final testing');
-              return isPreCompleted || (o.activeUnitsCount !== undefined && o.activeUnitsCount === 0);
+              // For PT Pretesting: an order is Completed ONLY when every transformer
+              // has been approved (activeUnitsCount === 0). Partial approvals keep the
+              // order in Active.
+              return o.activeUnitsCount !== undefined && o.activeUnitsCount === 0;
           }
         }));
       }
@@ -245,12 +243,13 @@ export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0, endpoint 
                   const isFinalEndpoint = endpoint.includes('pt-tests') && !endpoint.includes('pt-pretests');
                   const statusLower = (order.status || '').toLowerCase();
                   
-                  // Logic: 
+                  // Logic:
                   // If we're in Final PT (pt-tests): Only mark as completed if it's FINAL completed.
-                  // If we're in Pre-test (pt-pretest): Mark as completed if PRE-TEST is completed.
-                  const isCompleted = isFinalEndpoint 
+                  // If we're in Pre-test (pt-pretests): Mark as completed only when ALL transformers
+                  // are approved (activeUnitsCount === 0). This matches the filter logic above.
+                  const isCompleted = isFinalEndpoint
                     ? (statusLower.includes('pt final testing completed') || statusLower === 'completed' || statusLower === 'pt testing completed')
-                    : (statusLower.includes('pt pre-testing completed') || statusLower.includes('pt testing assigned') || statusLower.includes('pt testing') || statusLower.includes('final testing'));
+                    : (order.activeUnitsCount !== undefined && order.activeUnitsCount === 0);
 
                   return (
                     <tr key={order._id} className="border-b border-gray-100 hover:bg-gray-50">

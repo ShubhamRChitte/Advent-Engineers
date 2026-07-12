@@ -209,7 +209,7 @@ export function PTDelayDashboard() {
       <div className="flex gap-1 border-b border-gray-200">
         {[
           { id: 'job',    label: 'Job-wise',    icon: Briefcase },
-          { id: 'tester', label: 'Tester-wise', icon: Users },
+          { id: 'tester', label: 'Testing Engineer-wise', icon: Users },
           { id: 'all',    label: 'All Records', icon: List }
         ].map(tab => {
           const Icon = tab.icon;
@@ -300,7 +300,7 @@ export function PTDelayDashboard() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      {['Tester Name', 'Role', 'Total Units', 'Delayed', 'Avg Time', 'Avg Delay', 'Total Delay'].map(h => (
+                      {['Testing Engineer Name', 'Role', 'Total Units', 'Delayed', 'Avg Time', 'Avg Delay', 'Total Delay'].map(h => (
                         <th key={h} className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider">
                           {h}
                         </th>
@@ -313,7 +313,7 @@ export function PTDelayDashboard() {
                         <td className="px-4 py-3 font-medium text-gray-800">{row.testerName}</td>
                         <td className="px-4 py-3">
                           <Badge className="bg-blue-100 text-blue-700 text-xs">
-                            {row.role === 'pt-pretester' ? 'PT Pretester' : 'PT Tester'}
+                            {row.role === 'pt-pretester' ? 'PT Pre-Testing Engineer' : 'PT Testing Engineer'}
                           </Badge>
                         </td>
                         <td className="px-4 py-3 text-gray-700">{row.totalUnits}</td>
@@ -346,7 +346,7 @@ export function PTDelayDashboard() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      {['Job No.', 'Tester', 'Stage', 'Start', 'End', 'Expected', 'Actual', 'Delay', 'Status'].map(h => (
+                      {['Job No.', 'Testing Engineer', 'Stage', 'Start', 'End', 'Expected', 'Actual', 'Delay', 'Status'].map(h => (
                         <th key={h} className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider">
                           {h}
                         </th>
