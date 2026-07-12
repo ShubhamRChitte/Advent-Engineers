@@ -12,6 +12,7 @@
   "build": {
     "appId": "com.adventengineers.admin",
     "productName": "Advent Testing Panel",
+    "artifactName": "Advent-Testing-Panel-Setup-${version}.${ext}",
     "win": {
       "target": "nsis",
       "icon": "assets/advent_logo.ico"
