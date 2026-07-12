@@ -11,7 +11,8 @@ module.exports = (passport) => {
             { usernameField: "employeeId" },
             async (employeeId, password, done) => {
                 try {
-                    const user = await UserModel.findOne({ employeeId });
+                    const upperEmployeeId = employeeId ? employeeId.toUpperCase() : employeeId;
+                    const user = await UserModel.findOne({ employeeId: upperEmployeeId });
                     if (!user) {
                         return done(null, false, { message: "User not found" });
                     }

@@ -22,7 +22,7 @@ function createWindow () {
   const server = require('./index.js'); 
   
   mainWindow = new BrowserWindow({
-    title: "Advent Engineers Admin Panel",
+    title: "Advent Engineers Testing Panel",
     icon: path.join(__dirname, 'assets', 'advent_logo.ico'),
     autoHideMenuBar: true,
     show: false, // Hide until maximized
@@ -74,7 +74,7 @@ if (!gotTheLock) {
       require('electron').dialog.showMessageBox({
         type: 'info',
         title: 'Update Available',
-        message: 'A new version of Advent Admin Panel is available. Downloading now...'
+        message: 'A new version of Advent Testing Panel is available. Downloading now...'
       });
     });
 

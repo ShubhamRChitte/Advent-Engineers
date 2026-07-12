@@ -116,6 +116,17 @@ router.get('/stats', async (req, res) => {
         const totalTransformers = await TransformerModel.countDocuments({});
         const pendingTests = totalTransformers - testsCompleted;
 
+        // Calculate "this month" changes
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        const newEmployeesThisMonth = await UserModel.countDocuments({ activeStatus: true, createdAt: { $gte: startOfMonth } });
+        const newOrdersThisMonth = await OrderModel.countDocuments({ createdAt: { $gte: startOfMonth } });
+        const completedThisMonth = await TransformerModel.countDocuments({ currentStage: 'shipped', updatedAt: { $gte: startOfMonth } });
+        const pendingAddedThisMonth = await TransformerModel.countDocuments({ createdAt: { $gte: startOfMonth }, currentStage: { $ne: 'shipped' } });
+
+
         // 2. Weekly Active WIP by Stage (last 7 calendar days, excluding Heating)
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -355,10 +366,10 @@ router.get('/stats', async (req, res) => {
         res.status(200).json({
             success: true,
             stats: [
-                { label: 'Total Employees', value: totalEmployees.toString(), icon: 'Users', color: 'blue', change: '+0' },
-                { label: 'Active Orders', value: activeOrders.toString(), icon: 'Package', color: 'purple', change: '+0' },
-                { label: 'Tests Completed', value: testsCompleted.toString(), icon: 'CheckCircle2', color: 'green', change: '+0' },
-                { label: 'Pending Tests', value: pendingTests.toString(), icon: 'AlertCircle', color: 'orange', change: '+0' },
+                { label: 'Total Employees', value: totalEmployees.toString(), icon: 'Users', color: 'blue', change: `+${newEmployeesThisMonth}` },
+                { label: 'Active Orders', value: activeOrders.toString(), icon: 'Package', color: 'purple', change: `+${newOrdersThisMonth}` },
+                { label: 'Tests Completed', value: testsCompleted.toString(), icon: 'CheckCircle2', color: 'green', change: `+${completedThisMonth}` },
+                { label: 'Pending Tests', value: pendingTests.toString(), icon: 'AlertCircle', color: 'orange', change: `+${pendingAddedThisMonth}` },
             ],
             wipData,
             testerData,

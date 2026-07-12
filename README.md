@@ -1,4 +1,4 @@
-# Advent Engineers Admin Panel
+# Advent Engineers Testing Panel
 
 A comprehensive, full-stack admin dashboard and operations management system designed specifically for Advent Engineers. This application digitizes and streamlines the entire workflow from core testing and inventory management to generating professional, print-ready customer test reports.
 
@@ -22,7 +22,7 @@ A comprehensive, full-stack admin dashboard and operations management system des
 ```text
 Advent-Engineers/
 │
-├── Admin Panel Design latest/   # React Frontend (Vite)
+├── frontend/                    # React Frontend (Vite)
 │   ├── src/
 │   │   ├── components/          # React Components (admin, inventory, tester, testing)
 │   │   ├── styles/              # Global CSS & Print specific stylesheets
@@ -64,7 +64,7 @@ npm run dev
 
 Navigate to the frontend directory and install dependencies:
 ```bash
-cd "Admin Panel Design latest"
+cd "frontend"
 npm install
 ```
 
@@ -82,7 +82,7 @@ npm run dev
 
 To build the frontend for production, run:
 ```bash
-cd "Admin Panel Design latest"
+cd "frontend"
 npm run build
 ```
 This will generate optimized static assets in the `dist` folder, which can be served by the Node.js backend or deployed to any standard static hosting service.

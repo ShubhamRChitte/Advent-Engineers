@@ -131,4 +131,14 @@ router.put('/:id/read', isAuthenticated, async (req, res) => {
     }
 });
 
+// DELETE /api/notifications/:id
+router.delete('/:id', isAuthenticated, async (req, res) => {
+    try {
+        await NotificationModel.findByIdAndDelete(req.params.id);
+        res.json({ success: true, message: "Notification deleted." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;
