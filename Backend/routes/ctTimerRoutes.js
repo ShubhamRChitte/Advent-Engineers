@@ -323,6 +323,11 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
       if (endDate)   filter.startTime.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
     }
 
+    // Only include timers for transformers that are NOT completed/shipped
+    const activeTransformers = await TransformerModel.find({ currentStage: { $ne: 'shipped' } }).select('uniqueId').lean();
+    const activeTransformerIds = activeTransformers.map(t => t.uniqueId);
+    filter.transformerId = { $in: activeTransformerIds };
+
     const records = await CTTimerModel.find(filter).sort({ startTime: -1 }).lean();
 
     // Flat list

@@ -17,8 +17,7 @@ import { NotificationsModule } from './NotificationsModule';
 import { FailedCoresPage } from '../../pages/FailedCoresPage';
 import ReadyStockView from '../inventory/ReadyStockView';
 import { CustomerReportsPage } from './CustomerReportsPage';
-import { PTDelayDashboard } from './PTDelayDashboard';
-import { CTDelayDashboard } from './CTDelayDashboard';
+import { DelayTrackerPage } from './DelayTrackerPage';
 import { FailedTransformersSection } from '../tester/FailedTransformersSection';
 import { DataCleanupPage } from '@/pages/DataCleanupPage';
 import { SystemConfigurationsPage } from '@/pages/SystemConfigurationsPage';
@@ -217,10 +216,8 @@ export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
         return <FailedTransformersSection user={user} />;
       case 'ready-stock':
         return <ReadyStockView />;
-      case 'pt-delay-tracker':
-        return <PTDelayDashboard />;
-      case 'ct-delay-tracker':
-        return <CTDelayDashboard />;
+      case 'delay-tracker':
+        return <DelayTrackerPage onBack={() => setActiveView('dashboard')} />;
       case 'data-cleanup':
         return <DataCleanupPage />;
       case 'system-configs':

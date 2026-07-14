@@ -289,7 +289,7 @@ export function SecondaryCoreSelection({ transformer: initialTransformer, onCore
       };
 
 
-      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/strict-approvals/request`, payload, { withCredentials: true });
+      await axios.post(`/strict-approvals/request`, payload, { withCredentials: true });
 
 
       // Update transformer status so it waits for admin

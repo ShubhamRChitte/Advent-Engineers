@@ -35,11 +35,11 @@ export function AdminSidebar({ activeView, setActiveView }: AdminSidebarProps) {
       if (!token) return;
       try {
         const [resCores, resTransformers] = await Promise.all([
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-cores/count`, { 
+          axios.get(`/failed-cores/count`, { 
             withCredentials: true,
             headers: { 'Authorization': token ? `Bearer ${token}` : '' }
           }),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers/count`, { 
+          axios.get(`/failed-transformers/count`, { 
             withCredentials: true,
             headers: { 'Authorization': token ? `Bearer ${token}` : '' }
           })
@@ -89,8 +89,7 @@ export function AdminSidebar({ activeView, setActiveView }: AdminSidebarProps) {
       items: [
         { id: 'reports', label: 'Internal Reports', icon: FileText },
         { id: 'customer-reports', label: 'Customer Reports', icon: FileText },
-        { id: 'pt-delay-tracker', label: 'PT Delay Tracker', icon: Timer },
-        { id: 'ct-delay-tracker', label: 'CT Delay Tracker', icon: Timer },
+        { id: 'delay-tracker', label: 'Delay Tracker', icon: Timer },
       ]
     },
     {

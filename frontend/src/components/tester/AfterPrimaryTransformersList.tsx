@@ -96,10 +96,10 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
         const orderId = order._id;
 
         const [response, failedRes] = await Promise.all([
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/orders/${orderId}/transformers`, {
+          axios.get(`/orders/${orderId}/transformers`, {
             withCredentials: true
           }),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/failed-transformers?stage=PRIMARY_TESTING`, {
+          axios.get(`/failed-transformers?stage=PRIMARY_TESTING`, {
             withCredentials: true
           })
         ]);

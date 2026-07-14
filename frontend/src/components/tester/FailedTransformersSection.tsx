@@ -853,7 +853,14 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       String(item.coreType || '').toUpperCase() === coreTypeFilter;
 
     const tStage = item.transformerId?.currentStage;
-    const isApproved = !!(tStage && tStage !== 'secondary' && tStage !== 'secondary_failed' && tStage !== 'admin_review');
+    const isApproved = !!(
+      tStage &&
+      tStage !== 'secondary' &&
+      tStage !== 'secondary_failed' &&
+      tStage !== 'admin_review' &&
+      tStage !== 'pt_pretest_failed' &&
+      tStage !== 'pt_failed'
+    );
 
     const matchesStatus = (() => {
       if (statusFilter === 'ALL') return true;
@@ -923,7 +930,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
               isFailedSection={true}
               failedTransformerId={retestingTransformer._id}
               failedStatus={retestingTransformer.status}
-              isFailedCore={retestingTransformer.coreType ? retestingTransformer.coreType.toLowerCase().includes('meter') : false}
+              isFailedCore={['METERING', 'COMPLETE UNIT', 'PT_FINAL', 'MULTIPLE'].includes(retestingTransformer.coreType?.toUpperCase() || '') || (retestingTransformer.coreType?.toLowerCase().includes('meter') || false)}
               retestHistory={retestingTransformer.retestHistory}
             />
           )}
@@ -942,7 +949,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
               isFailedSection={true}
               failedTransformerId={retestingTransformer._id}
               failedStatus={retestingTransformer.status}
-              isFailedCore={retestingTransformer.coreType ? retestingTransformer.coreType.toLowerCase().includes('protect') : false}
+              isFailedCore={retestingTransformer.coreType?.toUpperCase().includes('PROTECTION') || ['COMPLETE UNIT', 'PT_FINAL', 'MULTIPLE'].includes(retestingTransformer.coreType?.toUpperCase() || '')}
               retestHistory={retestingTransformer.retestHistory}
             />
           )}
@@ -961,7 +968,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
               isFailedSection={true}
               failedTransformerId={retestingTransformer._id}
               failedStatus={retestingTransformer.status}
-              isFailedCore={retestingTransformer.coreType ? retestingTransformer.coreType.toLowerCase().includes('ps') : false}
+              isFailedCore={['PS', 'COMPLETE UNIT', 'PT_FINAL', 'MULTIPLE'].includes(retestingTransformer.coreType?.toUpperCase() || '') || (retestingTransformer.coreType?.toLowerCase().includes('ps') || false)}
               retestHistory={retestingTransformer.retestHistory}
             />
           )}

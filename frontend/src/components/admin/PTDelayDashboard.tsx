@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from '@/utils/axiosConfig';
-import { Clock, AlertTriangle, Users, Briefcase, List, RefreshCw, Filter } from 'lucide-react';
+import { Clock, AlertTriangle, Users, Briefcase, List, RefreshCw, Filter, Search } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -77,8 +77,49 @@ export function PTDelayDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [stageFilter, setStageFilter] = useState<string>('');
+  const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('weekly');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  // Update dates when period changes
+  useEffect(() => {
+    if (period === 'custom') return;
+    const end = new Date();
+    const start = new Date();
+    
+    if (period === 'daily') {
+      // Today only
+      start.setHours(0, 0, 0, 0);
+    } else if (period === 'weekly') {
+      // Last 7 days
+      start.setDate(end.getDate() - 7);
+      start.setHours(0, 0, 0, 0);
+    } else if (period === 'monthly') {
+      // Last 30 days
+      start.setDate(end.getDate() - 30);
+      start.setHours(0, 0, 0, 0);
+    }
+
+    const formatDate = (date: Date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    setStartDate(formatDate(start));
+    setEndDate(formatDate(end));
+  }, [period]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -107,12 +148,38 @@ export function PTDelayDashboard() {
     fetchData();
   }, [fetchData]);
 
+  // ── Client-side filtering ──────────────────────────────────────────────────
+  const filteredFlatList = useMemo(() => {
+    if (!data?.flatList) return [];
+    if (!debouncedSearch) return data.flatList;
+    const lower = debouncedSearch.toLowerCase();
+    return data.flatList.filter(r => 
+      (r.jobId && r.jobId.toLowerCase().includes(lower)) ||
+      (r.testerName && r.testerName.toLowerCase().includes(lower)) ||
+      (r.transformerId && r.transformerId.toLowerCase().includes(lower))
+    );
+  }, [data, debouncedSearch]);
+
+  const filteredJobWise = useMemo(() => {
+    if (!data?.jobWise) return [];
+    if (!debouncedSearch) return data.jobWise;
+    const lower = debouncedSearch.toLowerCase();
+    return data.jobWise.filter(r => r.jobId && r.jobId.toLowerCase().includes(lower));
+  }, [data, debouncedSearch]);
+
+  const filteredTesterWise = useMemo(() => {
+    if (!data?.testerWise) return [];
+    if (!debouncedSearch) return data.testerWise;
+    const lower = debouncedSearch.toLowerCase();
+    return data.testerWise.filter(r => r.testerName && r.testerName.toLowerCase().includes(lower));
+  }, [data, debouncedSearch]);
+
   // ── Summary Stats ──────────────────────────────────────────────────────────
-  const totalDelayed  = data?.flatList.filter(r => r.isDelayed).length ?? 0;
-  const totalRecords  = data?.totalRecords ?? 0;
+  const totalDelayed  = filteredFlatList.filter(r => r.isDelayed).length;
+  const totalRecords  = filteredFlatList.length;
   const delayRate     = totalRecords > 0 ? Math.round((totalDelayed / totalRecords) * 100) : 0;
-  const avgDelay      = data && totalDelayed > 0
-    ? Math.round(data.flatList.filter(r => r.isDelayed).reduce((sum, r) => sum + r.delayMs, 0) / totalDelayed)
+  const avgDelay      = totalDelayed > 0
+    ? Math.round(filteredFlatList.filter(r => r.isDelayed).reduce((sum, r) => sum + r.delayMs, 0) / totalDelayed)
     : 0;
 
   return (
@@ -125,10 +192,23 @@ export function PTDelayDashboard() {
             Track testing duration and delays for PT Pretest &amp; PT Final stages
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchData} className="gap-2">
-          <RefreshCw className="w-4 h-4" />
-          Refresh
-        </Button>
+        
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search job, tester..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#003a70] w-64"
+            />
+          </div>
+          <Button variant="outline" size="sm" onClick={fetchData} className="gap-2 h-[38px]">
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -141,7 +221,7 @@ export function PTDelayDashboard() {
 
           <select
             value={stageFilter}
-            onChange={e => setStageFilter(e.target.value)}
+            onChange={e => { setStageFilter(e.target.value); }}
             className="border border-gray-300 rounded-md text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#003a70]"
           >
             <option value="">All Stages</option>
@@ -149,34 +229,53 @@ export function PTDelayDashboard() {
             <option value="pt">PT Final</option>
           </select>
 
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-500">From:</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={e => setStartDate(e.target.value)}
-              className="border border-gray-300 rounded-md text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#003a70]"
-            />
+          {/* Quick Date Filters */}
+          <div className="bg-gray-100 p-1 rounded-lg flex items-center shadow-sm border border-gray-200">
+            {(['daily', 'weekly', 'monthly', 'custom'] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all capitalize ${
+                  period === p ? 'bg-white text-[#003a70] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-500">To:</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={e => setEndDate(e.target.value)}
-              className="border border-gray-300 rounded-md text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#003a70]"
-            />
-          </div>
+          {period === 'custom' && (
+            <>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-500">From:</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={e => { setStartDate(e.target.value); setPeriod('custom'); }}
+                  className="border border-gray-300 rounded-md text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#003a70]"
+                />
+              </div>
 
-          {(stageFilter || startDate || endDate) && (
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-500">To:</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={e => { setEndDate(e.target.value); setPeriod('custom'); }}
+                  className="border border-gray-300 rounded-md text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#003a70]"
+                />
+              </div>
+            </>
+          )}
+
+          {(stageFilter || period !== 'weekly') && (
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
-              onClick={() => { setStageFilter(''); setStartDate(''); setEndDate(''); }}
-              className="text-gray-400 hover:text-gray-700"
+              onClick={() => { setStageFilter(''); setPeriod('weekly'); }}
+              className="text-gray-600 hover:text-gray-900 border-gray-300"
             >
-              Clear
+              Clear Filters
             </Button>
           )}
         </div>
@@ -206,7 +305,7 @@ export function PTDelayDashboard() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="flex gap-2 sm:gap-4 border-b border-gray-200 overflow-x-auto pb-[1px]">
         {[
           { id: 'job',    label: 'Job-wise',    icon: Briefcase },
           { id: 'tester', label: 'Testing Engineer-wise', icon: Users },
@@ -217,13 +316,13 @@ export function PTDelayDashboard() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex items-center gap-2 px-3 sm:px-5 py-3 whitespace-nowrap text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab.id
                   ? 'border-[#003a70] text-[#003a70]'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              <Icon className="w-4 h-4" />
+              <Icon className="w-4 h-4 shrink-0" />
               {tab.label}
             </button>
           );
@@ -255,7 +354,7 @@ export function PTDelayDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {data.jobWise.map(row => (
+                    {filteredJobWise.map(row => (
                       <tr key={row.jobId} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 font-mono font-medium text-[#003a70]">{row.jobId}</td>
                         <td className="px-4 py-3 text-gray-700">{row.totalUnits}</td>
@@ -308,7 +407,7 @@ export function PTDelayDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {data.testerWise.map((row, idx) => (
+                    {filteredTesterWise.map((row, idx) => (
                       <tr key={idx} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 font-medium text-gray-800">{row.testerName}</td>
                         <td className="px-4 py-3">
@@ -354,7 +453,7 @@ export function PTDelayDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {data.flatList.map(row => (
+                    {filteredFlatList.map(row => (
                       <tr key={row._id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 font-mono text-[#003a70] font-medium">{row.jobId}</td>
                         <td className="px-4 py-3 text-gray-800">{row.testerName}</td>
@@ -390,7 +489,7 @@ export function PTDelayDashboard() {
                 </table>
               </div>
               <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
-                Showing {data.flatList.length} records
+                Showing {filteredFlatList.length} records
               </div>
             </Card>
           )}
