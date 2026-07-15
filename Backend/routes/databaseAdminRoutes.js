@@ -236,4 +236,48 @@ router.put('/timers', isAuthenticated, isAdmin, async (req, res) => {
     }
 });
 
+// -----------------------------------------------------------------------------
+// ID GENERATION SETTINGS
+// -----------------------------------------------------------------------------
+
+router.get('/id-settings', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+        let settings = await SettingsModel.findOne({ key: 'id_generation_settings' });
+        if (!settings) {
+            // Default configuration
+            settings = await SettingsModel.create({
+                key: 'id_generation_settings',
+                value: {
+                    orderId: { enabled: false, prefix: 'ORD-', lastSequence: '000' },
+                    transformerId: { enabled: false, prefix: 'TR-JOB-', lastSequence: '000' },
+                    preTestBatchId: { enabled: false, prefix: 'BATCH-', lastSequence: '000' },
+                    preTestCoreId: { enabled: false, prefix: 'PRE-', lastSequence: '000' }
+                }
+            });
+        }
+        res.status(200).json({ success: true, data: settings.value });
+    } catch (error) {
+        console.error("Error fetching ID settings:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch ID settings" });
+    }
+});
+
+router.put('/id-settings', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+        const { updates } = req.body;
+        if (!updates) return res.status(400).json({ success: false, message: "Missing updates data" });
+
+        const updatedSettings = await SettingsModel.findOneAndUpdate(
+            { key: 'id_generation_settings' },
+            { $set: { value: updates } },
+            { new: true, upsert: true }
+        );
+
+        res.status(200).json({ success: true, message: "ID settings updated successfully", data: updatedSettings.value });
+    } catch (error) {
+        console.error("Error updating ID settings:", error);
+        res.status(500).json({ success: false, message: "Failed to update ID settings" });
+    }
+});
+
 module.exports = router;

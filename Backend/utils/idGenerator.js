@@ -1,14 +1,15 @@
-/**
- * Generates a professional, traceable ID for batches and cores.
- */
+const { getNextGlobalId } = require('./idSettings');
 
 /**
  * Generates a Batch ID in the format: BATCH-DDMMYY-TYPE-SEQ
  * @param {string} coreType - 'Metering', 'Protection', or 'PS'
  * @param {number} dailyCount - Number of batches of this type already created today
- * @returns {string}
+ * @returns {Promise<string>}
  */
-exports.generateBatchId = (coreType, dailyCount) => {
+exports.generateBatchId = async (coreType, dailyCount) => {
+  const globalBatchId = await getNextGlobalId('preTestBatchId');
+  if (globalBatchId) return globalBatchId;
+
   const date = new Date();
   const dd = String(date.getDate()).padStart(2, "0");
   const mm = String(date.getMonth() + 1).padStart(2, "0");
@@ -27,9 +28,12 @@ exports.generateBatchId = (coreType, dailyCount) => {
  * Generates a Core ID linked to its Batch ID
  * @param {string} batchId - The parent Batch ID
  * @param {number} transformerNum - Sequence number of the core in the batch
- * @returns {string}
+ * @returns {Promise<string>}
  */
-exports.generateCoreIdFromBatch = (batchId, transformerNum) => {
+exports.generateCoreIdFromBatch = async (batchId, transformerNum) => {
+  const globalCoreId = await getNextGlobalId('preTestCoreId');
+  if (globalCoreId) return globalCoreId;
+
   const parts = batchId.split('-');
   
   if (parts.length >= 4) {
@@ -47,4 +51,17 @@ exports.generateCoreIdFromBatch = (batchId, transformerNum) => {
   const yy = date.getFullYear().toString().slice(2);
   
   return `PRE-${dd}${mm}${yy}-B${batchDigits}-${String(transformerNum).padStart(3, '0')}`;
+};
+
+const { getMultipleNextGlobalIds } = require('./idSettings');
+exports.generateMultipleCoreIdsFromBatch = async (batchId, count) => {
+    const globalCoreIds = await getMultipleNextGlobalIds('preTestCoreId', count);
+    if (globalCoreIds && globalCoreIds.length === count) return globalCoreIds;
+    
+    // If not global, generate manually
+    const ids = [];
+    for(let i=1; i<=count; i++){
+        ids.push(await exports.generateCoreIdFromBatch(batchId, i)); // Fallback internally uses old logic
+    }
+    return ids;
 };

@@ -19,6 +19,12 @@ export function SystemConfigurationsPage() {
   // Data States
   const [timers, setTimers] = useState<any[]>([]);
   const [accuracyLimits, setAccuracyLimits] = useState<any[]>([]);
+  const [idSettings, setIdSettings] = useState<any>({
+    orderId: { enabled: false, prefix: '', lastSequence: '000', padLength: 3 },
+    transformerId: { enabled: false, prefix: '', lastSequence: '000', padLength: 3 },
+    preTestBatchId: { enabled: false, prefix: '', lastSequence: '000', padLength: 3 },
+    preTestCoreId: { enabled: false, prefix: '', lastSequence: '000', padLength: 3 },
+  });
 
   useEffect(() => {
     fetchData(activeTab);
@@ -54,6 +60,11 @@ export function SystemConfigurationsPage() {
       } else if (tab === 'accuracy') {
         const res = await axios.get('/accuracy-limits/metering', { withCredentials: true });
         setAccuracyLimits(res.data || []);
+      } else if (tab === 'system') {
+        const res = await axios.get('/database-admin/id-settings', { withCredentials: true });
+        if (res.data.success && res.data.data) {
+          setIdSettings(res.data.data);
+        }
       }
     } catch (err) {
       toast.error('Failed to load configurations');
@@ -109,6 +120,31 @@ export function SystemConfigurationsPage() {
       toast.error(`Failed to save Class ${limitConfig.accuracyClass} limits`);
     } finally {
       setSavingLimitId(null);
+    }
+  };
+
+  const handleIdSettingChange = (type: string, field: string, value: any) => {
+    setIdSettings((prev: any) => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        [field]: value
+      }
+    }));
+  };
+
+  const saveIdSettings = async () => {
+    setSaving(true);
+    try {
+      const res = await axios.put('/database-admin/id-settings', { updates: idSettings }, { withCredentials: true });
+      if (res.data.success) {
+        toast.success('ID configurations saved successfully!');
+        setIdSettings(res.data.data);
+      }
+    } catch (err) {
+      toast.error('Failed to save ID configurations');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -315,15 +351,94 @@ export function SystemConfigurationsPage() {
         <TabsContent value="system" className="mt-0">
           <Card className="border-gray-200 shadow-sm">
             <CardHeader className="border-b bg-gray-50/50 py-5">
-              <CardTitle className="text-lg text-gray-900">System Settings</CardTitle>
-              <CardDescription className="text-sm mt-1 text-gray-500">General application preferences.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-16 text-center text-gray-500">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Settings className="w-8 h-8 text-gray-400" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg text-gray-900">Global ID Settings</CardTitle>
+                  <CardDescription className="text-sm mt-1 text-gray-500">Configure global base prefixes and sequential counters for generated IDs.</CardDescription>
+                </div>
+                <Button onClick={saveIdSettings} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
+                  <Save className="w-4 h-4 mr-2" />
+                  {saving ? 'Saving...' : 'Save Settings'}
+                </Button>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Coming Soon</h3>
-              <p className="max-w-sm mx-auto">System settings management (like global variables and environment options) will be available in a future update.</p>
+            </CardHeader>
+            <CardContent className="p-8">
+              {loading ? (
+                <div className="text-gray-500 py-12 text-center">Loading ID settings...</div>
+              ) : (
+                <div className="grid gap-8">
+                  {[
+                    { key: 'orderId', label: 'Order IDs', desc: 'IDs generated when an Order/Job is created' },
+                    { key: 'transformerId', label: 'Transformer IDs', desc: 'IDs generated for individual Transformers inside an Order' },
+                    { key: 'preTestBatchId', label: 'Pre-Test Batch IDs', desc: 'IDs generated for a new Pre-Test Batch' },
+                    { key: 'preTestCoreId', label: 'Pre-Test Core IDs', desc: 'IDs assigned to individual cores during pre-testing' }
+                  ].map((config) => {
+                    const data = idSettings[config.key] || { enabled: false, prefix: '', lastSequence: 0, padLength: 3 };
+                    return (
+                      <div key={config.key} className="bg-gray-50 border border-gray-200 rounded-xl p-6">
+                        <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
+                          <div>
+                            <h4 className="font-bold text-gray-900">{config.label}</h4>
+                            <p className="text-sm text-gray-500">{config.desc}</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-medium text-gray-700">Override Default Logic</span>
+                            <button
+                              onClick={() => handleIdSettingChange(config.key, 'enabled', !data.enabled)}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${data.enabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+                            >
+                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${data.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 transition-opacity ${data.enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Base Prefix</label>
+                            <Input 
+                              value={data.prefix}
+                              onChange={(e) => handleIdSettingChange(config.key, 'prefix', e.target.value)}
+                              placeholder="e.g. TR-JOB-2026-278-"
+                              className="bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Last Sequence Number</label>
+                            <Input 
+                              type="number"
+                              value={data.lastSequence}
+                              onChange={(e) => handleIdSettingChange(config.key, 'lastSequence', parseInt(e.target.value) || 0)}
+                              className="bg-white"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">We will continue from this number.</p>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Padding Digits</label>
+                            <Input 
+                              type="number"
+                              min="1"
+                              max="10"
+                              value={data.padLength}
+                              onChange={(e) => handleIdSettingChange(config.key, 'padLength', parseInt(e.target.value) || 1)}
+                              className="bg-white"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">E.g. 3 will pad to 003</p>
+                          </div>
+                        </div>
+                        
+                        {data.enabled && (
+                          <div className="mt-4 p-3 bg-blue-50/50 border border-blue-100 rounded-lg text-sm text-blue-800">
+                            <strong>Preview Next ID: </strong> 
+                            <span className="font-mono bg-white px-2 py-0.5 rounded border border-blue-200 ml-2">
+                              {data.prefix}{String(Number(data.lastSequence) + 1).padStart(data.padLength, '0')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

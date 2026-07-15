@@ -47,9 +47,10 @@ exports.batchAddReadyTransformers = async (req, res) => {
 
     // 1. Process PASS Cores -> ReadyTransformer
     const passingReadings = readings.filter(r => r.result === 'P');
-    const { generateCoreIdFromBatch } = require('../utils/idGenerator');
+    const { generateMultipleCoreIdsFromBatch } = require('../utils/idGenerator');
+    const globalCoreIds = await generateMultipleCoreIdsFromBatch(batchId, passingReadings.length);
     const coresToInsert = passingReadings.map((reading, idx) => ({
-      coreId: reading.internalCoreNo || generateCoreIdFromBatch(batchId, idx + 1),
+      coreId: reading.internalCoreNo || globalCoreIds[idx],
       batchId,
       coreType,
       specifications: {

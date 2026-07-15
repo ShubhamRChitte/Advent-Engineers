@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const ReadyTransformer = require('../models/ReadyTransformerModel');
 const { FailedCoreModel } = require('../models/FailedCoreModel');
 const { PreTestBatchModel } = require('../models/PreTestBatchModel');
-const { generateCoreIdFromBatch } = require('./idGenerator');
+const { generateCoreIdFromBatch, generateMultipleCoreIdsFromBatch } = require('./idGenerator');
 
 /**
  * Builds a query object based on whether it's a pre-test batch or a standard order.
@@ -131,14 +131,20 @@ const handlePostTestAutomation = async ({
     await ReadyTransformer.deleteMany({ batchId, coreType });
     await FailedCoreModel.deleteMany({ batchId, coreType: coreType.toUpperCase() });
 
+    // Pre-generate core IDs to avoid async logic inside map/forEach
+    const numReadings = readings.length;
+    const globalCoreIds = await generateMultipleCoreIdsFromBatch(batchId, numReadings);
+
     const readyBulk = [];
     const failedBulk = [];
 
     readings.forEach((r, idx) => {
+      const coreId = r.internalCoreNo || globalCoreIds[idx];
+
       // Logic for PASSing cores
       if (r.result === "P" || r.status === "PASS") {
         readyBulk.push({
-          coreId: r.internalCoreNo || generateCoreIdFromBatch(batchId, idx + 1),
+          coreId: coreId,
           batchId,
           coreType,
           specifications: {
@@ -157,7 +163,7 @@ const handlePostTestAutomation = async ({
           vendorName: vendorName,
           vendorId: vendorId,
           coreType: coreType.toUpperCase(),
-          internalCoreNo: r.internalCoreNo || `FAIL-${batchId}-${idx + 1}`,
+          internalCoreNo: coreId,
           vendorCoreNo: r.vendorCoreNo || "N/A",
           failureReason: "RETURN_TO_VENDOR",
           failureStage: "INITIAL_TEST",

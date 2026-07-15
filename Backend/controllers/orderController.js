@@ -11,6 +11,7 @@ const { HeatingRecordModel } = require('../models/HeatingRecordModel');
 const { CounterModel } = require('../models/CounterModel');
 const { CTTimerModel } = require('../models/CTTimerModel');
 const { PTTimerModel } = require('../models/PTTimerModel');
+const { getNextGlobalId, getMultipleNextGlobalIds } = require("../utils/idSettings");
 const { cloudinary } = require('../config/cloudinary');
 
 // Helper: Atomic Sequence Generator
@@ -81,8 +82,15 @@ const generateTransformersForOrder = async (order) => {
 
     console.log(`[Generate] Generating ${quantity} transformers for ${jobId} with assignments mapping.`);
 
+    const globalIds = await getMultipleNextGlobalIds('transformerId', quantity);
+
     for (let i = 1; i <= quantity; i++) {
-      const uniqueId = `TR-${jobId}-${String(i).padStart(3, '0')}`;
+      let uniqueId;
+      if (globalIds && globalIds.length === quantity) {
+          uniqueId = globalIds[i - 1];
+      } else {
+          uniqueId = `TR-${jobId}-${String(i).padStart(3, '0')}`;
+      }
 
       // Construct Initial History
       const initialHistory = {
@@ -132,9 +140,16 @@ const generateTransformersForOrder = async (order) => {
 // POST /api/create-order
 exports.createOrder = async (req, res) => {
   try {
-    const jobSeq = await getNextSequenceValue("job_sequence");
-    const currentYear = new Date().getFullYear();
-    const jobId = `JOB-${currentYear}-${jobSeq.toString().padStart(3, '0')}`;
+    let jobId;
+    const globalJobId = await getNextGlobalId('orderId');
+    
+    if (globalJobId) {
+        jobId = globalJobId;
+    } else {
+        const jobSeq = await getNextSequenceValue("job_sequence");
+        const currentYear = new Date().getFullYear();
+        jobId = `JOB-${currentYear}-${jobSeq.toString().padStart(3, '0')}`;
+    }
 
     const isDirectApproval = req.body.bypassApproval === true || req.body.bypassApproval === 'true';
 
@@ -264,8 +279,16 @@ exports.updateOrder = async (req, res) => {
       console.log(`[UpdateOrder] Quantity changed from ${oldQuantity} to ${newQuantity}. Syncing transformers...`);
       
       if (newQuantity > oldQuantity) {
-        for (let i = oldQuantity + 1; i <= newQuantity; i++) {
-          const uniqueId = `TR-${order.jobId}-${String(i).padStart(3, '0')}`;
+        const diff = newQuantity - oldQuantity;
+        const globalIds = await getMultipleNextGlobalIds('transformerId', diff);
+        
+        for (let i = 1; i <= diff; i++) {
+          let uniqueId;
+          if (globalIds && globalIds.length === diff) {
+              uniqueId = globalIds[i - 1];
+          } else {
+              uniqueId = `TR-${order.jobId}-${String(oldQuantity + i).padStart(3, '0')}`;
+          }
           
           const existing = await TransformerModel.findOne({ uniqueId });
           if (existing) continue;

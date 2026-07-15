@@ -21,7 +21,7 @@ exports.createBatch = async (req, res) => {
     });
 
 
-    const batchId = generateBatchId(coreType, count);
+    const batchId = await generateBatchId(coreType, count);
 
     const newBatch = await PreTestBatchModel.create({
       batchId,
