@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { PTTimerModel } = require('../models/PTTimerModel');
+const { TransformerModel } = require('../models/TransformerModel');
 const { SettingsModel } = require('../models/SettingsModel');
 const { isAuthenticated } = require('../middlewares/authMiddleware');
 
@@ -186,6 +187,11 @@ router.get('/dashboard', isAuthenticated, async (req, res) => {
       if (startDate) filter.startTime.$gte = new Date(startDate);
       if (endDate)   filter.startTime.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
     }
+
+    // Only include timers for transformers that are NOT completed/shipped
+    const activeTransformers = await TransformerModel.find({ currentStage: { $ne: 'shipped' } }).select('uniqueId').lean();
+    const activeTransformerIds = activeTransformers.map(t => t.uniqueId);
+    filter.transformerId = { $in: activeTransformerIds };
 
     // Fetch all matching completed records (with populated jobId already stored)
     const records = await PTTimerModel.find(filter)

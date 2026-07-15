@@ -7,6 +7,8 @@ const { FailedTransformerModel } = require('../models/FailedTransformerModel');
 const ReadyTransformerModel = require('../models/ReadyTransformerModel');
 const { NotificationModel } = require('../models/NotificationModel');
 const { SettingsModel } = require('../models/SettingsModel');
+const { CTTimerModel } = require('../models/CTTimerModel');
+const { PTTimerModel } = require('../models/PTTimerModel');
 
 // Map of collection name to Mongoose Model
 const modelsMap = {
@@ -114,6 +116,8 @@ router.get('/records/:collection', isAuthenticated, isAdmin, async (req, res) =>
 // Helper for Cascading Deletes
 const cascadeDeleteTransformer = async (transformerId) => {
     await FailedTransformerModel.deleteMany({ transformerId });
+    await CTTimerModel.deleteMany({ transformerId });
+    await PTTimerModel.deleteMany({ transformerId });
     await TransformerModel.findByIdAndDelete(transformerId);
 };
 
@@ -122,6 +126,8 @@ const cascadeDeleteOrder = async (orderId) => {
     for (const t of transformers) {
         await cascadeDeleteTransformer(t._id);
     }
+    await CTTimerModel.deleteMany({ orderId });
+    await PTTimerModel.deleteMany({ orderId });
     await OrderModel.findByIdAndDelete(orderId);
 };
 
