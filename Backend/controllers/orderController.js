@@ -9,6 +9,8 @@ const { NotificationModel } = require('../models/NotificationModel');
 const ReadyTransformerModel = require('../models/ReadyTransformerModel');
 const { HeatingRecordModel } = require('../models/HeatingRecordModel');
 const { CounterModel } = require('../models/CounterModel');
+const { CTTimerModel } = require('../models/CTTimerModel');
+const { PTTimerModel } = require('../models/PTTimerModel');
 const { cloudinary } = require('../config/cloudinary');
 
 // Helper: Atomic Sequence Generator
@@ -328,6 +330,9 @@ exports.updateOrder = async (req, res) => {
 
           await FailedCoreModel.deleteMany({ uniqueId });
           await FailedTransformerModel.deleteMany({ uniqueId });
+          await CTTimerModel.deleteMany({ transformerId: uniqueId });
+          await PTTimerModel.deleteMany({ transformerId: uniqueId });
+          await NotificationModel.deleteMany({ unitId: uniqueId });
         }
       }
     }
@@ -465,6 +470,8 @@ exports.deleteOrder = async (req, res) => {
     await MeteringCoreTestModel.deleteMany({ orderId: order._id });
     await ProtectionCoreTestModel.deleteMany({ orderId: order._id });
     await HeatingRecordModel.deleteMany({ orderId: order._id });
+    await CTTimerModel.deleteMany({ orderId: order._id });
+    await PTTimerModel.deleteMany({ orderId: order._id });
 
     await OrderModel.findByIdAndDelete(orderId);
 

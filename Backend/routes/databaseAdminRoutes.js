@@ -9,6 +9,11 @@ const { NotificationModel } = require('../models/NotificationModel');
 const { SettingsModel } = require('../models/SettingsModel');
 const { CTTimerModel } = require('../models/CTTimerModel');
 const { PTTimerModel } = require('../models/PTTimerModel');
+const { FailedCoreModel } = require('../models/FailedCoreModel');
+const { MeteringCoreTestModel } = require('../models/MeteringCoreTestModel');
+const { ProtectionCoreTestModel } = require('../models/ProtectionCoreTestModel');
+const { SecondaryMeteringTestModel } = require('../models/SecondaryMeteringTestModel');
+const { HeatingRecordModel } = require('../models/HeatingRecordModel');
 
 // Map of collection name to Mongoose Model
 const modelsMap = {
@@ -115,9 +120,21 @@ router.get('/records/:collection', isAuthenticated, isAdmin, async (req, res) =>
 
 // Helper for Cascading Deletes
 const cascadeDeleteTransformer = async (transformerId) => {
-    await FailedTransformerModel.deleteMany({ transformerId });
-    await CTTimerModel.deleteMany({ transformerId });
-    await PTTimerModel.deleteMany({ transformerId });
+    const transformer = await TransformerModel.findById(transformerId).lean();
+    if (transformer) {
+        await FailedTransformerModel.deleteMany({ transformerId });
+        await CTTimerModel.deleteMany({ transformerId: transformer.uniqueId });
+        await PTTimerModel.deleteMany({ transformerId: transformer.uniqueId });
+        await NotificationModel.deleteMany({ unitId: transformer.uniqueId });
+        await ReadyTransformerModel.deleteMany({ "transformerId.uniqueId": transformer.uniqueId }); 
+        await SecondaryMeteringTestModel.deleteMany({ uniqueId: transformer.uniqueId });
+        await MeteringCoreTestModel.deleteMany({ uniqueId: transformer.uniqueId });
+        await ProtectionCoreTestModel.deleteMany({ uniqueId: transformer.uniqueId });
+        await HeatingRecordModel.updateMany(
+            {},
+            { $pull: { blocks: { transformerId: transformer.uniqueId } } }
+        );
+    }
     await TransformerModel.findByIdAndDelete(transformerId);
 };
 
@@ -128,6 +145,8 @@ const cascadeDeleteOrder = async (orderId) => {
     }
     await CTTimerModel.deleteMany({ orderId });
     await PTTimerModel.deleteMany({ orderId });
+    await FailedCoreModel.deleteMany({ orderId });
+    await NotificationModel.deleteMany({ orderId });
     await OrderModel.findByIdAndDelete(orderId);
 };
 
