@@ -191,6 +191,17 @@ const STYLE = `
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
   }
 
+  .pf-table input.pt-input-error {
+    color: #b91c1c !important;
+    font-weight: bold !important;
+    border-color: #ef4444 !important;
+    background: #fff5f5 !important;
+  }
+
+  .pf-table input.pt-input-ok {
+    color: #1d4ed8 !important;
+  }
+
   .pf-table input:disabled {
     background: #f3f4f6;
     border-color: #e5e7eb;
@@ -346,7 +357,7 @@ export function PTFinalPrintableReport({
     const num = core.replace(/[a-z]/gi, '');
     const suffix = num === '1' || num === '' ? '' : ` ${num}`;
     if (core.startsWith('protection')) return `Protection${suffix}`;
-    if (core.startsWith('metering')) return `Metering${suffix}`;
+    if (core.startsWith('metering')) return `Metering`;
     if (core.startsWith('ps')) return `PS${suffix}`;
     return core;
   };
@@ -576,9 +587,6 @@ export function PTFinalPrintableReport({
                       )}
                       <td className="pf-text-center relative" style={{ background: '#fafafa', fontWeight: 600 }}>
                         {perc}%
-                        {(val100.isPass === false || val25.isPass === false) ? (
-                          <div className="absolute right-0 top-0.5 text-[9px] font-bold px-0.5 rounded bg-red-100 text-red-700 screen-only">FAIL</div>
-                        ) : null}
                       </td>
                       <td className="pf-text-center" style={{ padding: 0 }}>
                         {isReadOnly ? (
@@ -590,7 +598,7 @@ export function PTFinalPrintableReport({
                             type="text"
                             value={acc.ratioError100 || ''}
                             onChange={(e) => onAccuracyChange?.(core, perc, 'ratioError100', e.target.value)}
-                            className={val100.isPass === false && val100.reason?.includes('Ratio') ? 'text-red-700 font-bold' : 'text-blue-600'}
+                            className={val100.isPass === false && val100.reason?.includes('Ratio') ? 'pt-input-error' : 'pt-input-ok'}
                           />
                         )}
                       </td>
@@ -604,7 +612,7 @@ export function PTFinalPrintableReport({
                             type="text"
                             value={acc.phaseError100 || ''}
                             onChange={(e) => onAccuracyChange?.(core, perc, 'phaseError100', e.target.value)}
-                            className={val100.isPass === false && val100.reason?.includes('Phase') ? 'text-red-700 font-bold' : 'text-blue-600'}
+                            className={val100.isPass === false && val100.reason?.includes('Phase') ? 'pt-input-error' : 'pt-input-ok'}
                           />
                         )}
                       </td>
@@ -618,7 +626,7 @@ export function PTFinalPrintableReport({
                             type="text"
                             value={acc.ratioError25 || ''}
                             onChange={(e) => onAccuracyChange?.(core, perc, 'ratioError25', e.target.value)}
-                            className={val25.isPass === false && val25.reason?.includes('Ratio') ? 'text-red-700 font-bold' : 'text-blue-600'}
+                            className={val25.isPass === false && val25.reason?.includes('Ratio') ? 'pt-input-error' : 'pt-input-ok'}
                           />
                         )}
                       </td>
@@ -632,7 +640,7 @@ export function PTFinalPrintableReport({
                             type="text"
                             value={acc.phaseError25 || ''}
                             onChange={(e) => onAccuracyChange?.(core, perc, 'phaseError25', e.target.value)}
-                            className={val25.isPass === false && val25.reason?.includes('Phase') ? 'text-red-700 font-bold' : 'text-blue-600'}
+                            className={val25.isPass === false && val25.reason?.includes('Phase') ? 'pt-input-error' : 'pt-input-ok'}
                           />
                         )}
                       </td>

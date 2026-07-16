@@ -11,6 +11,7 @@ interface PTTestingModuleProps {
 export function PTTestingModule({ user }: PTTestingModuleProps) {
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [selectedTransformer, setSelectedTransformer] = useState<Transformer | null>(null);
+  const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
 
   const handleStartTesting = (order: any) => {
     setSelectedOrder(order);
@@ -37,5 +38,5 @@ export function PTTestingModule({ user }: PTTestingModuleProps) {
     return <PTTransformersList order={selectedOrder} onStartTest={handleTransformerSelect} onBack={handleBackToOrders} />;
   }
 
-  return <PTAssignedOrders onStartTesting={handleStartTesting} />;
+  return <PTAssignedOrders onStartTesting={handleStartTesting} activeTab={activeTab} setActiveTab={setActiveTab} />;
 }

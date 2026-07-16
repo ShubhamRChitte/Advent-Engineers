@@ -25,12 +25,22 @@ interface PTAssignedOrdersProps {
   onViewReports?: (order: Order) => void;
   refreshTrigger?: number; // Added to trigger re-fetch
   endpoint?: string; // Added to support different endpoints
+  activeTab?: 'active' | 'completed';
+  setActiveTab?: (tab: 'active' | 'completed') => void;
 }
 
-export function PTAssignedOrders({ onStartTesting, refreshTrigger = 0, endpoint = `/pt-tests/assigned-orders` }: PTAssignedOrdersProps) {
+export function PTAssignedOrders({ 
+  onStartTesting, 
+  refreshTrigger = 0, 
+  endpoint = `/pt-tests/assigned-orders`,
+  activeTab: externalActiveTab,
+  setActiveTab: externalSetActiveTab
+}: PTAssignedOrdersProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
+  const [internalActiveTab, setInternalActiveTab] = useState<'active' | 'completed'>('active');
+  const activeTab = externalActiveTab !== undefined ? externalActiveTab : internalActiveTab;
+  const setActiveTab = externalSetActiveTab !== undefined ? externalSetActiveTab : setInternalActiveTab;
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
 

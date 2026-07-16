@@ -167,6 +167,17 @@ const STYLE = `
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
   }
 
+  .pf-table input.pt-input-error {
+    color: #b91c1c !important;
+    font-weight: bold !important;
+    border-color: #ef4444 !important;
+    background: #fff5f5 !important;
+  }
+
+  .pf-table input.pt-input-ok {
+    color: #1d4ed8 !important;
+  }
+
   .pf-table input:disabled {
     background: #f3f4f6;
     border-color: #e5e7eb;
@@ -315,7 +326,7 @@ export function PTPretestPrintableReport({
     const num = core.replace(/[a-z]/gi, '');
     const suffix = num === '1' || num === '' ? '' : ` ${num}`;
     if (core.startsWith('protection')) return `Protection`;
-    if (core.startsWith('metering')) return `Metering${suffix}`;
+    if (core.startsWith('metering')) return `Metering`;
     if (core.startsWith('ps')) return `PS${suffix}`;
     return core;
   };
@@ -428,14 +439,7 @@ export function PTPretestPrintableReport({
                 return (
                   <tr key={core}>
                     <td style={{ fontWeight: 'bold', background: '#fafafa' }}>
-                      <div className="relative w-full">
-                        {label} 30%
-                        {(v100.isPass === false || v25.isPass === false) ? (
-                          <div className="absolute right-1 top-1 text-[10px] font-bold px-1 py-0.5 rounded bg-red-100 text-red-700 screen-only">FAIL</div>
-                        ) : (v100.isPass && v25.isPass) ? (
-                          <div className="absolute right-1 top-1 text-[10px] font-bold px-1 py-0.5 rounded bg-green-100 text-green-700 screen-only">PASS</div>
-                        ) : null}
-                      </div>
+                      {label} 30%
                     </td>
                     <td className="pf-text-center" style={{ padding: 0 }}>
                       {isReadOnly ? (
@@ -447,7 +451,7 @@ export function PTPretestPrintableReport({
                           type="text"
                           value={pre.ratioError100 || ''}
                           onChange={(e) => onChange?.(core, 'ratioError100', e.target.value.replace(/[^0-9.\-+]/g, ''))}
-                          className={v100.isPass === false && v100.reason?.includes('Ratio') ? 'text-red-700 font-bold' : 'text-blue-600'}
+                          className={v100.isPass === false && v100.reason?.includes('Ratio') ? 'pt-input-error' : 'pt-input-ok'}
                         />
                       )}
                     </td>
@@ -461,7 +465,7 @@ export function PTPretestPrintableReport({
                           type="text"
                           value={pre.phaseError100 || ''}
                           onChange={(e) => onChange?.(core, 'phaseError100', e.target.value.replace(/[^0-9.\-+]/g, ''))}
-                          className={v100.isPass === false && v100.reason?.includes('Phase') ? 'text-red-700 font-bold' : 'text-blue-600'}
+                          className={v100.isPass === false && v100.reason?.includes('Phase') ? 'pt-input-error' : 'pt-input-ok'}
                         />
                       )}
                     </td>
@@ -475,7 +479,7 @@ export function PTPretestPrintableReport({
                           type="text"
                           value={pre.ratioError25 || ''}
                           onChange={(e) => onChange?.(core, 'ratioError25', e.target.value.replace(/[^0-9.\-+]/g, ''))}
-                          className={v25.isPass === false && v25.reason?.includes('Ratio') ? 'text-red-700 font-bold' : 'text-blue-600'}
+                          className={v25.isPass === false && v25.reason?.includes('Ratio') ? 'pt-input-error' : 'pt-input-ok'}
                         />
                       )}
                     </td>
@@ -489,7 +493,7 @@ export function PTPretestPrintableReport({
                           type="text"
                           value={pre.phaseError25 || ''}
                           onChange={(e) => onChange?.(core, 'phaseError25', e.target.value.replace(/[^0-9.\-+]/g, ''))}
-                          className={v25.isPass === false && v25.reason?.includes('Phase') ? 'text-red-700 font-bold' : 'text-blue-600'}
+                          className={v25.isPass === false && v25.reason?.includes('Phase') ? 'pt-input-error' : 'pt-input-ok'}
                         />
                       )}
                     </td>

@@ -62,8 +62,7 @@ const PRINT_STYLE = `
 `;
 
 function getCoreLabel(core: string) {
-  if (core === 'metering' || core === 'metering1') return 'Metering';
-  if (core === 'metering2') return 'Metering 2';
+  if (core.startsWith('metering')) return 'Metering';
   if (core === 'protection' || core === 'protection1') return 'Protection';
   if (core === 'protection2') return 'Protection 2';
   return core;

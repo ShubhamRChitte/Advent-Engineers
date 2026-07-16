@@ -28,7 +28,7 @@ function getCoreLabel(core: string) {
   const num = core.replace(/[a-z]/gi, '');
   const suffix = num === '1' || num === '' ? '' : ` ${num}`;
   if (core.startsWith('protection')) return `Protection${suffix}`;
-  if (core.startsWith('metering')) return `Metering${suffix}`;
+  if (core.startsWith('metering')) return `Metering`;
   if (core.startsWith('ps')) return `PS${suffix}`;
   return core;
 }

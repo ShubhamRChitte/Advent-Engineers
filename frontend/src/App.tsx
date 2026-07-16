@@ -49,7 +49,7 @@ export default function App() {
     return (
       <>
         <ReportPage />
-        <Toaster />
+        <Toaster richColors toastOptions={{ style: { fontSize: '14px' } }} position="bottom-right" />
       </>
     );
   }
@@ -76,7 +76,7 @@ export default function App() {
     return (
       <>
         <AdminReportViewPage />
-        <Toaster />
+        <Toaster richColors toastOptions={{ style: { fontSize: '14px' } }} position="bottom-right" />
       </>
     );
   }
@@ -86,7 +86,7 @@ export default function App() {
     return (
       <>
         <AdminLayout user={user} onLogout={handleLogout} />
-        <Toaster />
+        <Toaster richColors toastOptions={{ style: { fontSize: '14px' } }} position="bottom-right" />
       </>
     );
   }
@@ -95,7 +95,7 @@ export default function App() {
     return (
       <>
         <EntryOperatorLayout user={user} onLogout={handleLogout} />
-        <Toaster />
+        <Toaster richColors toastOptions={{ style: { fontSize: '14px' } }} position="bottom-right" />
       </>
     );
   }
@@ -104,7 +104,7 @@ export default function App() {
     return (
       <>
         <TesterLayout user={user} onLogout={handleLogout} />
-        <Toaster />
+        <Toaster richColors toastOptions={{ style: { fontSize: '14px' } }} position="bottom-right" />
       </>
     );
   }
@@ -113,7 +113,7 @@ export default function App() {
     return (
       <>
         <HeatingOperatorLayout user={user} onLogout={handleLogout} />
-        <Toaster />
+        <Toaster richColors toastOptions={{ style: { fontSize: '14px' } }} position="bottom-right" />
       </>
     );
   }
