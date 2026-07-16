@@ -554,11 +554,11 @@
 // }
 
 import axios from '@/utils/axiosConfig';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { ArrowLeft, Save, Printer, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, Printer, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { Transformer } from './SecondaryTransformersList';
 import {
@@ -606,6 +606,8 @@ interface SecondaryPSReportProps {
   isFailedCore?: boolean;
   retestHistory?: any[];
   isUnified?: boolean;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
 export function SecondaryPSReport({ 
@@ -629,7 +631,9 @@ export function SecondaryPSReport({
   failedStatus,
   isFailedCore,
   retestHistory,
-  isUnified = false
+  isUnified = false,
+  onNext,
+  onPrev
 }: SecondaryPSReportProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({
@@ -1193,6 +1197,26 @@ export function SecondaryPSReport({
                 </Button>
               )}
               <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2"><Save className="w-4 h-4" /> Save</Button>
+              {onPrev && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={onPrev} 
+                  className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 font-medium shadow-sm transition-all duration-200 hover:scale-105"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Previous Core
+                </Button>
+              )}
+              {onNext && (
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={onNext} 
+                  className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm transition-all duration-200 hover:scale-105"
+                >
+                  Next Core <ChevronRight className="w-4 h-4" />
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2"><Printer className="w-4 h-4" /> Print</Button>
             </div>
           </div>

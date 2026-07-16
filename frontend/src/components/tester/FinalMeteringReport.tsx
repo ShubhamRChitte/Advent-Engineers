@@ -11,6 +11,8 @@ interface FinalMeteringReportProps {
   primaryCurrent?: string;
   secondaryCurrent?: string;
   order?: any;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
 export function FinalMeteringReport({
@@ -22,6 +24,8 @@ export function FinalMeteringReport({
   primaryCurrent,
   secondaryCurrent,
   order,
+  onNext,
+  onPrev,
 }: FinalMeteringReportProps) {
 
   return (
@@ -37,6 +41,8 @@ export function FinalMeteringReport({
       primaryCurrent={primaryCurrent || ''}
       secondaryCurrent={secondaryCurrent || ''}
       order={order}
+      onNext={onNext}
+      onPrev={onPrev}
     />
   );
 }

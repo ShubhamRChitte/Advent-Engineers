@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { ArrowLeft, Save, Printer, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, Printer, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Transformer } from './SecondaryTransformersList';
 import { toast } from 'sonner';
 
@@ -42,6 +42,8 @@ interface SecondaryProtectionReportProps {
   isFailedCore?: boolean;
   retestHistory?: any[];
   isUnified?: boolean;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
 interface ProtectionTestRow {
@@ -140,7 +142,9 @@ export function SecondaryProtectionReport({
   failedStatus,
   isFailedCore,
   retestHistory,
-  isUnified = false
+  isUnified = false,
+  onNext,
+  onPrev
 }: SecondaryProtectionReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
     (!isNaN(parseInt(coreId.replace(/[^0-9]/g, ''))) ? parseInt(coreId.replace(/[^0-9]/g, '')) - 1 : 0);
@@ -851,6 +855,26 @@ export function SecondaryProtectionReport({
               <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2">
                 <Save className="w-4 h-4" /> Save
               </Button>
+              {onPrev && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={onPrev} 
+                  className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 font-medium shadow-sm transition-all duration-200 hover:scale-105"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Previous Core
+                </Button>
+              )}
+              {onNext && (
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={onNext} 
+                  className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm transition-all duration-200 hover:scale-105"
+                >
+                  Next Core <ChevronRight className="w-4 h-4" />
+                </Button>
+              )}
               {hasFailures && !isFailedSection && (
                 <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2">
                   <AlertTriangle className="w-4 h-4" /> Add to Failed Transformer

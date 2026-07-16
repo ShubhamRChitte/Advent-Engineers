@@ -9,6 +9,8 @@ interface FinalPSReportProps {
   primaryCurrent?: string;
   secondaryCurrent?: string;
   order?: any;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
 export function FinalPSReport({
@@ -20,6 +22,8 @@ export function FinalPSReport({
   primaryCurrent,
   secondaryCurrent,
   order,
+  onNext,
+  onPrev,
 }: FinalPSReportProps) {
 
   return (
@@ -35,6 +39,8 @@ export function FinalPSReport({
       primaryCurrent={primaryCurrent || ''}
       secondaryCurrent={secondaryCurrent || ''}
       order={order}
+      onNext={onNext}
+      onPrev={onPrev}
     />
   );
 }

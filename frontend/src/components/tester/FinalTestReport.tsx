@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
-import { ArrowLeft, Save, Printer, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, Printer, AlertTriangle, ChevronRight } from 'lucide-react';
 import { FinalTransformer } from './FinalTransformersList';
 import { toast } from 'sonner';
 import axios from '@/utils/axiosConfig';
 import { useCTTimer } from '../../utils/useCTTimer';
-import { 
-  ReportSectionTitle, 
+import {
+  ReportSectionTitle,
   ReportSpecBox,
   ReportSignatures,
   secondaryReportPrintStyles
@@ -21,6 +21,7 @@ interface FinalTestReportProps {
   onBack: () => void;
   onApprove?: () => void;
   readOnly?: boolean;
+  onNext?: () => void;
 }
 
 export function FinalTestReport({
@@ -29,17 +30,18 @@ export function FinalTestReport({
   onBack,
   onApprove,
   readOnly = false,
+  onNext,
 }: FinalTestReportProps) {
   // ── CT Delay Timer (tracking-only, non-blocking) ─────────────────────────
   const { timeLeftMs, isOverdue, expectedMinutes, endTimer } = useCTTimer({
     transformerId: transformer?.uniqueId || '',
-    orderId:       (transformer as any)?.orderId?._id || (transformer as any)?.orderId || '',
-    jobId:         (transformer as any)?.jobId || '',
-    stage:         'final',
-    testerName:    testerName || 'Final Tester',
-    role:          'final-tester',
-    coreCount:     transformer?.cores?.length || 1,
-    enabled:       !!transformer?.uniqueId
+    orderId: (transformer as any)?.orderId?._id || (transformer as any)?.orderId || '',
+    jobId: (transformer as any)?.jobId || '',
+    stage: 'final',
+    testerName: testerName || 'Final Tester',
+    role: 'final-tester',
+    coreCount: transformer?.cores?.length || 1,
+    enabled: !!transformer?.uniqueId
   });
 
   const testDate = transformer.testHistory?.final_test?.reportDate
@@ -185,7 +187,7 @@ export function FinalTestReport({
 
   const handleMarkAsFailed = async () => {
     if (readOnly) return;
-    
+
     try {
       // Persist the entered test values to the transformer's history first
       // The backend finalTestRoutes.js will automatically detect the failure limits
@@ -215,7 +217,7 @@ export function FinalTestReport({
   return (
     <>
       <div className="space-y-6">
-        
+
         <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll print:block print:w-auto print:overflow-visible print:bg-white print:p-0">
           <style>{secondaryReportPrintStyles}</style>
           <style>{`
@@ -269,6 +271,16 @@ export function FinalTestReport({
                 {!readOnly && hasFailures && (
                   <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2">
                     <AlertTriangle className="w-4 h-4" /> Add to Failed Transformer
+                  </Button>
+                )}
+                {onNext && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={onNext}
+                    className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm transition-all duration-200 hover:scale-105"
+                  >
+                    Next Core <ChevronRight className="w-4 h-4" />
                   </Button>
                 )}
                 <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
@@ -512,18 +524,27 @@ export function FinalTestReport({
                   )}
                 </div>
                 <div className="flex gap-3">
-                  <Button 
-                    onClick={() => handleSave()} 
-                    variant="outline" 
+                  <Button
+                    onClick={() => handleSave()}
+                    variant="outline"
                     className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold"
                   >
                     <Save className="w-4 h-4" />
                     Save Draft
                   </Button>
 
+                  {onNext && (
+                    <Button
+                      onClick={onNext}
+                      className="bg-blue-600 text-white hover:bg-blue-700 gap-2 font-bold px-6 shadow-md transition-all hover:scale-105"
+                    >
+                      Next Core <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  )}
+
                   {comprehensiveComplete && coresComplete && (
-                    <Button 
-                      onClick={handleSaveAndApprove} 
+                    <Button
+                      onClick={handleSaveAndApprove}
                       className="bg-green-600 text-white hover:bg-green-700 gap-2 font-bold px-6 shadow-md transition-all hover:scale-105"
                     >
                       <Save className="w-4 h-4" />

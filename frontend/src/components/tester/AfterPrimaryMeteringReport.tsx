@@ -18,6 +18,8 @@ interface AfterPrimaryMeteringReportProps {
   secondaryCurrent?: string;
   order?: any;
   onCompleteTimer?: () => Promise<void>;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
 export function AfterPrimaryMeteringReport({
@@ -30,6 +32,8 @@ export function AfterPrimaryMeteringReport({
   secondaryCurrent,
   order,
   onCompleteTimer,
+  onNext,
+  onPrev,
 }: AfterPrimaryMeteringReportProps) {
 
   return (
@@ -46,6 +50,8 @@ export function AfterPrimaryMeteringReport({
       secondaryCurrent={secondaryCurrent || ''}
       order={order}
       onCompleteTimer={onCompleteTimer || (async () => {})}
+      onNext={onNext}
+      onPrev={onPrev}
     />
   );
 }

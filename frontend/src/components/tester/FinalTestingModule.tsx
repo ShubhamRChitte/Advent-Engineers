@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
 import { FinalOrdersList } from './FinalOrdersList';
 import { FinalTransformersList, FinalTransformer } from './FinalTransformersList';
-import { FinalCoreSelection } from './FinalCoreSelection';
 import { FinalMeteringReport } from './FinalMeteringReport';
 import { FinalPSReport } from './FinalPSReport';
 import { FinalProtectionReport } from './FinalProtectionReport';
@@ -12,6 +11,7 @@ import { FinalTestReport } from './FinalTestReport';
 import { OrderReportsView } from '../entry/OrderReportsView';
 import { useCTTimer } from '../../utils/useCTTimer';
 import { CTTimerBadge } from './CTTimerBadge';
+
 interface Order {
   _id: string; 
   jobId: string;
@@ -39,7 +39,7 @@ interface CoreConfig {
   accuracyClass?: string | undefined;
 }
 
-type ViewType = 'orders' | 'transformers' | 'cores' | 'core-report' | 'comprehensive-report' | 'order-reports';
+type ViewType = 'orders' | 'transformers' | 'core-report' | 'comprehensive-report' | 'order-reports';
 
 interface FinalTestingModuleProps {
   userName?: string;
@@ -70,7 +70,6 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
 
 
   const handleStartTesting = (order: any) => {
-    // Cast to any to handle Order type mismatches during transition
     setSelectedOrder(order);
     setCurrentView('transformers');
   };
@@ -82,17 +81,6 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
 
   const handleStartTest = (transformer: FinalTransformer) => {
     setSelectedTransformer(transformer);
-    setCurrentView('cores');
-  };
-
-  const handleSelectCore = (core: CoreConfig, primary: string, secondary: string) => {
-    setSelectedCore(core);
-    setSelectedPrimary(primary);
-    setSelectedSecondary(secondary);
-    setCurrentView('core-report');
-  };
-
-  const handleOpenComprehensiveReport = () => {
     setCurrentView('comprehensive-report');
   };
 
@@ -103,14 +91,19 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
     setSelectedCore(null);
   };
 
-  const handleBackToTransformers = () => {
+  const handleBackToTransformers = async () => {
+    if (selectedTransformer?.uniqueId) {
+      try {
+        const res = await axios.get(`/transformers/${selectedTransformer.uniqueId}`, { withCredentials: true });
+        if (res.data) {
+          setSelectedTransformer(prev => prev ? { ...prev, testHistory: res.data.testHistory } : prev);
+        }
+      } catch (err) {
+        console.error('[FinalModule] Failed to refresh transformer after report:', err);
+      }
+    }
     setCurrentView('transformers');
     setSelectedTransformer(null);
-    setSelectedCore(null);
-  };
-
-  const handleBackToCores = () => {
-    setCurrentView('cores');
     setSelectedCore(null);
   };
 
@@ -162,7 +155,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
   );
 
   // The CTTimerBadge is rendered once at the top of all active test views
-  const timerBadge = (currentView === 'cores' || currentView === 'core-report' || currentView === 'comprehensive-report') ? (
+  const timerBadge = (currentView === 'core-report' || currentView === 'comprehensive-report') ? (
     <CTTimerBadge timeLeftMs={ctTimeLeftMs} isOverdue={ctIsOverdue} expectedMinutes={ctExpectedMinutes} title="Final Testing" />
   ) : null;
 
@@ -197,71 +190,90 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
     );
   }
 
-  // Core Selection View
-  if (currentView === 'cores' && selectedTransformer && selectedOrder) {
-    return (
-      <div className="space-y-6">
-        {timerBadge}
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <HeaderWithTimer title="Select Core for Final Testing" onBack={handleBackToTransformers} />
-          <FinalCoreSelection
-            transformer={selectedTransformer}
-            order={{
-              ...selectedOrder,
-              client: selectedOrder.clientName || selectedOrder.client || '',
-              ratios: selectedOrder.ratio || [],
-            } as any}
-            onSelectCore={handleSelectCore}
-            onOpenComprehensiveReport={handleOpenComprehensiveReport}
-            onBack={handleBackToTransformers}
-            onApprove={() => handleApproveTransformer()}
-          />
-        </div>
-      </div>
-    );
-  }
-
   // Core-Wise Report View
   if (currentView === 'core-report' && selectedTransformer && selectedCore) {
+    // Find if there is a next core for this transformer
+    const currentIndex = selectedTransformer.cores.findIndex(
+      c => c.coreNumber === selectedCore.coreNumber
+    );
+    const hasNext = currentIndex !== -1 && currentIndex < selectedTransformer.cores.length - 1;
+    const onNext = hasNext ? () => {
+      const nextCore = selectedTransformer.cores[currentIndex + 1];
+      const coreFromOrder = selectedOrder?.coreDetails?.[nextCore.coreNumber - 1];
+      const secondaryVal = coreFromOrder?.secondaryCurrent || selectedOrder?.ratedSecondaryCurrent || '1';
+      const primaryVal = coreFromOrder?.primaryCurrent || selectedOrder?.primaryCurrents?.[0] || (selectedOrder?.ratio?.[0]?.split('/')[0] || '');
+      
+      setSelectedCore(nextCore as any);
+      setSelectedPrimary(String(primaryVal));
+      setSelectedSecondary(String(secondaryVal));
+    } : undefined;
+
+    const onPrev = () => {
+      if (currentIndex > 0) {
+        const prevCore = selectedTransformer.cores[currentIndex - 1];
+        const coreFromOrder = selectedOrder?.coreDetails?.[prevCore.coreNumber - 1];
+        const secondaryVal = coreFromOrder?.secondaryCurrent || selectedOrder?.ratedSecondaryCurrent || '1';
+        const primaryVal = coreFromOrder?.primaryCurrent || selectedOrder?.primaryCurrents?.[0] || (selectedOrder?.ratio?.[0]?.split('/')[0] || '');
+        
+        setSelectedCore(prevCore as any);
+        setSelectedPrimary(String(primaryVal));
+        setSelectedSecondary(String(secondaryVal));
+      } else {
+        setSelectedCore(null);
+        setCurrentView('comprehensive-report');
+      }
+    };
+
+    const reportKey = `${selectedTransformer.uniqueId}-${selectedCore.coreId}`;
+
     return (
       <div className="space-y-6">
         {timerBadge}
         <div className="bg-white p-6 rounded-lg shadow-sm">
-          <HeaderWithTimer title={`${selectedCore.coreType.toUpperCase()} Core Test`} onBack={handleBackToCores} />
+          <HeaderWithTimer title={`${selectedCore.coreType.toUpperCase()} Core Test`} onBack={handleBackToTransformers} />
           {selectedCore.coreType === 'metering' && (
             <FinalMeteringReport
+              key={reportKey}
               transformer={selectedTransformer as any}
               core={selectedCore as any} 
               testerName={testerName}
-              onBack={handleBackToCores}
+              onBack={handleBackToTransformers}
               onFail={handleBackToOrders}
               order={selectedOrder}
               primaryCurrent={selectedPrimary}
               secondaryCurrent={selectedSecondary}
+              onNext={onNext}
+              onPrev={onPrev}
             />
           )}
           {selectedCore.coreType === 'ps' && (
             <FinalPSReport
+              key={reportKey}
               transformer={selectedTransformer as any}
               core={selectedCore as any}
               testerName={testerName}
-              onBack={handleBackToCores}
+              onBack={handleBackToTransformers}
               onFail={handleBackToOrders}
               order={selectedOrder}
               primaryCurrent={selectedPrimary}
               secondaryCurrent={selectedSecondary}
+              onNext={onNext}
+              onPrev={onPrev}
             />
           )}
           {selectedCore.coreType === 'protection' && (
             <FinalProtectionReport
+              key={reportKey}
               transformer={selectedTransformer as any}
               core={selectedCore as any}
               testerName={testerName}
-              onBack={handleBackToCores}
+              onBack={handleBackToTransformers}
               onFail={handleBackToOrders}
               order={selectedOrder}
               primaryCurrent={selectedPrimary}
               secondaryCurrent={selectedSecondary}
+              onNext={onNext}
+              onPrev={onPrev}
             />
           )}
         </div>
@@ -271,18 +283,32 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
 
   // Comprehensive Report View
   if (currentView === 'comprehensive-report' && selectedTransformer) {
+    const hasNext = selectedTransformer.cores && selectedTransformer.cores.length > 0;
+    const onNext = hasNext ? () => {
+      const firstCore = selectedTransformer.cores[0];
+      const coreFromOrder = selectedOrder?.coreDetails?.[firstCore.coreNumber - 1];
+      const secondaryVal = coreFromOrder?.secondaryCurrent || selectedOrder?.ratedSecondaryCurrent || '1';
+      const primaryVal = coreFromOrder?.primaryCurrent || selectedOrder?.primaryCurrents?.[0] || (selectedOrder?.ratio?.[0]?.split('/')[0] || '');
+      
+      setSelectedCore(firstCore as any);
+      setSelectedPrimary(String(primaryVal));
+      setSelectedSecondary(String(secondaryVal));
+      setCurrentView('core-report');
+    } : undefined;
+
     return (
         <div className="space-y-6 print:space-y-0">
           {timerBadge}
           <div className="bg-white p-6 rounded-lg shadow-sm print:p-0 print:shadow-none print:bg-transparent">
             <div className="no-print">
-              <HeaderWithTimer title="Comprehensive Final Test Report" onBack={handleBackToCores} />
+              <HeaderWithTimer title="Comprehensive Final Test Report" onBack={handleBackToTransformers} />
             </div>
           <FinalTestReport
             transformer={selectedTransformer}
             testerName={testerName}
-            onBack={handleBackToCores}
+            onBack={handleBackToTransformers}
             onApprove={() => handleApproveTransformer(selectedTransformer)}
+            onNext={onNext}
           />
         </div>
       </div>

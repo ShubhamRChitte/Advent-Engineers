@@ -10,6 +10,8 @@ interface FinalProtectionReportProps {
   primaryCurrent?: string;
   secondaryCurrent?: string;
   order?: any;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
 export function FinalProtectionReport({
@@ -21,6 +23,8 @@ export function FinalProtectionReport({
   primaryCurrent,
   secondaryCurrent,
   order,
+  onNext,
+  onPrev,
 }: FinalProtectionReportProps) {
 
   return (
@@ -36,6 +40,8 @@ export function FinalProtectionReport({
       primaryCurrent={primaryCurrent || ''}
       secondaryCurrent={secondaryCurrent || ''}
       order={order}
+      onNext={onNext}
+      onPrev={onPrev}
     />
   );
 }
