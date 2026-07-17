@@ -883,7 +883,6 @@ export function PTTestingReport({ order, transformer, onBack, user, noTimer = fa
             </div>
         )}
 
-        {/* INTERACTIVE REPORT FORMAT MULTI UNITS */}
         <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll">
             <div className="print-container w-[210mm] min-w-[210mm] print:w-full print:min-w-0 print:max-w-full">
                 {transformersData.map((transformer) => {

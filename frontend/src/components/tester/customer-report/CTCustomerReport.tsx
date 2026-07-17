@@ -12,16 +12,35 @@ export interface CTCustomerReportProps {
 }
 
 const PRINT_STYLE = `
+  @page { size: A4 portrait; margin: 0; }
   @media print {
     html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; }
-    .ct-print-wrapper { position: relative !important; width: 100% !important; margin: 0 auto !important; }
-    .ct-print-root { padding: 12mm 14mm !important; margin: 0 auto !important; box-shadow: none !important; border: none !important; border-radius: 0 !important; width: 100% !important; max-width: 100% !important; }
+    #ct-customer-report {
+      visibility: visible !important;
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      width: 210mm !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      box-shadow: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      background: #fff !important;
+    }
+    #ct-customer-report * {
+      visibility: visible !important;
+    }
     .no-print { display: none !important; }
-    .ct-page { page-break-after: always; page-break-inside: avoid; display: flex; flex-direction: column; min-height: 275mm; }
-    .ct-page:last-child { page-break-after: auto; }
+    .ct-page { page-break-after: always !important; break-after: page !important; page-break-inside: avoid !important; break-inside: avoid !important; display: flex !important; flex-direction: column !important; width: 210mm !important; height: 297mm !important; padding: 12mm 14mm !important; box-sizing: border-box !important; }
+    .ct-page:last-child { page-break-after: auto !important; break-after: auto !important; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   }
-  .ct-page { display: flex; flex-direction: column; min-height: 275mm; padding-bottom: 20px; }
-  .ct-print-root { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #000; background: #fff; width: 210mm; margin: 0 auto; padding: 16px; box-sizing: border-box; }
+  @media screen {
+    .ct-print-root { max-width: 210mm; margin: 0 auto; margin-bottom: 3rem; }
+  }
+  .ct-page { width: 210mm; height: 297mm; padding: 12mm 14mm; box-sizing: border-box; display: flex; flex-direction: column; position: relative; background: #fff; }
+  .ct-print-root { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #000; background: #fff; width: 210mm; margin: 0 auto; padding: 0; box-sizing: border-box; }
   .ct-header-table, .ct-main-table { width:100%; border-collapse:collapse; table-layout:fixed; }
   .ct-main-table td, .ct-main-table th { border:1px solid #000; padding:4px 6px; vertical-align:middle; word-break:break-word; }
   .ct-header-table td { padding:4px 6px; vertical-align:middle; }
@@ -88,8 +107,7 @@ export function CTCustomerReport({ order, transformer, reportData, user, printRe
   };
 
   return (
-    <div ref={printRef} id="printable-report" className="ct-print-root ct-print-wrapper bg-white rounded-lg shadow-sm border border-gray-200"
-         style={{ maxWidth: '210mm', margin: '0 auto', marginBottom: '3rem' }}>
+    <div ref={printRef} id="ct-customer-report" className="ct-print-root ct-print-wrapper bg-white rounded-lg shadow-sm border border-gray-300">
       <style>{PRINT_STYLE}</style>
       <CTPage1Overview {...page1Props} />
       <div className="no-print" style={{ height: '20px', background: '#f8fafc', borderTop: '1px dashed #e2e8f0', borderBottom: '1px dashed #e2e8f0', margin: '20px 0' }}></div>
