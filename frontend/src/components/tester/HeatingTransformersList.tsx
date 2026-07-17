@@ -31,8 +31,8 @@ export function HeatingTransformersList({ order, onStartTest, onBack }: HeatingT
       const dbTransformers = resTrans.data.transformers || [];
 
       const mappedTransformers: Transformer[] = dbTransformers.map((t: any) => {
-        const hStatus = t.testHistory?.heating_test?.status || 'Pending';
-        let status: 'pending' | 'in-progress' | 'completed' | 'approved' = 'pending';
+        const hStatus = t.testHistory?.heating_test?.status || '';
+        let status: '' | 'in-progress' | 'completed' | 'approved' = '';
         
         if (hStatus === 'In Progress') status = 'in-progress';
         else if (hStatus === 'Completed') status = 'completed';
@@ -71,7 +71,7 @@ export function HeatingTransformersList({ order, onStartTest, onBack }: HeatingT
       return;
     }
 
-    if (transformer.status === 'pending') {
+    if (transformer.status === '') {
       try {
         await axios.put(`/heating-record/start/${transformer.uniqueId}`, {}, { withCredentials: true });
         await fetchData(); // Refresh list to show in-progress
@@ -96,7 +96,7 @@ export function HeatingTransformersList({ order, onStartTest, onBack }: HeatingT
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-blue-100 text-blue-700';
+      case '': return 'bg-blue-100 text-blue-700';
       case 'in-progress': return 'bg-yellow-100 text-yellow-700';
       case 'completed': return 'bg-green-100 text-green-700';
       default: return 'bg-gray-100 text-gray-700';
@@ -193,7 +193,7 @@ export function HeatingTransformersList({ order, onStartTest, onBack }: HeatingT
                           {transformer.status === 'approved' ? (
                             <><FileText className="w-4 h-4 mr-2" /> View Report</>
                           ) : (
-                            <><PlayCircle className="w-4 h-4 mr-2" /> {transformer.status === 'pending' ? 'Start Heating' : (transformer.isFilled ? 'Edit Data' : 'Continue')}</>
+                            <><PlayCircle className="w-4 h-4 mr-2" /> {transformer.status === '' ? 'Start Heating' : (transformer.isFilled ? 'Edit Data' : 'Continue')}</>
                           )}
                         </Button>
                       </div>

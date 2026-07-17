@@ -339,6 +339,12 @@ const TransformerSchema = new Schema({
     }]
   },
 
+  // Stores history of core replacements and retests
+  retestHistory: {
+    type: Schema.Types.Mixed,
+    default: []
+  },
+
   // Stores the actual snapshot data configured at Final Test generation
   finalReportData: {
     type: Schema.Types.Mixed,

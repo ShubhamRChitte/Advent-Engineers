@@ -20,7 +20,7 @@ export interface FinalTransformer {
   rating: string;
   voltageClass: string;
   cores: CoreConfig[];
-  status: 'pending' | 'in-progress' | 'completed' | 'locked' | 'ready-for-approval';
+  status: '' | 'in-progress' | 'completed' | 'locked' | 'ready-for-approval';
   ratios: string[];
   testHistory?: any;
   jobId?: string;
@@ -105,11 +105,11 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
 
         // Map DB data + Order Specs to UI Model
         const mappedTransformers: FinalTransformer[] = dbTransformers.map((t: any) => {
-          let status: 'pending' | 'in-progress' | 'completed' | 'locked' | 'ready-for-approval' = 'pending';
+          let status: '' | 'in-progress' | 'completed' | 'locked' | 'ready-for-approval' = '';
 
           if (t.currentStage === 'final') {
             if (t.testHistory?.final_test?.status === 'Completed') status = 'completed';
-            else if (t.testHistory?.final_test?.status === 'Pending' && t.testHistory?.final_test?.tester) status = 'in-progress';
+            else if (t.testHistory?.final_test?.status === '' && t.testHistory?.final_test?.tester) status = 'in-progress';
           } else if (t.currentStage === 'shipped') {
             status = 'completed';
           }
@@ -134,7 +134,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
               if (typeStr.includes('protection')) mappedType = 'protection';
               else if (typeStr.includes('ps')) mappedType = 'ps';
 
-              let coreId = 'Pending';
+              let coreId = '';
               let accuracyClass = coreGroup.accuracyClass || '0.5';
 
               // Try to find the real ID from secondary results based on type
@@ -143,38 +143,38 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                   coreId = secTest.meteringCoreId;
                 } else if (mIndex < meteringResults.length) {
                   const res = meteringResults[mIndex];
-                  coreId = res.internalCoreNo || (res.rows && res.rows[0]?.internalCoreNo) || 'M-Pending';
+                  coreId = res.internalCoreNo || (res.rows && res.rows[0]?.internalCoreNo) || '';
                   // Only update accuracyClass from history if not already set by order spec
                   if (!coreGroup.accuracyClass) {
                     accuracyClass = res.accuracyClass || res.classOption || '0.5';
                   }
                   mIndex++;
                 } else {
-                  coreId = 'M-Pending';
+                  coreId = '';
                 }
               } else if (mappedType === 'ps') {
                 if (secTest.psCoreId) {
                   coreId = secTest.psCoreId;
                 } else if (psIndex < psResults.length) {
                   const res = psResults[psIndex];
-                  coreId = res.internalCoreNo || 'PS-Pending';
+                  coreId = res.internalCoreNo || '';
                   psIndex++;
                 } else {
-                  coreId = 'PS-Pending';
+                  coreId = '';
                 }
               } else if (mappedType === 'protection') {
                 if (secTest.protectionCoreId) {
                   coreId = secTest.protectionCoreId;
                 } else if (pIndex < protectionResults.length) {
                   const res = protectionResults[pIndex];
-                  coreId = res.internalCoreNo || 'P-Pending';
+                  coreId = res.internalCoreNo || '';
                   // Only update accuracyClass from history if not already set by order spec
                   if (!coreGroup.accuracyClass) {
                     accuracyClass = res.protectionClass || '5P';
                   }
                   pIndex++;
                 } else {
-                  coreId = 'P-Pending';
+                  coreId = '';
                 }
               }
 
@@ -187,7 +187,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
             });
           }
           if (coresList.length === 0) {
-            coresList.push({ coreNumber: 1, coreType: 'metering', coreId: 'M-Default', accuracyClass: '0.5' });
+            coresList.push({ coreNumber: 1, coreType: 'metering', coreId: '', accuracyClass: '0.5' });
           }
 
 
@@ -313,7 +313,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
             if (isFullyComplete) status = 'completed';
             else if (isFilled) status = 'ready-for-approval'; 
             else if (finalHistory.status === 'In Progress' || finalHistory.tester) status = 'in-progress';
-            else status = 'pending';
+            else status = '';
           } else if (t.currentStage === 'shipped' || t.currentStage === 'completed') {
             status = 'completed';
           } else {
@@ -417,7 +417,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-blue-100 text-blue-700';
+      case '': return 'bg-blue-100 text-blue-700';
       case 'in-progress': return 'bg-yellow-100 text-yellow-700';
       case 'ready-for-approval': return 'bg-green-100 text-green-700 border border-green-300';
       case 'completed': return 'bg-green-600 text-white';
@@ -431,7 +431,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
     if (status === 'completed') return 'Approved';
     if (status === 'ready-for-approval') return 'Ready for Approval';
     if (status === 'in-progress') return 'In Progress (Draft)';
-    return 'Pending';
+    return '';
   };
 
   return (
@@ -544,7 +544,7 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                           ) : (
                             <>
                               <PlayCircle className="w-4 h-4 mr-2" />
-                              {transformer.status === 'pending' ? 'Start Test' : 'Edit / Continue'}
+                              {transformer.status === '' ? 'Start Test' : 'Edit / Continue'}
                             </>
                           )}
                         </Button>

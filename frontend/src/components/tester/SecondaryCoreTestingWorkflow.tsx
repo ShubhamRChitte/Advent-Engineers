@@ -237,12 +237,6 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
   const displayTestedPs = readyStock.ps.filter(isCoreVisible).length;
   const displayTestedProtection = readyStock.protection.filter(isCoreVisible).length;
 
-  const generateCoreId = (type: string, seqNum: number) => {
-    let prefix = type === 'metering' ? 'M' : (type === 'ps' ? 'PS' : 'P');
-    const jobSuffix = order.jobId?.split('-').pop() ?? '000';
-    return `${prefix}-${jobSuffix}-${String(seqNum).padStart(3, '0')}`;
-  };
-
   const getAvailableCoreIds = (type: 'metering' | 'ps' | 'protection') => {
     const activeTIds = transformers.map(t => t.uniqueId);
     const goneCoreIds = new Set(
@@ -256,8 +250,8 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
     
     const availableIds = [];
     for (let i = 0; i < totalOriginal; i++) {
-      const id = list[i] || generateCoreId(type, i + 1);
-      if (!goneCoreIds.has(id)) {
+      const id = list[i];
+      if (id && !goneCoreIds.has(id)) {
         availableIds.push(id);
       }
     }
@@ -455,7 +449,7 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
     const availableIds = getAvailableCoreIds(coreType);
     
     const getCoreId = () => {
-      return availableIds[index] || generateCoreId(coreType, index + 1);
+      return availableIds[index] || '';
     };
     const coreId = getCoreId();
 

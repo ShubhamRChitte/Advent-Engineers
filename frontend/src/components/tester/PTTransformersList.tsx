@@ -19,7 +19,7 @@ export interface Transformer {
   rating: string;
   ratios: string[]; 
   cores: CoreConfig[];
-  status: 'pending' | 'in-progress' | 'completed' | 'approved';
+  status: '' | 'in-progress' | 'completed' | 'approved';
   testHistory?: any;
   currentStage: string;
   voltageClass?: string;
@@ -167,7 +167,7 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
               });
             });
           } else {
-             coresList.push({ coreNumber: 1, coreType: 'metering', coreId: 'M-1' });
+             coresList.push({ coreNumber: 1, coreType: 'metering', coreId: '' });
           }
 
           const hasPtTest = !!(t.testHistory && t.testHistory[historyKey] && Object.keys(t.testHistory[historyKey]).length > 0);
@@ -195,7 +195,7 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
           const isApproved = t.testHistory?.[historyKey]?.approved === true || t.testHistory?.[historyKey]?.approved === "true";
           const isHeatingApproved = t.isHeatingApproved === true || t.isHeatingApproved === "true" || t.testHistory?.heating_test?.status === "Approved";
           
-          let currentStatus: 'pending' | 'in-progress' | 'completed' | 'approved' = 'pending';
+          let currentStatus: '' | 'in-progress' | 'completed' | 'approved' = '';
           if (isApproved) {
             currentStatus = 'approved';
           } else if (hasPtTest || isHeatingApproved) {
@@ -278,7 +278,7 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-blue-100 text-blue-700';
+      case '': return 'bg-blue-100 text-blue-700';
       case 'in-progress': return 'bg-yellow-100 text-yellow-700';
       case 'completed': return 'bg-green-100 text-green-700';
       case 'approved': return 'bg-purple-100 text-purple-700';
@@ -409,7 +409,7 @@ export function PTTransformersList({ order, onStartTest, onBack, testStage = 'fi
                     </td>
                     <td className="p-4">
                       <Badge className={getStatusColor(transformer.status)}>
-                        {transformer.status === 'pending' ? 'Pending' : 
+                        {transformer.status === '' ? '' : 
                          transformer.status === 'in-progress' ? 'In Progress' : 
                          transformer.status === 'completed' ? 'Completed' : 'Approved'}
                       </Badge>

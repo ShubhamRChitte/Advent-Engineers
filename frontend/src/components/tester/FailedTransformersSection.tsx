@@ -12,7 +12,8 @@ import {
   Loader2,
   Layers,
   Wrench,
-  Eye
+  Eye,
+  XCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -34,8 +35,8 @@ const findResultForCore = (results: any[], coreNumber: number, coreType: string,
   const typeCores = coreDetails.filter((c: any) => {
     const t = (c.coreType || 'Metering').toLowerCase();
     if (coreType === 'ps') return t.includes('ps');
-    if (coreType === 'protection') return t.includes('protection');
-    return !t.includes('ps') && !t.includes('protection');
+    if (coreType === 'protection') return t.match(/protection|prt/);
+    return !t.includes('ps') && !t.match(/protection|prt/);
   });
 
   const typeIndex = typeCores.findIndex((c: any) => {
@@ -73,9 +74,10 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
 
   // Retest View States
   const [activeReport, setActiveReport] = useState<any | null>(null);
-  const [selectedCore, setSelectedCore] = useState<number | null>(null);
+  // selectedCore removed
+  const [enteredCoreIds, setEnteredCoreIds] = useState<Record<number, string>>({});
   const [retestAvailablePool, setRetestAvailablePool] = useState<any>(null);
-  const [enteredCoreId, setEnteredCoreId] = useState('');
+  // enteredCoreId removed
 
   // Core Replacement States
   const [replacingCoreItem, setReplacingCoreItem] = useState<any | null>(null);
@@ -128,7 +130,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
 
       const typeStr = (coreGroup.coreType || 'Metering').toLowerCase();
       let targetType = 'Metering';
-      if (typeStr.includes('protection')) targetType = 'Protection';
+      if (typeStr.match(/protection|prt/)) targetType = 'Protection';
       else if (typeStr.includes('ps')) targetType = 'PS';
 
       // Fetch from Ready Stock API
@@ -175,7 +177,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       const coreNum = idx + 1;
       const typeStr = (coreGroup.coreType || 'Metering').toLowerCase();
       let mappedType: 'metering' | 'ps' | 'protection' = 'metering';
-      if (typeStr.includes('protection')) mappedType = 'protection';
+      if (typeStr.match(/protection|prt/)) mappedType = 'protection';
       else if (typeStr.includes('ps')) mappedType = 'ps';
 
       // Find current core ID from the appropriate stage results
@@ -224,8 +226,8 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
             || cores.find((c: any) => c.coreType.toLowerCase() === rawType)
             || cores[0];
 
-          const coreNum = matchedCore ? matchedCore.coreNumber : 1;
-          setSelectedCoreToReplace(coreNum);
+          const coreNum = selectedCoreToReplace || (matchedCore ? matchedCore.coreNumber : 1);
+          setSelectedCoreToReplace(Number(coreNum));
 
           if (coreNum) {
             await fetchAvailablePool(updatedItem, coreNum);
@@ -246,7 +248,8 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
 
   // Load available core IDs pool for retesting transformer
   useEffect(() => {
-    if (retestingTransformer) {
+    let mainContent;
+  if (retestingTransformer) {
       const fetchRetestPool = async () => {
         try {
           const orderId = retestingTransformer.orderId?._id || retestingTransformer.orderId;
@@ -330,23 +333,81 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
     };
   };
 
+  const getActiveCoreIds = (transformer: any) => {
+    if (!transformer) return [];
+    const secTest = transformer.testHistory?.secondary_test || {};
+    
+    // The user selects these cores initially from ready stock.
+    const initialCores = [
+      secTest.meteringCoreId,
+      secTest.psCoreId,
+      secTest.protectionCoreId
+    ].filter(Boolean);
+
+    return initialCores.map((coreId: string) => {
+      let currentCoreId = coreId;
+      if (transformer.retestHistory && Array.isArray(transformer.retestHistory)) {
+        const replacements = transformer.retestHistory.filter((h: any) => 
+          h.action === 'Core Replaced' && (h.oldCoreId === currentCoreId || h.details?.includes(currentCoreId))
+        );
+        if (replacements.length > 0) {
+          const lastReplacement = replacements[replacements.length - 1];
+          if (lastReplacement.newCoreId) {
+            currentCoreId = lastReplacement.newCoreId;
+          }
+        }
+      }
+      return currentCoreId;
+    });
+  };
+
+  const filterActiveResults = (results: any[], activeCoreIds: string[]) => {
+    return (results || []).filter((r: any) => {
+      const id = r.internalCoreNo || r.coreId || '';
+      if (!id) return false;
+      return activeCoreIds.includes(id) || activeCoreIds.some(cid => cid.endsWith(id.slice(-4)));
+    });
+  };
+
   const checkIsAllCoresCompleted = (transformer: any, order: any, stage: string) => {
     if (!transformer || !order) return false;
     const coreDetails = order.coreDetails || [];
     const testData = getMergedTestData(transformer, stage);
+    const activeCoreIds = getActiveCoreIds(transformer);
 
     const requiredMeteringCount = coreDetails.filter((c: any) => {
       const t = (c.coreType || 'Metering').toLowerCase();
-      return !t.includes('ps') && !t.includes('protection');
+      return !t.includes('ps') && !t.match(/protection|prt/);
     }).length;
-    const requiredProtectionCount = coreDetails.filter((c: any) => (c.coreType || 'Metering').toLowerCase().includes('protection')).length;
+    const requiredProtectionCount = coreDetails.filter((c: any) => (c.coreType || 'Metering').toLowerCase().match(/protection|prt/)).length;
     const requiredPsCount = coreDetails.filter((c: any) => (c.coreType || 'Metering').toLowerCase().includes('ps')).length;
 
     const isFilled = (val: any) => val !== undefined && val !== null && String(val).trim() !== '';
 
-    const checkTypeCompleted = (results: any[], requiredCount: number, type: string) => {
+    const deduplicate = (results: any[]) => {
+      const map = new Map<string, any>();
+      results.forEach(res => {
+        const id = res.internalCoreNo || res.coreId || '';
+        const match = id.match(/-(\d{3})$/);
+        const suffix = match ? match[1] : id;
+        const key = res.ratioValue ? `${suffix}-${res.ratioValue}` : suffix;
+        map.set(key, res);
+      });
+      return Array.from(map.values());
+    };
+
+    const checkTypeCompleted = (rawResults: any[], requiredCount: number, type: string) => {
       if (requiredCount === 0) return true;
-      if (!results || results.length < requiredCount) return false;
+      const activeResults = filterActiveResults(rawResults, activeCoreIds);
+      const results = deduplicate(activeResults);
+      
+      const uniqueCoresTested = new Set(results.map(r => {
+        const id = r.internalCoreNo || r.coreId || '';
+        const match = id.match(/-(\d{3})$/);
+        return match ? match[1] : id;
+      })).size;
+
+      if (uniqueCoresTested < requiredCount) return false;
 
       if (type === 'metering') {
         return results.every((res: any) =>
@@ -365,12 +426,12 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
           isFilled(res.turnRatioError) && isFilled(res.vk) && isFilled(res.iexVk)
         );
       }
-      return true;
+      return false;
     };
 
-    const meteringDone = checkTypeCompleted(testData.metering_results || [], requiredMeteringCount, 'metering');
-    const protectionDone = checkTypeCompleted(testData.protection_results || [], requiredProtectionCount, 'protection');
-    const psDone = checkTypeCompleted(testData.ps_results || [], requiredPsCount, 'ps');
+    const meteringDone = checkTypeCompleted(testData.metering_results, requiredMeteringCount, 'metering');
+    const protectionDone = checkTypeCompleted(testData.protection_results, requiredProtectionCount, 'protection');
+    const psDone = checkTypeCompleted(testData.ps_results, requiredPsCount, 'ps');
 
     return meteringDone && protectionDone && psDone;
   };
@@ -378,17 +439,30 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
   const checkHasFailures = (transformer: any, order: any, stage: string) => {
     if (!transformer || !order) return false;
     const testData = getMergedTestData(transformer, stage);
+    const activeCoreIds = getActiveCoreIds(transformer);
 
-    const meteringFail = (testData.metering_results || []).some((res: any) =>
+    const deduplicate = (results: any[]) => {
+      const activeResults = filterActiveResults(results, activeCoreIds);
+      const map = new Map<string, any>();
+      activeResults.forEach(res => {
+        const id = res.internalCoreNo || res.coreId || '';
+        const match = id.match(/-(\d{3})$/);
+        const suffix = match ? match[1] : id;
+        const key = res.ratioValue ? `${suffix}-${res.ratioValue}` : suffix;
+        map.set(key, res);
+      });
+      return Array.from(map.values());
+    };
+
+    const meteringFail = deduplicate(testData.metering_results).some((res: any) =>
       res.rows && res.rows.some((row: any) =>
         row.r100_r_pass === false || row.r100_p_pass === false ||
-        row.r25_r_pass === false || row.r25_p_pass === false ||
-        row.r100_pass === false || row.r25_pass === false || row.p100_pass === false || row.p25_pass === false
+        row.r25_r_pass === false || row.r25_p_pass === false
       )
     );
 
-    const protectionFail = (testData.protection_results || []).some((res: any) => res.isPass === false);
-    const psFail = (testData.ps_results || []).some((res: any) => res.isPass === false);
+    const protectionFail = deduplicate(testData.protection_results).some((res: any) => res.isPass === false);
+    const psFail = deduplicate(testData.ps_results).some((res: any) => res.isPass === false);
 
     return meteringFail || protectionFail || psFail;
   };
@@ -553,8 +627,8 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
         if (retestRes.data.success) {
           const updatedItem = retestRes.data.data;
           setRetestingTransformer(updatedItem);
-          setSelectedCore(selectedCoreToReplace);
-          setEnteredCoreId(selectedNewCoreId);
+          // setSelectedCore removed
+          setEnteredCoreIds(prev => ({...prev, [selectedCoreToReplace as number]: selectedNewCoreId}));
 
           // Open the report directly for the replaced core
           const order = updatedItem.orderId;
@@ -708,7 +782,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       const extractedTypes = new Set<string>();
       failureReasons.forEach(r => {
         if (r.toLowerCase().includes('metering')) extractedTypes.add('METERING');
-        else if (r.toLowerCase().includes('protection')) extractedTypes.add('PROTECTION');
+        else if (r.toLowerCase().match(/protection|prt/)) extractedTypes.add('PROTECTION');
         else if (r.toLowerCase().includes('ps')) extractedTypes.add('PS');
       });
       const uniqueTypes = Array.from(extractedTypes);
@@ -754,50 +828,34 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
   };
 
 
-  const handleRetestCoreSelect = (coreNumber: number) => {
-    if (!retestingTransformer) return;
-    setSelectedCore(coreNumber);
-
+  
+  const getDefaultCoreId = (coreNumber: number, config: any) => {
+    if (!retestingTransformer) return '';
     const order = retestingTransformer.orderId;
     const transformer = retestingTransformer.transformerId;
-    const cores = getCoresForItem(retestingTransformer);
-    const config = cores.find((c: any) => c.coreNumber === coreNumber);
-    if (!config) return;
-
-    // Retest-save always writes to secondary_test, so check there first for saved retest values.
-    // Then fall back to the original failure stage results.
     const testStageKey = retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary_test'
       : retestingTransformer.stage === 'FINAL_TESTING' ? 'final_test'
       : 'secondary_test';
-    const coreDetails = order.coreDetails || [];
-    const typeCores = coreDetails.filter((c: any) => {
-      const t = (c.coreType || 'Metering').toLowerCase();
-      if (config.coreType === 'ps') return t.includes('ps');
-      if (config.coreType === 'protection') return t.includes('protection');
-      return !t.includes('ps') && !t.includes('protection');
-    });
-    // Check secondary_test first (retest-save always writes here)
-    const secResults = transformer.testHistory?.secondary_test?.[`${config.coreType}_results`] || [];
+    const coreDetails = order?.coreDetails || [];
+    
+    const secResults = transformer?.testHistory?.secondary_test?.[`${config.coreType}_results`] || [];
     const secResult = findResultForCore(secResults, coreNumber, config.coreType, coreDetails);
-
-    // Then check original failure stage results
-    const stageResults = transformer.testHistory?.[testStageKey]?.[`${config.coreType}_results`] || [];
+    
+    const stageResults = transformer?.testHistory?.[testStageKey]?.[`${config.coreType}_results`] || [];
     const stageResult = findResultForCore(stageResults, coreNumber, config.coreType, coreDetails);
-
-    // Prefer secondary_test (latest saved retest), then original stage, then currentCoreId from getCoresForItem
+    
     const foundResult = secResult || stageResult;
 
     if (foundResult && (foundResult.internalCoreNo || foundResult.coreId)) {
-      setEnteredCoreId(foundResult.internalCoreNo || foundResult.coreId);
+      return foundResult.internalCoreNo || foundResult.coreId;
     } else if (config.currentCoreId && config.currentCoreId !== 'N/A') {
-      setEnteredCoreId(config.currentCoreId);
+      return config.currentCoreId;
     } else {
-      // Find the typeIndex to fall back to the available pool
       const typeCores = coreDetails.filter((c: any) => {
         const t = (c.coreType || 'Metering').toLowerCase();
         if (config.coreType === 'ps') return t.includes('ps');
-        if (config.coreType === 'protection') return t.includes('protection');
-        return !t.includes('ps') && !t.includes('protection');
+        if (config.coreType === 'protection') return t.match(/protection|prt/);
+        return !t.includes('ps') && !t.match(/protection|prt/);
       });
       const typeIndex = typeCores.findIndex((c: any) => {
         for (let i = 0; i < coreDetails.length; i++) {
@@ -807,32 +865,27 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
         }
         return false;
       });
-      
-      const expectedId = retestAvailablePool?.[config.coreType]?.[typeIndex];
-      if (expectedId) {
-        setEnteredCoreId(expectedId);
-      } else {
-        setEnteredCoreId('');
-      }
+      return retestAvailablePool?.[config.coreType]?.[typeIndex] || '';
     }
   };
 
-  const handleStartRetest = () => {
-    if (selectedCore !== null && enteredCoreId.trim() && retestingTransformer) {
-      const cores = getCoresForItem(retestingTransformer);
-      const core = cores.find((c: any) => c.coreNumber === selectedCore);
-      const order = retestingTransformer.orderId;
-      const accuracyClass = order?.coreDetails?.[selectedCore - 1]?.accuracyClass || '0.5';
-      if (core) {
-        setActiveReport({
-          coreNumber: selectedCore,
-          coreType: core.coreType,
-          coreId: enteredCoreId,
-          accuracyClass
-        });
-      }
-    }
+  const handleStartRetest = (coreNumber: number, coreId: string) => {
+    if (!retestingTransformer || !coreId.trim()) return;
+    const cores = getCoresForItem(retestingTransformer);
+    const config = cores.find((c: any) => c.coreNumber === coreNumber);
+    if (!config) return;
+
+    const order = retestingTransformer.orderId;
+    const accuracyClass = order?.coreDetails?.[coreNumber - 1]?.accuracyClass || '0.5';
+    
+    setActiveReport({
+      coreNumber: coreNumber,
+      coreType: config.coreType,
+      coreId: coreId,
+      accuracyClass
+    });
   };
+
 
   // Filter list locally
   const filteredList = failedList.filter(item => {
@@ -887,14 +940,17 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
     return matchesSearch && matchesCoreType && matchesStatus;
   });
 
+  let mainContent = null;
+
   if (retestingTransformer) {
     const transformerObj = retestingTransformer.transformerId;
     const orderObj = retestingTransformer.orderId;
+    const coreDetails = orderObj?.coreDetails || [];
     const cores = getCoresForItem(retestingTransformer);
 
     // If activeReport is set, show the report view
     if (activeReport) {
-      return (
+      mainContent = (
         <div className="space-y-4 animate-in fade-in duration-200">
           <div className="flex items-center gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
             <Button
@@ -949,7 +1005,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
               isFailedSection={true}
               failedTransformerId={retestingTransformer._id}
               failedStatus={retestingTransformer.status}
-              isFailedCore={retestingTransformer.coreType?.toUpperCase().includes('PROTECTION') || ['COMPLETE UNIT', 'PT_FINAL', 'MULTIPLE'].includes(retestingTransformer.coreType?.toUpperCase() || '')}
+              isFailedCore={retestingTransformer.coreType?.toUpperCase().match(/PROTECTION|PRT/) || ['COMPLETE UNIT', 'PT_FINAL', 'MULTIPLE'].includes(retestingTransformer.coreType?.toUpperCase() || '')}
               retestHistory={retestingTransformer.retestHistory}
             />
           )}
@@ -974,12 +1030,12 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
           )}
         </div>
       );
-    }
+    } else {
 
     const isAllCompleted = checkIsAllCoresCompleted(transformerObj, orderObj, retestingTransformer.stage);
     const hasFailures = checkHasFailures(transformerObj, orderObj, retestingTransformer.stage);
 
-    return (
+      mainContent = (
       <div className="space-y-6 animate-in fade-in duration-200">
         {/* Header */}
         <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex-wrap gap-4">
@@ -1048,14 +1104,12 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {cores.map((core: any) => {
-              // Determine completion/failure state for UI
-              const results = transformerObj?.testHistory?.secondary_test?.[`${core.coreType}_results`] || [];
-              const coreDetails = orderObj?.coreDetails || [];
+              const suffix = `-${String(core.coreNumber).padStart(3, '0')}`;
               const typeCores = coreDetails.filter((c: any) => {
                 const t = (c.coreType || 'Metering').toLowerCase();
                 if (core.coreType === 'ps') return t.includes('ps');
-                if (core.coreType === 'protection') return t.includes('protection');
-                return !t.includes('ps') && !t.includes('protection');
+                if (core.coreType === 'protection') return t.match(/protection|prt/);
+                return !t.includes('ps') && !t.match(/protection|prt/);
               });
               const typeIndex = typeCores.findIndex((c: any) => {
                 for (let i = 0; i < coreDetails.length; i++) {
@@ -1066,137 +1120,159 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                 return false;
               });
 
-              const suffix = `-${String(core.coreNumber).padStart(3, '0')}`;
               const typeSeq = typeIndex !== -1 ? typeIndex + 1 : 1;
               const typeSuffix = `-${String(typeSeq).padStart(3, '0')}`;
+              
+              const testStageKey = retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary_test' : 'secondary_test';
+              const results = transformerObj?.testHistory?.[testStageKey]?.[`${core.coreType}_results`] || [];
 
-              const coreResults = results.filter((r: any) => {
+              const rawCoreResults = results.filter((r: any) => {
                 const id = r.internalCoreNo || r.coreId || '';
                 return id === core.currentCoreId ||
                   id.endsWith(suffix) || id.includes(suffix) ||
                   id.endsWith(typeSuffix) || id.includes(typeSuffix);
               });
 
+              // Deduplicate raw results to remove phantom old core records
+              const deduplicateByRatio = (arr: any[]) => {
+                const map = new Map<string, any>();
+                arr.forEach(res => {
+                  const key = res.ratioValue ? res.ratioValue : 'default';
+                  map.set(key, res);
+                });
+                return Array.from(map.values());
+              };
+              
+              const coreResults = deduplicateByRatio(rawCoreResults);
+
+              // Check if explicitly flagged as failed in current record
+              const tCoreType = (retestingTransformer.coreType || '').toUpperCase();
+              const cCoreType = (core.coreType || '').toUpperCase();
+              
+              const isExplicitlyFailed = retestingTransformer.status === 'FAILED' && (
+                retestingTransformer.failureParameters?.coreId === core.currentCoreId || 
+                tCoreType === 'MULTIPLE' ||
+                tCoreType === 'COMPLETE UNIT' ||
+                tCoreType === 'PT_FINAL' ||
+                tCoreType.includes(cCoreType) ||
+                cCoreType.includes(tCoreType)
+              );
+
+              let isCoreFailed = isExplicitlyFailed;
               let isCompleted = false;
+
               if (coreResults.length > 0) {
                 const hasValue = (v: any) => v !== undefined && v !== null && v !== '';
+                
                 if (core.coreType === 'metering') {
+                  const failed = coreResults.some((res: any) => 
+                    res.rows && res.rows.length > 0 && res.rows.some((row: any) => 
+                      row.r100_r_pass === false || row.r100_p_pass === false ||
+                      row.r25_r_pass === false || row.r25_p_pass === false
+                    )
+                  );
+                  if (failed) isCoreFailed = true;
+                  
                   isCompleted = coreResults.every((res: any) =>
                     res.rows && res.rows.length > 0 && res.rows.every((row: any) =>
                       hasValue(row.r100) && hasValue(row.p100) && hasValue(row.r25) && hasValue(row.p25)
                     )
                   );
                 } else if (core.coreType === 'protection') {
+                  const latest = coreResults[coreResults.length - 1];
+                  if (latest.isPass === false) isCoreFailed = true;
                   isCompleted = coreResults.every((res: any) =>
                     hasValue(res.ratioError100) &&
                     hasValue(res.resistance) &&
                     (hasValue(res.secondaryLimitingVoltage) || hasValue(res.secondaryLimitingVtg))
                   );
                 } else if (core.coreType === 'ps') {
+                  const latest = coreResults[coreResults.length - 1];
+                  if (latest.isPass === false) isCoreFailed = true;
                   isCompleted = coreResults.every((res: any) =>
                     hasValue(res.turnRatioError) && hasValue(res.vk) && hasValue(res.iexVk)
                   );
                 }
               }
 
+              if (isCoreFailed) isCompleted = false;
+
               const coreColorClass = (() => {
                 const baseColor = getCoreTypeColor(core.coreType);
-                if (selectedCore === core.coreNumber) return 'ring-2 ring-red-500 ' + baseColor;
-                return baseColor + ' hover:shadow-md';
+                return baseColor;
               })();
+              
+              const defaultId = getDefaultCoreId(core.coreNumber, core);
+              const currentEnteredId = enteredCoreIds[core.coreNumber] !== undefined ? enteredCoreIds[core.coreNumber] : defaultId;
 
               return (
-                <Card
-                  key={core.coreNumber}
-                  className={`p-4 cursor-pointer transition-all ${coreColorClass} ${isCompleted ? 'bg-green-50' : ''}`}
-                  onClick={() => handleRetestCoreSelect(core.coreNumber)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-2xl">Core {core.coreNumber}</span>
-                        {(selectedCore === core.coreNumber || isCompleted) && (
-                          <CheckCircle2 className={`w-5 h-5 ${isCompleted ? 'text-green-600' : 'text-gray-400'}`} />
+                <div key={core.coreNumber} className="flex flex-col gap-2">
+                  <Card
+                    className={`p-4 transition-all ${coreColorClass} ${isCompleted ? 'bg-green-50 shadow-md' : 'shadow-sm'}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-2xl">Core {core.coreNumber}</span>
+                          {isCoreFailed ? (
+                            <XCircle className="w-5 h-5 text-red-600" />
+                          ) : isCompleted ? (
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                          ) : null}
+                        </div>
+                        <p className="text-sm font-medium mb-1">{getCoreTypeLabel(core.coreType)}</p>
+                        <p className="text-xs text-gray-600">
+                          Type: {core.coreType?.toUpperCase()}
+                          <br />
+                          Core ID: {core.currentCoreId}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                  
+                  {/* Configuration inline */}
+                  <Card className="p-4 bg-yellow-50/50 border-yellow-200">
+                    <h3 className="text-sm font-semibold text-gray-800 mb-2">Configure and Start Test for Core {core.coreNumber}</h3>
+                    <div className="w-full space-y-4">
+                      <div>
+                        <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Internal Core No</label>
+                        <div className="bg-gray-100 border border-gray-300 rounded-lg p-2.5 text-sm font-semibold text-gray-800 font-mono">
+                          {currentEnteredId || 'N/A'}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col xl:flex-row items-center gap-2 mt-4">
+                        <Button
+                          onClick={() => handleStartRetest(core.coreNumber, currentEnteredId)}
+                          disabled={!currentEnteredId.trim()}
+                          className="bg-red-600 hover:bg-red-700 text-white font-semibold flex-1 w-full"
+                        >
+                          {(() => {
+                            const isTested = results.some((r: any) => r.internalCoreNo === currentEnteredId || r.coreId === currentEnteredId);
+                            return isTested ? "View / Edit Test Report" : "Start Core Retest";
+                          })()}
+                        </Button>
+
+                        {isCoreFailed && (
+                          <Button
+                            onClick={() => {
+                              let coreNum: any = core.coreNumber;
+                              setReplacingCoreItem(retestingTransformer);
+                              setSelectedCoreToReplace(Number(coreNum));
+                            }}
+                            className="bg-orange-500 hover:bg-orange-600 text-white font-semibold flex-1 w-full flex items-center justify-center gap-1.5"
+                          >
+                            <Wrench className="w-4 h-4" /> Core Replace
+                          </Button>
                         )}
                       </div>
-                      <p className="text-sm font-medium mb-1">{getCoreTypeLabel(core.coreType)}</p>
-                      <p className="text-xs text-gray-600">
-                        Type: {core.coreType.toUpperCase()}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1 font-mono">
-                        Core ID: {core.currentCoreId}
-                      </p>
                     </div>
-                  </div>
-                </Card>
+                  </Card>
+                </div>
               );
             })}
           </div>
         </Card>
-
-        {/* Selected Core ID Selection & Action */}
-        {selectedCore !== null && (() => {
-          const config = cores.find((c: any) => c.coreNumber === selectedCore);
-          if (!config) return null;
-
-          return (
-            <Card className="p-6 bg-yellow-50/50 border-yellow-200">
-              <h3 className="text-sm font-semibold text-gray-800 mb-2">Configure and Start Test for Core {selectedCore}</h3>
-              <div className="max-w-md space-y-4">
-                <div>
-                  <label className="text-xs font-bold uppercase text-gray-400 block mb-1">Internal Core No</label>
-                  {retestingTransformer.stage === 'PRIMARY_TESTING' ? (
-                    <div className="bg-gray-100 border border-gray-300 rounded-lg p-2.5 text-sm font-semibold text-gray-800 font-mono">
-                      {enteredCoreId || config.currentCoreId || 'N/A'}
-                    </div>
-                  ) : (
-                    <select
-                      value={enteredCoreId}
-                      onChange={(e) => setEnteredCoreId(e.target.value)}
-                      className="w-full bg-white border border-gray-300 rounded-lg p-2.5 text-sm outline-none focus:border-red-500"
-                    >
-                      <option value="">-- Select Core ID --</option>
-                      {(() => {
-                        let pool: string[] = [];
-                        if (retestAvailablePool) {
-                          if (config.coreType === 'metering') pool = retestAvailablePool.metering;
-                          else if (config.coreType === 'ps') pool = retestAvailablePool.ps;
-                          else if (config.coreType === 'protection') pool = retestAvailablePool.protection;
-                        }
-
-                        const showList = [...pool];
-                        if (enteredCoreId && !showList.includes(enteredCoreId)) {
-                          showList.unshift(enteredCoreId);
-                        }
-                        if (config.currentCoreId && config.currentCoreId !== 'N/A' && !showList.includes(config.currentCoreId)) {
-                          showList.unshift(config.currentCoreId);
-                        }
-                        const uniqueList = Array.from(new Set(showList)).sort();
-
-                        return uniqueList.map((id, idx) => (
-                          <option key={idx} value={id}>{id}</option>
-                        ));
-                      })()}
-                    </select>
-                  )}
-                </div>
-
-                <Button
-                  onClick={handleStartRetest}
-                  disabled={!enteredCoreId.trim()}
-                  className="bg-red-600 hover:bg-red-700 text-white font-semibold"
-                >
-                  {(() => {
-                    const testStageKey = retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary_test' : 'secondary_test';
-                    const results = transformerObj?.testHistory?.[testStageKey]?.[`${config.coreType}_results`] || [];
-                    const isTested = results.some((r: any) => r.internalCoreNo === enteredCoreId || r.coreId === enteredCoreId);
-                    return isTested ? "View / Edit Test Report" : "Start Core Retest";
-                  })()}
-                </Button>
-              </div>
-            </Card>
-          );
-        })()}
 
         {/* Approval Footer inside Dashboard */}
         {retestingTransformer.status !== 'FAILED' && isAllCompleted && !hasFailures && (
@@ -1296,7 +1372,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                     const extractedTypes = new Set<string>();
                     failureReasons.forEach(r => {
                       if (r.toLowerCase().includes('metering')) extractedTypes.add('METERING');
-                      else if (r.toLowerCase().includes('protection')) extractedTypes.add('PROTECTION');
+                      else if (r.toLowerCase().match(/protection|prt/)) extractedTypes.add('PROTECTION');
                       else if (r.toLowerCase().includes('ps')) extractedTypes.add('PS');
                     });
                     const uniqueTypes = Array.from(extractedTypes);
@@ -1348,10 +1424,11 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
           </Card>
         )}
       </div>
-    );
-  }
+      );
+    }
+  } else {
 
-  return (
+  mainContent = (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1626,8 +1703,10 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                           // Compute completion states
                           const transformerObj = item.transformerId;
                           const orderObj = item.orderId;
+
+                          // Strict conditions for enabling Approve button in UI:
                           const isAllCompleted = transformerObj && orderObj ? checkIsAllCoresCompleted(transformerObj, orderObj, item.stage) : false;
-                          const hasFailures = transformerObj && orderObj ? (item.status === 'FAILED' || checkHasFailures(transformerObj, orderObj, item.stage)) : false;
+                          const hasFailures = transformerObj && orderObj ? checkHasFailures(transformerObj, orderObj, item.stage) : false;
 
                           return (
                             <div className="flex items-center justify-center gap-2.5">
@@ -1644,20 +1723,6 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                               >
                                 <RefreshCw className="w-3.5 h-3.5" />
                                 Treat / Retest
-                              </Button>
-                              <Button
-                                onClick={() => {
-                                  if (!item.transformerId) {
-                                    toast.error("Transformer detail not loaded. Cannot replace core.");
-                                    return;
-                                  }
-                                  setReplacingCoreItem(item);
-                                }}
-                                className="bg-orange-500 hover:bg-orange-600 text-white text-xs h-8 px-4 flex items-center justify-center gap-1.5 rounded-md shadow-sm transition-all hover:scale-105 active:scale-95 font-semibold"
-                                size="sm"
-                              >
-                                <Wrench className="w-3.5 h-3.5" />
-                                Core Replace
                               </Button>
 
                               {item.status !== 'FAILED' && isAllCompleted && !hasFailures && (
@@ -1694,6 +1759,13 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
           </div>
         )}
       </Card>
+    </div>
+  );
+}
+
+  return (
+    <>
+      {mainContent}
 
       {/* Core Replacement Modal */}
       {replacingCoreItem && (
@@ -1816,6 +1888,6 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
           </Card>
         </div>
       )}
-    </div>
+    </>
   );
 }

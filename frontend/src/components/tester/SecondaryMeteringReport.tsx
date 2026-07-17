@@ -548,7 +548,7 @@ export function SecondaryMeteringReport({
               index={2} 
               title={`${transformer.voltageRating || '33'} KV , CT , ${dynamicRatios.join('-')}A , ${displayBurden}VA , Metering`} 
             />
-            {!readOnly && stage !== 'primary' && stage !== 'final' ? (
+            {!readOnly && stage !== 'primary' && stage !== 'final' && !isFailedSection ? (
               <div className="flex items-center gap-3 bg-white p-3 rounded-lg border border-[#103b63]/20 shadow-sm max-w-md my-3 no-print relative">
                 <span className="text-xs font-bold text-[#103b63] uppercase tracking-wide shrink-0">Select Core ID (from Core Testing):</span>
                 <div className="relative flex-1">

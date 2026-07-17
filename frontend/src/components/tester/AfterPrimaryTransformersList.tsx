@@ -23,7 +23,7 @@ export interface Transformer {
   ratios: string[]; // Added ratios array
   voltageClass: string;
   cores: CoreConfig[];
-  status: 'pending' | 'in-progress' | 'completed';
+  status: '' | 'in-progress' | 'completed';
   canApprove: boolean;
   canRequestStrictApproval?: boolean;
   testHistory?: any;
@@ -140,7 +140,7 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
               else if (typeStr.includes('ps')) mappedType = 'ps';
 
               // Try to find the real ID from secondary results
-              let coreId = 'Pending';
+              let coreId = '';
               let accuracyClass = '0.5'; // fallback
 
               if (mappedType === 'metering') {
@@ -148,15 +148,15 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                   coreId = secTest.meteringCoreId;
                 } else if (mIndex < meteringResults.length) {
                   const res = meteringResults[mIndex];
-                  coreId = res.internalCoreNo || (res.rows && res.rows[0]?.internalCoreNo) || 'M-Pending';
+                  coreId = res.internalCoreNo || (res.rows && res.rows[0]?.internalCoreNo) || '';
                   accuracyClass = res.accuracyClass || res.classOption || '0.5';
                   mIndex++;
                 } else {
-                  coreId = 'M-Pending';
+                  coreId = '';
                 }
 
                 // If still not found or default, check coreDetails in Order
-                if (coreId === 'M-Pending' || coreId === 'Pending' || accuracyClass === '0.5') {
+                if (coreId === '' || coreId === '' || accuracyClass === '0.5') {
                   const coreDetail = order.coreDetails?.[currentCoreNum - 1];
                   if (coreDetail && coreDetail.accuracyClass) {
                     accuracyClass = coreDetail.accuracyClass;
@@ -167,10 +167,10 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                   coreId = secTest.psCoreId;
                 } else if (psIndex < psResults.length) {
                   const res = psResults[psIndex];
-                  coreId = res.internalCoreNo || 'PS-Pending';
+                  coreId = res.internalCoreNo || '';
                   psIndex++;
                 } else {
-                  coreId = 'PS-Pending';
+                  coreId = '';
                 }
                 const coreDetail = order.coreDetails?.[currentCoreNum - 1];
                 if (coreDetail && coreDetail.accuracyClass) {
@@ -181,10 +181,10 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                   coreId = secTest.protectionCoreId;
                 } else if (pIndex < protectionResults.length) {
                   const res = protectionResults[pIndex];
-                  coreId = res.internalCoreNo || 'P-Pending';
+                  coreId = res.internalCoreNo || '';
                   pIndex++;
                 } else {
-                  coreId = 'P-Pending';
+                  coreId = '';
                 }
                 const coreDetail = order.coreDetails?.[currentCoreNum - 1];
                 if (coreDetail && coreDetail.accuracyClass) {
@@ -215,10 +215,10 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
 
           // Fallback if no core details (should satisfy basic view)
           if (coresList.length === 0) {
-            coresList.push({ coreNumber: 1, coreType: 'metering', coreId: 'M-Default' });
+            coresList.push({ coreNumber: 1, coreType: 'metering', coreId: '' });
           }
 
-          let status: 'pending' | 'in-progress' | 'completed' = 'pending';
+          let status: '' | 'in-progress' | 'completed' = '';
 
           const checkCompleteness = () => {
             const primaryTest = t.testHistory?.primary_test || {};
@@ -484,7 +484,7 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-blue-100 text-blue-700';
+      case '': return 'bg-blue-100 text-blue-700';
       case 'in-progress': return 'bg-yellow-100 text-yellow-700';
       case 'completed': return 'bg-green-100 text-green-700';
       default: return 'bg-gray-100 text-gray-700';
@@ -639,7 +639,7 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                           ) : (
                             <>
                               <PlayCircle className="w-4 h-4 mr-2" />
-                              {transformer.status === 'pending' ? 'Start Test' : 'Continue Test'}
+                              {transformer.status === '' ? 'Start Test' : 'Continue Test'}
                             </>
                           )}
                         </Button>
