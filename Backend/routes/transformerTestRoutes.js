@@ -2,7 +2,28 @@ const express = require('express');
 const router = express.Router();
 const { TransformerModel } = require("../models/TransformerModel");
 const { SecondaryMeteringTestModel } = require("../models/SecondaryMeteringTestModel");
+const { SecondaryPSTestModel } = require("../models/SecondaryPSTestModel");
+const { SecondaryProtectionTestModel } = require("../models/SecondaryProtectionTestModel");
+const { OrderModel } = require("../models/OrderModel");
+const { MeteringCoreTestModel } = require("../models/MeteringCoreTestModel");
+const { ProtectionCoreTestModel } = require("../models/ProtectionCoreTestModel");
 const AccuracyLimit = require('../models/AccuracyLimit.cjs');
+
+async function getCoreTurns(coreId) {
+  try {
+    const meteringDoc = await MeteringCoreTestModel.findOne({ "readings.internalCoreNo": coreId });
+    if (meteringDoc && meteringDoc.testSetup && meteringDoc.testSetup.turnsUsed) {
+      return meteringDoc.testSetup.turnsUsed;
+    }
+    const protectionDoc = await ProtectionCoreTestModel.findOne({ "readings.internalCoreNo": coreId });
+    if (protectionDoc && protectionDoc.testSetup && protectionDoc.testSetup.turnsUsed) {
+      return protectionDoc.testSetup.turnsUsed;
+    }
+  } catch (err) {
+    console.error("Error looking up core turns:", err);
+  }
+  return null;
+}
 
 router.post("/transformer-primary-metering-tests", async (req, res) => {
   try {
@@ -473,13 +494,19 @@ router.post("/transformer-secondary-metering-tests", async (req, res) => {
     const { validateMeteringReading } = require('../utils/accuracyLimits');
 
     // 0. Fetch the Transformer & Order to get Accuracy Class
+    let order;
     const transformerDoc = await TransformerModel.findOne({ uniqueId: uniqueId }).populate('orderId');
     if (!transformerDoc) {
-      console.log(`[ERROR] Transformer not found for uniqueId: "${uniqueId}"`);
-      return res.status(404).json({ success: false, message: "Transformer not found" });
+      if (req.body.orderId) {
+        order = await OrderModel.findById(req.body.orderId);
+      }
+      if (!order) {
+        return res.status(404).json({ success: false, message: "Order or Transformer not found" });
+      }
+    } else {
+      order = transformerDoc.orderId;
     }
 
-    const order = transformerDoc.orderId;
     const accuracyClass = order ? order.accuracyClass : "0.5"; // Default if not found
 
     // Fetch dynamic limits from DB
@@ -570,17 +597,20 @@ router.post("/transformer-secondary-metering-tests", async (req, res) => {
     });
 
     const finalStatus = isOverallPass ? "Pass" : "Fail";
+    const turnsUsed = await getCoreTurns(coreId);
 
     // 1. Save detailed test report (Upsert)
-    const existingTestRecord = await SecondaryMeteringTestModel.findOne({ uniqueId, coreId });
+    const existingTestRecord = await SecondaryMeteringTestModel.findOne({ orderId: order._id, coreId });
     const updatePayload = {
-      uniqueId,
+      uniqueId: transformerDoc ? uniqueId : undefined,
+      orderId: order._id,
       coreId,
       tester,
       metering_results: validatedResults,
       remarks,
       testDate: new Date(),
-      status: finalStatus
+      status: finalStatus,
+      turnsUsed
     };
 
     if (!existingTestRecord || !existingTestRecord.reportDate) {
@@ -588,62 +618,41 @@ router.post("/transformer-secondary-metering-tests", async (req, res) => {
     }
 
     const testRecord = await SecondaryMeteringTestModel.findOneAndUpdate(
-      { uniqueId, coreId },
+      { orderId: order._id, coreId },
       updatePayload,
       { upsert: true, new: true, runValidators: true }
     );
 
-    // 2. Update Master Transformer Status
-    // 2. Update Master Transformer Status
-    const transformer = await TransformerModel.findOne({ uniqueId: uniqueId });
+    // 2. Update Master Transformer Status if found
+    if (transformerDoc) {
+      if (!transformerDoc.testHistory.secondary_test) {
+        transformerDoc.testHistory.secondary_test = {};
+      }
 
-    if (!transformer) {
-      console.log(`[ERROR] Transformer not found for uniqueId: "${uniqueId}"`);
-      return res.status(404).json({ success: false, message: "Transformer not found" });
-    }
+      transformerDoc.testHistory.secondary_test.status = "Completed";
+      transformerDoc.testHistory.secondary_test.tester = tester;
+      transformerDoc.testHistory.secondary_test.timestamp = new Date();
 
-    // Explicitly update fields
-    if (!transformer.testHistory.secondary_test) {
-      transformer.testHistory.secondary_test = {};
-    }
+      if (!transformerDoc.testHistory.secondary_test.reportDate) {
+        transformerDoc.testHistory.secondary_test.reportDate = new Date();
+      }
 
-    transformer.testHistory.secondary_test.status = "Completed";
-    transformer.testHistory.secondary_test.tester = tester;
-    transformer.testHistory.secondary_test.timestamp = new Date();
+      const newResults = validatedResults;
+      const existingResults = transformerDoc.testHistory.secondary_test.metering_results || [];
+      const firstIdx = existingResults.findIndex(r => r.internalCoreNo === coreId || r.coreId === coreId);
+      const otherCoresResults = existingResults.filter(r =>
+        r.internalCoreNo !== coreId && r.coreId !== coreId
+      );
 
-    // Set reportDate only if not already present
-    if (!transformer.testHistory.secondary_test.reportDate) {
-      transformer.testHistory.secondary_test.reportDate = new Date();
-    }
+      if (firstIdx !== -1) {
+        otherCoresResults.splice(firstIdx, 0, ...newResults);
+        transformerDoc.testHistory.secondary_test.metering_results = otherCoresResults;
+      } else {
+        transformerDoc.testHistory.secondary_test.metering_results = [...otherCoresResults, ...newResults];
+      }
 
-    // Merge logic: Filter out old results for this coreId, then append new ones
-    // Note: validatedResults from frontend is an ARRAY of ratios for this core, correctly populated with pass/fail statuses.
-    const newResults = validatedResults; // use the array that already has r100_pass etc
-
-    const existingResults = transformer.testHistory.secondary_test.metering_results || [];
-    const firstIdx = existingResults.findIndex(r => r.internalCoreNo === coreId || r.coreId === coreId);
-    const otherCoresResults = existingResults.filter(r =>
-      r.internalCoreNo !== coreId && r.coreId !== coreId
-    );
-
-    if (firstIdx !== -1) {
-      otherCoresResults.splice(firstIdx, 0, ...newResults);
-      transformer.testHistory.secondary_test.metering_results = otherCoresResults;
-    } else {
-      transformer.testHistory.secondary_test.metering_results = [...otherCoresResults, ...newResults];
-    }
-
-    // Mark modified (sometimes needed for mixed types, though these are schemas)
-    transformer.markModified('testHistory');
-
-    const savedTransformer = await transformer.save();
-    console.log("[DEBUG] Transformer Saved. Secondary Results Length:", savedTransformer.testHistory.secondary_test.metering_results.length);
-
-
-    // Verify transformer update
-    if (!transformer) {
-      console.log(`[ERROR] Transformer not found for uniqueId: "${uniqueId}"`);
-      return res.status(404).json({ success: false, message: "Transformer not found" });
+      transformerDoc.markModified('testHistory');
+      await transformerDoc.save();
     }
 
     res.status(201).json({
@@ -666,40 +675,64 @@ router.post("/transformer-secondary-ps-tests", async (req, res) => {
     const { uniqueId, tester, coreId, ps_results } = req.body;
     console.log(`[DEBUG] POST /transformer-secondary-ps-tests. Payload:`, req.body);
 
-    // PS Test Update
-    const transformer = await TransformerModel.findOne({ uniqueId: uniqueId });
-
+    let order;
+    const transformer = await TransformerModel.findOne({ uniqueId: uniqueId }).populate('orderId');
     if (!transformer) {
-      return res.status(404).json({ success: false, message: `Transformer ID [${uniqueId}] not found.` });
+      if (req.body.orderId) {
+        order = await OrderModel.findById(req.body.orderId);
+      }
+      if (!order) {
+        return res.status(404).json({ success: false, message: `Order or Transformer not found.` });
+      }
+    } else {
+      order = transformer.orderId;
     }
 
-    // Initialize if missing
-    if (!transformer.testHistory.secondary_test) transformer.testHistory.secondary_test = {};
-
-    transformer.testHistory.secondary_test.tester = tester;
-    // Merge logic for PS
     const newResults = ps_results.map(r => ({ ...r, internalCoreNo: coreId }));
-    const existingResults = transformer.testHistory.secondary_test.ps_results || [];
-    const otherCoresResults = existingResults.filter(r =>
-      r.internalCoreNo !== coreId && r.coreId !== coreId
+    const turnsUsed = await getCoreTurns(coreId);
+
+    // Save to SecondaryPSTestModel
+    const testRecord = await SecondaryPSTestModel.findOneAndUpdate(
+      { orderId: order._id, coreId },
+      {
+        uniqueId: transformer ? uniqueId : undefined,
+        orderId: order._id,
+        coreId,
+        tester,
+        ps_results: newResults,
+        testDate: new Date(),
+        reportDate: new Date(),
+        status: "Pass", // PS test defaults to Pass
+        turnsUsed
+      },
+      { upsert: true, new: true }
     );
-    transformer.testHistory.secondary_test.ps_results = [...otherCoresResults, ...newResults];
-    transformer.testHistory.secondary_test.status = "Completed";
-    transformer.testHistory.secondary_test.timestamp = new Date();
 
-    // Set reportDate only if not already present
-    if (!transformer.testHistory.secondary_test.reportDate) {
-      transformer.testHistory.secondary_test.reportDate = new Date();
+    // PS Test Update in Transformer if found
+    if (transformer) {
+      if (!transformer.testHistory.secondary_test) transformer.testHistory.secondary_test = {};
+
+      transformer.testHistory.secondary_test.tester = tester;
+      const existingResults = transformer.testHistory.secondary_test.ps_results || [];
+      const otherCoresResults = existingResults.filter(r =>
+        r.internalCoreNo !== coreId && r.coreId !== coreId
+      );
+      transformer.testHistory.secondary_test.ps_results = [...otherCoresResults, ...newResults];
+      transformer.testHistory.secondary_test.status = "Completed";
+      transformer.testHistory.secondary_test.timestamp = new Date();
+
+      if (!transformer.testHistory.secondary_test.reportDate) {
+        transformer.testHistory.secondary_test.reportDate = new Date();
+      }
+
+      transformer.markModified('testHistory');
+      await transformer.save();
     }
-
-    transformer.markModified('testHistory');
-    const savedTransformer = await transformer.save();
-    console.log("[DEBUG] PS Test Saved. Results Length:", savedTransformer.testHistory.secondary_test.ps_results.length);
 
     res.status(201).json({
       success: true,
       message: "Secondary PS Test Saved Successfully",
-      transformerId: savedTransformer._id
+      data: testRecord
     });
 
   } catch (err) {
@@ -716,17 +749,22 @@ router.post("/transformer-secondary-protection-tests", async (req, res) => {
     const { uniqueId, tester, coreId, protection_results } = req.body;
     console.log(`[DEBUG] POST /transformer-secondary-protection-tests. Payload:`, req.body);
 
-    const transformer = await TransformerModel.findOne({ uniqueId: uniqueId });
-
+    let order;
+    const transformer = await TransformerModel.findOne({ uniqueId: uniqueId }).populate('orderId');
     if (!transformer) {
-      return res.status(404).json({ success: false, message: `Transformer ID [${uniqueId}] not found.` });
+      if (req.body.orderId) {
+        order = await OrderModel.findById(req.body.orderId);
+      }
+      if (!order) {
+        return res.status(404).json({ success: false, message: `Order or Transformer not found.` });
+      }
+    } else {
+      order = transformer.orderId;
     }
 
-    if (!transformer.testHistory.secondary_test) transformer.testHistory.secondary_test = {};
-
-    transformer.testHistory.secondary_test.tester = tester;
     // Merge logic for Protection
     const { validateProtectionReading } = require('../utils/protectionLimits');
+    let isOverallPass = true;
     const newResults = protection_results.map(r => {
       const validation = validateProtectionReading(
         r.protectionClass,
@@ -734,6 +772,9 @@ router.post("/transformer-secondary-protection-tests", async (req, res) => {
         r.phaseError,
         r.compositeError
       );
+      if (validation.isPass === false) {
+        isOverallPass = false;
+      }
       return {
         ...r,
         internalCoreNo: coreId,
@@ -741,27 +782,51 @@ router.post("/transformer-secondary-protection-tests", async (req, res) => {
         reason: validation.reason
       };
     });
-    const existingResults = transformer.testHistory.secondary_test.protection_results || [];
-    const otherCoresResults = existingResults.filter(r =>
-      r.internalCoreNo !== coreId && r.coreId !== coreId
+
+    const finalStatus = isOverallPass ? "Pass" : "Fail";
+    const turnsUsed = await getCoreTurns(coreId);
+
+    // Save to SecondaryProtectionTestModel
+    const testRecord = await SecondaryProtectionTestModel.findOneAndUpdate(
+      { orderId: order._id, coreId },
+      {
+        uniqueId: transformer ? uniqueId : undefined,
+        orderId: order._id,
+        coreId,
+        tester,
+        protection_results: newResults,
+        testDate: new Date(),
+        reportDate: new Date(),
+        status: finalStatus,
+        turnsUsed
+      },
+      { upsert: true, new: true }
     );
-    transformer.testHistory.secondary_test.protection_results = [...otherCoresResults, ...newResults];
-    transformer.testHistory.secondary_test.status = "Completed";
-    transformer.testHistory.secondary_test.timestamp = new Date();
 
-    // Set reportDate only if not already present
-    if (!transformer.testHistory.secondary_test.reportDate) {
-      transformer.testHistory.secondary_test.reportDate = new Date();
+    if (transformer) {
+      if (!transformer.testHistory.secondary_test) transformer.testHistory.secondary_test = {};
+
+      transformer.testHistory.secondary_test.tester = tester;
+      const existingResults = transformer.testHistory.secondary_test.protection_results || [];
+      const otherCoresResults = existingResults.filter(r =>
+        r.internalCoreNo !== coreId && r.coreId !== coreId
+      );
+      transformer.testHistory.secondary_test.protection_results = [...otherCoresResults, ...newResults];
+      transformer.testHistory.secondary_test.status = "Completed";
+      transformer.testHistory.secondary_test.timestamp = new Date();
+
+      if (!transformer.testHistory.secondary_test.reportDate) {
+        transformer.testHistory.secondary_test.reportDate = new Date();
+      }
+
+      transformer.markModified('testHistory');
+      await transformer.save();
     }
-
-    transformer.markModified('testHistory');
-    const savedTransformer = await transformer.save();
-    console.log("[DEBUG] Protection Test Saved. Results Length:", savedTransformer.testHistory.secondary_test.protection_results.length);
 
     res.status(201).json({
       success: true,
       message: "Secondary Protection Test Saved Successfully",
-      transformerId: savedTransformer._id
+      data: testRecord
     });
 
   } catch (err) {
@@ -770,5 +835,151 @@ router.post("/transformer-secondary-protection-tests", async (req, res) => {
   }
 });
 
+// GET /secondary-core-tests/ready-stock/:orderId
+router.get("/secondary-core-tests/ready-stock/:orderId", async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const [metering, ps, protection] = await Promise.all([
+      SecondaryMeteringTestModel.find({ orderId }).lean(),
+      SecondaryPSTestModel.find({ orderId }).lean(),
+      SecondaryProtectionTestModel.find({ orderId }).lean()
+    ]);
+
+    res.json({
+      success: true,
+      metering,
+      ps,
+      protection
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET /secondary-core-tests/:coreType/:coreId
+router.get("/secondary-core-tests/:coreType/:coreId", async (req, res) => {
+  try {
+    const { coreType, coreId } = req.params;
+    let data;
+
+    if (coreType === 'metering') {
+      data = await SecondaryMeteringTestModel.findOne({ coreId }).lean();
+    } else if (coreType === 'ps') {
+      data = await SecondaryPSTestModel.findOne({ coreId }).lean();
+    } else if (coreType === 'protection') {
+      data = await SecondaryProtectionTestModel.findOne({ coreId }).lean();
+    }
+
+    res.json({
+      success: true,
+      data
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// PUT /transformers/:uniqueId/assign-secondary-cores
+router.put("/transformers/:uniqueId/assign-secondary-cores", async (req, res) => {
+  try {
+    const { uniqueId } = req.params;
+    const { meteringCoreId, psCoreId, protectionCoreId } = req.body;
+
+    const transformer = await TransformerModel.findOne({ uniqueId });
+    if (!transformer) {
+      return res.status(404).json({ success: false, message: "Transformer not found" });
+    }
+
+    // Initialize secondary_test if needed
+    if (!transformer.testHistory.secondary_test) {
+      transformer.testHistory.secondary_test = { status: "Pending" };
+    }
+
+    const orderId = transformer.orderId;
+
+    // Helper to unassign previous cores for this transformer
+    const unassignCoresForTransformer = async (tUniqueId) => {
+      await Promise.all([
+        SecondaryMeteringTestModel.updateMany({ assignedUniqueId: tUniqueId }, { $set: { isAssigned: false, assignedUniqueId: null, uniqueId: null } }),
+        SecondaryPSTestModel.updateMany({ assignedUniqueId: tUniqueId }, { $set: { isAssigned: false, assignedUniqueId: null, uniqueId: null } }),
+        SecondaryProtectionTestModel.updateMany({ assignedUniqueId: tUniqueId }, { $set: { isAssigned: false, assignedUniqueId: null, uniqueId: null } })
+      ]);
+    };
+
+    // First, unassign any cores currently assigned to this transformer
+    await unassignCoresForTransformer(uniqueId);
+
+    // Save selected core assignments in secondary_test metadata
+    transformer.testHistory.secondary_test.meteringCoreId = meteringCoreId || null;
+    transformer.testHistory.secondary_test.psCoreId = psCoreId || null;
+    transformer.testHistory.secondary_test.protectionCoreId = protectionCoreId || null;
+
+    // Assign new cores and copy their test results
+    let testerName = transformer.testHistory.secondary_test.tester || "Tester";
+    let testTimestamp = transformer.testHistory.secondary_test.timestamp || new Date();
+
+    if (meteringCoreId) {
+      const testDoc = await SecondaryMeteringTestModel.findOneAndUpdate(
+        { orderId, coreId: meteringCoreId },
+        { $set: { isAssigned: true, assignedUniqueId: uniqueId, uniqueId } },
+        { new: true }
+      );
+      if (testDoc) {
+        transformer.testHistory.secondary_test.metering_results = testDoc.metering_results;
+        testerName = testDoc.tester;
+        testTimestamp = testDoc.testDate || testTimestamp;
+      }
+    } else {
+      transformer.testHistory.secondary_test.metering_results = [];
+    }
+
+    if (psCoreId) {
+      const testDoc = await SecondaryPSTestModel.findOneAndUpdate(
+        { orderId, coreId: psCoreId },
+        { $set: { isAssigned: true, assignedUniqueId: uniqueId, uniqueId } },
+        { new: true }
+      );
+      if (testDoc) {
+        transformer.testHistory.secondary_test.ps_results = testDoc.ps_results;
+        testerName = testDoc.tester;
+        testTimestamp = testDoc.testDate || testTimestamp;
+      }
+    } else {
+      transformer.testHistory.secondary_test.ps_results = [];
+    }
+
+    if (protectionCoreId) {
+      const testDoc = await SecondaryProtectionTestModel.findOneAndUpdate(
+        { orderId, coreId: protectionCoreId },
+        { $set: { isAssigned: true, assignedUniqueId: uniqueId, uniqueId } },
+        { new: true }
+      );
+      if (testDoc) {
+        transformer.testHistory.secondary_test.protection_results = testDoc.protection_results;
+        testerName = testDoc.tester;
+        testTimestamp = testDoc.testDate || testTimestamp;
+      }
+    } else {
+      transformer.testHistory.secondary_test.protection_results = [];
+    }
+
+    transformer.testHistory.secondary_test.status = "Completed";
+    transformer.testHistory.secondary_test.tester = testerName;
+    transformer.testHistory.secondary_test.timestamp = testTimestamp;
+    transformer.testHistory.secondary_test.reportDate = new Date();
+
+    transformer.markModified('testHistory');
+    await transformer.save();
+
+    res.json({
+      success: true,
+      message: "Cores assigned and transformer updated successfully",
+      transformer
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 module.exports = router;

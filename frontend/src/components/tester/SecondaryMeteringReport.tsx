@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
 
-import { Printer, ArrowLeft, Save, AlertTriangle } from 'lucide-react';
+import { Printer, ArrowLeft, Save, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Transformer } from './SecondaryTransformersList';
 import { toast } from 'sonner';
 
@@ -40,6 +40,8 @@ interface SecondaryMeteringReportProps {
   isFailedCore?: boolean;
   retestHistory?: any[];
   isUnified?: boolean;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
 export function SecondaryMeteringReport({
@@ -63,7 +65,9 @@ export function SecondaryMeteringReport({
   failedStatus,
   isFailedCore,
   retestHistory,
-  isUnified = false
+  isUnified = false,
+  onNext,
+  onPrev
 }: SecondaryMeteringReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
     (!isNaN(parseInt(coreId.replace(/[^0-9]/g, ''))) ? parseInt(coreId.replace(/[^0-9]/g, '')) - 1 : 0);
@@ -162,17 +166,30 @@ export function SecondaryMeteringReport({
       const secHistory = transformer.testHistory?.secondary_test;
       if (secHistory?.metering_results?.length > 0) {
         myResults = secHistory.metering_results.filter((res: any) => res.internalCoreNo === coreId);
+        if (myResults.length === 0 && secHistory.meteringCoreId === coreId) {
+          myResults = secHistory.metering_results;
+        }
       }
     }
 
     if (myResults.length === 0) {
       const stageHistory = transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory] as any;
-      myResults = (stageHistory?.metering_results || []).filter((res: any) => res.internalCoreNo === coreId);
+      if (stageHistory?.metering_results?.length > 0) {
+        myResults = stageHistory.metering_results.filter((res: any) => res.internalCoreNo === coreId);
+        if (myResults.length === 0 && transformer.testHistory?.secondary_test?.meteringCoreId === coreId) {
+          myResults = stageHistory.metering_results;
+        }
+      }
     }
 
     if (myResults.length === 0 && sourceStage && sourceStage !== stage) {
       const sourceHistory = transformer.testHistory?.[`${sourceStage}_test` as keyof typeof transformer.testHistory] as any;
-      myResults = (sourceHistory?.metering_results || []).filter((res: any) => res.internalCoreNo === coreId);
+      if (sourceHistory?.metering_results?.length > 0) {
+        myResults = sourceHistory.metering_results.filter((res: any) => res.internalCoreNo === coreId);
+        if (myResults.length === 0 && transformer.testHistory?.secondary_test?.meteringCoreId === coreId) {
+          myResults = sourceHistory.metering_results;
+        }
+      }
     }
 
     if (myResults.length > 0) {
@@ -187,11 +204,68 @@ export function SecondaryMeteringReport({
     return initial;
   });
 
+  const [approvedCores, setApprovedCores] = useState<string[]>([]);
+  const [secondaryTestedCores, setSecondaryTestedCores] = useState<string[]>([]);
+  const [selectedCoreId, setSelectedCoreId] = useState<string>(coreId);
+
+  useEffect(() => {
+    const fetchApprovedCores = async () => {
+      const order = transformer.fullOrder || transformer.orderId;
+      const orderId = order?._id || order;
+      if (!orderId || readOnly) return;
+      try {
+        const [appRes, secRes] = await Promise.all([
+          axios.get(`/core-tests/approved-ids/${orderId}`, { withCredentials: true }),
+          axios.get(`/secondary-core-tests/ready-stock/${orderId}`, { withCredentials: true })
+        ]);
+        if (appRes.data?.success) {
+          setApprovedCores(appRes.data.metering || []);
+        }
+        if (secRes.data?.success) {
+          const testedIds = (secRes.data.metering || []).map((c: any) => c.coreId);
+          setSecondaryTestedCores(testedIds);
+        }
+      } catch (err) {
+        console.error("Failed to fetch approved core IDs", err);
+      }
+    };
+    fetchApprovedCores();
+  }, [transformer.orderId, transformer.fullOrder, readOnly]);
+
+  useEffect(() => {
+    setSelectedCoreId(coreId);
+  }, [coreId]);
+
   useEffect(() => {
     const fetchLatestData = async () => {
       try {
+        const initialBlankData = dynamicRatios.map(ratio => ({
+          ratioValue: ratio,
+          rows: getInitialData(accuracyClass)
+        }));
+
+        let freshTransformer = transformer;
+        if (transformer.isDummy) {
+          const res = await axios.get(`/secondary-core-tests/metering/${selectedCoreId}`, { withCredentials: true });
+          if (res.data?.success && res.data.data) {
+            const testDoc = res.data.data;
+            if (testDoc.metering_results && testDoc.metering_results.length > 0) {
+              setTestResults(prev => prev.map((item, idx) => {
+                let matched = testDoc.metering_results.find((r: any) => r.ratioValue === item.ratioValue);
+                if (!matched && testDoc.metering_results[idx]) {
+                  matched = testDoc.metering_results[idx];
+                }
+                return matched ? { ...item, rows: matched.rows } : item;
+              }));
+              return;
+            }
+          }
+          setTestResults(initialBlankData);
+          return;
+        }
+
         const res = await axios.get(`/transformers/${transformer.uniqueId}`, { withCredentials: true });
-        const freshTransformer = res.data.data || res.data;
+        freshTransformer = res.data.data || res.data;
         let myResults = [];
 
         let currentFailedStatus = failedStatus;
@@ -215,18 +289,31 @@ export function SecondaryMeteringReport({
         if (shouldLoadFromTreated) {
           const secHistory = freshTransformer.testHistory?.secondary_test;
           if (secHistory?.metering_results?.length > 0) {
-            myResults = secHistory.metering_results.filter((res: any) => res.internalCoreNo === coreId);
+            myResults = secHistory.metering_results.filter((res: any) => res.internalCoreNo === selectedCoreId);
+            if (myResults.length === 0 && secHistory.meteringCoreId === selectedCoreId) {
+              myResults = secHistory.metering_results;
+            }
           }
         }
 
         if (myResults.length === 0) {
           const stageHistory = freshTransformer?.testHistory?.[`${stage}_test`] as any;
-          myResults = (stageHistory?.metering_results || []).filter((res: any) => res.internalCoreNo === coreId);
+          if (stageHistory?.metering_results?.length > 0) {
+            myResults = stageHistory.metering_results.filter((res: any) => res.internalCoreNo === selectedCoreId);
+            if (myResults.length === 0 && freshTransformer.testHistory?.secondary_test?.meteringCoreId === selectedCoreId) {
+              myResults = stageHistory.metering_results;
+            }
+          }
         }
 
         if (myResults.length === 0 && sourceStage && sourceStage !== stage) {
           const sourceHistory = freshTransformer?.testHistory?.[`${sourceStage}_test`] as any;
-          myResults = (sourceHistory?.metering_results || []).filter((res: any) => res.internalCoreNo === coreId);
+          if (sourceHistory?.metering_results?.length > 0) {
+            myResults = sourceHistory.metering_results.filter((res: any) => res.internalCoreNo === selectedCoreId);
+            if (myResults.length === 0 && freshTransformer.testHistory?.secondary_test?.meteringCoreId === selectedCoreId) {
+              myResults = sourceHistory.metering_results;
+            }
+          }
         }
 
         if (myResults.length > 0) {
@@ -237,13 +324,15 @@ export function SecondaryMeteringReport({
               }
               return matched ? { ...item, rows: matched.rows } : item;
             }));
-          }
+        } else {
+          setTestResults(initialBlankData);
+        }
       } catch (err) {
         console.error("Failed to load existing metering data", err);
       }
     };
     fetchLatestData();
-  }, [transformer.uniqueId, coreId, stage, failedStatus, isFailedCore, retestHistory]);
+  }, [transformer.uniqueId, selectedCoreId, stage, failedStatus, isFailedCore, retestHistory]);
 
   const handleDataChange = (ratioIdx: number, rowIndex: number, field: string, value: string) => {
     if (readOnly) return;
@@ -279,14 +368,15 @@ export function SecondaryMeteringReport({
     try {
       const payload = {
         uniqueId: transformer.uniqueId,
+        orderId: typeof transformer.orderId === 'object' && transformer.orderId ? (transformer.orderId as any)._id : transformer.orderId,
         loginType: `${stage}_login`,
         tester: testerName,
-        coreId: coreId,
+        coreId: selectedCoreId,
         metering_results: testResults.map(item => ({
           ratioValue: item.ratioValue,
           rows: item.rows,
-          internalCoreNo: coreId,
-          coreId: coreId,
+          internalCoreNo: selectedCoreId,
+          coreId: selectedCoreId,
           accuracyClass: accuracyClass
         }))
       };
@@ -306,6 +396,7 @@ export function SecondaryMeteringReport({
 
       if (onCompleteTimer) await onCompleteTimer();
       toast.success("Data saved successfully!");
+      setSecondaryTestedCores(prev => [...new Set([...prev, selectedCoreId])]);
       if (onRefresh) onRefresh();
     } catch (error) {
       toast.error("Failed to save data.");
@@ -337,7 +428,7 @@ export function SecondaryMeteringReport({
         clientName: transformer.clientName || orderObj?.clientName || '',
         coreType: "Metering",
         testType: stage === 'primary' ? "After Primary Metering" : stage === 'final' ? "Final Metering" : "Secondary Metering",
-        failureParameters: { failureStage: `${stage}_metering_test`, dynamicValues: testResults, coreId: coreId },
+        failureParameters: { failureStage: `${stage}_metering_test`, dynamicValues: testResults, coreId: selectedCoreId },
         failureReason: allReasons.length > 0 ? [...new Set(allReasons)].join(' | ') : "Accuracy Limits Exceeded",
         reportedBy: testerName,
         stage: stage === 'primary' ? "PRIMARY_TESTING" : stage === 'final' ? "FINAL_TESTING" : "SECONDARY_TESTING",
@@ -400,6 +491,26 @@ export function SecondaryMeteringReport({
                 <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2"><AlertTriangle className="w-4 h-4" /> Add to Failed Transformer</Button>
               )}
               <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2"><Save className="w-4 h-4" /> Save</Button>
+              {onPrev && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={onPrev} 
+                  className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 font-medium shadow-sm transition-all duration-200 hover:scale-105"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Previous Core
+                </Button>
+              )}
+              {onNext && (
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={onNext} 
+                  className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm transition-all duration-200 hover:scale-105"
+                >
+                  Next Core <ChevronRight className="w-4 h-4" />
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2"><Printer className="w-4 h-4" /> Print</Button>
             </div>
           </div>
@@ -433,7 +544,27 @@ export function SecondaryMeteringReport({
               index={2} 
               title={`${transformer.voltageRating || '33'} KV , CT , ${dynamicRatios.join('-')}A , ${displayBurden}VA , Metering`} 
             />
-            <CoreInformationBar label="metering core no." value={coreId.startsWith('M-') ? coreId : `M-${coreId}`} />
+            {!readOnly ? (
+              <div className="flex items-center gap-3 bg-white p-3 rounded-lg border border-[#103b63]/20 shadow-sm max-w-md my-3 no-print">
+                <span className="text-xs font-bold text-[#103b63] uppercase tracking-wide">Select Core ID (from Core Testing):</span>
+                <select
+                  value={selectedCoreId}
+                  onChange={(e) => setSelectedCoreId(e.target.value)}
+                  className="flex-1 p-2 text-xs font-bold rounded border border-gray-300 bg-white text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value={coreId}>{coreId} (Default)</option>
+                  {approvedCores
+                    .filter(id => id === selectedCoreId || !secondaryTestedCores.includes(id))
+                    .map(id => (
+                      id !== coreId && (
+                        <option key={id} value={id}>{id}</option>
+                      )
+                    ))}
+                </select>
+              </div>
+            ) : (
+              <CoreInformationBar label="metering core no." value={selectedCoreId.startsWith('M-') ? selectedCoreId : `M-${selectedCoreId}`} />
+            )}
             <MeteringTable testResults={testResults} onUpdate={(ratioIdx, rowIndex, field, value) => handleDataChange(ratioIdx, rowIndex, field, value)} readOnly={readOnly} />
           </div>
 

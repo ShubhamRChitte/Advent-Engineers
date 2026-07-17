@@ -11,6 +11,7 @@ interface PTPretestModuleProps {
 export function PTPretestModule({ user }: PTPretestModuleProps) {
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [selectedTransformer, setSelectedTransformer] = useState<Transformer | null>(null);
+  const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
 
   const handleStartTesting = (order: any) => {
     setSelectedOrder(order);
@@ -37,6 +38,6 @@ export function PTPretestModule({ user }: PTPretestModuleProps) {
     return <PTTransformersList order={selectedOrder} onStartTest={handleTransformerSelect} onBack={handleBackToOrders} testStage="pretest" />;
   }
 
-  return <PTAssignedOrders onStartTesting={handleStartTesting} endpoint={`/pt-pretests/assigned-orders`} />;
+  return <PTAssignedOrders onStartTesting={handleStartTesting} endpoint={`/pt-pretests/assigned-orders`} activeTab={activeTab} setActiveTab={setActiveTab} />;
 }
 

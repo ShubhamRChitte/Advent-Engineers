@@ -18,6 +18,8 @@ interface AfterPrimaryPSReportProps {
   secondaryCurrent?: string;
   order?: any;
   onCompleteTimer?: () => Promise<void>;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
 export function AfterPrimaryPSReport({
@@ -30,6 +32,8 @@ export function AfterPrimaryPSReport({
   secondaryCurrent,
   order,
   onCompleteTimer,
+  onNext,
+  onPrev,
 }: AfterPrimaryPSReportProps) {
 
   return (
@@ -46,6 +50,8 @@ export function AfterPrimaryPSReport({
       secondaryCurrent={secondaryCurrent || ''}
       order={order}
       onCompleteTimer={onCompleteTimer || (async () => {})}
+      onNext={onNext}
+      onPrev={onPrev}
     />
   );
 }

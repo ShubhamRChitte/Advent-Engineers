@@ -144,36 +144,47 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
               let accuracyClass = '0.5'; // fallback
 
               if (mappedType === 'metering') {
-                if (mIndex < meteringResults.length) {
+                if (secTest.meteringCoreId) {
+                  coreId = secTest.meteringCoreId;
+                } else if (mIndex < meteringResults.length) {
                   const res = meteringResults[mIndex];
-                  // Result might be object with internalCoreNo or string/other structure depending on save format
                   coreId = res.internalCoreNo || (res.rows && res.rows[0]?.internalCoreNo) || 'M-Pending';
                   accuracyClass = res.accuracyClass || res.classOption || '0.5';
                   mIndex++;
+                } else {
+                  coreId = 'M-Pending';
                 }
 
                 // If still not found or default, check coreDetails in Order
-                if (coreId === 'Pending' || accuracyClass === '0.5') {
+                if (coreId === 'M-Pending' || coreId === 'Pending' || accuracyClass === '0.5') {
                   const coreDetail = order.coreDetails?.[currentCoreNum - 1];
                   if (coreDetail && coreDetail.accuracyClass) {
                     accuracyClass = coreDetail.accuracyClass;
                   }
                 }
               } else if (mappedType === 'ps') {
-                if (psIndex < psResults.length) {
+                if (secTest.psCoreId) {
+                  coreId = secTest.psCoreId;
+                } else if (psIndex < psResults.length) {
                   const res = psResults[psIndex];
                   coreId = res.internalCoreNo || 'PS-Pending';
                   psIndex++;
+                } else {
+                  coreId = 'PS-Pending';
                 }
                 const coreDetail = order.coreDetails?.[currentCoreNum - 1];
                 if (coreDetail && coreDetail.accuracyClass) {
                   accuracyClass = coreDetail.accuracyClass;
                 }
               } else { // This is the 'protection' case
-                if (pIndex < protectionResults.length) {
+                if (secTest.protectionCoreId) {
+                  coreId = secTest.protectionCoreId;
+                } else if (pIndex < protectionResults.length) {
                   const res = protectionResults[pIndex];
                   coreId = res.internalCoreNo || 'P-Pending';
                   pIndex++;
+                } else {
+                  coreId = 'P-Pending';
                 }
                 const coreDetail = order.coreDetails?.[currentCoreNum - 1];
                 if (coreDetail && coreDetail.accuracyClass) {
@@ -596,7 +607,14 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                             key={core.coreNumber}
                             className={`${getCoreTypeColor(core.coreType)} text-xs`}
                           >
-                            {getCoreTypeLabel(core.coreType)}-{core.coreId}
+                            {(() => {
+                              const label = getCoreTypeLabel(core.coreType);
+                              const id = core.coreId || '';
+                              if (id.toUpperCase().startsWith(`${label.toUpperCase()}-`)) {
+                                return id;
+                              }
+                              return `${label}-${id}`;
+                            })()}
                           </Badge>
                         ))}
                       </div>

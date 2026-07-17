@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { ArrowLeft, Save, Printer, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, Printer, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Transformer } from './SecondaryTransformersList';
 import { toast } from 'sonner';
 
@@ -42,6 +42,8 @@ interface SecondaryProtectionReportProps {
   isFailedCore?: boolean;
   retestHistory?: any[];
   isUnified?: boolean;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
 interface ProtectionTestRow {
@@ -140,7 +142,9 @@ export function SecondaryProtectionReport({
   failedStatus,
   isFailedCore,
   retestHistory,
-  isUnified = false
+  isUnified = false,
+  onNext,
+  onPrev
 }: SecondaryProtectionReportProps) {
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
     (!isNaN(parseInt(coreId.replace(/[^0-9]/g, ''))) ? parseInt(coreId.replace(/[^0-9]/g, '')) - 1 : 0);
@@ -262,6 +266,9 @@ export function SecondaryProtectionReport({
         myResults = secHistory.protection_results.filter((res: any) =>
           res.internalCoreNo === coreId || res.coreId === coreId
         );
+        if (myResults.length === 0 && secHistory.protectionCoreId === coreId) {
+          myResults = secHistory.protection_results;
+        }
       }
     }
 
@@ -272,6 +279,9 @@ export function SecondaryProtectionReport({
         myResults = stageHistory.protection_results.filter((res: any) =>
           res.internalCoreNo === coreId || res.coreId === coreId
         );
+        if (myResults.length === 0 && transformer.testHistory?.secondary_test?.protectionCoreId === coreId) {
+          myResults = stageHistory.protection_results;
+        }
       }
     }
 
@@ -282,6 +292,9 @@ export function SecondaryProtectionReport({
         myResults = sourceHistory.protection_results.filter((res: any) =>
           res.internalCoreNo === coreId || res.coreId === coreId
         );
+        if (myResults.length === 0 && transformer.testHistory?.secondary_test?.protectionCoreId === coreId) {
+          myResults = sourceHistory.protection_results;
+        }
       }
     }
 
@@ -321,11 +334,92 @@ export function SecondaryProtectionReport({
 
   }, [transformer, coreId, stage, failedStatus, isFailedCore, retestHistory]);
 
+  const [approvedCores, setApprovedCores] = useState<string[]>([]);
+  const [secondaryTestedCores, setSecondaryTestedCores] = useState<string[]>([]);
+  const [selectedCoreId, setSelectedCoreId] = useState<string>(coreId);
+
+  useEffect(() => {
+    const fetchApprovedCores = async () => {
+      const order = propOrder || transformer.fullOrder || transformer.orderId;
+      const orderId = order?._id || order;
+      if (!orderId || readOnly) return;
+      try {
+        const [appRes, secRes] = await Promise.all([
+          axios.get(`/core-tests/approved-ids/${orderId}`, { withCredentials: true }),
+          axios.get(`/secondary-core-tests/ready-stock/${orderId}`, { withCredentials: true })
+        ]);
+        if (appRes.data?.success) {
+          const ids = appRes.data.protection || [];
+          setApprovedCores(ids);
+        }
+        if (secRes.data?.success) {
+          const testedIds = (secRes.data.protection || []).map((c: any) => c.coreId);
+          setSecondaryTestedCores(testedIds);
+        }
+      } catch (err) {
+        console.error("Failed to fetch approved core IDs", err);
+      }
+    };
+    fetchApprovedCores();
+  }, [transformer.orderId, transformer.fullOrder, readOnly]);
+
+  useEffect(() => {
+    setSelectedCoreId(coreId);
+  }, [coreId]);
 
   // ✅ LOAD DATA EFFECT for Read Only viewing OR Consistency
   useEffect(() => {
     const fetchLatestData = async () => {
       try {
+        const initialBlank = ratiosToUse.map((ratio: string) => ({
+          ratio,
+          ratioError100: '',
+          phaseError: '',
+          resistance: '',
+          alf: '',
+          secondaryLimitingVoltage: '',
+          excitationCurrent: '',
+          compositeError: ''
+        }));
+
+        if (transformer.isDummy) {
+          const res = await axios.get(`/secondary-core-tests/protection/${selectedCoreId}`, { withCredentials: true });
+          if (res.data?.success && res.data.data) {
+            const testDoc = res.data.data;
+            if (testDoc.protection_results && testDoc.protection_results.length > 0) {
+              setTestResults(prev => prev.map((row, index) => {
+                let saved = testDoc.protection_results.find((r: any) => r.ratioValue === row.ratio);
+                if (!saved && testDoc.protection_results[index]) {
+                  saved = testDoc.protection_results[index];
+                }
+                if (saved) {
+                  const safeStr = (val: any) => (val !== undefined && val !== null) ? String(val) : '';
+                  if (saved.protectionClass && saved.protectionClass !== protectionClass) {
+                    setProtectionClass(saved.protectionClass);
+                  }
+                  return {
+                    ...row,
+                    ratioError100: safeStr(saved.ratioError100 ?? saved.burden100_1),
+                    phaseError: safeStr(saved.phaseError ?? saved.burden100_2),
+                    resistance: safeStr(saved.resistance),
+                    alf: safeStr(saved.alf),
+                    secondaryLimitingVoltage: safeStr(saved.secondaryLimitingVoltage ?? saved.secondaryLimitingVtg),
+                    excitationCurrent: safeStr(saved.excitationCurrent ?? saved.excitationCurr),
+                    compositeError: safeStr(saved.compositeError),
+                    isPass: saved.isPass,
+                    reason: saved.reason,
+                    protectionClass: saved.protectionClass
+                  };
+                }
+                return row;
+              }));
+              return;
+            }
+          }
+          setTestResults(initialBlank);
+          return;
+        }
+
         const res = await axios.get(`/transformers/${transformer.uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data.data || res.data;
 
@@ -353,8 +447,11 @@ export function SecondaryProtectionReport({
           const secHistory = freshTransformer.testHistory?.secondary_test;
           if (secHistory?.protection_results?.length > 0) {
             myResults = secHistory.protection_results.filter((res: any) =>
-              res.internalCoreNo === coreId || res.coreId === coreId
+              res.internalCoreNo === selectedCoreId || res.coreId === selectedCoreId
             );
+            if (myResults.length === 0 && secHistory.protectionCoreId === selectedCoreId) {
+              myResults = secHistory.protection_results;
+            }
           }
         }
 
@@ -363,8 +460,11 @@ export function SecondaryProtectionReport({
           const stageHistory = freshTransformer?.testHistory?.[stageKey];
           if (stageHistory?.protection_results?.length > 0) {
             myResults = stageHistory.protection_results.filter((res: any) =>
-              res.internalCoreNo === coreId || res.coreId === coreId
+              res.internalCoreNo === selectedCoreId || res.coreId === selectedCoreId
             );
+            if (myResults.length === 0 && freshTransformer.testHistory?.secondary_test?.protectionCoreId === selectedCoreId) {
+              myResults = stageHistory.protection_results;
+            }
           }
         }
 
@@ -372,8 +472,11 @@ export function SecondaryProtectionReport({
           const sourceHistory = freshTransformer?.testHistory?.[`${sourceStage}_test`] as any;
           if (sourceHistory?.protection_results?.length > 0) {
             myResults = sourceHistory.protection_results.filter((res: any) =>
-              res.internalCoreNo === coreId || res.coreId === coreId
+              res.internalCoreNo === selectedCoreId || res.coreId === selectedCoreId
             );
+            if (myResults.length === 0 && freshTransformer.testHistory?.secondary_test?.protectionCoreId === selectedCoreId) {
+              myResults = sourceHistory.protection_results;
+            }
           }
         }
 
@@ -418,13 +521,15 @@ export function SecondaryProtectionReport({
               }
               return row;
             }));
+          } else {
+            setTestResults(initialBlank);
           }
       } catch (err) {
         console.error("Failed to load existing protection data", err);
       }
     };
     fetchLatestData();
-  }, [transformer.uniqueId, coreId, stage, failedStatus, isFailedCore, retestHistory]);
+  }, [transformer.uniqueId, selectedCoreId, stage, failedStatus, isFailedCore, retestHistory]);
 
   // Robust Parsing Helpers
   const parseRatedCurrent = (ratio: any): number => {
@@ -568,8 +673,8 @@ export function SecondaryProtectionReport({
       const parseOrNull = (val: any) => (val === '' || val === null || val === undefined) ? null : parseFloat(val);
 
       const protectionResults = testResults.map(row => ({
-        internalCoreNo: coreId, // Inject Core ID for persistence
-        coreId: coreId,         // Inject Core ID for persistence
+        internalCoreNo: selectedCoreId, // Inject Core ID for persistence
+        coreId: selectedCoreId,         // Inject Core ID for persistence
         ratioValue: row.ratio,
         protectionClass: protectionClass || '5P',
 
@@ -597,9 +702,10 @@ export function SecondaryProtectionReport({
 
       const payload = {
         uniqueId: transformer.uniqueId,
+        orderId: typeof transformer.orderId === 'object' && transformer.orderId ? (transformer.orderId as any)._id : transformer.orderId,
         loginType: `${stage}_login`, // Consistent with your schema path
         tester: testerName,
-        coreId: coreId,
+        coreId: selectedCoreId,
         protection_results: protectionResults
       };
 
@@ -626,11 +732,11 @@ export function SecondaryProtectionReport({
           { withCredentials: true }
         );
       }
-
       if (onCompleteTimer) await onCompleteTimer();
 
       console.log("handleDatabaseSave: Response received", response);
       toast.success("Protection data saved to database successfully!");
+      setSecondaryTestedCores(prev => [...new Set([...prev, selectedCoreId])]);
       if (onRefresh) onRefresh();
 
     } catch (error) {
@@ -666,7 +772,7 @@ export function SecondaryProtectionReport({
         clientName: transformer.clientName || orderObj?.clientName || '',
         coreType: "Protection",
         testType: stage === 'primary' ? "After Primary Protection" : stage === 'final' ? "Final Protection" : "Secondary Protection",
-        failureParameters: { failureStage: `${stage}_protection_test`, dynamicValues: testResults, coreId: coreId },
+        failureParameters: { failureStage: `${stage}_protection_test`, dynamicValues: testResults, coreId: selectedCoreId },
         failureReason: allReasons || "Limits Exceeded",
         reportedBy: testerName,
         stage: stage === 'primary' ? "PRIMARY_TESTING" : stage === 'final' ? "FINAL_TESTING" : "SECONDARY_TESTING",
@@ -851,6 +957,26 @@ export function SecondaryProtectionReport({
               <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2">
                 <Save className="w-4 h-4" /> Save
               </Button>
+              {onPrev && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={onPrev} 
+                  className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 font-medium shadow-sm transition-all duration-200 hover:scale-105"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Previous Core
+                </Button>
+              )}
+              {onNext && (
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={onNext} 
+                  className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm transition-all duration-200 hover:scale-105"
+                >
+                  Next Core <ChevronRight className="w-4 h-4" />
+                </Button>
+              )}
               {hasFailures && !isFailedSection && (
                 <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2">
                   <AlertTriangle className="w-4 h-4" /> Add to Failed Transformer
@@ -874,7 +1000,7 @@ export function SecondaryProtectionReport({
           />
 
           <div className="ae-section-container">
-            <ReportSectionTitle index={1} title={`Secondary Winding Verification - ${coreId}`} />
+            <ReportSectionTitle index={1} title={`Secondary Winding Verification - ${selectedCoreId}`} />
             <ReportSpecBox
               items={[
                 { label: 'Specification', value: `${transformer.voltageRating || '33'} KV ${transformer.clientName || 'N/A'}` },
@@ -888,7 +1014,27 @@ export function SecondaryProtectionReport({
 
           <div className="ae-section-container">
             <ReportSectionTitle index={2} title="Protection Core Test" />
-            <CoreInformationBar label="Protection Core No" value={coreId} />
+            {!readOnly ? (
+              <div className="flex items-center gap-3 bg-white p-3 rounded-lg border border-[#103b63]/20 shadow-sm max-w-md my-3 no-print">
+                <span className="text-xs font-bold text-[#103b63] uppercase tracking-wide">Select Core ID (from Core Testing):</span>
+                <select
+                  value={selectedCoreId}
+                  onChange={(e) => setSelectedCoreId(e.target.value)}
+                  className="flex-1 p-2 text-xs font-bold rounded border border-gray-300 bg-white text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value={coreId}>{coreId} (Default)</option>
+                  {approvedCores
+                    .filter(id => id === selectedCoreId || !secondaryTestedCores.includes(id))
+                    .map(id => (
+                      id !== coreId && (
+                        <option key={id} value={id}>{id}</option>
+                      )
+                    ))}
+                </select>
+              </div>
+            ) : (
+              <CoreInformationBar label="Protection Core No" value={selectedCoreId} />
+            )}
             <div className="overflow-x-auto">
               <table className="ae-report-table secondary-report-table">
                 <thead>

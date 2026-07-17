@@ -11,6 +11,8 @@ interface PrimaryProtectionReportProps {
   secondaryCurrent?: string;
   order?: any;
   onCompleteTimer?: () => Promise<void>;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
 export function AfterPrimaryProtectionReport({
@@ -23,6 +25,8 @@ export function AfterPrimaryProtectionReport({
   secondaryCurrent,
   order,
   onCompleteTimer,
+  onNext,
+  onPrev,
 }: PrimaryProtectionReportProps) {
 
   return (
@@ -39,6 +43,8 @@ export function AfterPrimaryProtectionReport({
       secondaryCurrent={secondaryCurrent || ''}
       order={order}
       onCompleteTimer={onCompleteTimer || (async () => {})}
+      onNext={onNext}
+      onPrev={onPrev}
     />
   );
 }

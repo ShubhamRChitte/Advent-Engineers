@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import axios from '@/utils/axiosConfig';
 import { AfterPrimaryOrdersList } from './AfterPrimaryOrdersList';
 import { AfterPrimaryTransformersList, Transformer as AfterPrimaryTransformer } from './AfterPrimaryTransformersList';
-import { AfterPrimaryCoreSelection } from './AfterPrimaryCoreSelection';
 import { AfterPrimaryMeteringReport } from './AfterPrimaryMeteringReport';
 import { AfterPrimaryPSReport } from './AfterPrimaryPSReport';
 import { AfterPrimaryProtectionReport } from './AfterPrimaryProtectionReport';
 import { useCTTimer } from '../../utils/useCTTimer';
 import { CTTimerBadge } from './CTTimerBadge';
+import { toast } from 'sonner';
 
 // Updated to match the API response structure
 interface Order {
@@ -39,7 +39,7 @@ interface CoreConfig {
 
 import { OrderReportsView } from '../entry/OrderReportsView';
 
-type ViewType = 'orders' | 'transformers' | 'cores' | 'report' | 'order-reports';
+type ViewType = 'orders' | 'transformers' | 'report' | 'order-reports';
 
 interface AfterPrimaryTestingModuleProps {
   userName?: string;
@@ -52,10 +52,6 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
   const [selectedCore, setSelectedCore] = useState<CoreConfig | null>(null);
   const [selectedPrimary, setSelectedPrimary] = useState<string>('');
   const [selectedSecondary, setSelectedSecondary] = useState<string>('');
-
-
-  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
-  const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
 
   // ── CT Delay Timer (after_primary: coreCount drives 5min vs 20min) ────────
   const apCoreCount = (selectedTransformer as any)?.cores?.length
@@ -84,14 +80,19 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
 
   const handleStartTest = async (transformer: AfterPrimaryTransformer) => {
     setSelectedTransformer(transformer);
-    setCurrentView('cores');
-  };
-
-  const handleSelectCore = (core: CoreConfig, primary: string, secondary: string) => {
-    setSelectedCore(core);
-    setSelectedPrimary(primary);
-    setSelectedSecondary(secondary);
-    setCurrentView('report');
+    if (transformer.cores && transformer.cores.length > 0) {
+      const firstCore = transformer.cores[0];
+      const coreFromOrder = selectedOrder?.coreDetails?.[firstCore.coreNumber - 1];
+      const secondaryVal = coreFromOrder?.secondaryCurrent || selectedOrder?.ratedSecondaryCurrent || '1';
+      const primaryVal = coreFromOrder?.primaryCurrent || selectedOrder?.primaryCurrents?.[0] || (selectedOrder?.ratio?.[0]?.split('/')[0] || '');
+      
+      setSelectedCore(firstCore);
+      setSelectedPrimary(String(primaryVal));
+      setSelectedSecondary(String(secondaryVal));
+      setCurrentView('report');
+    } else {
+      toast.error("No cores configured for this transformer.");
+    }
   };
 
   const handleBackToOrders = () => {
@@ -102,13 +103,7 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
   };
 
   const handleBackToTransformers = async () => {
-    setCurrentView('transformers');
-    setSelectedTransformer(null);
-    setSelectedCore(null);
-  };
-
-  const handleBackToCores = async () => {
-    // Re-fetch fresh transformer data so AfterPrimaryCoreSelection sees latest test results
+    // Re-fetch fresh transformer data so AfterPrimaryTransformersList sees latest test results
     if (selectedTransformer?.uniqueId) {
       try {
         const res = await axios.get(`/transformers/${selectedTransformer.uniqueId}`, { withCredentials: true });
@@ -119,12 +114,10 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
         console.error('[AfterPrimaryModule] Failed to refresh transformer after report:', err);
       }
     }
-    setCurrentView('cores');
+    setCurrentView('transformers');
+    setSelectedTransformer(null);
     setSelectedCore(null);
   };
-
-
-
 
   const renderView = () => {
     // Orders List View
@@ -156,34 +149,55 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
       );
     }
 
-    // Core Selection View
-    if (currentView === 'cores' && selectedTransformer && selectedOrder) {
-      return (
-        <AfterPrimaryCoreSelection
-          transformer={selectedTransformer}
-          order={selectedOrder as any}
-          onSelectCore={handleSelectCore}
-          onBack={handleBackToTransformers}
-        />
-      );
-    }
-
     // Report View - Route to correct report based on core type
     if (currentView === 'report' && selectedTransformer && selectedCore) {
       const testerName = userName || 'Primary Tester';
 
+      // Find if there is a next core for this transformer
+      const currentIndex = selectedTransformer.cores.findIndex(
+        c => c.coreNumber === selectedCore.coreNumber
+      );
+      const hasNext = currentIndex !== -1 && currentIndex < selectedTransformer.cores.length - 1;
+      const onNext = hasNext ? () => {
+        const nextCore = selectedTransformer.cores[currentIndex + 1];
+        const coreFromOrder = selectedOrder?.coreDetails?.[nextCore.coreNumber - 1];
+        const secondaryVal = coreFromOrder?.secondaryCurrent || selectedOrder?.ratedSecondaryCurrent || '1';
+        const primaryVal = coreFromOrder?.primaryCurrent || selectedOrder?.primaryCurrents?.[0] || (selectedOrder?.ratio?.[0]?.split('/')[0] || '');
+        
+        setSelectedCore(nextCore);
+        setSelectedPrimary(String(primaryVal));
+        setSelectedSecondary(String(secondaryVal));
+      } : undefined;
+
+      const hasPrev = currentIndex > 0;
+      const onPrev = hasPrev ? () => {
+        const prevCore = selectedTransformer.cores[currentIndex - 1];
+        const coreFromOrder = selectedOrder?.coreDetails?.[prevCore.coreNumber - 1];
+        const secondaryVal = coreFromOrder?.secondaryCurrent || selectedOrder?.ratedSecondaryCurrent || '1';
+        const primaryVal = coreFromOrder?.primaryCurrent || selectedOrder?.primaryCurrents?.[0] || (selectedOrder?.ratio?.[0]?.split('/')[0] || '');
+        
+        setSelectedCore(prevCore);
+        setSelectedPrimary(String(primaryVal));
+        setSelectedSecondary(String(secondaryVal));
+      } : undefined;
+
+      const reportKey = `${selectedTransformer.uniqueId}-${selectedCore.coreId}`;
+
       if (selectedCore.coreType === 'metering') {
         return (
           <AfterPrimaryMeteringReport
+            key={reportKey}
             transformer={selectedTransformer}
             core={selectedCore}
             testerName={testerName}
-            onBack={handleBackToCores}
+            onBack={handleBackToTransformers}
             onFail={handleBackToOrders}
             order={selectedOrder}
             primaryCurrent={selectedPrimary}
             secondaryCurrent={selectedSecondary}
             onCompleteTimer={ctEndTimer}
+            onNext={onNext}
+            onPrev={onPrev}
           />
         );
       }
@@ -191,15 +205,18 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
       if (selectedCore.coreType === 'ps') {
         return (
           <AfterPrimaryPSReport
+            key={reportKey}
             transformer={selectedTransformer}
             core={selectedCore}
             testerName={testerName}
-            onBack={handleBackToCores}
+            onBack={handleBackToTransformers}
             onFail={handleBackToOrders}
             order={selectedOrder}
             primaryCurrent={selectedPrimary}
             secondaryCurrent={selectedSecondary}
             onCompleteTimer={ctEndTimer}
+            onNext={onNext}
+            onPrev={onPrev}
           />
         );
       }
@@ -207,15 +224,18 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
       if (selectedCore.coreType === 'protection') {
         return (
           <AfterPrimaryProtectionReport
+            key={reportKey}
             transformer={selectedTransformer}
             core={selectedCore}
             testerName={testerName}
-            onBack={handleBackToCores}
+            onBack={handleBackToTransformers}
             onFail={handleBackToOrders}
             order={selectedOrder}
             primaryCurrent={selectedPrimary}
             secondaryCurrent={selectedSecondary}
             onCompleteTimer={ctEndTimer}
+            onNext={onNext}
+            onPrev={onPrev}
           />
         );
       }
@@ -228,7 +248,7 @@ export function AfterPrimaryTestingModule({ userName }: AfterPrimaryTestingModul
   return (
     <>
     <div className="space-y-6">
-      {(currentView === 'cores' || currentView === 'report') && (
+      {(currentView === 'report') && (
         <CTTimerBadge timeLeftMs={ctTimeLeftMs} isOverdue={ctIsOverdue} expectedMinutes={ctExpectedMinutes} title="Primary Testing" />
       )}
       {renderView()}

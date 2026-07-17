@@ -570,7 +570,7 @@ export function PTTestingReport({ order, transformer, onBack, user, noTimer = fa
   const handleAddToFailed = async () => {
     if (!window.confirm('Are you sure you want to mark this transformer as failed? The timer will be stopped and the transformer will be moved to the Failed section.')) return;
     try {
-        const t = transformersData[0];
+        const t = activeTabId ? transformersData.find(x => x._id === activeTabId) : transformersData[0];
         if (!t) return;
         await axios.post(`/pt-tests/failed`, {
             transformerId: t._id,
@@ -847,7 +847,7 @@ export function PTTestingReport({ order, transformer, onBack, user, noTimer = fa
 
 
 
-                {!isReadOnly && (
+                {!isReadOnly && activeTabId && getTransformerValidations(activeTabId, reportsData[activeTabId] || {}).hasFail && (
                     <Button variant="destructive" size="sm" onClick={handleAddToFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
                         <AlertTriangle className="w-4 h-4" /> Add to Failed
                     </Button>

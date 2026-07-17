@@ -1,10 +1,13 @@
 const mongoose = require('mongoose');
 
 const SecondaryMeteringTestSchema = new mongoose.Schema({
-    uniqueId: { type: String, required: true }, // Transformer Unique ID (e.g. TR-2026-001/01)
+    uniqueId: { type: String, required: false }, // Transformer Unique ID (e.g. TR-2026-001/01)
     orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' }, // Optional linkage
     coreId: { type: String, required: true },   // Core ID (e.g. M-001)
     tester: { type: String, required: true },
+    isAssigned: { type: Boolean, default: false },
+    assignedUniqueId: { type: String },
+    turnsUsed: { type: Number },
     testDate: { type: Date, default: Date.now },
     reportDate: { type: Date },
 

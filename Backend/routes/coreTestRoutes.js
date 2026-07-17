@@ -148,21 +148,52 @@ router.get('/orders/approved', isAuthenticated, async (req, res) => {
     }
 });
 
-// GET /api/core-tests/report/:jobId
-// Fetch a specific order report by jobId
-router.get('/report/:jobId', isAuthenticated, async (req, res) => {
+// GET /api/core-tests/approved-ids/:orderId
+// Retrieves all approved core IDs (from Core Testing stage) for the given orderId
+router.get('/approved-ids/:orderId', isAuthenticated, async (req, res) => {
     try {
-        const { jobId } = req.params;
-        const order = await OrderModel.findOne({ jobId });
+        const { orderId } = req.params;
+        const { MeteringCoreTestModel } = require('../models/MeteringCoreTestModel');
+        const { ProtectionCoreTestModel } = require('../models/ProtectionCoreTestModel');
 
-        if (!order) {
-            return res.status(404).json({ error: "Order not found" });
-        }
+        const [meteringDocs, protectionDocs] = await Promise.all([
+            MeteringCoreTestModel.find({ orderId }).lean(),
+            ProtectionCoreTestModel.find({ orderId }).lean()
+        ]);
 
-        res.status(200).json(order);
+        const meteringIds = [];
+        const psIds = [];
+        const protectionIds = [];
+
+        meteringDocs.forEach(doc => {
+            (doc.readings || []).forEach(r => {
+                if ((r.result === 'P' || r.status === 'PASS' || r.status === 'PENDING') && r.internalCoreNo) {
+                    meteringIds.push(r.internalCoreNo);
+                }
+            });
+        });
+
+        protectionDocs.forEach(doc => {
+            const type = (doc.coreType || 'Protection').toLowerCase();
+            (doc.readings || []).forEach(r => {
+                if ((r.result === 'P' || r.status === 'PASS' || r.status === 'PENDING') && r.internalCoreNo) {
+                    if (type === 'ps') {
+                        psIds.push(r.internalCoreNo);
+                    } else {
+                        protectionIds.push(r.internalCoreNo);
+                    }
+                }
+            });
+        });
+
+        res.json({
+            success: true,
+            metering: [...new Set(meteringIds)],
+            ps: [...new Set(psIds)],
+            protection: [...new Set(protectionIds)]
+        });
     } catch (err) {
-        console.error("Error fetching report:", err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ success: false, message: err.message });
     }
 });
 
