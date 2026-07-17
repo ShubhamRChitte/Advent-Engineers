@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
 import { Save, Printer, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from '@/utils/axiosConfig';
@@ -11,6 +12,9 @@ import {
 } from './SecondaryReportPrintLayout';
 import logoImage from '../../assets/d4d1bc6f9b0c444f1821bbe84a4da57caf7080d2.png';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { SecondaryMeteringReport } from './SecondaryMeteringReport';
+import { SecondaryPSReport } from './SecondaryPSReport';
+import { SecondaryProtectionReport } from './SecondaryProtectionReport';
 
 interface CTInspectionReportProps {
   transformer: any;
@@ -63,13 +67,12 @@ const PassFailButton = ({
     <button
       type="button"
       onClick={onToggle}
-      className={`h-8 px-4 text-xs font-bold rounded-lg border transition-all ${
-        isActive
+      className={`h-8 px-4 text-xs font-bold rounded-lg border transition-all ${isActive
           ? target === 'Pass'
             ? 'bg-green-600 border-green-600 text-white shadow-sm'
             : 'bg-red-600 border-red-600 text-white shadow-sm'
           : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-      }`}
+        }`}
     >
       {target}
     </button>
@@ -79,6 +82,8 @@ const PassFailButton = ({
 export function CTInspectionReport({ transformer, testerName }: CTInspectionReportProps) {
   const [readOnly, setReadOnly] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [inspectionData, setInspectionData] = useState<any>({});
+  const [activeCoreTest, setActiveCoreTest] = useState<any | null>(null);
 
   const [polarityResult, setPolarityResult] = useState('');
   const [meggarPrimaryToSecondary, setMeggarPrimaryToSecondary] = useState('');
@@ -90,31 +95,101 @@ export function CTInspectionReport({ transformer, testerName }: CTInspectionRepo
   const [hvBetweenCore, setHvBetweenCore] = useState('');
   const [ovitTest, setOvitTest] = useState('');
 
-  const testDate = new Date().toLocaleDateString('en-GB');
-  const accuracyClass = (transformer?.cores?.map((c: any) => c.accuracyClass).filter(Boolean).join('/')) || 'N/A';
+  const [selectedCoreIndex, setSelectedCoreIndex] = useState(0);
 
-  // Load existing inspection data on mount
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await axios.get(`/final/inspection/${encodeURIComponent(transformer.uniqueId)}`, { withCredentials: true });
-        if (res.data.success) {
-          const d = res.data.data;
-          if (d && Object.keys(d).length > 0) {
-            setPolarityResult(d.polarityResult || '');
-            setMeggarPrimaryToSecondary(d.meggarPrimaryToSecondary || '');
-            setMeggarPrimaryToEarth(d.meggarPrimaryToEarth || '');
-            setMeggarSecondaryToEarth(d.meggarSecondaryToEarth || '');
-            setMeggarCoreToCore(d.meggarCoreToCore || '');
-            setHvSecondaryWinding(d.hvSecondaryWinding || '');
-            setHvPrimaryWinding(d.hvPrimaryWinding || '');
-            setHvBetweenCore(d.hvBetweenCore || '');
-            setOvitTest(d.ovitTest || '');
-            setReadOnly(true);
-          }
+  const testDate = new Date().toLocaleDateString('en-GB');
+
+  const orderObj = transformer.fullOrder || transformer.orderId || {};
+
+  // Build list of cores dynamically from the parent order specifications
+  const cores = (() => {
+    const list: any[] = [];
+    if (orderObj.coreDetails && Array.isArray(orderObj.coreDetails)) {
+      orderObj.coreDetails.forEach((coreGroup: any, idx: number) => {
+        const typeStr = (coreGroup.coreType || 'Metering').toLowerCase();
+        let mappedType: 'metering' | 'ps' | 'protection' = 'metering';
+        if (typeStr.includes('protection')) mappedType = 'protection';
+        else if (typeStr.includes('ps')) mappedType = 'ps';
+
+        let coreId = '';
+        if (mappedType === 'metering') {
+          coreId = transformer.testHistory?.secondary_test?.meteringCoreId || `M-${transformer.uniqueId}-${idx + 1}`;
+        } else if (mappedType === 'ps') {
+          coreId = transformer.testHistory?.secondary_test?.psCoreId || `PS-${transformer.uniqueId}-${idx + 1}`;
+        } else {
+          coreId = transformer.testHistory?.secondary_test?.protectionCoreId || `P-${transformer.uniqueId}-${idx + 1}`;
         }
-      } catch { /* no existing data */ }
-    };
+
+        list.push({
+          coreNumber: idx + 1,
+          coreType: mappedType,
+          coreId: coreId,
+          accuracyClass: coreGroup.accuracyClass || '0.5',
+          primaryCurrent: coreGroup.primaryCurrent || '',
+          secondaryCurrent: coreGroup.secondaryCurrent || '1',
+          burden: coreGroup.burden || '',
+          stc: coreGroup.stc || transformer.stc || 'N/A'
+        });
+      });
+    } else {
+      list.push({ 
+        coreNumber: 1, 
+        coreType: 'metering', 
+        coreId: `M-${transformer.uniqueId}-1`, 
+        accuracyClass: '0.2S',
+        primaryCurrent: transformer.rating?.split('/')[0] || '',
+        secondaryCurrent: transformer.ratedSecondaryCurrent || '1',
+        burden: transformer.burden || '30',
+        stc: transformer.stc || 'N/A'
+      });
+    }
+    return list;
+  })();
+
+  const selectedCore = cores[selectedCoreIndex] || cores[0] || {};
+
+  const currentRatio = (() => {
+    if (selectedCore.primaryCurrent && selectedCore.secondaryCurrent) {
+      return `${selectedCore.primaryCurrent}/${selectedCore.secondaryCurrent} A`;
+    }
+    if (orderObj?.ratio) {
+      if (Array.isArray(orderObj.ratio)) {
+        return orderObj.ratio.join(' - ');
+      }
+      return String(orderObj.ratio);
+    }
+    if (transformer?.rating) {
+      return `${transformer.rating}/${transformer.ratedSecondaryCurrent || '1'} A`;
+    }
+    return 'N/A';
+  })();
+
+  // Load existing inspection data
+  const load = async () => {
+    try {
+      const res = await axios.get(`/final/inspection/${encodeURIComponent(transformer.uniqueId)}`, { withCredentials: true });
+      if (res.data.success) {
+        const d = res.data.data;
+        if (d && Object.keys(d).length > 0) {
+          setInspectionData(d);
+          setPolarityResult(d.polarityResult || '');
+          setMeggarPrimaryToSecondary(d.meggarPrimaryToSecondary || '');
+          setMeggarPrimaryToEarth(d.meggarPrimaryToEarth || '');
+          setMeggarSecondaryToEarth(d.meggarSecondaryToEarth || '');
+          setMeggarCoreToCore(d.meggarCoreToCore || '');
+          setHvSecondaryWinding(d.hvSecondaryWinding || '');
+          setHvPrimaryWinding(d.hvPrimaryWinding || '');
+          setHvBetweenCore(d.hvBetweenCore || '');
+          setOvitTest(d.ovitTest || '');
+          
+          setSelectedCoreIndex(d.selectedCoreIndex !== undefined ? d.selectedCoreIndex : 0);
+          setReadOnly(true);
+        }
+      }
+    } catch { /* no existing data */ }
+  };
+
+  useEffect(() => {
     if (transformer?.uniqueId) load();
   }, [transformer?.uniqueId]);
 
@@ -122,15 +197,18 @@ export function CTInspectionReport({ transformer, testerName }: CTInspectionRepo
     setSaving(true);
     try {
       const payload = {
+        ...inspectionData,
         polarityResult, meggarPrimaryToSecondary, meggarPrimaryToEarth,
         meggarSecondaryToEarth, meggarCoreToCore, hvSecondaryWinding,
         hvPrimaryWinding, hvBetweenCore, ovitTest,
-        testerName, reportDate: new Date()
+        testerName, reportDate: new Date(),
+        selectedCoreIndex
       };
       const res = await axios.post(`/final/inspection/${encodeURIComponent(transformer.uniqueId)}`, payload, { withCredentials: true });
       if (res.data.success) {
         toast.success('Inspection report saved successfully.');
         setReadOnly(true);
+        load();
       } else {
         toast.error(res.data.message || 'Failed to save inspection report.');
       }
@@ -139,6 +217,11 @@ export function CTInspectionReport({ transformer, testerName }: CTInspectionRepo
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleBackFromCoreTest = () => {
+    setActiveCoreTest(null);
+    load();
   };
 
   const printRef = useRef<HTMLDivElement>(null);
@@ -151,6 +234,68 @@ export function CTInspectionReport({ transformer, testerName }: CTInspectionRepo
     setter(current === target ? '' : target);
   };
 
+  // --- SUBVIEW: ACTIVE CORE TEST ---
+  if (activeCoreTest) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between no-print">
+          <Button variant="outline" size="sm" onClick={handleBackFromCoreTest} className="gap-2">
+            &larr; Back to Inspection Report
+          </Button>
+          <Badge className="bg-indigo-100 text-indigo-700 capitalize">{activeCoreTest.coreType} Core Inspection</Badge>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg border border-slate-200">
+          {activeCoreTest.coreType === 'metering' && (
+            <SecondaryMeteringReport
+              transformer={transformer}
+              coreId={activeCoreTest.coreId}
+              coreNumber={activeCoreTest.coreNumber}
+              testerName={testerName}
+              onBack={handleBackFromCoreTest}
+              stage="inspection"
+              accuracyClass={activeCoreTest.accuracyClass}
+              primaryCurrent={activeCoreTest.primaryCurrent}
+              secondaryCurrent={activeCoreTest.secondaryCurrent}
+              order={orderObj}
+            />
+          )}
+
+          {activeCoreTest.coreType === 'ps' && (
+            <SecondaryPSReport
+              transformer={transformer}
+              coreId={activeCoreTest.coreId}
+              coreNumber={activeCoreTest.coreNumber}
+              testerName={testerName}
+              onBack={handleBackFromCoreTest}
+              stage="inspection"
+              accuracyClass={activeCoreTest.accuracyClass}
+              primaryCurrent={activeCoreTest.primaryCurrent}
+              secondaryCurrent={activeCoreTest.secondaryCurrent}
+              order={orderObj}
+            />
+          )}
+
+          {activeCoreTest.coreType === 'protection' && (
+            <SecondaryProtectionReport
+              transformer={transformer}
+              coreId={activeCoreTest.coreId}
+              coreNumber={activeCoreTest.coreNumber}
+              testerName={testerName}
+              onBack={handleBackFromCoreTest}
+              stage="inspection"
+              accuracyClass={activeCoreTest.accuracyClass}
+              primaryCurrent={activeCoreTest.primaryCurrent}
+              secondaryCurrent={activeCoreTest.secondaryCurrent}
+              order={orderObj}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // --- MAIN VIEW: CT INSPECTION REPORT ---
   return (
     <>
       <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll print:block print:w-auto print:overflow-visible print:bg-white print:p-0">
@@ -160,7 +305,7 @@ export function CTInspectionReport({ transformer, testerName }: CTInspectionRepo
         <div className="print-container w-[210mm] min-w-[210mm] print:w-full print:min-w-0 print:max-w-full secondary-print-page">
           {/* Toolbar */}
           <div className="flex items-center justify-between insp-no-print mb-4 w-full px-2">
-            <span className="text-sm font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg">Inspection Report</span>
+            <span className="text-sm font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg font-mono">Inspection Report</span>
             <div className="flex gap-2 items-center">
               {readOnly ? (
                 <Button variant="outline" size="sm" onClick={() => setReadOnly(false)} className="gap-2">
@@ -168,7 +313,7 @@ export function CTInspectionReport({ transformer, testerName }: CTInspectionRepo
                 </Button>
               ) : (
                 <Button variant="outline" size="sm" onClick={handleSave} disabled={saving}
-                  className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold">
+                   className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold">
                   <Save className="w-4 h-4" />{saving ? 'Saving...' : 'Save'}
                 </Button>
               )}
@@ -195,23 +340,80 @@ export function CTInspectionReport({ transformer, testerName }: CTInspectionRepo
                 <div><strong>Order No:</strong> {transformer.jobId || transformer.uniqueId || '-'}</div>
                 <div><strong>Client:</strong> {transformer.clientName || '-'}</div>
                 <div><strong>Unit No:</strong> {transformer.uniqueId || '-'}</div>
-                <div><strong>Class:</strong> {accuracyClass || '-'}</div>
+                <div><strong>Class:</strong> {selectedCore.accuracyClass || '-'}</div>
               </div>
               <div className="ae-banner">INSPECTION RECORD OF CURRENT TRANSFORMER</div>
             </header>
 
-            {/* Specification */}
+            {/* Specification & Core Selection Override */}
             <div className="ae-section-container">
               <ReportSectionTitle index={1} title="Inspection Record of Current Transformer" />
+
+              {!readOnly ? (
+                <div className="insp-no-print flex items-center gap-4 p-4 bg-slate-50 border border-slate-200 rounded-lg mb-4">
+                  <div className="w-64">
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Select Core for Specifications</label>
+                    <select
+                      className="w-full h-9 rounded-lg border border-slate-200 px-3 text-sm bg-white font-medium"
+                      value={selectedCoreIndex}
+                      onChange={(e) => setSelectedCoreIndex(Number(e.target.value))}
+                    >
+                      {cores.map((c: any, idx: number) => (
+                        <option key={idx} value={idx}>
+                          Core {c.coreNumber} ({c.coreType.toUpperCase()})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-5">Specifications are populated automatically from order core details.</p>
+                </div>
+              ) : null}
+
               <ReportSpecBox
                 items={[
                   { label: 'Specification', value: `${transformer.voltageRating || '33'} KV` },
-                  { label: 'CT Ratio', value: `${transformer.rating} / ${transformer.ratedSecondaryCurrent || '1'} A` },
-                  { label: 'Burden', value: `${transformer.burden || '30'} VA` },
-                  { label: 'Class', value: accuracyClass },
-                  { label: 'STC', value: transformer.stc || 'N/A' }
+                  { label: 'CT Ratio', value: currentRatio },
+                  { label: 'Burden', value: `${selectedCore.burden || transformer.burden || '30'} VA` },
+                  { label: 'Class', value: selectedCore.accuracyClass || '0.5' },
+                  { label: 'STC', value: selectedCore.stc || 'N/A' }
                 ]}
               />
+            </div>
+
+            {/* Core Test Status cards */}
+            <div className="ae-section-container mt-6 insp-no-print">
+              <ReportSectionTitle index={2} title="Inspection Core Test Status" />
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                <p className="text-sm font-semibold text-slate-700 mb-3">Perform and verify individual core test readings for this inspection report:</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {cores.map((core: any, index: number) => {
+                    const isTested = !!(inspectionData?.coreTests?.[core.coreId]);
+                    return (
+                      <div key={core.coreId} className="flex flex-col p-3 bg-white border border-slate-200 rounded-lg shadow-sm hover:border-slate-300 transition-all">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold uppercase text-slate-500">Core {core.coreNumber}</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isTested ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {isTested ? 'Tested' : 'Pending'}
+                          </span>
+                        </div>
+                        <span className="text-sm font-bold text-slate-800 capitalize">{core.coreType} Core</span>
+                        <span className="text-xs text-slate-500 font-mono mt-0.5">{core.coreId}</span>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-3 w-full border-indigo-600 text-indigo-600 hover:bg-indigo-50 font-semibold"
+                          onClick={() => {
+                            setActiveCoreTest(core);
+                          }}
+                        >
+                          {isTested ? 'Review readings' : 'Test core'}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             {/* Inspection Testing Table */}

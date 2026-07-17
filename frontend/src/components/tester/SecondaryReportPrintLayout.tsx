@@ -48,9 +48,9 @@ export function ReportHeader({
         <div><strong>Order No:</strong> {orderNo || '-'}</div>
         <div><strong>Client:</strong> {client || '-'}</div>
         <div><strong>Unit No:</strong> {unitNo || '-'}</div>
-        <div><strong>Class:</strong> {accuracyClass || '-'}</div>
+        {accuracyClass && <div><strong>Class:</strong> {accuracyClass}</div>}
       </div>
-      <div className="ae-banner">{getStageBannerTitle(stage)}</div>
+      {stage !== 'secondary' && <div className="ae-banner">{getStageBannerTitle(stage)}</div>}
     </header>
   );
 }

@@ -50,6 +50,20 @@ export function FinalTestReport({
     ? new Date(transformer.testHistory.final_test.reportDate).toLocaleDateString('en-GB')
     : new Date().toLocaleDateString('en-GB');
 
+  const generalRatio = (() => {
+    const orderObj = (transformer as any).fullOrder || (transformer as any).orderId;
+    if (orderObj?.ratio) {
+      if (Array.isArray(orderObj.ratio)) {
+        return orderObj.ratio.join(' - ');
+      }
+      return String(orderObj.ratio);
+    }
+    if (transformer.rating) {
+      return `${transformer.rating}/${transformer.ratedSecondaryCurrent || '1'} A`;
+    }
+    return 'N/A';
+  })();
+
   // Polarity Testing
   const [polarityResult, setPolarityResult] = useState('');
 
@@ -338,7 +352,7 @@ export function FinalTestReport({
                 <ReportSpecBox
                   items={[
                     { label: 'Specification', value: `${transformer.voltageRating || '33'} KV` },
-                    { label: 'CT Ratio', value: `${transformer.rating} / ${transformer.ratedSecondaryCurrent || '1'} A` },
+                    { label: 'CT Ratio', value: generalRatio },
                     { label: 'Burden', value: `${transformer.burden || '30'} VA` },
                     { label: 'Class', value: accuracyClass },
                     { label: 'STC', value: transformer.stc || 'N/A' }

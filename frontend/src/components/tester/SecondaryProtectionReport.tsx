@@ -384,6 +384,44 @@ export function SecondaryProtectionReport({
           compositeError: ''
         }));
 
+        if (stage === 'inspection') {
+          let currentInspectionData = transformer.inspectionData || {};
+          try {
+            const checkRes = await axios.get(`/final/inspection/${encodeURIComponent(transformer.uniqueId)}`, { withCredentials: true });
+            if (checkRes.data.success && checkRes.data.data) {
+              currentInspectionData = checkRes.data.data;
+            }
+          } catch (e) {
+            console.error("Failed to fetch latest inspection data in fetchLatestData (Protection)", e);
+          }
+          const savedResults = (currentInspectionData as any).coreTests?.[selectedCoreId];
+          if (savedResults && savedResults.protection_results) {
+            setTestResults(prev => prev.map((row, index) => {
+              let saved = savedResults.protection_results.find((r: any) => r.ratioValue === row.ratio);
+              if (!saved && savedResults.protection_results[index]) {
+                saved = savedResults.protection_results[index];
+              }
+              if (saved) {
+                const safeStr = (val: any) => (val !== undefined && val !== null) ? String(val) : '';
+                return {
+                  ...row,
+                  ratioError100: safeStr(saved.ratioError100 || saved.ratioError),
+                  phaseError: safeStr(saved.phaseError),
+                  resistance: safeStr(saved.resistance),
+                  alf: safeStr(saved.alf),
+                  secondaryLimitingVoltage: safeStr(saved.secondaryLimitingVoltage || saved.secondaryLimitingVtg),
+                  excitationCurrent: safeStr(saved.excitationCurrent || saved.excitingCurrent),
+                  compositeError: safeStr(saved.compositeError)
+                };
+              }
+              return row;
+            }));
+          } else {
+            setTestResults(initialBlank);
+          }
+          return;
+        }
+
         if (transformer.isDummy) {
           const res = await axios.get(`/secondary-core-tests/protection/${selectedCoreId}`, { withCredentials: true });
           if (res.data?.success && res.data.data) {
@@ -715,7 +753,28 @@ export function SecondaryProtectionReport({
 
       
       let response;
-      if (isFailedSection && failedTransformerId) {
+      if (stage === 'inspection') {
+        let currentInspectionData = {};
+        try {
+          const checkRes = await axios.get(`/final/inspection/${encodeURIComponent(transformer.uniqueId)}`, { withCredentials: true });
+          if (checkRes.data.success && checkRes.data.data) {
+            currentInspectionData = checkRes.data.data;
+          }
+        } catch (e) {
+          console.error("Failed to load existing inspection data for merge, using prop defaults", e);
+          currentInspectionData = transformer.inspectionData || {};
+        }
+
+        const updatedCoreTests = {
+            ...((currentInspectionData as any).coreTests || {}),
+            [selectedCoreId]: payload
+        };
+        const updatedInspectionData = {
+            ...currentInspectionData,
+            coreTests: updatedCoreTests
+        };
+        response = await axios.post(`/final/inspection/${encodeURIComponent(transformer.uniqueId)}`, updatedInspectionData, { withCredentials: true });
+      } else if (isFailedSection && failedTransformerId) {
         // Save to retest-save endpoint
         response = await axios.put(`/failed-transformers/${failedTransformerId}/retest-save`, {
             treatedReadings: payload.protection_results,

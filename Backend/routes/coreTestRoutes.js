@@ -98,6 +98,9 @@ router.put('/approve/:orderId', isAuthenticated, async (req, res) => {
                 });
             } else if (readyMetering.length > 0) {
                 const firstReady = readyMetering[0];
+                const { PreTestBatchModel } = require('../models/PreTestBatchModel');
+                const batch = await PreTestBatchModel.findOne({ batchId: firstReady.batchId }).lean();
+
                 const tableData = readyMetering.map(core => ({
                     date: formatDate(core.testedAt || core.createdAt),
                     vendorCoreNo: core.testResults?.vendorCoreNo || core.batchId || '',
@@ -109,13 +112,13 @@ router.put('/approve/:orderId', isAuthenticated, async (req, res) => {
                     coreName: 'Metering',
                     coreType: 'Metering',
                     testSetup: {
-                        coreSizeMm: firstReady.testSetup?.coreSizeMm || { id: '', od: '', height: '' },
-                        turnsUsed: firstReady.testSetup?.turnsUsed || firstReady.specifications?.turns || '',
-                        areaSqCm: firstReady.testSetup?.areaSqCm || '',
-                        mmp: firstReady.testSetup?.mmp || '',
-                        coreMaterial: firstReady.testSetup?.coreMaterial || ''
+                        coreSizeMm: batch?.testSetup?.coreSizeMm || firstReady.testSetup?.coreSizeMm || { id: '', od: '', height: '' },
+                        turnsUsed: batch?.testSetup?.turnsUsed || firstReady.testSetup?.turnsUsed || firstReady.specifications?.turns || '',
+                        areaSqCm: batch?.testSetup?.areaSqCm || firstReady.testSetup?.areaSqCm || '',
+                        mmp: batch?.testSetup?.mmp || firstReady.testSetup?.mmp || '',
+                        coreMaterial: batch?.testSetup?.coreMaterial || firstReady.testSetup?.coreMaterial || ''
                     },
-                    testLimits: firstReady.testLimits || { bsatGauss: [], setMilliVolt: [], leLimitMa: [] },
+                    testLimits: batch?.testLimits || firstReady.testLimits || { bsatGauss: [], setMilliVolt: [], leLimitMa: [] },
                     testedBy: firstReady.testedBy || firstReady.testResults?.testedBy || 'Pre-Tested',
                     tableData
                 });
@@ -139,7 +142,7 @@ router.put('/approve/:orderId', isAuthenticated, async (req, res) => {
                                 date: formatDate(core.testedAt || core.createdAt),
                                 vendorCoreNo: core.testResults?.vendorCoreNo || core.batchId || '',
                                 internalCoreNo: core.coreId,
-                                value: core.testResults?.value || core.testResults?.singleValue || '',
+                                value: core.testResults?.value || core.testResults?.singleValue || core.testResults?.measuredMa?.[0] || '',
                                 result: core.testResults?.result || 'P'
                             });
                         }
@@ -156,24 +159,27 @@ router.put('/approve/:orderId', isAuthenticated, async (req, res) => {
                 });
             } else if (readyPs.length > 0) {
                 const firstReady = readyPs[0];
+                const { PreTestBatchModel } = require('../models/PreTestBatchModel');
+                const batch = await PreTestBatchModel.findOne({ batchId: firstReady.batchId }).lean();
+
                 const tableData = readyPs.map(core => ({
                     date: formatDate(core.testedAt || core.createdAt),
                     vendorCoreNo: core.testResults?.vendorCoreNo || core.batchId || '',
                     internalCoreNo: core.coreId,
-                    value: core.testResults?.value || core.testResults?.singleValue || '',
+                    value: core.testResults?.value || core.testResults?.singleValue || core.testResults?.measuredMa?.[0] || '',
                     result: core.testResults?.result || 'P'
                 }));
                 allCores.push({
                     coreName: 'PS',
                     coreType: 'PS',
                     testSetup: {
-                        coreSizeMm: firstReady.testSetup?.coreSizeMm || { id: '', od: '', height: '' },
-                        turnsUsed: firstReady.testSetup?.turnsUsed || firstReady.specifications?.turns || '',
-                        areaSqCm: firstReady.testSetup?.areaSqCm || '',
-                        mmp: firstReady.testSetup?.mmp || '',
-                        coreMaterial: firstReady.testSetup?.coreMaterial || ''
+                        coreSizeMm: batch?.testSetup?.coreSizeMm || firstReady.testSetup?.coreSizeMm || { id: '', od: '', height: '' },
+                        turnsUsed: batch?.testSetup?.turnsUsed || firstReady.testSetup?.turnsUsed || firstReady.specifications?.turns || '',
+                        areaSqCm: batch?.testSetup?.areaSqCm || firstReady.testSetup?.areaSqCm || '',
+                        mmp: batch?.testSetup?.mmp || firstReady.testSetup?.mmp || '',
+                        coreMaterial: batch?.testSetup?.coreMaterial || firstReady.testSetup?.coreMaterial || ''
                     },
-                    testSpecification: firstReady.testLimits || firstReady.testSpecification || { fluxTesla: '', voltageV: '', iexLimitMa: '' },
+                    testSpecification: batch?.testLimits || batch?.testSpecification || firstReady.testLimits || firstReady.testSpecification || { fluxTesla: '', voltageV: '', iexLimitMa: '' },
                     testedBy: firstReady.testedBy || firstReady.testResults?.testedBy || 'Pre-Tested',
                     tableData
                 });
@@ -197,7 +203,7 @@ router.put('/approve/:orderId', isAuthenticated, async (req, res) => {
                                 date: formatDate(core.testedAt || core.createdAt),
                                 vendorCoreNo: core.testResults?.vendorCoreNo || core.batchId || '',
                                 internalCoreNo: core.coreId,
-                                value: core.testResults?.value || core.testResults?.singleValue || '',
+                                value: core.testResults?.value || core.testResults?.singleValue || core.testResults?.measuredMa?.[0] || '',
                                 result: core.testResults?.result || 'P'
                             });
                         }
@@ -214,24 +220,27 @@ router.put('/approve/:orderId', isAuthenticated, async (req, res) => {
                 });
             } else if (readyProtection.length > 0) {
                 const firstReady = readyProtection[0];
+                const { PreTestBatchModel } = require('../models/PreTestBatchModel');
+                const batch = await PreTestBatchModel.findOne({ batchId: firstReady.batchId }).lean();
+
                 const tableData = readyProtection.map(core => ({
                     date: formatDate(core.testedAt || core.createdAt),
                     vendorCoreNo: core.testResults?.vendorCoreNo || core.batchId || '',
                     internalCoreNo: core.coreId,
-                    value: core.testResults?.value || core.testResults?.singleValue || '',
+                    value: core.testResults?.value || core.testResults?.singleValue || core.testResults?.measuredMa?.[0] || '',
                     result: core.testResults?.result || 'P'
                 }));
                 allCores.push({
                     coreName: 'Protection',
                     coreType: 'Protection',
                     testSetup: {
-                        coreSizeMm: firstReady.testSetup?.coreSizeMm || { id: '', od: '', height: '' },
-                        turnsUsed: firstReady.testSetup?.turnsUsed || firstReady.specifications?.turns || '',
-                        areaSqCm: firstReady.testSetup?.areaSqCm || '',
-                        mmp: firstReady.testSetup?.mmp || '',
-                        coreMaterial: firstReady.testSetup?.coreMaterial || ''
+                        coreSizeMm: batch?.testSetup?.coreSizeMm || firstReady.testSetup?.coreSizeMm || { id: '', od: '', height: '' },
+                        turnsUsed: batch?.testSetup?.turnsUsed || firstReady.testSetup?.turnsUsed || firstReady.specifications?.turns || '',
+                        areaSqCm: batch?.testSetup?.areaSqCm || firstReady.testSetup?.areaSqCm || '',
+                        mmp: batch?.testSetup?.mmp || firstReady.testSetup?.mmp || '',
+                        coreMaterial: batch?.testSetup?.coreMaterial || firstReady.testSetup?.coreMaterial || ''
                     },
-                    testSpecification: firstReady.testLimits || firstReady.testSpecification || { fluxTesla: '', voltageV: '', iexLimitMa: '' },
+                    testSpecification: batch?.testLimits || batch?.testSpecification || firstReady.testLimits || firstReady.testSpecification || { fluxTesla: '', voltageV: '', iexLimitMa: '' },
                     testedBy: firstReady.testedBy || firstReady.testResults?.testedBy || 'Pre-Tested',
                     tableData
                 });
@@ -362,6 +371,98 @@ router.get('/report/:jobId', isAuthenticated, async (req, res) => {
 
         if (!order) {
             return res.status(404).json({ error: "Order not found" });
+        }
+
+        if (order && Array.isArray(order.reportData) && order.reportData.length > 0) {
+            let modified = false;
+            const updatedReportData = [...order.reportData];
+
+            for (let idx = 0; idx < updatedReportData.length; idx++) {
+                const core = updatedReportData[idx];
+                const ReadyTransformerModel = require('../models/ReadyTransformerModel');
+                const { PreTestBatchModel } = require('../models/PreTestBatchModel');
+
+                if (core.coreType === 'Metering') {
+                    // Heal Limits if missing
+                    if (!core.testLimits || !core.testLimits.bsatGauss || core.testLimits.bsatGauss.length === 0) {
+                        let readyCore = null;
+                        for (const row of (core.tableData || [])) {
+                            if (row.internalCoreNo) {
+                                readyCore = await ReadyTransformerModel.findOne({ coreId: row.internalCoreNo }).lean();
+                                if (readyCore) break;
+                            }
+                        }
+                        if (readyCore) {
+                            const batch = await PreTestBatchModel.findOne({ batchId: readyCore.batchId }).lean();
+                            if (batch && batch.testLimits) {
+                                core.testLimits = batch.testLimits;
+                                core.testSetup = {
+                                    coreSizeMm: batch.testSetup?.coreSizeMm || core.testSetup?.coreSizeMm || { id: '', od: '', height: '' },
+                                    turnsUsed: batch.testSetup?.turnsUsed || core.testSetup?.turnsUsed || '',
+                                    areaSqCm: batch.testSetup?.areaSqCm || core.testSetup?.areaSqCm || '',
+                                    mmp: batch.testSetup?.mmp || core.testSetup?.mmp || '',
+                                    coreMaterial: batch.testSetup?.coreMaterial || core.testSetup?.coreMaterial || ''
+                                };
+                                modified = true;
+                            }
+                        }
+                    }
+
+                    // Heal row-level measuredMa if missing or empty
+                    for (const row of (core.tableData || [])) {
+                        if (row.internalCoreNo && (!row.measuredMa || row.measuredMa.length === 0)) {
+                            const readyCore = await ReadyTransformerModel.findOne({ coreId: row.internalCoreNo }).lean();
+                            if (readyCore && readyCore.testResults) {
+                                row.measuredMa = readyCore.testResults.measuredMa || [];
+                                modified = true;
+                            }
+                        }
+                    }
+
+                } else if (core.coreType === 'PS' || core.coreType === 'Protection') {
+                    // Heal Specification if missing
+                    if (!core.testSpecification || !core.testSpecification.fluxTesla) {
+                        let readyCore = null;
+                        for (const row of (core.tableData || [])) {
+                            if (row.internalCoreNo) {
+                                readyCore = await ReadyTransformerModel.findOne({ coreId: row.internalCoreNo }).lean();
+                                if (readyCore) break;
+                            }
+                        }
+                        if (readyCore) {
+                            const batch = await PreTestBatchModel.findOne({ batchId: readyCore.batchId }).lean();
+                            if (batch && batch.testLimits) {
+                                core.testSpecification = batch.testLimits || batch.testSpecification || { fluxTesla: '', voltageV: '', iexLimitMa: '' };
+                                core.testSetup = {
+                                    coreSizeMm: batch.testSetup?.coreSizeMm || core.testSetup?.coreSizeMm || { id: '', od: '', height: '' },
+                                    turnsUsed: batch.testSetup?.turnsUsed || core.testSetup?.turnsUsed || '',
+                                    areaSqCm: batch.testSetup?.areaSqCm || core.testSetup?.areaSqCm || '',
+                                    mmp: batch.testSetup?.mmp || core.testSetup?.mmp || '',
+                                    coreMaterial: batch.testSetup?.coreMaterial || core.testSetup?.coreMaterial || ''
+                                };
+                                modified = true;
+                            }
+                        }
+                    }
+
+                    // Heal row-level value if missing, empty, or '-'
+                    for (const row of (core.tableData || [])) {
+                        if (row.internalCoreNo && (!row.value || row.value === '-' || row.value === '')) {
+                            const readyCore = await ReadyTransformerModel.findOne({ coreId: row.internalCoreNo }).lean();
+                            if (readyCore && readyCore.testResults) {
+                                row.value = String(readyCore.testResults.value || readyCore.testResults.singleValue || readyCore.testResults.measuredMa?.[0] || '-');
+                                modified = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (modified) {
+                await OrderModel.findByIdAndUpdate(order._id, { $set: { reportData: updatedReportData } });
+                const updatedOrder = await OrderModel.findById(order._id).lean();
+                return res.status(200).json(updatedOrder);
+            }
         }
 
         res.status(200).json(order);

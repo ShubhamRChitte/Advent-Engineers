@@ -3,224 +3,154 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
-import { ChevronRight, FileText, Search, Printer } from 'lucide-react';
+import { ChevronRight, Search, PlayCircle } from 'lucide-react';
 import axios from '@/utils/axiosConfig';
 import { Skeleton } from '../ui/skeleton';
 import { CTInspectionReport } from './CTInspectionReport';
-
-interface CompletedTransformer {
-    _id: string;
-    jobId: string;
-    uniqueId: string;
-    currentStage: string;
-    orderId?: any; // Populated Order Object
-    testHistory?: {
-        final_test?: {
-            date: string;
-            testedBy: string;
-            status: string;
-            timestamp: string;
-            [key: string]: any;
-        };
-    };
-    cores: any[];
-}
+import { toast } from 'sonner';
 
 interface CTInspectionModuleProps {
     userName?: string;
 }
 
 export function CTInspectionModule({ userName }: CTInspectionModuleProps) {
-    // Data State
-    const [reports, setReports] = useState<CompletedTransformer[]>([]);
+    const [transformers, setTransformers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [groupByJob, setGroupByJob] = useState<Record<string, CompletedTransformer[]>>({});
-
-    // UI State
-    const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
-    const [selectedTransformer, setSelectedTransformer] = useState<CompletedTransformer | null>(null);
+    const [selectedTransformer, setSelectedTransformer] = useState<any | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
-        fetchReports();
+        fetchActiveTransformers();
     }, []);
 
-    const fetchReports = async () => {
+    const fetchActiveTransformers = async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get(`/final/reports`, {
+            const response = await axios.get(`/final/active`, {
                 withCredentials: true,
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
-
-            const data = response.data;
-            setReports(data);
-
-            // Group by Job ID
-            const grouped: Record<string, CompletedTransformer[]> = {};
-            data.forEach((t: CompletedTransformer) => {
-                const jId = t.jobId || 'Unknown Job';
-                if (!grouped[jId]) {
-                    grouped[jId] = [];
-                }
-                grouped[jId].push(t);
-            });
-            setGroupByJob(grouped);
-
+            setTransformers(response.data || []);
         } catch (error) {
-            console.error("Error fetching reports:", error);
+            console.error("Error fetching active final transformers:", error);
+            toast.error("Failed to fetch transformers.");
         } finally {
             setLoading(false);
         }
     };
 
-    // --- LEVEL 3: REPORT VIEW ---
+    // Filter Logic
+    const filteredTransformers = transformers.filter(t => {
+        const query = searchQuery.toLowerCase().trim();
+        if (!query) return true;
+        return (
+            t.uniqueId?.toLowerCase().includes(query) ||
+            t.jobId?.toLowerCase().includes(query) ||
+            t.orderId?.clientName?.toLowerCase().includes(query) ||
+            t.orderId?.transformerName?.toLowerCase().includes(query)
+        );
+    });
+
+    // --- LEVEL 2: ACTIVE TEST REPORT VIEW ---
     if (selectedTransformer) {
         return (
-            <div>
+            <div className="space-y-6">
                 {/* Toolbar */}
                 <div className="flex items-center justify-between no-print mb-6">
-                    <Button variant="outline" size="sm" onClick={() => setSelectedTransformer(null)} className="gap-2">
+                    <Button variant="outline" size="sm" onClick={() => {
+                        setSelectedTransformer(null);
+                        fetchActiveTransformers();
+                    }} className="gap-2">
                         <ChevronRight className="w-4 h-4 rotate-180" />
-                        Back to Transformers
+                        Back to List
                     </Button>
                     <Badge className="bg-indigo-100 text-indigo-700 mt-1 self-center">Inspection Mode</Badge>
                 </div>
 
-                <CTInspectionReport
-                    transformer={selectedTransformer as any}
-                    testerName={userName || 'Tester'}
-                />
+                <div className="bg-white p-6 rounded-lg shadow-sm print:p-0 print:shadow-none print:bg-transparent">
+                    <CTInspectionReport
+                        transformer={selectedTransformer}
+                        testerName={userName || 'Tester'}
+                    />
+                </div>
             </div>
         );
     }
 
-    // --- LEVEL 2: TRANSFORMERS LIST (For Selected Order) ---
-    if (selectedJobId) {
-        const jobTransformers = groupByJob[selectedJobId] || [];
-        const clientName = jobTransformers[0]?.orderId?.clientName || 'Unknown Client';
-
-        return (
-            <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                    <Button variant="outline" size="sm" onClick={() => setSelectedJobId(null)} className="gap-2">
-                        <ChevronRight className="w-4 h-4 rotate-180" />
-                        Back to Orders
-                    </Button>
-                </div>
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-800">Transformers for {selectedJobId}</h2>
-                    <p className="text-gray-500 mt-1">{clientName}</p>
-                </div>
-
-                <Card className="overflow-hidden border border-gray-200">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase">
-                            <tr>
-                                <th className="p-4 font-medium">Transformer ID</th>
-                                <th className="p-4 font-medium text-center">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 bg-white">
-                            {jobTransformers.map((t) => (
-                                <tr key={t._id} className="hover:bg-blue-50/50 transition-colors">
-                                    <td className="p-4 font-medium text-gray-800">{t.uniqueId}</td>
-                                    <td className="p-4 text-center">
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100 gap-2 border border-indigo-200"
-                                            onClick={() => setSelectedTransformer(t)}
-                                        >
-                                            <FileText className="w-4 h-4" />
-                                            Open Inspection Report
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </Card>
-            </div>
-        );
-    }
-
-    // --- LEVEL 1: ORDERS LIST ---
-    const jobIds = Object.keys(groupByJob);
-
-    // --- FILTER LOGIC ---
-    let filteredJobIds = jobIds;
-
-    if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase().trim();
-        filteredJobIds = filteredJobIds.filter(jobId => {
-            if (jobId.toLowerCase().includes(query)) return true;
-            const jobTransformers = groupByJob[jobId] || [];
-            return jobTransformers.some(tf => tf.uniqueId?.toLowerCase().includes(query));
-        });
-    }
-
-    if (loading) {
-        return (
-            <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-2xl font-bold text-gray-800">CT Inspection</h2>
-                </div>
-                <Skeleton className="h-40 w-full" />
-            </div>
-        );
-    }
-
+    // --- LEVEL 1: ACTIVE TRANSFORMERS LIST ---
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="text-2xl font-bold text-gray-800">CT Inspection Module</h2>
-                <p className="text-gray-500 mt-1">Select a completed CT transformer to perform the quality inspection report</p>
+                <h2 className="text-2xl font-bold text-gray-800">Final Test Inspection</h2>
+                <p className="text-gray-500 mt-1">Select a transformer that has come for final testing to perform the final test report.</p>
             </div>
 
             <div className="relative max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
-                    placeholder="Search Job ID or Transformer ID..."
+                    placeholder="Search Job ID, Transformer ID, Client..."
                     className="pl-9 w-full bg-white"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
 
-            {filteredJobIds.length === 0 ? (
-                <Card className="p-8 text-center text-gray-500">
-                    No completed CT transformers found.
+            {loading ? (
+                <div className="space-y-4">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                </div>
+            ) : filteredTransformers.length === 0 ? (
+                <Card className="p-8 text-center text-gray-500 border border-gray-200">
+                    No transformers found in final testing stage.
                 </Card>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredJobIds.map((jobId) => {
-                        const jobTransformers = groupByJob[jobId] || [];
-                        const clientName = jobTransformers[0]?.orderId?.clientName || 'Unknown Client';
-
-                        return (
-                            <Card key={jobId} className="p-6 hover:shadow-md transition-all border border-gray-200 flex flex-col justify-between">
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-start">
-                                        <h3 className="font-bold text-lg text-gray-800">{jobId}</h3>
-                                        <Badge className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
-                                            {jobTransformers.length} Unit(s)
-                                        </Badge>
-                                    </div>
-                                    <p className="text-sm text-gray-500 font-medium">{clientName}</p>
-                                </div>
-
-                                <Button
-                                    className="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
-                                    onClick={() => setSelectedJobId(jobId)}
-                                >
-                                    View Units <ChevronRight className="w-4 h-4" />
-                                </Button>
-                            </Card>
-                        );
-                    })}
-                </div>
+                <Card className="overflow-hidden border border-gray-200 shadow-sm bg-white">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left border-collapse">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-xs font-semibold">
+                                <tr>
+                                    <th className="p-4">Transformer ID</th>
+                                    <th className="p-4">Job ID</th>
+                                    <th className="p-4">Client Name</th>
+                                    <th className="p-4">Transformer Name</th>
+                                    <th className="p-4 text-center">Stage</th>
+                                    <th className="p-4 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 bg-white">
+                                {filteredTransformers.map((t) => (
+                                    <tr 
+                                        key={t._id} 
+                                        className="hover:bg-indigo-50/30 transition-colors cursor-pointer"
+                                        onClick={() => setSelectedTransformer(t)}
+                                    >
+                                        <td className="p-4 font-semibold text-slate-900">{t.uniqueId}</td>
+                                        <td className="p-4 text-slate-600 font-medium">{t.jobId || 'N/A'}</td>
+                                        <td className="p-4 text-slate-600">{t.orderId?.clientName || 'N/A'}</td>
+                                        <td className="p-4 text-slate-600">{t.orderId?.transformerName || 'N/A'}</td>
+                                        <td className="p-4 text-center">
+                                            <Badge className="bg-amber-50 text-amber-700 border border-amber-200">
+                                                Final Testing
+                                            </Badge>
+                                        </td>
+                                        <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                            <button
+                                                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-lg transition-colors shadow-sm"
+                                                onClick={() => setSelectedTransformer(t)}
+                                            >
+                                                <PlayCircle className="w-4 h-4" />
+                                                Test
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
             )}
         </div>
     );

@@ -127,18 +127,17 @@ export function PTInspectionModule({ user }: PTInspectionModuleProps) {
                         </thead>
                         <tbody className="divide-y divide-gray-100 bg-white">
                             {jobTransformers.map((t) => (
-                                <tr key={t._id} className="hover:bg-blue-50/50 transition-colors">
-                                    <td className="p-4 font-medium text-gray-800">{t.uniqueId}</td>
+                                <tr 
+                                    key={t._id} 
+                                    className="hover:bg-indigo-50/40 transition-colors cursor-pointer"
+                                    onClick={() => setSelectedTransformer(t)}
+                                >
+                                    <td className="p-4 font-semibold text-gray-800">{t.uniqueId}</td>
                                     <td className="p-4 text-center">
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100 gap-2 border border-indigo-200"
-                                            onClick={() => setSelectedTransformer(t)}
-                                        >
+                                        <span className="inline-flex items-center text-indigo-600 hover:text-indigo-800 font-semibold gap-2 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg transition-colors hover:bg-indigo-100">
                                             <FileText className="w-4 h-4" />
                                             Open Inspection Report
-                                        </Button>
+                                        </span>
                                     </td>
                                 </tr>
                             ))}
@@ -203,10 +202,14 @@ export function PTInspectionModule({ user }: PTInspectionModuleProps) {
                         const clientName = jobTransformers[0]?.orderId?.clientName || 'Unknown Client';
 
                         return (
-                            <Card key={jobId} className="p-6 hover:shadow-md transition-all border border-gray-200 flex flex-col justify-between">
+                            <Card 
+                                key={jobId} 
+                                className="p-6 hover:shadow-lg transition-all border border-gray-200 flex flex-col justify-between cursor-pointer hover:border-indigo-400 bg-white group"
+                                onClick={() => setSelectedJobId(jobId)}
+                            >
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-start">
-                                        <h3 className="font-bold text-lg text-gray-800">{jobId}</h3>
+                                        <h3 className="font-bold text-lg text-gray-800 group-hover:text-indigo-600 transition-colors">{jobId}</h3>
                                         <Badge className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
                                             {jobTransformers.length} Unit(s)
                                         </Badge>
@@ -214,12 +217,9 @@ export function PTInspectionModule({ user }: PTInspectionModuleProps) {
                                     <p className="text-sm text-gray-500 font-medium">{clientName}</p>
                                 </div>
 
-                                <Button
-                                    className="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
-                                    onClick={() => setSelectedJobId(jobId)}
-                                >
+                                <div className="mt-6 w-full bg-indigo-600 group-hover:bg-indigo-700 text-white gap-2 h-10 rounded-lg flex items-center justify-center font-semibold transition-colors">
                                     View Units <ChevronRight className="w-4 h-4" />
-                                </Button>
+                                </div>
                             </Card>
                         );
                     })}

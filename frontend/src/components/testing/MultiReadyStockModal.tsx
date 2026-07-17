@@ -159,11 +159,7 @@ export function MultiReadyStockModal({
 
                     {/* Specifications Section */}
                     {core.specifications && (
-                      <div className="grid grid-cols-2 gap-2 text-xs border-t pt-3 border-slate-100">
-                        <div>
-                          <span className="text-slate-400">Ratio</span>
-                          <p className="font-bold text-slate-700">{core.specifications.ratio || '-'}</p>
-                        </div>
+                      <div className="grid grid-cols-1 gap-2 text-xs border-t pt-3 border-slate-100">
                         <div>
                           <span className="text-slate-400">Turns</span>
                           <p className="font-bold text-slate-700">{core.specifications.turns || '-'}</p>
