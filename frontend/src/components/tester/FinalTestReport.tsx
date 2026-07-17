@@ -22,6 +22,7 @@ interface FinalTestReportProps {
   onApprove?: () => void;
   readOnly?: boolean;
   onNext?: () => void;
+  onSaveSuccess?: () => void;
 }
 
 export function FinalTestReport({
@@ -31,6 +32,7 @@ export function FinalTestReport({
   onApprove,
   readOnly = false,
   onNext,
+  onSaveSuccess,
 }: FinalTestReportProps) {
   // ── CT Delay Timer (tracking-only, non-blocking) ─────────────────────────
   const { timeLeftMs, isOverdue, expectedMinutes, endTimer } = useCTTimer({
@@ -73,15 +75,15 @@ export function FinalTestReport({
   useEffect(() => {
     if (transformer.testHistory?.final_test) {
       const history = transformer.testHistory.final_test;
-      if (history.polarityResult) setPolarityResult(history.polarityResult);
-      if (history.meggarPrimaryToSecondary) setMeggarPrimaryToSecondary(history.meggarPrimaryToSecondary);
-      if (history.meggarPrimaryToEarth) setMeggarPrimaryToEarth(history.meggarPrimaryToEarth);
-      if (history.meggarSecondaryToEarth) setMeggarSecondaryToEarth(history.meggarSecondaryToEarth);
-      if (history.meggarCoreToCore) setMeggarCoreToCore(history.meggarCoreToCore);
-      if (history.hvSecondaryWinding) setHvSecondaryWinding(history.hvSecondaryWinding);
-      if (history.hvPrimaryWinding) setHvPrimaryWinding(history.hvPrimaryWinding);
-      if (history.hvBetweenCore) setHvBetweenCore(history.hvBetweenCore);
-      if (history.ovitTest) setOvitTest(history.ovitTest);
+      setPolarityResult(history.polarityResult || '');
+      setMeggarPrimaryToSecondary(history.meggarPrimaryToSecondary || '');
+      setMeggarPrimaryToEarth(history.meggarPrimaryToEarth || '');
+      setMeggarSecondaryToEarth(history.meggarSecondaryToEarth || '');
+      setMeggarCoreToCore(history.meggarCoreToCore || '');
+      setHvSecondaryWinding(history.hvSecondaryWinding || '');
+      setHvPrimaryWinding(history.hvPrimaryWinding || '');
+      setHvBetweenCore(history.hvBetweenCore || '');
+      setOvitTest(history.ovitTest || '');
     }
   }, [transformer]);
 
@@ -175,6 +177,7 @@ export function FinalTestReport({
 
       if (response.data.success) {
         toast.success("Final readings saved successfully!");
+        if (onSaveSuccess) onSaveSuccess();
         return true;
       }
       return false;
@@ -267,7 +270,24 @@ export function FinalTestReport({
                 <ArrowLeft className="w-4 h-4" />
                 Back
               </Button>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                {!readOnly && (
+                  <Button
+                    onClick={() => handleSave()}
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold"
+                  >
+                    <Save className="w-4 h-4" />
+                    Save
+                  </Button>
+                )}
+                {!readOnly && comprehensiveComplete && !coresComplete && (
+                  <div className="flex items-center text-amber-600 font-semibold gap-2 border border-amber-200 bg-amber-50 px-3 py-1.5 rounded-lg text-xs animate-pulse">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    Core Tests Pending
+                  </div>
+                )}
                 {!readOnly && hasFailures && (
                   <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2">
                     <AlertTriangle className="w-4 h-4" /> Add to Failed Transformer
@@ -346,16 +366,38 @@ export function FinalTestReport({
                         2. Polarity Testing
                       </td>
                       <td className="p-1">
-                        <select
-                          className={`input-field w-full text-center h-8 ${polarityResult === 'Fail' ? 'invalid-reading' : ''}`}
-                          value={polarityResult}
-                          onChange={(e) => setPolarityResult(e.target.value)}
-                          disabled={readOnly}
-                        >
-                          <option value="">Select Result</option>
-                          <option value="Pass">Pass</option>
-                          <option value="Fail">Fail</option>
-                        </select>
+                        {readOnly ? (
+                          <div className="text-center font-bold text-xs">
+                            {polarityResult === 'Pass' && <span className="text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200">Pass</span>}
+                            {polarityResult === 'Fail' && <span className="text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">Fail</span>}
+                            {!polarityResult && <span className="text-gray-400">-</span>}
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 justify-center py-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setPolarityResult(polarityResult === 'Pass' ? '' : 'Pass')}
+                              className={`h-8 px-4 text-xs font-bold rounded-lg border transition-all ${
+                                polarityResult === 'Pass'
+                                  ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              Pass
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPolarityResult(polarityResult === 'Fail' ? '' : 'Fail')}
+                              className={`h-8 px-4 text-xs font-bold rounded-lg border transition-all ${
+                                polarityResult === 'Fail'
+                                  ? 'bg-red-600 border-red-600 text-white shadow-sm'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              Fail
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
 
@@ -436,16 +478,38 @@ export function FinalTestReport({
                         4. H.V. Test on Secondary Winding
                       </td>
                       <td className="p-1">
-                        <select
-                          className={`input-field w-full text-center h-8 ${hvSecondaryWinding === 'Fail' ? 'invalid-reading' : ''}`}
-                          value={hvSecondaryWinding}
-                          onChange={(e) => setHvSecondaryWinding(e.target.value)}
-                          disabled={readOnly}
-                        >
-                          <option value="">Select Result</option>
-                          <option value="Pass">Pass</option>
-                          <option value="Fail">Fail</option>
-                        </select>
+                        {readOnly ? (
+                          <div className="text-center font-bold text-xs">
+                            {hvSecondaryWinding === 'Pass' && <span className="text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200">Pass</span>}
+                            {hvSecondaryWinding === 'Fail' && <span className="text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">Fail</span>}
+                            {!hvSecondaryWinding && <span className="text-gray-400">-</span>}
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 justify-center py-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setHvSecondaryWinding(hvSecondaryWinding === 'Pass' ? '' : 'Pass')}
+                              className={`h-8 px-4 text-xs font-bold rounded-lg border transition-all ${
+                                hvSecondaryWinding === 'Pass'
+                                  ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              Pass
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setHvSecondaryWinding(hvSecondaryWinding === 'Fail' ? '' : 'Fail')}
+                              className={`h-8 px-4 text-xs font-bold rounded-lg border transition-all ${
+                                hvSecondaryWinding === 'Fail'
+                                  ? 'bg-red-600 border-red-600 text-white shadow-sm'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              Fail
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
 
@@ -455,16 +519,38 @@ export function FinalTestReport({
                         5. H.V. Test on Primary Winding
                       </td>
                       <td className="p-1">
-                        <select
-                          className={`input-field w-full text-center h-8 ${hvPrimaryWinding === 'Fail' ? 'invalid-reading' : ''}`}
-                          value={hvPrimaryWinding}
-                          onChange={(e) => setHvPrimaryWinding(e.target.value)}
-                          disabled={readOnly}
-                        >
-                          <option value="">Select Result</option>
-                          <option value="Pass">Pass</option>
-                          <option value="Fail">Fail</option>
-                        </select>
+                        {readOnly ? (
+                          <div className="text-center font-bold text-xs">
+                            {hvPrimaryWinding === 'Pass' && <span className="text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200">Pass</span>}
+                            {hvPrimaryWinding === 'Fail' && <span className="text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">Fail</span>}
+                            {!hvPrimaryWinding && <span className="text-gray-400">-</span>}
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 justify-center py-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setHvPrimaryWinding(hvPrimaryWinding === 'Pass' ? '' : 'Pass')}
+                              className={`h-8 px-4 text-xs font-bold rounded-lg border transition-all ${
+                                hvPrimaryWinding === 'Pass'
+                                  ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              Pass
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setHvPrimaryWinding(hvPrimaryWinding === 'Fail' ? '' : 'Fail')}
+                              className={`h-8 px-4 text-xs font-bold rounded-lg border transition-all ${
+                                hvPrimaryWinding === 'Fail'
+                                  ? 'bg-red-600 border-red-600 text-white shadow-sm'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              Fail
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
 
@@ -474,16 +560,38 @@ export function FinalTestReport({
                         6. H.V. Test between Core
                       </td>
                       <td className="p-1">
-                        <select
-                          className={`input-field w-full text-center h-8 ${hvBetweenCore === 'Fail' ? 'invalid-reading' : ''}`}
-                          value={hvBetweenCore}
-                          onChange={(e) => setHvBetweenCore(e.target.value)}
-                          disabled={readOnly}
-                        >
-                          <option value="">Select Result</option>
-                          <option value="Pass">Pass</option>
-                          <option value="Fail">Fail</option>
-                        </select>
+                        {readOnly ? (
+                          <div className="text-center font-bold text-xs">
+                            {hvBetweenCore === 'Pass' && <span className="text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200">Pass</span>}
+                            {hvBetweenCore === 'Fail' && <span className="text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">Fail</span>}
+                            {!hvBetweenCore && <span className="text-gray-400">-</span>}
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 justify-center py-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setHvBetweenCore(hvBetweenCore === 'Pass' ? '' : 'Pass')}
+                              className={`h-8 px-4 text-xs font-bold rounded-lg border transition-all ${
+                                hvBetweenCore === 'Pass'
+                                  ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              Pass
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setHvBetweenCore(hvBetweenCore === 'Fail' ? '' : 'Fail')}
+                              className={`h-8 px-4 text-xs font-bold rounded-lg border transition-all ${
+                                hvBetweenCore === 'Fail'
+                                  ? 'bg-red-600 border-red-600 text-white shadow-sm'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              Fail
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
 
@@ -493,16 +601,38 @@ export function FinalTestReport({
                         7. O.V.I.T. Test
                       </td>
                       <td className="p-1">
-                        <select
-                          className={`input-field w-full text-center h-8 ${ovitTest === 'Fail' ? 'invalid-reading' : ''}`}
-                          value={ovitTest}
-                          onChange={(e) => setOvitTest(e.target.value)}
-                          disabled={readOnly}
-                        >
-                          <option value="">Select Result</option>
-                          <option value="Pass">Pass</option>
-                          <option value="Fail">Fail</option>
-                        </select>
+                        {readOnly ? (
+                          <div className="text-center font-bold text-xs">
+                            {ovitTest === 'Pass' && <span className="text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200">Pass</span>}
+                            {ovitTest === 'Fail' && <span className="text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">Fail</span>}
+                            {!ovitTest && <span className="text-gray-400">-</span>}
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 justify-center py-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setOvitTest(ovitTest === 'Pass' ? '' : 'Pass')}
+                              className={`h-8 px-4 text-xs font-bold rounded-lg border transition-all ${
+                                ovitTest === 'Pass'
+                                  ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              Pass
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setOvitTest(ovitTest === 'Fail' ? '' : 'Fail')}
+                              className={`h-8 px-4 text-xs font-bold rounded-lg border transition-all ${
+                                ovitTest === 'Fail'
+                                  ? 'bg-red-600 border-red-600 text-white shadow-sm'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              Fail
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   </tbody>
@@ -515,34 +645,14 @@ export function FinalTestReport({
 
             {/* Actions Toolbar at bottom (Screen only) */}
             {!readOnly && (
-              <div className="no-print mt-6 bg-white p-4 rounded-lg shadow border border-gray-100 flex gap-3 items-center justify-between">
-                <div className="flex flex-col gap-2">
-                  {hasFailures && (
-                    <div className="text-red-600 text-sm font-semibold max-w-lg">
-                      Failure Limits Reached: {validationFailures.join(', ')}
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-3">
-                  <Button
-                    onClick={() => handleSave()}
-                    variant="outline"
-                    className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold"
-                  >
-                    <Save className="w-4 h-4" />
-                    Save Draft
-                  </Button>
-
-                  {onNext && (
-                    <Button
-                      onClick={onNext}
-                      className="bg-blue-600 text-white hover:bg-blue-700 gap-2 font-bold px-6 shadow-md transition-all hover:scale-105"
-                    >
-                      Next Core <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  )}
-
-                  {comprehensiveComplete && coresComplete && (
+              <div className="no-print mt-6 flex flex-col gap-4">
+                {hasFailures && (
+                  <div className="bg-red-50 border border-red-200 p-4 rounded-lg text-red-600 text-sm font-semibold">
+                    Failure Limits Reached: {validationFailures.join(', ')}
+                  </div>
+                )}
+                {comprehensiveComplete && coresComplete && (
+                  <div className="bg-white p-4 rounded-lg shadow border border-gray-100 flex justify-end">
                     <Button
                       onClick={handleSaveAndApprove}
                       className="bg-green-600 text-white hover:bg-green-700 gap-2 font-bold px-6 shadow-md transition-all hover:scale-105"
@@ -550,16 +660,8 @@ export function FinalTestReport({
                       <Save className="w-4 h-4" />
                       APPROVE & FINISH UNIT
                     </Button>
-                  )}
-
-                  {comprehensiveComplete && !coresComplete && (
-                    <div className="flex items-center text-amber-600 font-semibold gap-2 border border-amber-200 bg-amber-50 px-4 py-2 rounded-lg">
-                      <AlertTriangle className="w-4 h-4" />
-                      Core Tests Pending
-                    </div>
-                  )}
-
-                </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

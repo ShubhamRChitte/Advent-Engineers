@@ -207,6 +207,8 @@ export function SecondaryMeteringReport({
   const [approvedCores, setApprovedCores] = useState<string[]>([]);
   const [secondaryTestedCores, setSecondaryTestedCores] = useState<string[]>([]);
   const [selectedCoreId, setSelectedCoreId] = useState<string>(coreId);
+  const [isSelectOpen, setIsSelectOpen] = useState(false);
+  const [selectSearch, setSelectSearch] = useState('');
 
   useEffect(() => {
     const fetchApprovedCores = async () => {
@@ -544,23 +546,71 @@ export function SecondaryMeteringReport({
               index={2} 
               title={`${transformer.voltageRating || '33'} KV , CT , ${dynamicRatios.join('-')}A , ${displayBurden}VA , Metering`} 
             />
-            {!readOnly ? (
-              <div className="flex items-center gap-3 bg-white p-3 rounded-lg border border-[#103b63]/20 shadow-sm max-w-md my-3 no-print">
-                <span className="text-xs font-bold text-[#103b63] uppercase tracking-wide">Select Core ID (from Core Testing):</span>
-                <select
-                  value={selectedCoreId}
-                  onChange={(e) => setSelectedCoreId(e.target.value)}
-                  className="flex-1 p-2 text-xs font-bold rounded border border-gray-300 bg-white text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value={coreId}>{coreId} (Default)</option>
-                  {approvedCores
-                    .filter(id => id === selectedCoreId || !secondaryTestedCores.includes(id))
-                    .map(id => (
-                      id !== coreId && (
-                        <option key={id} value={id}>{id}</option>
-                      )
-                    ))}
-                </select>
+            {!readOnly && stage !== 'primary' && stage !== 'final' ? (
+              <div className="flex items-center gap-3 bg-white p-3 rounded-lg border border-[#103b63]/20 shadow-sm max-w-md my-3 no-print relative">
+                <span className="text-xs font-bold text-[#103b63] uppercase tracking-wide shrink-0">Select Core ID (from Core Testing):</span>
+                <div className="relative flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsSelectOpen(!isSelectOpen)}
+                    className="w-full p-2 text-xs font-bold rounded border border-gray-300 bg-white text-blue-800 text-left flex justify-between items-center focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <span>{selectedCoreId} {selectedCoreId === coreId ? '(Default)' : ''}</span>
+                    <span className="text-gray-400">▼</span>
+                  </button>
+
+                  {isSelectOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsSelectOpen(false)} />
+                      <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
+                        <div className="p-2 border-b border-gray-200 bg-gray-50 shrink-0">
+                          <input
+                            type="text"
+                            placeholder="Search Core ID..."
+                            value={selectSearch}
+                            onChange={(e) => setSelectSearch(e.target.value)}
+                            className="w-full p-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            onClick={(e) => e.stopPropagation()}
+                            autoFocus
+                          />
+                        </div>
+                        <div className="overflow-y-auto flex-1 max-h-40">
+                          {[
+                            coreId,
+                            ...approvedCores.filter(id => id !== coreId && (id === selectedCoreId || !secondaryTestedCores.includes(id)))
+                          ]
+                            .filter(id => id.toLowerCase().includes(selectSearch.toLowerCase()))
+                            .map(id => (
+                              <button
+                                key={id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCoreId(id);
+                                  setIsSelectOpen(false);
+                                  setSelectSearch('');
+                                }}
+                                className={`w-full text-left px-3 py-2 text-xs hover:bg-blue-50 hover:text-blue-800 transition-colors ${
+                                  id === selectedCoreId ? 'bg-blue-50 text-blue-800 font-bold' : 'text-gray-700'
+                                }`}
+                              >
+                                {id} {id === coreId ? '(Default)' : ''}
+                              </button>
+                            ))
+                          }
+                          {[
+                            coreId,
+                            ...approvedCores.filter(id => id !== coreId && (id === selectedCoreId || !secondaryTestedCores.includes(id)))
+                          ]
+                            .filter(id => id.toLowerCase().includes(selectSearch.toLowerCase())).length === 0 && (
+                            <div className="px-3 py-2 text-xs text-gray-500 italic text-center">
+                              No matching cores
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             ) : (
               <CoreInformationBar label="metering core no." value={selectedCoreId.startsWith('M-') ? selectedCoreId : `M-${selectedCoreId}`} />

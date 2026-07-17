@@ -69,6 +69,11 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
     ps: [],
     protection: []
   });
+  const [approvedIds, setApprovedIds] = useState<{ metering: string[]; ps: string[]; protection: string[] }>({
+    metering: [],
+    ps: [],
+    protection: []
+  });
   const [loading, setLoading] = useState(true);
 
   // Testing Stepper State
@@ -81,10 +86,19 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [transRes, stockRes] = await Promise.all([
+      const [transRes, stockRes, approvedRes] = await Promise.all([
         axios.get(`/orders/${order._id}/transformers`, { withCredentials: true }),
-        axios.get(`/secondary-core-tests/ready-stock/${order._id}`, { withCredentials: true })
+        axios.get(`/secondary-core-tests/ready-stock/${order._id}`, { withCredentials: true }),
+        axios.get(`/core-tests/approved-ids/${order._id}`, { withCredentials: true })
       ]);
+
+      if (approvedRes.data?.success) {
+        setApprovedIds({
+          metering: approvedRes.data.metering || [],
+          ps: approvedRes.data.ps || [],
+          protection: approvedRes.data.protection || []
+        });
+      }
 
       const totalQty = order.quantity || order.transformerQuantity || 0;
       const details = order.coreDetails || [];
@@ -210,6 +224,21 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
     let prefix = type === 'metering' ? 'M' : (type === 'ps' ? 'PS' : 'P');
     const jobSuffix = order.jobId?.split('-').pop() ?? '000';
     return `${prefix}-${jobSuffix}-${String(seqNum).padStart(3, '0')}`;
+  };
+
+  const getFirstUntestedIndex = (type: 'metering' | 'ps' | 'protection') => {
+    const total = type === 'metering' ? reqMetering : type === 'ps' ? reqPs : reqProtection;
+    const list = approvedIds[type] || [];
+    const testedRecords = readyStock[type] || [];
+    const testedCoreIds = new Set(testedRecords.map((r: any) => r.coreId));
+
+    for (let i = 0; i < total; i++) {
+      const currentCoreId = list[i] || generateCoreId(type, i + 1);
+      if (!testedCoreIds.has(currentCoreId)) {
+        return i;
+      }
+    }
+    return 0;
   };
 
   // Dropdown ready stocks list: unassigned OR currently assigned to this transformer
@@ -347,7 +376,11 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
   // Rendering report screen for unassigned core
   if (activeTestMode) {
     const { coreType, index } = activeTestMode;
-    const coreId = generateCoreId(coreType, index + 1);
+    const getCoreId = () => {
+      const list = approvedIds[coreType] || [];
+      return list[index] || generateCoreId(coreType, index + 1);
+    };
+    const coreId = getCoreId();
 
     const getActiveCoreNumber = () => {
       if (!order.coreDetails) return 1;
@@ -520,7 +553,7 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
               </div>
               <Button
                 className="bg-blue-600 hover:bg-blue-700 text-white w-full"
-                onClick={() => setActiveTestMode({ coreType: 'metering', index: 0 })}
+                onClick={() => setActiveTestMode({ coreType: 'metering', index: getFirstUntestedIndex('metering') })}
               >
                 <PlayCircle className="w-4 h-4 mr-2" /> Start / Continue Testing
               </Button>
@@ -535,7 +568,7 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
               </div>
               <Button
                 className="bg-purple-600 hover:bg-purple-700 text-white w-full"
-                onClick={() => setActiveTestMode({ coreType: 'ps', index: 0 })}
+                onClick={() => setActiveTestMode({ coreType: 'ps', index: getFirstUntestedIndex('ps') })}
               >
                 <PlayCircle className="w-4 h-4 mr-2" /> Start / Continue Testing
               </Button>
@@ -550,7 +583,7 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
               </div>
               <Button
                 className="bg-green-600 hover:bg-green-700 text-white w-full"
-                onClick={() => setActiveTestMode({ coreType: 'protection', index: 0 })}
+                onClick={() => setActiveTestMode({ coreType: 'protection', index: getFirstUntestedIndex('protection') })}
               >
                 <PlayCircle className="w-4 h-4 mr-2" /> Start / Continue Testing
               </Button>

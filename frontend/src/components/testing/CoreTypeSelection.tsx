@@ -13,17 +13,25 @@ import {
   Loader2
 } from 'lucide-react';
 import { CoreTestingOrder } from './CoreTestingOrders';
+import { MultiReadyStockModal } from './MultiReadyStockModal';
 
 interface CoreTypeSelectionProps {
   order: CoreTestingOrder;
   onSelectCoreType: (coreType: 'Metering' | 'PS' | 'Protection') => void;
-  onBack: () => void;
+  onBack: () => void; 
 }
 
 export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeSelectionProps) {
   const [completionStatus, setCompletionStatus] = useState<Record<string, boolean>>({});
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [isApproving, setIsApproving] = useState(false);
+
+  // Ready Stock selection states
+  const [assignedReadyCores, setAssignedReadyCores] = useState<any[]>([]);
+  const [isMultiReadyModalOpen, setIsMultiReadyModalOpen] = useState(false);
+  const [modalCoreType, setModalCoreType] = useState<'Metering' | 'PS' | 'Protection' | null>(null);
+  const [availableCores, setAvailableCores] = useState<any[]>([]);
+  const [isCoresLoading, setIsCoresLoading] = useState(false);
 
   // Helper to extract the safe ID
   const getTxnOrderId = () => (order as any).mainOrderId || (order as any).orderId?._id || (order as any)._id;
@@ -35,7 +43,6 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
     const details = order.coreDetails || order.coreConfiguration || [];
 
     // Count occurrences of this specific core type in the configuration
-    // Note: We need to handle the PS detection logic here too to match strict counting
     const coresPerTransformer = details.filter((c: any) => {
       const cType = c.coreType || c.type;
       const isPS = cType === 'Protection' && (c.iexLimit || c.leLimit || c.class === 'PS' || (c.description && c.description.includes('PS')));
@@ -48,17 +55,25 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
     return validQuantity * coresPerTransformer;
   };
 
-  useEffect(() => {
-    const fetchCompletionStatus = async () => {
-      setLoadingStatus(true);
-      const statusUpdate: Record<string, boolean> = {};
-      const txnOrderId = getTxnOrderId();
+  const fetchCompletionStatus = async () => {
+    setLoadingStatus(true);
+    const txnOrderId = getTxnOrderId();
 
-      if (!txnOrderId) {
-        console.error("No valid order ID found for status check");
-        setLoadingStatus(false);
-        return;
-      }
+    if (!txnOrderId) {
+      console.error("No valid order ID found for status check");
+      setLoadingStatus(false);
+      return;
+    }
+
+    try {
+      // 1. Fetch assigned ready stock cores first
+      const assignedRes = await axios.get(`/ready-transformers/assigned-to-order/${txnOrderId}`, {
+        withCredentials: true
+      });
+      const assignedCores = assignedRes.data?.cores || [];
+      setAssignedReadyCores(assignedCores);
+
+      const statusUpdate: Record<string, boolean> = {};
 
       // Determine unique types present
       const details = order.coreDetails || order.coreConfiguration || [];
@@ -70,94 +85,134 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
         return type;
       })));
 
-      try {
-        await Promise.all(uniqueTypes.map(async (type) => {
-          const isMetering = type === 'Metering';
-          const endpoint = isMetering ? '/metering-tests' : '/protection-tests';
-          const typeParam = !isMetering ? `?type=${type}` : '';
+      await Promise.all(uniqueTypes.map(async (type) => {
+        const isMetering = type === 'Metering';
+        const endpoint = isMetering ? '/metering-tests' : '/protection-tests';
+        const typeParam = !isMetering ? `?type=${type}` : '';
 
+        // Calculate assigned ready stock cores for this specific type
+        const assignedReadyCount = assignedCores.filter((c: any) => {
+          const cType = c.coreType;
+          return cType === type;
+        }).length;
 
-          try {
-            const res = await axios.get(`${endpoint}/${txnOrderId}${typeParam}`, {
-              withCredentials: true
-            });
+        try {
+          const res = await axios.get(`${endpoint}/${txnOrderId}${typeParam}`, {
+            withCredentials: true
+          });
 
-            const savedData = res.data;
-            let savedCount = 0;
+          const savedData = res.data;
+          let savedCount = 0;
 
-            if (savedData && savedData.readings) {
-              // GRANULAR COMPLETION CHECK
-              // 1. Get Assigned Transformer Indices
-              const assignedParams = (order as any).assignedUnitIds || (order as any).order?.assignedUnitIds;
+          if (savedData && savedData.readings) {
+            // GRANULAR COMPLETION CHECK
+            const assignedParams = (order as any).assignedUnitIds || (order as any).order?.assignedUnitIds;
 
-              if (assignedParams && assignedParams.length > 0) {
-                // Start granular check
-                const assignedIndices = assignedParams.map((id: string) => {
-                  const match = id.match(/[/\-](\d+)$/);
-                  return match ? parseInt(match[1] ?? '') : null;
-                }).filter((n: any) => n !== null);
+            if (assignedParams && assignedParams.length > 0) {
+              const assignedIndices = assignedParams.map((id: string) => {
+                const match = id.match(/[/\-](\d+)$/);
+                return match ? parseInt(match[1] ?? '') : null;
+              }).filter((n: any) => n !== null);
 
-                // 2. Determine Cores Per Transformer (for ID generation logic)
-                const coresPerTransformer = details.filter((c: any) => {
-                  const cType = c.coreType || c.type;
-                  const isPS = cType === 'Protection' && (c.iexLimit || c.leLimit || c.class === 'PS' || (c.description && c.description.includes('PS')));
-                  if (type === 'PS') return isPS || cType === 'PS';
-                  if (type === 'Protection') return cType === 'Protection' && !isPS;
-                  return cType === type;
-                }).length || 1;
+              const coresPerTransformer = details.filter((c: any) => {
+                const cType = c.coreType || c.type;
+                const isPS = cType === 'Protection' && (c.iexLimit || c.leLimit || c.class === 'PS' || (c.description && c.description.includes('PS')));
+                if (type === 'PS') return isPS || cType === 'PS';
+                if (type === 'Protection') return cType === 'Protection' && !isPS;
+                return cType === type;
+              }).length || 1;
 
-                // 3. Generate Expected IDs for THIS user
-                const jobSuffix = order?.jobId?.split('-').pop() ?? '000';
-                const upperType = (type as string).toUpperCase();
-                let prefix = 'P';
-                if (upperType === 'METERING') prefix = 'M';
-                else if (upperType.includes('PS')) prefix = 'PS';
+              const jobSuffix = order?.jobId?.split('-').pop() ?? '000';
+              const upperType = (type as string).toUpperCase();
+              let prefix = 'P';
+              if (upperType === 'METERING') prefix = 'M';
+              else if (upperType.includes('PS')) prefix = 'PS';
 
-                const expectedIds = new Set<string>();
+              const expectedIds = new Set<string>();
 
-                assignedIndices.forEach((k: number) => {
-                  const startSeq = (k - 1) * coresPerTransformer + 1;
-                  for (let j = 0; j < coresPerTransformer; j++) {
-                    const seqNum = startSeq + j;
-                    const genId = `${prefix}-${jobSuffix}-${String(seqNum).padStart(3, '0')}`;
-                    expectedIds.add(genId);
-                  }
-                });
+              assignedIndices.forEach((k: number) => {
+                const startSeq = (k - 1) * coresPerTransformer + 1;
+                for (let j = 0; j < coresPerTransformer; j++) {
+                  const seqNum = startSeq + j;
+                  const genId = `${prefix}-${jobSuffix}-${String(seqNum).padStart(3, '0')}`;
+                  expectedIds.add(genId);
+                }
+              });
 
-                // 4. Count only readings that match Expected IDs
-                const completedRows = savedData.readings.filter((r: any) =>
-                  (r.result || r.remark) && (expectedIds.has(r.internalCoreNo) || expectedIds.has(r.internalCoreNo?.split(' ')[0]))
-                ).length;
+              const completedRows = savedData.readings.filter((r: any) =>
+                (r.result || r.remark) && (expectedIds.has(r.internalCoreNo) || expectedIds.has(r.internalCoreNo?.split(' ')[0]))
+              ).length;
 
-                savedCount = completedRows;
+              savedCount = completedRows;
 
-              } else {
-                // Fallback to legacy total count
-                const completedRows = savedData.readings.filter((r: any) => r.result || r.remark).length;
-                savedCount = completedRows;
-              }
+            } else {
+              const completedRows = savedData.readings.filter((r: any) => r.result || r.remark).length;
+              savedCount = completedRows;
             }
-
-            const required = getRequiredRows(type as string);
-            // Mark as complete if we have enough saved, completed rows
-            statusUpdate[type as string] = savedCount >= required && required > 0;
-
-          } catch (err) {
-            console.warn(`Failed to fetch status for ${type}`, err);
-            statusUpdate[type as string] = false;
           }
-        }));
 
-        setCompletionStatus(statusUpdate);
-      } catch (error) {
-        console.error("Error checking core status:", error);
-      } finally {
-        setLoadingStatus(false);
-      }
-    };
+          const required = getRequiredRows(type as string);
+          // Mark as complete if we have enough saved, completed rows + assigned ready cores
+          statusUpdate[type as string] = (savedCount + assignedReadyCount) >= required && required > 0;
 
+        } catch (err) {
+          console.warn(`Failed to fetch status for ${type}`, err);
+          statusUpdate[type as string] = assignedReadyCount >= required && required > 0;
+        }
+      }));
+
+      setCompletionStatus(statusUpdate);
+    } catch (error) {
+      console.error("Error checking core status:", error);
+    } finally {
+      setLoadingStatus(false);
+    }
+  };
+
+  useEffect(() => {
     fetchCompletionStatus();
   }, [order]);
+
+  const handleOpenReadyStock = async (type: 'Metering' | 'PS' | 'Protection') => {
+    setModalCoreType(type);
+    setIsCoresLoading(true);
+    setIsMultiReadyModalOpen(true);
+    const txnOrderId = getTxnOrderId();
+
+    try {
+      const res = await axios.get(`/ready-transformers/available-for-order/${txnOrderId}?coreType=${type}`, {
+        withCredentials: true
+      });
+      setAvailableCores(res.data || []);
+    } catch (err) {
+      console.error("Failed to load available ready stock cores", err);
+    } finally {
+      setIsCoresLoading(false);
+    }
+  };
+
+  const handleSaveReadyStockSelection = async (selectedIds: string[]) => {
+    const txnOrderId = getTxnOrderId();
+    if (!txnOrderId || !modalCoreType) return;
+
+    try {
+      const res = await axios.post(`/ready-transformers/assign-to-order`, {
+        orderId: txnOrderId,
+        coreType: modalCoreType,
+        coreIds: selectedIds
+      }, { withCredentials: true });
+
+      if (res.data?.success) {
+        setIsMultiReadyModalOpen(false);
+        fetchCompletionStatus();
+      } else {
+        alert(res.data?.message || "Failed to assign ready cores");
+      }
+    } catch (err: any) {
+      console.error("Failed to assign ready cores", err);
+      alert(err.response?.data?.message || "Error assigning ready stock cores");
+    }
+  };
 
   const handleGlobalApprove = async () => {
     if (!window.confirm("Are you sure you want to approve this order? This will move it to the Secondary stage.")) {
@@ -254,10 +309,9 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
         </Button>
         <div className="flex justify-between items-start">
           <div>
-            <h2 className="text-xl">Select Test Type</h2>
+            <h2 className="text-xl font-bold text-[#003a70]">Select Test Type</h2>
             <p className="text-sm text-gray-600 mt-1">{order.jobId} - {order.clientName}</p>
           </div>
-          {/* Global Approve Button - Top Right (Optional placement, but bottom is requested) */}
         </div>
       </div>
 
@@ -265,18 +319,18 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
       <Card className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
           <div>
-            <p className="text-xs text-gray-500">Transformer</p>
-            <p className="text-gray-900 mt-0.5">{order.transformerName}</p>
+            <p className="text-xs text-gray-500 font-medium">Transformer</p>
+            <p className="text-gray-900 mt-0.5 font-bold">{order.transformerName}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Client</p>
-            <p className="text-gray-900 mt-0.5">{order.clientName}</p>
+            <p className="text-xs text-gray-500 font-medium">Client</p>
+            <p className="text-gray-900 mt-0.5 font-bold">{order.clientName}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 font-medium">
               {order.assignedUnitIds?.length ? 'Assigned Qty' : 'Quantity'}
             </p>
-            <p className="text-gray-900 mt-0.5">
+            <p className="text-gray-900 mt-0.5 font-bold">
               {order.assignedUnitIds?.length || order.quantity} units
             </p>
           </div>
@@ -289,6 +343,7 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
           const requiredCount = getRequiredRows(type as string);
           const isComplete = completionStatus[type as string];
           const colors = getCoreTypeColor(type as string);
+          const assignedCount = assignedReadyCores.filter((c: any) => c.coreType === type).length;
 
           return (
             <Card
@@ -324,15 +379,31 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
                       {requiredCount} cores
                     </span>
                   </div>
+                  {assignedCount > 0 && (
+                    <div className="flex justify-between text-xs text-blue-700 font-semibold bg-blue-50/50 p-1.5 rounded border border-blue-100">
+                      <span>Assigned from Ready Stock</span>
+                      <span>{assignedCount} cores</span>
+                    </div>
+                  )}
                 </div>
 
-                <Button
-                  className={`w-full ${colors.button} text-white`}
-                  size="sm"
-                  onClick={() => onSelectCoreType(type as any)}
-                >
-                  {isComplete ? 'Review / Edit Testing' : 'Start Testing'}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    className={`flex-1 ${colors.button} text-white font-semibold`}
+                    size="sm"
+                    onClick={() => onSelectCoreType(type as any)}
+                  >
+                    {isComplete ? 'Review / Edit' : 'Start Test'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 bg-white hover:bg-slate-50 text-slate-700 border-slate-200 font-semibold"
+                    size="sm"
+                    onClick={() => handleOpenReadyStock(type as any)}
+                  >
+                    Ready Stock
+                  </Button>
+                </div>
               </div>
             </Card>
           );
@@ -371,6 +442,22 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
         <Card className="p-3 bg-blue-50 border-blue-200">
           <p className="text-xs text-gray-700">{order.instructions}</p>
         </Card>
+      )}
+
+      {/* Multi-Select Ready Stock modal */}
+      {modalCoreType && (
+        <MultiReadyStockModal
+          isOpen={isMultiReadyModalOpen}
+          onClose={() => setIsMultiReadyModalOpen(false)}
+          cores={availableCores}
+          initialSelectedIds={assignedReadyCores
+            .filter((c: any) => c.coreType === modalCoreType)
+            .map((c: any) => c.coreId)}
+          requiredCount={getRequiredRows(modalCoreType)}
+          coreType={modalCoreType}
+          onSave={handleSaveReadyStockSelection}
+          isLoading={isCoresLoading}
+        />
       )}
     </div>
   );

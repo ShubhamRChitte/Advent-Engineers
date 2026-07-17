@@ -8,7 +8,10 @@ const {
   getAvailableReadyTransformers,
   reserveReadyTransformer,
   useReadyTransformer,
-  getReadyStockAnalytics
+  getReadyStockAnalytics,
+  getAvailableForOrder,
+  getAssignedToOrder,
+  assignToOrder
 } = require("../controllers/readyTransformerController");
 
 router.get("/", isAuthenticated, getAllReadyTransformers);
@@ -19,5 +22,10 @@ router.get("/available", isAuthenticated, getAvailableReadyTransformers);
 router.post("/reserve/:id", isAuthenticated, reserveReadyTransformer);
 router.post("/use/:id", isAuthenticated, useReadyTransformer);
 router.get("/analytics", isAuthenticated, getReadyStockAnalytics);
+
+// New order-based ready core assignment routes
+router.get("/available-for-order/:orderId", isAuthenticated, getAvailableForOrder);
+router.get("/assigned-to-order/:orderId", isAuthenticated, getAssignedToOrder);
+router.post("/assign-to-order", isAuthenticated, assignToOrder);
 
 module.exports = router;
