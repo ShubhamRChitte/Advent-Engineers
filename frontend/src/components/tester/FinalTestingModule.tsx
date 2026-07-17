@@ -91,17 +91,30 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
     setSelectedCore(null);
   };
 
-  const handleBackToTransformers = async () => {
+  const refreshTransformer = async () => {
     if (selectedTransformer?.uniqueId) {
       try {
         const res = await axios.get(`/transformers/${selectedTransformer.uniqueId}`, { withCredentials: true });
         if (res.data) {
-          setSelectedTransformer(prev => prev ? { ...prev, testHistory: res.data.testHistory } : prev);
+          setSelectedTransformer(prev => {
+            if (!prev) return res.data;
+            return {
+              ...prev,
+              ...res.data,
+              cores: prev.cores
+            };
+          });
+          return res.data;
         }
       } catch (err) {
-        console.error('[FinalModule] Failed to refresh transformer after report:', err);
+        console.error('[FinalModule] Failed to refresh transformer:', err);
       }
     }
+    return null;
+  };
+
+  const handleBackToTransformers = async () => {
+    await refreshTransformer();
     setCurrentView('transformers');
     setSelectedTransformer(null);
     setSelectedCore(null);
@@ -208,7 +221,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
       setSelectedSecondary(String(secondaryVal));
     } : undefined;
 
-    const onPrev = () => {
+    const onPrev = async () => {
       if (currentIndex > 0) {
         const prevCore = selectedTransformer.cores[currentIndex - 1];
         const coreFromOrder = selectedOrder?.coreDetails?.[prevCore.coreNumber - 1];
@@ -220,6 +233,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
         setSelectedSecondary(String(secondaryVal));
       } else {
         setSelectedCore(null);
+        await refreshTransformer();
         setCurrentView('comprehensive-report');
       }
     };
@@ -284,7 +298,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
   // Comprehensive Report View
   if (currentView === 'comprehensive-report' && selectedTransformer) {
     const hasNext = selectedTransformer.cores && selectedTransformer.cores.length > 0;
-    const onNext = hasNext ? () => {
+    const onNext = hasNext ? async () => {
       const firstCore = selectedTransformer.cores[0];
       const coreFromOrder = selectedOrder?.coreDetails?.[firstCore.coreNumber - 1];
       const secondaryVal = coreFromOrder?.secondaryCurrent || selectedOrder?.ratedSecondaryCurrent || '1';
@@ -293,6 +307,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
       setSelectedCore(firstCore as any);
       setSelectedPrimary(String(primaryVal));
       setSelectedSecondary(String(secondaryVal));
+      await refreshTransformer();
       setCurrentView('core-report');
     } : undefined;
 
@@ -309,6 +324,7 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
             onBack={handleBackToTransformers}
             onApprove={() => handleApproveTransformer(selectedTransformer)}
             onNext={onNext}
+            onSaveSuccess={refreshTransformer}
           />
         </div>
       </div>

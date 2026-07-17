@@ -78,6 +78,7 @@ interface CoreTestRow {
   isReplacement?: boolean;
   replacedCoreId?: string;
   status?: 'PENDING' | 'PASS' | 'FAIL' | 'RETURNED';
+  isReadyStock?: boolean; // NEW
 }
 
 interface BSATColumn {
@@ -195,6 +196,7 @@ export function CoreTestingForm({
   const getSystemDate = () => new Date().toLocaleDateString('en-GB');
 
   const isRowLocked = (row: CoreTestRow) => {
+    if (row.isReadyStock) return true; // Ready stock cores are locked!
     if (isPreTest) return false;
     if (row.isReplacement) return false; // Always allow editing replacements
     // Allow editing even if it's FAIL, as long as it's not approved (isReadOnly)
@@ -362,10 +364,12 @@ export function CoreTestingForm({
 
         let dbFailedCoreIds = new Set<string>();
         let dbFailedCores: any[] = [];
+        let assignedReadyCores: any[] = [];
+
         if (!isPreTest) {
           const txnOrderId = getSafeOrderId(order);
 
-          // Use the dedicated order-specific endpoint which is more reliable
+          // Fetch failed cores
           try {
             const fcRes = await axios.get(`/failed-cores/order/${txnOrderId}`, {
               withCredentials: true,
@@ -377,29 +381,66 @@ export function CoreTestingForm({
           } catch (err) {
             console.error("[LOAD] Failed to load actual failed cores", err);
           }
+
+          // Fetch assigned ready stock cores
+          try {
+            const readyRes = await axios.get(`/ready-transformers/assigned-to-order/${txnOrderId}`, {
+              withCredentials: true,
+              headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+            });
+            assignedReadyCores = readyRes.data?.cores || [];
+          } catch (err) {
+            console.error("[LOAD] Failed to load assigned ready stock cores", err);
+          }
+        }
+
+        const assignedOfThisType = assignedReadyCores.filter((c: any) => c.coreType === coreType);
+        const readyRows = assignedOfThisType.map((c: any) => {
+          const dynamicValues: { [key: string]: string } = {};
+          if (c.testResults && Array.isArray(c.testResults.measuredMa)) {
+            c.testResults.measuredMa.forEach((val: any, i: number) => {
+              dynamicValues[String(i + 1)] = val != null ? String(val) : '';
+            });
+          }
+          return {
+            date: c.testedAt ? new Date(c.testedAt).toLocaleDateString('en-GB') : getSystemDate(),
+            coreVendorNo: c.testResults?.vendorCoreNo || c.batchId || '',
+            internalCoreNo: c.coreId,
+            value1000: c.testResults?.value1000 || '',
+            value3000: c.testResults?.value3000 || '',
+            value5000: c.testResults?.value5000 || '',
+            value7000: c.testResults?.value7000 || '',
+            singleValue: c.testResults?.value != null ? String(c.testResults.value) : (c.testResults?.singleValue || ''),
+            dynamicValues,
+            remark: c.testResults?.result || 'P',
+            status: 'PASS',
+            isReadyStock: true
+          };
+        });
+
+        // Initialize skeleton and replace the first N rows with readyRows
+        const initializedSkeleton = initializeRows();
+        const finalSkeleton = [...initializedSkeleton];
+        for (let i = 0; i < readyRows.length && i < finalSkeleton.length; i++) {
+          finalSkeleton[i] = readyRows[i];
         }
 
         // If data exists, map it; otherwise, use fresh initialization
         if (response.data && response.data.readings && response.data.readings.length > 0) {
           if (!isMeteringCheck && response.data.coreType !== coreType) {
             console.warn(`Mismatch in loadExistingData: Expected coreType "${coreType}", but backend returned "${response.data.coreType}". Resetting rows to empty skeleton.`);
-            setRows(initializeRows());
+            setRows(finalSkeleton);
             return;
           }
           console.log(`Successfully loaded ${response.data.readings?.length || 0} readings for ${coreType} batch ${batchData?.batchId || order.orderId}`);
 
-
-          // Merge logic considering replacements and visibility
-          const initializedSkeleton = initializeRows();
           const mappedSavedRows = response.data.readings.map((r: any) => {
             const dynamicValues: { [key: string]: string } = {};
             if (Array.isArray(r.measuredMa) && r.measuredMa.length > 0) {
-              // Metering, or Protection/PS saved with new measuredMa format
               r.measuredMa.forEach((val: any, i: number) => {
                 dynamicValues[String(i + 1)] = val != null ? String(val) : '';
               });
             } else if (r.value != null) {
-              // Legacy Core Tracking Protection/PS: saved as single `value` — restore into first column
               dynamicValues['1'] = String(r.value);
             }
             return {
@@ -407,7 +448,6 @@ export function CoreTestingForm({
               coreVendorNo: r.vendorCoreNo || '',
               internalCoreNo: r.internalCoreNo || '',
               dynamicValues,
-              // Keep singleValue populated for forms that use it directly
               singleValue: r.value != null ? String(r.value) : (dynamicValues['1'] || ''),
               remark: r.result || '',
               status: r.status || 'PENDING',
@@ -419,7 +459,12 @@ export function CoreTestingForm({
           const finalRowsToShow: CoreTestRow[] = [];
           const restoredFailedCores: FailedCore[] = [];
 
-          initializedSkeleton.forEach(skel => {
+          finalSkeleton.forEach(skel => {
+            if (skel.isReadyStock) {
+              finalRowsToShow.push(skel);
+              return;
+            }
+
             const baseReading = mappedSavedRows.find((s: any) => 
               s.internalCoreNo?.trim().toUpperCase() === skel.internalCoreNo?.trim().toUpperCase()
             );
@@ -428,7 +473,6 @@ export function CoreTestingForm({
             const currentSourceId = sourceRow.internalCoreNo?.trim().toUpperCase() || '';
             console.log(`Checking if ${currentSourceId} is in Failed Cores:`, dbFailedCoreIds.has(currentSourceId));
             if (dbFailedCoreIds.has(currentSourceId)) {
-              // The user clicked "Replace" and moved it to Failed Cores section
               const dbFc = dbFailedCores.find((fc: any) => fc.internalCoreNo?.trim().toUpperCase() === currentSourceId);
               restoredFailedCores.push({
                 _id: dbFc._id,
@@ -450,7 +494,6 @@ export function CoreTestingForm({
                 status: sourceRow.status || 'FAIL'
               });
             } else {
-              // Keep it in the table
               finalRowsToShow.push(sourceRow);
             }
 
@@ -496,7 +539,6 @@ export function CoreTestingForm({
             setFailedCores(restoredFailedCores);
           }
 
-          // STRICT FINAL FILTER: absolutely guarantee no failed cores make it to the grid
           const sanitizedRowsToShow = finalRowsToShow.filter(row => {
             const id = row.internalCoreNo?.trim().toUpperCase();
             return !id || !dbFailedCoreIds.has(id);
@@ -504,12 +546,18 @@ export function CoreTestingForm({
 
           setRows(sanitizedRowsToShow);
         } else {
-          if (!isReadOnly) setRows(initializeRows());
-          else setRows([]); // No data to show in read-only
+          if (isReadOnly) {
+            // Show only the assigned ready stock cores in read-only mode
+            setRows(readyRows);
+          } else {
+            setRows(finalSkeleton);
+          }
         }
       } catch (err) {
         console.warn("No existing data found, starting fresh.", err);
-        if (!isReadOnly) setRows(initializeRows());
+        // Fallback skeleton
+        const skeleton = initializeRows();
+        setRows(skeleton);
       } finally {
         setIsLoading(false);
       }

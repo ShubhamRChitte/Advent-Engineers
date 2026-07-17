@@ -285,4 +285,77 @@ exports.getReadyStockAnalytics = async (req, res) => {
   }
 };
 
+exports.getAvailableForOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { coreType } = req.query;
+
+    let normalizedType = coreType;
+    if (coreType) {
+      const lower = coreType.toLowerCase();
+      if (lower === 'metering') normalizedType = 'Metering';
+      else if (lower === 'ps') normalizedType = 'PS';
+      else if (lower === 'protection') normalizedType = 'Protection';
+    }
+
+    const query = {
+      $or: [
+        { status: "available" },
+        { linkedOrderId: orderId }
+      ]
+    };
+    if (normalizedType) {
+      query.coreType = normalizedType;
+    }
+
+    const cores = await ReadyTransformer.find(query).lean();
+    res.status(200).json(cores);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getAssignedToOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const cores = await ReadyTransformer.find({ linkedOrderId: orderId }).lean();
+    res.status(200).json({ success: true, cores });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.assignToOrder = async (req, res) => {
+  try {
+    const { orderId, coreType, coreIds } = req.body;
+
+    let normalizedType = coreType;
+    if (coreType) {
+      const lower = coreType.toLowerCase();
+      if (lower === 'metering') normalizedType = 'Metering';
+      else if (lower === 'ps') normalizedType = 'PS';
+      else if (lower === 'protection') normalizedType = 'Protection';
+    }
+
+    // 1. Release all currently assigned ready stock cores of this type for this order
+    await ReadyTransformer.updateMany(
+      { linkedOrderId: orderId, coreType: normalizedType },
+      { $set: { linkedOrderId: null, status: "available" } }
+    );
+
+    // 2. Assign the new selection
+    if (coreIds && coreIds.length > 0) {
+      await ReadyTransformer.updateMany(
+        { coreId: { $in: coreIds }, coreType: normalizedType },
+        { $set: { linkedOrderId: orderId, status: "reserved", reservationExpiresAt: null } }
+      );
+    }
+
+    if (global.io) global.io.emit("readyStockUpdated");
+    res.status(200).json({ success: true, message: "Cores assigned to order successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 

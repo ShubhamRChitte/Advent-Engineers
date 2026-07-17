@@ -18,22 +18,23 @@ export function CoreTrackingDashboard({ user }: CoreTrackingDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabView>('testing');
   const [selectedOrder, setSelectedOrder] = useState<CoreTestingOrder | null>(null);
   const [selectedCoreType, setSelectedCoreType] = useState<CoreType | null>(null);
-
-
-
+  const [isCoreTypeReadOnly, setIsCoreTypeReadOnly] = useState(false);
 
   const handleStartTesting = (order: CoreTestingOrder) => {
     setSelectedOrder(order);
     setSelectedCoreType(null);
+    setIsCoreTypeReadOnly(false);
   };
 
-  const handleSelectCoreType = (coreType: CoreType) => {
+  const handleSelectCoreType = (coreType: CoreType, isReadOnly: boolean = false) => {
     setSelectedCoreType(coreType);
+    setIsCoreTypeReadOnly(isReadOnly);
   };
 
   const handleBack = () => {
     if (selectedCoreType) {
       setSelectedCoreType(null);
+      setIsCoreTypeReadOnly(false);
     } else {
       setSelectedOrder(null);
     }
@@ -49,7 +50,7 @@ export function CoreTrackingDashboard({ user }: CoreTrackingDashboardProps) {
           coreType={selectedCoreType}
           onBack={handleBack}
           user={user}
-          isReadOnly={selectedOrder['isReadOnly']}
+          isReadOnly={selectedOrder['isReadOnly'] || isCoreTypeReadOnly}
         />
       );
     }
