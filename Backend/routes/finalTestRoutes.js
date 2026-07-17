@@ -45,6 +45,21 @@ router.get('/reports', isAuthenticated, async (req, res) => {
     }
 });
 
+// GET /api/final/active
+// Fetch all transformers currently in final stage (waiting for final testing)
+router.get('/active', isAuthenticated, async (req, res) => {
+    try {
+        const query = { currentStage: 'final' };
+        const transformers = await TransformerModel.find(query)
+            .populate('orderId')
+            .sort({ updatedAt: -1 });
+        res.json(transformers);
+    } catch (error) {
+        console.error("Error fetching active final transformers:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch active transformers" });
+    }
+});
+
 // POST /api/final/:id
 // Save or Finalize Final Test Report with failure routing
 router.post('/:id', isAuthenticated, async (req, res) => {
@@ -254,7 +269,7 @@ router.get('/inspection/:id', isAuthenticated, async (req, res) => {
     try {
         const transformer = await TransformerModel.findOne({ uniqueId: req.params.id });
         if (!transformer) return res.status(404).json({ success: false, message: 'Transformer not found' });
-        res.json({ success: true, data: transformer.testHistory?.inspection_data || {} });
+        res.json({ success: true, data: transformer.inspectionData || {} });
     } catch (err) {
         console.error('[CT Inspection GET]', err);
         res.status(500).json({ success: false, message: err.message });
@@ -266,7 +281,7 @@ router.post('/inspection/:id', isAuthenticated, async (req, res) => {
     try {
         const result = await TransformerModel.findOneAndUpdate(
             { uniqueId: req.params.id },
-            { $set: { 'testHistory.inspection_data': { ...req.body, savedAt: new Date() } } },
+            { $set: { 'inspectionData': { ...req.body, savedAt: new Date() } } },
             { new: true }
         );
         if (!result) return res.status(404).json({ success: false, message: 'Transformer not found' });

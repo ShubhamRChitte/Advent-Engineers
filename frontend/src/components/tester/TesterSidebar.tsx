@@ -84,7 +84,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
       return [
         { id: 'home', label: 'Home', icon: Home },
         { id: 'view-orders', label: 'View Orders', icon: FileText },
-        { id: 'core-tracking', label: 'Core Tracking', icon: Zap },
+        { id: 'core-tracking', label: 'Core Assignment', icon: Zap },
         { id: 'ready-stock', label: 'Ready Stock', icon: Warehouse },
         { id: 'failed-cores', label: 'Failed Cores', icon: AlertTriangle, badge: failedCount > 0 ? failedCount : undefined },
       ];

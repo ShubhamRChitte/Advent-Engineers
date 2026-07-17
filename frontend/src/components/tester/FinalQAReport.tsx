@@ -80,13 +80,17 @@ export function FinalQAReport({ transformer, testerName, mode = 'standalone' }: 
   const displaySTC = order?.stc || order?.STC || transformer.stc || 'N/A';
 
   const generalRatio = (() => {
+    const orderObj = transformer.fullOrder || transformer.orderId;
+    if (orderObj?.ratio) {
+      if (Array.isArray(orderObj.ratio)) {
+        return orderObj.ratio.join(' - ');
+      }
+      return String(orderObj.ratio);
+    }
     if (transformer.rating) {
       return `${transformer.rating}/${transformer.ratedSecondaryCurrent || '1'} A`;
     }
-    if (Array.isArray(order?.ratio)) {
-      return order.ratio.join(' / ');
-    }
-    return order?.ratio || 'N/A';
+    return 'N/A';
   })();
 
   const qaTableContent = (
@@ -96,9 +100,8 @@ export function FinalQAReport({ transformer, testerName, mode = 'standalone' }: 
         <thead>
           <tr>
             <th style={{ width: '10%', textAlign: 'center' }}>Sr. No.</th>
-            <th style={{ width: '45%', textAlign: 'left' }}>Name of Test</th>
-            <th style={{ width: '25%', textAlign: 'center' }}>Observed Value</th>
-            <th style={{ width: '20%', textAlign: 'center' }}>Status</th>
+            <th style={{ width: '55%', textAlign: 'left' }}>Name of Test</th>
+            <th style={{ width: '35%', textAlign: 'center' }}>Observed Value</th>
           </tr>
         </thead>
         <tbody>
@@ -106,56 +109,47 @@ export function FinalQAReport({ transformer, testerName, mode = 'standalone' }: 
             <td style={{ textAlign: 'center', fontWeight: 'bold' }}>1</td>
             <td style={{ fontWeight: 'semibold' }}>Polarity Testing</td>
             <td style={{ textAlign: 'center' }}>{polarityResult || 'Not recorded'}</td>
-            <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{renderStatus(polarityResult)}</td>
           </tr>
           <tr>
             <td style={{ textAlign: 'center', fontWeight: 'bold' }} rowSpan={4}>2</td>
-            <td style={{ fontWeight: 'semibold' }} colSpan={3}>Meggar Test (Insulation Resistance):</td>
+            <td style={{ fontWeight: 'semibold' }} colSpan={2}>Meggar Test (Insulation Resistance):</td>
           </tr>
           <tr>
             <td style={{ paddingLeft: '24px' }}>a) Primary to Secondary (at 1000V DC)</td>
             <td style={{ textAlign: 'center' }}>{renderValWithUnit(meggarPrimaryToSecondary, 'M\u03A9')}</td>
-            <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{meggarPrimaryToSecondary ? renderStatus('', isM1Fail) : 'Not recorded'}</td>
           </tr>
           <tr>
             <td style={{ paddingLeft: '24px' }}>b) Primary to Earth (at 1000V DC)</td>
             <td style={{ textAlign: 'center' }}>{renderValWithUnit(meggarPrimaryToEarth, 'M\u03A9')}</td>
-            <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{meggarPrimaryToEarth ? renderStatus('', isM2Fail) : 'Not recorded'}</td>
           </tr>
           <tr>
             <td style={{ paddingLeft: '24px' }}>c) Secondary to Earth (at 500V DC)</td>
             <td style={{ textAlign: 'center' }}>{renderValWithUnit(meggarSecondaryToEarth, 'M\u03A9')}</td>
-            <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{meggarSecondaryToEarth ? renderStatus('', isM3Fail) : 'Not recorded'}</td>
           </tr>
           <tr>
             <td style={{ textAlign: 'center', fontWeight: 'bold' }}>3</td>
             <td style={{ paddingLeft: '24px' }}>d) Meggar Test: Core to Core (at 500V DC)</td>
             <td style={{ textAlign: 'center' }}>{renderValWithUnit(meggarCoreToCore, 'M\u03A9')}</td>
-            <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{meggarCoreToCore ? renderStatus('', isM4Fail) : 'Not recorded'}</td>
           </tr>
           <tr>
             <td style={{ textAlign: 'center', fontWeight: 'bold' }}>4</td>
             <td style={{ fontWeight: 'semibold' }}>H.V. Test on Secondary Winding (2KV for 1 min)</td>
             <td style={{ textAlign: 'center' }}>{hvSecondaryWinding || 'Not recorded'}</td>
-            <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{renderStatus(hvSecondaryWinding)}</td>
           </tr>
           <tr>
             <td style={{ textAlign: 'center', fontWeight: 'bold' }}>5</td>
             <td style={{ fontWeight: 'semibold' }}>H.V. Test on Primary Winding</td>
             <td style={{ textAlign: 'center' }}>{hvPrimaryWinding || 'Not recorded'}</td>
-            <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{renderStatus(hvPrimaryWinding)}</td>
           </tr>
           <tr>
             <td style={{ textAlign: 'center', fontWeight: 'bold' }}>6</td>
             <td style={{ fontWeight: 'semibold' }}>H.V. Test between Core (3KV for 1 min)</td>
             <td style={{ textAlign: 'center' }}>{hvBetweenCore || 'Not recorded'}</td>
-            <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{renderStatus(hvBetweenCore)}</td>
           </tr>
           <tr>
             <td style={{ textAlign: 'center', fontWeight: 'bold' }}>7</td>
             <td style={{ fontWeight: 'semibold' }}>O.V.I.T. Test (Double Voltage Double Frequency for 1 min)</td>
             <td style={{ textAlign: 'center' }}>{ovitTest || 'Not recorded'}</td>
-            <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{renderStatus(ovitTest)}</td>
           </tr>
         </tbody>
       </table>
@@ -215,7 +209,6 @@ export function FinalQAReport({ transformer, testerName, mode = 'standalone' }: 
             orderNo={transformer.jobId || order?.jobId || transformer.uniqueId}
             client={transformer.clientName || order?.clientName || 'N/A'}
             unitNo={transformer.uniqueId}
-            accuracyClass={accuracyClass}
           />
 
           <div className="ae-section-container">
@@ -225,7 +218,6 @@ export function FinalQAReport({ transformer, testerName, mode = 'standalone' }: 
                 { label: 'Specification', value: `${transformer.voltageRating || '33'} KV` },
                 { label: 'CT Ratio', value: generalRatio },
                 { label: 'Burden', value: displayBurden },
-                { label: 'Class', value: accuracyClass },
                 { label: 'STC', value: displaySTC }
               ]}
             />

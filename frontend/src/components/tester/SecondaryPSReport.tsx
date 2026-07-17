@@ -845,6 +845,44 @@ export function SecondaryPSReport({
           iex11Vk: ''
         }));
 
+        if (stage === 'inspection') {
+          let currentInspectionData = (transformer as any).inspectionData || {};
+          try {
+            const checkRes = await axios.get(`/final/inspection/${encodeURIComponent((transformer as any).uniqueId)}`, { withCredentials: true });
+            if (checkRes.data.success && checkRes.data.data) {
+              currentInspectionData = checkRes.data.data;
+            }
+          } catch (e) {
+            console.error("Failed to fetch latest inspection data in fetchLatestData (PS)", e);
+          }
+          const savedResults = (currentInspectionData as any).coreTests?.[selectedCoreId];
+          if (savedResults && savedResults.ps_results) {
+            setPsData((prevData: PSRow[]) => {
+              return prevData.map((row: PSRow, index: number) => {
+                let savedRow = savedResults.ps_results.find((r: any) => r.ratioValue === row.ratioValue);
+                if (!savedRow && savedResults.ps_results[index]) {
+                  savedRow = savedResults.ps_results[index];
+                }
+                if (savedRow) {
+                  return {
+                    ...row,
+                    turnRatioError: savedRow.turnRatioError,
+                    resistance: savedRow.resistance,
+                    vk: savedRow.vk,
+                    vkVal: savedRow.vkVal || (savedRow.vk && !isNaN(parseFloat(savedRow.vk)) ? (parseFloat(savedRow.vk) * 1.1).toFixed(2) : ''),
+                    iexVk: savedRow.iexVk,
+                    iex11Vk: savedRow.iex11Vk
+                  };
+                }
+                return row;
+              });
+            });
+          } else {
+            setPsData(initialBlank);
+          }
+          return;
+        }
+
         if (transformer.isDummy) {
           const res = await axios.get(`/secondary-core-tests/ps/${selectedCoreId}`, { withCredentials: true });
           if (res.data?.success && res.data.data) {
@@ -1041,7 +1079,28 @@ export function SecondaryPSReport({
 
 
       let response;
-      if (isFailedSection && failedTransformerId) {
+      if (stage === 'inspection') {
+        let currentInspectionData = {};
+        try {
+          const checkRes = await axios.get(`/final/inspection/${encodeURIComponent((transformer as any).uniqueId)}`, { withCredentials: true });
+          if (checkRes.data.success && checkRes.data.data) {
+            currentInspectionData = checkRes.data.data;
+          }
+        } catch (e) {
+          console.error("Failed to load existing inspection data for merge, using prop defaults", e);
+          currentInspectionData = (transformer as any).inspectionData || {};
+        }
+
+        const updatedCoreTests = {
+            ...((currentInspectionData as any).coreTests || {}),
+            [selectedCoreId]: payload
+        };
+        const updatedInspectionData = {
+            ...currentInspectionData,
+            coreTests: updatedCoreTests
+        };
+        response = await axios.post(`/final/inspection/${encodeURIComponent((transformer as any).uniqueId)}`, updatedInspectionData, { withCredentials: true });
+      } else if (isFailedSection && failedTransformerId) {
         response = await axios.put(`/failed-transformers/${failedTransformerId}/retest-save`, {
             treatedReadings: payload.ps_results,
             treatedBy: testerName,

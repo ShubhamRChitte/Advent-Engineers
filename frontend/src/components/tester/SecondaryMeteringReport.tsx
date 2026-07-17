@@ -246,6 +246,31 @@ export function SecondaryMeteringReport({
           rows: getInitialData(accuracyClass)
         }));
 
+        if (stage === 'inspection') {
+          let currentInspectionData = transformer.inspectionData || {};
+          try {
+            const checkRes = await axios.get(`/final/inspection/${encodeURIComponent(transformer.uniqueId)}`, { withCredentials: true });
+            if (checkRes.data.success && checkRes.data.data) {
+              currentInspectionData = checkRes.data.data;
+            }
+          } catch (e) {
+            console.error("Failed to fetch latest inspection data in fetchLatestData", e);
+          }
+          const savedResults = (currentInspectionData as any).coreTests?.[selectedCoreId];
+          if (savedResults && savedResults.metering_results) {
+            setTestResults(prev => prev.map((item, idx) => {
+              let matched = savedResults.metering_results.find((r: any) => r.ratioValue === item.ratioValue);
+              if (!matched && savedResults.metering_results[idx]) {
+                matched = savedResults.metering_results[idx];
+              }
+              return matched ? { ...item, rows: matched.rows } : item;
+            }));
+          } else {
+            setTestResults(initialBlankData);
+          }
+          return;
+        }
+
         let freshTransformer = transformer;
         if (transformer.isDummy) {
           const res = await axios.get(`/secondary-core-tests/metering/${selectedCoreId}`, { withCredentials: true });
@@ -384,7 +409,28 @@ export function SecondaryMeteringReport({
       };
 
       
-      if (isFailedSection && failedTransformerId) {
+      if (stage === 'inspection') {
+        let currentInspectionData = {};
+        try {
+          const checkRes = await axios.get(`/final/inspection/${encodeURIComponent(transformer.uniqueId)}`, { withCredentials: true });
+          if (checkRes.data.success && checkRes.data.data) {
+            currentInspectionData = checkRes.data.data;
+          }
+        } catch (e) {
+          console.error("Failed to load existing inspection data for merge, using prop defaults", e);
+          currentInspectionData = transformer.inspectionData || {};
+        }
+
+        const updatedCoreTests = {
+            ...((currentInspectionData as any).coreTests || {}),
+            [selectedCoreId]: payload
+        };
+        const updatedInspectionData = {
+            ...currentInspectionData,
+            coreTests: updatedCoreTests
+        };
+        await axios.post(`/final/inspection/${encodeURIComponent(transformer.uniqueId)}`, updatedInspectionData, { withCredentials: true });
+      } else if (isFailedSection && failedTransformerId) {
         // Save to retest-save endpoint
         await axios.put(`/failed-transformers/${failedTransformerId}/retest-save`, {
             treatedReadings: payload.metering_results,

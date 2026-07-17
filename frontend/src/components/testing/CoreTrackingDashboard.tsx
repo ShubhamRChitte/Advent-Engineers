@@ -20,24 +20,16 @@ export function CoreTrackingDashboard({ user }: CoreTrackingDashboardProps) {
   const [selectedCoreType, setSelectedCoreType] = useState<CoreType | null>(null);
   const [isCoreTypeReadOnly, setIsCoreTypeReadOnly] = useState(false);
 
-  const handleStartTesting = (order: CoreTestingOrder) => {
+  const handleStartTesting = (order: CoreTestingOrder, coreType: CoreType, isReadOnly: boolean = false) => {
     setSelectedOrder(order);
-    setSelectedCoreType(null);
-    setIsCoreTypeReadOnly(false);
-  };
-
-  const handleSelectCoreType = (coreType: CoreType, isReadOnly: boolean = false) => {
     setSelectedCoreType(coreType);
     setIsCoreTypeReadOnly(isReadOnly);
   };
 
   const handleBack = () => {
-    if (selectedCoreType) {
-      setSelectedCoreType(null);
-      setIsCoreTypeReadOnly(false);
-    } else {
-      setSelectedOrder(null);
-    }
+    setSelectedCoreType(null);
+    setSelectedOrder(null);
+    setIsCoreTypeReadOnly(false);
   };
 
   // Render testing flow
@@ -55,16 +47,6 @@ export function CoreTrackingDashboard({ user }: CoreTrackingDashboardProps) {
       );
     }
 
-    // Show core type selection if order is selected
-    if (selectedOrder) {
-      return (
-        <CoreTypeSelection
-          order={selectedOrder}
-          onSelectCoreType={handleSelectCoreType}
-          onBack={handleBack}
-        />
-      );
-    }
     // Show orders list by default
     return <CoreTestingOrders onStartTesting={handleStartTesting} user={user} />;
   };

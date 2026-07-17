@@ -17,11 +17,12 @@ import { MultiReadyStockModal } from './MultiReadyStockModal';
 
 interface CoreTypeSelectionProps {
   order: CoreTestingOrder;
-  onSelectCoreType: (coreType: 'Metering' | 'PS' | 'Protection') => void;
+  onSelectCoreType: (coreType: 'Metering' | 'PS' | 'Protection', isReadOnly?: boolean) => void;
   onBack: () => void; 
+  inline?: boolean;
 }
 
-export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeSelectionProps) {
+export function CoreTypeSelection({ order, onSelectCoreType, onBack, inline = false }: CoreTypeSelectionProps) {
   const [completionStatus, setCompletionStatus] = useState<Record<string, boolean>>({});
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [isApproving, setIsApproving] = useState(false);
@@ -297,45 +298,49 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div>
-        <Button
-          variant="outline"
-          onClick={onBack}
-          size="sm"
-          className="mb-3 gap-1"
-        >
-          <ArrowLeft className="w-3 h-3" />
-          Back
-        </Button>
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-xl font-bold text-[#003a70]">Select Test Type</h2>
-            <p className="text-sm text-gray-600 mt-1">{order.jobId} - {order.clientName}</p>
+      {!inline && (
+        <div>
+          <Button
+            variant="outline"
+            onClick={onBack}
+            size="sm"
+            className="mb-3 gap-1"
+          >
+            <ArrowLeft className="w-3 h-3" />
+            Back
+          </Button>
+          <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-xl font-bold text-[#003a70]">Select Test Type</h2>
+              <p className="text-sm text-gray-600 mt-1">{order.jobId} - {order.clientName}</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Order Summary */}
-      <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div>
-            <p className="text-xs text-gray-500 font-medium">Transformer</p>
-            <p className="text-gray-900 mt-0.5 font-bold">{order.transformerName}</p>
+      {!inline && (
+        <Card className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div>
+              <p className="text-xs text-gray-500 font-medium">Transformer</p>
+              <p className="text-gray-900 mt-0.5 font-bold">{order.transformerName}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 font-medium">Client</p>
+              <p className="text-gray-900 mt-0.5 font-bold">{order.clientName}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 font-medium">
+                {order.assignedUnitIds?.length ? 'Assigned Qty' : 'Quantity'}
+              </p>
+              <p className="text-gray-900 mt-0.5 font-bold">
+                {order.assignedUnitIds?.length || order.quantity} units
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-gray-500 font-medium">Client</p>
-            <p className="text-gray-900 mt-0.5 font-bold">{order.clientName}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 font-medium">
-              {order.assignedUnitIds?.length ? 'Assigned Qty' : 'Quantity'}
-            </p>
-            <p className="text-gray-900 mt-0.5 font-bold">
-              {order.assignedUnitIds?.length || order.quantity} units
-            </p>
-          </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
       {/* Core Type Selection Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -388,21 +393,25 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
                 </div>
 
                 <div className="flex gap-2">
-                  <Button
-                    className={`flex-1 ${colors.button} text-white font-semibold`}
-                    size="sm"
-                    onClick={() => onSelectCoreType(type as any)}
-                  >
-                    {isComplete ? 'Review / Edit' : 'Start Test'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1 bg-white hover:bg-slate-50 text-slate-700 border-slate-200 font-semibold"
-                    size="sm"
-                    onClick={() => handleOpenReadyStock(type as any)}
-                  >
-                    Ready Stock
-                  </Button>
+                  {assignedCount > 0 && (
+                    <Button
+                      className={`flex-1 ${colors.button} text-white font-semibold`}
+                      size="sm"
+                      onClick={() => onSelectCoreType(type as any, true)}
+                    >
+                      View
+                    </Button>
+                  )}
+                  {assignedCount < requiredCount && (
+                    <Button
+                      variant="outline"
+                      className="flex-1 bg-white hover:bg-slate-50 text-slate-700 border-slate-200 font-semibold"
+                      size="sm"
+                      onClick={() => handleOpenReadyStock(type as any)}
+                    >
+                      Ready Stock
+                    </Button>
+                  )}
                 </div>
               </div>
             </Card>
@@ -436,7 +445,7 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack }: CoreTypeS
       </Card>
 
       {/* Instructions */}
-      {order.instructions && 
+      {!inline && order.instructions && 
        order.instructions.toLowerCase() !== 'none' && 
        order.instructions.toLowerCase() !== 'n/a' && (
         <Card className="p-3 bg-blue-50 border-blue-200">

@@ -253,6 +253,14 @@ export function CoreTestingForm({
   };
 
   const renderVendorCell = (row: CoreTestRow, index: number) => {
+    if (isReadOnly || isRowLocked(row)) {
+      return (
+        <td className="p-2 border border-gray-300 text-center text-xs font-semibold text-gray-700">
+          {row.coreVendorNo || '-'}
+        </td>
+      );
+    }
+
     const vendors = getVendors();
 
     return (
@@ -2618,7 +2626,7 @@ export function CoreTestingForm({
   // PS Core Template (Exact replica of Protection Core)
   if (isPSCore) {
     // PS Configuration Screen
-    if (!psConfigured) {
+    if (!psConfigured && !isReadOnly) {
       const addBColumn = () => {
         const newId = String(psBColumns.length + 1);
         setPsBColumns([...psBColumns, { id: newId, bsatValue: '', setMvValue: '', leLimitValue: '' }]);
@@ -3352,7 +3360,7 @@ export function CoreTestingForm({
   }
 
   // Metering Configuration Screen (only for Metering cores)
-  if (!isProtectionCore && !isPSCore && !meteringConfigured) {
+  if (!isProtectionCore && !isPSCore && !meteringConfigured && !isReadOnly) {
     const addBSATColumn = () => {
       const newId = String(bsatColumns.length + 1);
       setBsatColumns([...bsatColumns, { id: newId, bsatValue: '', setMvValue: '', leLimitValue: '' }]);
