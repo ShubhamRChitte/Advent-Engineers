@@ -132,22 +132,24 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
     window.location.href = `/admin/report/${id}?type=${type}&from=${from}`;
   };
 
-  const filteredUnits = transformerUnits.filter((unit) => {
-    const query = searchQuery.toLowerCase();
+  const filteredUnits = transformerUnits
+    .filter((unit) => {
+      const query = searchQuery.toLowerCase();
 
-    // Check Transformer ID
-    const matchTransformerId = unit.transformerId.toLowerCase().includes(query);
+      // Check Transformer ID
+      const matchTransformerId = unit.transformerId.toLowerCase().includes(query);
 
-    // Check Job ID
-    const matchJobId = order.orderId?.toLowerCase().includes(query) ||
-      unit.raw?.jobId?.toLowerCase().includes(query);
+      // Check Job ID
+      const matchJobId = order.orderId?.toLowerCase().includes(query) ||
+        unit.raw?.jobId?.toLowerCase().includes(query);
 
-    // Check Core Number (usually found as internalCoreNo in raw data)
-    const matchCoreNo = unit.raw?.internalCoreNo?.toLowerCase().includes(query) ||
-      unit.raw?.coreDetails?.some((core: any) => core.coreId?.toLowerCase().includes(query) || String(core.coreNumber).includes(query));
+      // Check Core Number (usually found as internalCoreNo in raw data)
+      const matchCoreNo = unit.raw?.internalCoreNo?.toLowerCase().includes(query) ||
+        unit.raw?.coreDetails?.some((core: any) => core.coreId?.toLowerCase().includes(query) || String(core.coreNumber).includes(query));
 
-    return matchTransformerId || matchJobId || matchCoreNo;
-  });
+      return matchTransformerId || matchJobId || matchCoreNo;
+    })
+    .sort((a, b) => a.transformerId.localeCompare(b.transformerId, undefined, { numeric: true, sensitivity: 'base' }));
 
   const isPTContext = isPTOrder() || transformerUnits.some((u) => isPTOrder(u.raw));
 

@@ -3,6 +3,7 @@ import axios from '@/utils/axiosConfig';
 import { Clock, RefreshCw } from 'lucide-react';
 import { SecondaryOrdersList } from './SecondaryOrdersList';
 import { SecondaryTransformersList, Transformer } from './SecondaryTransformersList';
+import { SecondaryCoreTestingWorkflow } from './SecondaryCoreTestingWorkflow';
 import { SecondaryCoreSelection } from './SecondaryCoreSelection';
 import { SecondaryMeteringReport } from './SecondaryMeteringReport';
 import { SecondaryPSReport } from './SecondaryPSReport';
@@ -157,9 +158,9 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
         )}
 
         {currentView === 'transformers' && selectedOrder && (
-          <SecondaryTransformersList
+          <SecondaryCoreTestingWorkflow
             order={selectedOrder}
-            onStartTest={handleStartTest}
+            userName={userName}
             onBack={handleBackToOrders}
             onRefreshOrders={triggerRefresh}
           />

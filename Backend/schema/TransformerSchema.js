@@ -209,6 +209,11 @@ const TestStageSchema = new Schema({
   protection_results: [ProtectionBlockSchema],
   ps_results: [PSBlockSchema],
 
+  // Selected core assignments
+  meteringCoreId: { type: String, default: null },
+  psCoreId: { type: String, default: null },
+  protectionCoreId: { type: String, default: null },
+
   // New: Final QA Specific Fields (Stored in testHistory.final_test)
   polarityResult: { type: String },
   meggarPrimaryToSecondary: { type: String },

@@ -30,6 +30,9 @@ export function SecondaryReportView({
     const uniqueMeteringCores: string[] = (() => {
         const results = history?.metering_results || [];
         const seen = new Set<string>();
+        if (history?.meteringCoreId) {
+            seen.add(history.meteringCoreId);
+        }
         results.forEach((r: any) => {
             const id = r.internalCoreNo || r.coreId;
             if (id) seen.add(id);
@@ -40,6 +43,9 @@ export function SecondaryReportView({
     const uniqueProtectionCores: string[] = (() => {
         const results = history?.protection_results || [];
         const seen = new Set<string>();
+        if (history?.protectionCoreId) {
+            seen.add(history.protectionCoreId);
+        }
         results.forEach((r: any) => {
             const id = r.internalCoreNo || r.coreId;
             if (id) seen.add(id);
@@ -50,6 +56,9 @@ export function SecondaryReportView({
     const uniquePSCores: string[] = (() => {
         const results = history?.ps_results || [];
         const seen = new Set<string>();
+        if (history?.psCoreId) {
+            seen.add(history.psCoreId);
+        }
         results.forEach((r: any) => {
             const id = r.internalCoreNo || r.coreId;
             if (id) seen.add(id);

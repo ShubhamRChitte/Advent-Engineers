@@ -723,6 +723,9 @@ export function SecondaryPSReport({
         myResults = secHistory.ps_results.filter((res: any) =>
           res.internalCoreNo === coreId || res.coreId === coreId
         );
+        if (myResults.length === 0 && secHistory.psCoreId === coreId) {
+          myResults = secHistory.ps_results;
+        }
       }
     }
 
@@ -732,6 +735,9 @@ export function SecondaryPSReport({
         myResults = stageHistory.ps_results.filter((res: any) =>
           res.internalCoreNo === coreId || res.coreId === coreId
         );
+        if (myResults.length === 0 && transformer.testHistory?.secondary_test?.psCoreId === coreId) {
+          myResults = stageHistory.ps_results;
+        }
       }
     }
 
@@ -741,6 +747,9 @@ export function SecondaryPSReport({
         myResults = sourceHistory.ps_results.filter((res: any) =>
           res.internalCoreNo === coreId || res.coreId === coreId
         );
+        if (myResults.length === 0 && transformer.testHistory?.secondary_test?.psCoreId === coreId) {
+          myResults = sourceHistory.ps_results;
+        }
       }
     }
 
@@ -787,10 +796,85 @@ export function SecondaryPSReport({
     fetchLimit();
   }, []);
 
+  const [approvedCores, setApprovedCores] = useState<string[]>([]);
+  const [secondaryTestedCores, setSecondaryTestedCores] = useState<string[]>([]);
+  const [selectedCoreId, setSelectedCoreId] = useState<string>(coreId);
+
+  React.useEffect(() => {
+    const fetchApprovedCores = async () => {
+      const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
+      const orderId = order?._id || order;
+      if (!orderId || readOnly) return;
+      try {
+        const [appRes, secRes] = await Promise.all([
+          axios.get(`/core-tests/approved-ids/${orderId}`, { withCredentials: true }),
+          axios.get(`/secondary-core-tests/ready-stock/${orderId}`, { withCredentials: true })
+        ]);
+        if (appRes.data?.success) {
+          const ids = appRes.data.ps || [];
+          setApprovedCores(ids);
+        }
+        if (secRes.data?.success) {
+          const testedIds = (secRes.data.ps || []).map((c: any) => c.coreId);
+          setSecondaryTestedCores(testedIds);
+        }
+      } catch (err) {
+        console.error("Failed to fetch approved core IDs", err);
+      }
+    };
+    fetchApprovedCores();
+  }, [transformer.orderId, (transformer as any).fullOrder, readOnly]);
+
+  React.useEffect(() => {
+    setSelectedCoreId(coreId);
+  }, [coreId]);
+
   // ✅ LOAD DATA EFFECT
   React.useEffect(() => {
     const fetchLatestData = async () => {
       try {
+        const initialBlank = dynamicRatios.map((ratio: string) => ({
+          ratioValue: ratio,
+          turnRatioError: '',
+          resistance: '',
+          vk: '',
+          vkVal: '',
+          iexVk: '',
+          iex11Vk: ''
+        }));
+
+        if (transformer.isDummy) {
+          const res = await axios.get(`/secondary-core-tests/ps/${selectedCoreId}`, { withCredentials: true });
+          if (res.data?.success && res.data.data) {
+            const testDoc = res.data.data;
+            if (testDoc.ps_results && testDoc.ps_results.length > 0) {
+              setPsData((prevData: PSRow[]) => {
+                return prevData.map((row: PSRow, index: number) => {
+                  let savedRow = testDoc.ps_results.find((r: any) => r.ratioValue === row.ratioValue);
+                  if (!savedRow && testDoc.ps_results[index]) {
+                    savedRow = testDoc.ps_results[index];
+                  }
+                  if (savedRow) {
+                    return {
+                      ...row,
+                      turnRatioError: savedRow.turnRatioError,
+                      resistance: savedRow.resistance,
+                      vk: savedRow.vk,
+                      vkVal: savedRow.vkVal || (savedRow.vk && !isNaN(parseFloat(savedRow.vk)) ? (parseFloat(savedRow.vk) * 1.1).toFixed(2) : ''),
+                      iexVk: savedRow.iexVk,
+                      iex11Vk: savedRow.iex11Vk
+                    };
+                  }
+                  return row;
+                });
+              });
+              return;
+            }
+          }
+          setPsData(initialBlank);
+          return;
+        }
+
         const res = await axios.get(`/transformers/${(transformer as any).uniqueId}`, { withCredentials: true });
         const freshTransformer = res.data.data || res.data;
 
@@ -818,8 +902,11 @@ export function SecondaryPSReport({
           const secHistory = freshTransformer?.testHistory?.secondary_test;
           if (secHistory?.ps_results?.length > 0) {
             myResults = secHistory.ps_results.filter((res: any) =>
-              res.internalCoreNo === coreId || res.coreId === coreId
+              res.internalCoreNo === selectedCoreId || res.coreId === selectedCoreId
             );
+            if (myResults.length === 0 && secHistory.psCoreId === selectedCoreId) {
+              myResults = secHistory.ps_results;
+            }
           }
         }
 
@@ -827,8 +914,11 @@ export function SecondaryPSReport({
           const stageHistory = freshTransformer?.testHistory?.[`${stage}_test`] as any;
           if (stageHistory?.ps_results?.length > 0) {
             myResults = stageHistory.ps_results.filter((res: any) =>
-              res.internalCoreNo === coreId || res.coreId === coreId
+              res.internalCoreNo === selectedCoreId || res.coreId === selectedCoreId
             );
+            if (myResults.length === 0 && freshTransformer.testHistory?.secondary_test?.psCoreId === selectedCoreId) {
+              myResults = stageHistory.ps_results;
+            }
           }
         }
 
@@ -836,8 +926,11 @@ export function SecondaryPSReport({
           const sourceHistory = freshTransformer?.testHistory?.[`${sourceStage}_test`] as any;
           if (sourceHistory?.ps_results?.length > 0) {
             myResults = sourceHistory.ps_results.filter((res: any) =>
-              res.internalCoreNo === coreId || res.coreId === coreId
+              res.internalCoreNo === selectedCoreId || res.coreId === selectedCoreId
             );
+            if (myResults.length === 0 && freshTransformer.testHistory?.secondary_test?.psCoreId === selectedCoreId) {
+              myResults = sourceHistory.ps_results;
+            }
           }
         }
 
@@ -881,6 +974,8 @@ export function SecondaryPSReport({
               return row;
             });
           });
+        } else {
+          setPsData(initialBlank);
         }
       } catch (err) {
         console.error("Failed to load existing PS data", err);
@@ -888,7 +983,7 @@ export function SecondaryPSReport({
     };
 
     fetchLatestData();
-  }, [(transformer as any).uniqueId, coreId, failedStatus, isFailedCore, retestHistory]);
+  }, [(transformer as any).uniqueId, selectedCoreId, failedStatus, isFailedCore, retestHistory]);
 
   const handleUpdate = (idx: number, field: keyof PSRow, val: string) => {
     if (readOnly) return;
@@ -899,10 +994,9 @@ export function SecondaryPSReport({
 
       // Auto-calculate 1.1Vk if Vk changes
       if (field === 'vk') {
-        const num = parseFloat(val);
-        if (!isNaN(num)) {
-          // Use roughly 2 decimals for voltage
-          updated[idx].vkVal = (num * 1.1).toFixed(2).replace(/\.00$/, '');
+        const floatVal = parseFloat(val);
+        if (!isNaN(floatVal)) {
+          updated[idx].vkVal = (floatVal * 1.1).toFixed(2);
         } else {
           updated[idx].vkVal = '';
         }
@@ -919,13 +1013,14 @@ export function SecondaryPSReport({
       // 1. Prepare the payload based on PSBlockSchema
       const payload = {
         uniqueId: (transformer as any).uniqueId,
+        orderId: typeof (transformer as any).orderId === 'object' && (transformer as any).orderId ? ((transformer as any).orderId as any)._id : (transformer as any).orderId,
         tester: testerName, // Use prop directly
-        coreId: coreId,
+        coreId: selectedCoreId,
         stage: stage, // Add stage info if helpful for backend logging
         ps_results: psData.map((row: any) => {
           const validation = validatePSRow(row);
           return {
-            internalCoreNo: coreId,
+            internalCoreNo: selectedCoreId,
             ratioValue: row.ratioValue,
             accuracyClass: accuracyClass || 'N/A',
             turnRatioError: row.turnRatioError,
@@ -966,6 +1061,7 @@ export function SecondaryPSReport({
 
       console.log("handleDatabaseSave (PS): Response received", response);
       toast.success("Secondary PS Test results saved successfully!");
+      setSecondaryTestedCores(prev => [...new Set([...prev, selectedCoreId])]);
       if (onRefresh) onRefresh();
 
     } catch (error: any) {
@@ -1066,7 +1162,7 @@ export function SecondaryPSReport({
         clientName: transformer.clientName || orderObj?.clientName || '',
         coreType: "PS",
         testType: stage === 'primary' ? "After Primary PS" : stage === 'final' ? "Final PS" : "Secondary PS",
-        failureParameters: { failureStage: `${stage}_ps_test`, dynamicValues: psData, coreId: coreId },
+        failureParameters: { failureStage: `${stage}_ps_test`, dynamicValues: psData, coreId: selectedCoreId },
         failureReason: finalReason,
         reportedBy: testerName,
         stage: stage === 'primary' ? "PRIMARY_TESTING" : stage === 'final' ? "FINAL_TESTING" : "SECONDARY_TESTING",
@@ -1247,7 +1343,27 @@ export function SecondaryPSReport({
 
           <div className="ae-section-container">
             <ReportSectionTitle index={2} title="CLASS PS SPECIAL PROTECTION CORE TEST" />
-            <CoreInformationBar label="PS Core No" value={coreId} />
+            {!readOnly ? (
+              <div className="flex items-center gap-3 bg-white p-3 rounded-lg border border-[#103b63]/20 shadow-sm max-w-md my-3 no-print">
+                <span className="text-xs font-bold text-[#103b63] uppercase tracking-wide">Select Core ID (from Core Testing):</span>
+                <select
+                  value={selectedCoreId}
+                  onChange={(e) => setSelectedCoreId(e.target.value)}
+                  className="flex-1 p-2 text-xs font-bold rounded border border-gray-300 bg-white text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value={coreId}>{coreId} (Default)</option>
+                  {approvedCores
+                    .filter(id => id === selectedCoreId || !secondaryTestedCores.includes(id))
+                    .map(id => (
+                      id !== coreId && (
+                        <option key={id} value={id}>{id}</option>
+                      )
+                    ))}
+                </select>
+              </div>
+            ) : (
+              <CoreInformationBar label="PS Core No" value={selectedCoreId} />
+            )}
             <table className="ae-report-table secondary-report-table ps-core-table">
               <colgroup>
                 <col style={{ width: '14%' }} />

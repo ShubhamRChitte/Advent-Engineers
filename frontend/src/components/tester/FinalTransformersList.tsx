@@ -139,7 +139,9 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
 
               // Try to find the real ID from secondary results based on type
               if (mappedType === 'metering') {
-                if (mIndex < meteringResults.length) {
+                if (secTest.meteringCoreId) {
+                  coreId = secTest.meteringCoreId;
+                } else if (mIndex < meteringResults.length) {
                   const res = meteringResults[mIndex];
                   coreId = res.internalCoreNo || (res.rows && res.rows[0]?.internalCoreNo) || 'M-Pending';
                   // Only update accuracyClass from history if not already set by order spec
@@ -147,15 +149,23 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                     accuracyClass = res.accuracyClass || res.classOption || '0.5';
                   }
                   mIndex++;
+                } else {
+                  coreId = 'M-Pending';
                 }
               } else if (mappedType === 'ps') {
-                if (psIndex < psResults.length) {
+                if (secTest.psCoreId) {
+                  coreId = secTest.psCoreId;
+                } else if (psIndex < psResults.length) {
                   const res = psResults[psIndex];
                   coreId = res.internalCoreNo || 'PS-Pending';
                   psIndex++;
+                } else {
+                  coreId = 'PS-Pending';
                 }
               } else if (mappedType === 'protection') {
-                if (pIndex < protectionResults.length) {
+                if (secTest.protectionCoreId) {
+                  coreId = secTest.protectionCoreId;
+                } else if (pIndex < protectionResults.length) {
                   const res = protectionResults[pIndex];
                   coreId = res.internalCoreNo || 'P-Pending';
                   // Only update accuracyClass from history if not already set by order spec
@@ -163,6 +173,8 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                     accuracyClass = res.protectionClass || '5P';
                   }
                   pIndex++;
+                } else {
+                  coreId = 'P-Pending';
                 }
               }
 

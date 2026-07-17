@@ -173,9 +173,9 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
     }
   }, [order.id]);
 
-  const filteredUnits = transformerUnits.filter(unit =>
-    unit.transformerId.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUnits = transformerUnits
+    .filter(unit => unit.transformerId.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => a.transformerId.localeCompare(b.transformerId, undefined, { numeric: true, sensitivity: 'base' }));
 
   const getStatusColor = (status: string) => {
     switch (status) {
