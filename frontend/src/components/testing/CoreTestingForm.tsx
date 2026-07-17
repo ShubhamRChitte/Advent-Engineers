@@ -166,6 +166,7 @@ export function CoreTestingForm({
 
   const updatePreTestBatchStatus = async (newStatus: string) => {
     if (!isPreTest || !batchData?.batchId) return;
+    if ((batchData as any).status === 'COMPLETED') return; // Do not downgrade a COMPLETED batch
     try {
       await axios.patch(`/pre-test-batches/${batchData.batchId}/status`, { status: newStatus }, {
         withCredentials: true
@@ -567,7 +568,7 @@ export function CoreTestingForm({
         if (!consumedIds.has(id)) {
           rows.push({
             date: getSystemDate(),
-            coreVendorNo: batchData.vendorName,
+            coreVendorNo: batchData.vendorName ? `V-1 - ${batchData.vendorName}` : '',
             internalCoreNo: id,
             value1000: '', value3000: '', value5000: '', value7000: '',
             singleValue: '',
