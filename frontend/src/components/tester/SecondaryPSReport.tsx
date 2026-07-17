@@ -1289,12 +1289,14 @@ export function SecondaryPSReport({
               <ArrowLeft className="w-4 h-4" /> Back
             </Button>
             <div className="flex gap-2">
-              {hasFailures && !isFailedSection && (
+              {!readOnly && !transformer.isDummy && hasFailures && !isFailedSection && (
                 <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-md">
                   <AlertTriangle className="w-4 h-4" /> Add to Failed Transformer
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2"><Save className="w-4 h-4" /> Save</Button>
+              {!readOnly && (
+                <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2"><Save className="w-4 h-4" /> Save</Button>
+              )}
               {onPrev && (
                 <Button 
                   variant="outline" 

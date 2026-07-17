@@ -155,24 +155,6 @@ export default function ReadyStockView() {
     }
   };
 
-  const handleApproveBatch = async (batchId: string) => {
-    if (!window.confirm("Are you sure you want to approve this batch and move it to Ready Stock?")) return;
-    
-    try {
-      const token = localStorage.getItem('token');
-      const res = await axios.post(`/pre-test-batches/${batchId}/approve`, {}, {
-        withCredentials: true,
-        headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-      });
-      if (res.status === 200) {
-        toast.success("Batch approved and moved to Ready Stock!");
-        handleManualRefresh();
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to approve batch");
-    }
-  };
-
   const isBatchFullyTested = (batch: PreTestBatch) => {
     const currentlyFailed = (batch.failedCount || 0) - (batch.discardedCount || 0);
     const totalTested = (batch.passedCount || 0) + currentlyFailed;
@@ -310,10 +292,12 @@ export default function ReadyStockView() {
                       </Badge>
                     </td>
                     <td className="px-4 py-4 text-gray-600 truncate max-w-[100px]" title={batch.vendorName}>{batch.vendorName}</td>
-                    <td className="px-4 py-4 font-semibold text-center">{batch.numberOfCores}</td>
+                    <td className="px-4 py-4 font-semibold text-center">
+                      {((batch.availableCoresCount ?? batch.passedCount) + (batch.failedCount || 0))}
+                    </td>
                     <td className="px-4 py-4 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <span className="text-green-600 font-bold">P: {Math.max(0, batch.passedCount || 0)}</span>
+                        <span className="text-green-600 font-bold">P: {Math.max(0, (batch.availableCoresCount ?? batch.passedCount))}</span>
                         <span className="text-gray-300">/</span>
                         <span className="text-red-600 font-bold">F: {Math.max(0, batch.failedCount || 0)}</span>
                       </div>
@@ -335,16 +319,7 @@ export default function ReadyStockView() {
                       {new Date(batch.createdAt).toLocaleDateString('en-GB')}
                     </td>
                     <td className="px-3 py-4 text-right flex items-center justify-end gap-1">
-                      {batch.status !== 'COMPLETED' && isBatchFullyTested(batch) && (
-                        <Button 
-                          size="sm" 
-                          className="h-8 px-3 text-[10px] font-bold bg-green-600 hover:bg-green-700 text-white shadow-sm border border-green-700"
-                          onClick={() => handleApproveBatch(batch.batchId)}
-                        >
-                          Approve
-                        </Button>
-                      )}
-                      
+
                       <Button 
                         variant="outline" 
                         size="sm" 

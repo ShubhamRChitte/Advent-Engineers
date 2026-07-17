@@ -44,6 +44,7 @@ export interface Transformer {
   ratedSecondaryCurrent?: number | string;
   primaryCurrents?: string[];
   fullOrder?: any;
+  isDummy?: boolean;
 }
 
 interface Order {
@@ -62,6 +63,7 @@ interface Order {
   ratio?: string[];
   nominalSystemVoltage?: number | string;
   coreDetails?: any[];
+  coreConfiguration?: any[];
   stc?: string;
   burden?: number;
   voltageRating?: string;

@@ -29,7 +29,8 @@ export function PreTestBatchModule({ onBack, user, initialBatch }: PreTestBatchM
     coreType: 'Metering' as 'Metering' | 'Protection' | 'PS',
     numberOfCores: '10',
     turns: '10',
-    discardedCoreIds: [] as string[]
+    discardedCoreIds: [] as string[],
+    status: ''
   });
 
   const incrementCores = () => {
@@ -70,7 +71,8 @@ export function PreTestBatchModule({ onBack, user, initialBatch }: PreTestBatchM
         coreType: initialBatch.coreType,
         numberOfCores: String(initialBatch.numberOfCores),
         turns: initialBatch.turns,
-        discardedCoreIds: initialBatch.discardedCoreIds || []
+        discardedCoreIds: initialBatch.discardedCoreIds || [],
+        status: initialBatch.status
       });
       setCurrentStep('TESTING');
     }
@@ -319,6 +321,7 @@ export function PreTestBatchModule({ onBack, user, initialBatch }: PreTestBatchM
           }}
           user={user}
           isPreTest={true}
+          isReadOnly={batchData.status === 'COMPLETED'}
           batchData={{
             batchId: batchData.batchId,
             vendorName: batchData.vendorName,

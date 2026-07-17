@@ -104,8 +104,20 @@ exports.getBatches = async (req, res) => {
 
 exports.getBatchById = async (req, res) => {
   try {
-    const batch = await PreTestBatchModel.findOne({ batchId: req.params.batchId });
+    const batch = await PreTestBatchModel.findOne({ batchId: req.params.batchId }).lean();
     if (!batch) return res.status(404).json({ message: "Batch not found" });
+    
+    const readyCores = await ReadyTransformer.find({ batchId: batch.batchId }, 'coreId status').lean();
+    const readyCoreMap = {};
+    readyCores.forEach(c => readyCoreMap[c.coreId] = c.status);
+
+    if (batch.readings) {
+      batch.readings = batch.readings.map(r => ({
+        ...r,
+        readyStockStatus: readyCoreMap[r.internalCoreNo] || null
+      }));
+    }
+
     res.json(batch);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -134,9 +146,55 @@ exports.updateBatchStatus = async (req, res) => {
       
       const currentlyFailed = readings.filter(r => r.result === 'F').length;
       batch.failedCount = (batch.discardedCount || 0) + currentlyFailed;
+      
+      const totalTested = batch.passedCount + currentlyFailed;
+      // Auto-complete if all cores are tested
+      if (totalTested >= batch.numberOfCores && batch.numberOfCores > 0) {
+        batch.status = 'COMPLETED';
+      }
     }
 
     await batch.save();
+
+    // Sync with Ready Stock only when the overall report is saved
+    if (readings && Array.isArray(batch.readings)) {
+      for (const reading of batch.readings) {
+        if (!reading || !reading.internalCoreNo) continue;
+        
+        if (reading.result === 'P' || reading.result === 'PRE_TESTED' || reading.result === 'PRE TESTED') {
+          const readyStockEntry = {
+            coreId: reading.internalCoreNo,
+            batchId: batch.batchId,
+            coreType: batch.coreType,
+            createdFrom: "PRE_TEST",
+            specifications: {
+              turns: batch.turns || "N/A",
+              ratio: (batch.testSetup && batch.testSetup.ratio) || "N/A",
+              burden: (batch.testSetup && batch.testSetup.burden) || "N/A",
+              class: (batch.testSetup && batch.testSetup.classType) || "N/A"
+            },
+            testResults: reading,
+            testedAt: new Date()
+          };
+          
+          await ReadyTransformer.findOneAndUpdate(
+            { coreId: reading.internalCoreNo },
+            { 
+              $set: readyStockEntry,
+              $setOnInsert: { status: 'available' }
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+          );
+        } else {
+          // If not passed, remove from Ready Stock if still available
+          await ReadyTransformer.deleteOne({ 
+            coreId: reading.internalCoreNo, 
+            status: 'available' 
+          });
+        }
+      }
+    }
+
     res.json(batch);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -211,6 +269,7 @@ exports.saveBatchReading = async (req, res) => {
       batch.markModified('testLimits');
 
       await batch.save();
+
       return res.json(batch);
     } catch (error) {
       if (error.name === 'VersionError' && retries > 1) {
@@ -371,9 +430,7 @@ exports.deleteBatch = async (req, res) => {
       return res.status(404).json({ message: "Batch not found" });
     }
 
-    if (batch.status === "COMPLETED") {
-      return res.status(400).json({ message: "Completed batches cannot be deleted." });
-    }
+    await ReadyTransformer.deleteMany({ batchId: batch.batchId, status: 'available' });
 
     await PreTestBatchModel.findOneAndDelete({ batchId });
     res.json({ message: "Batch deleted successfully", batchId });

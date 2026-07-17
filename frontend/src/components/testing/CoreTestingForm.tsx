@@ -79,6 +79,7 @@ interface CoreTestRow {
   replacedCoreId?: string;
   status?: 'PENDING' | 'PASS' | 'FAIL' | 'RETURNED';
   isReadyStock?: boolean; // NEW
+  readyStockStatus?: string; // NEW
 }
 
 interface BSATColumn {
@@ -198,6 +199,9 @@ export function CoreTestingForm({
 
   const isRowLocked = (row: CoreTestRow) => {
     if (row.isReadyStock) return true; // Ready stock cores are locked!
+    // If the core has been pushed to ready stock AND is no longer available (used), lock it down
+    if (row.readyStockStatus && row.readyStockStatus !== 'available') return true;
+    if (row.remark && String(row.remark).trim().toLowerCase() === 'used') return true;
     if (isPreTest) return false;
     if (row.isReplacement) return false; // Always allow editing replacements
     // Allow editing even if it's FAIL, as long as it's not approved (isReadOnly)
@@ -396,7 +400,7 @@ export function CoreTestingForm({
         }
 
         const assignedOfThisType = assignedReadyCores.filter((c: any) => c.coreType === coreType);
-        const readyRows = assignedOfThisType.map((c: any) => {
+        const readyRows: CoreTestRow[] = assignedOfThisType.map((c: any) => {
           const dynamicValues: { [key: string]: string } = {};
           if (c.testResults && Array.isArray(c.testResults.measuredMa)) {
             c.testResults.measuredMa.forEach((val: any, i: number) => {
@@ -423,7 +427,7 @@ export function CoreTestingForm({
         const initializedSkeleton = initializeRows();
         const finalSkeleton = [...initializedSkeleton];
         for (let i = 0; i < readyRows.length && i < finalSkeleton.length; i++) {
-          finalSkeleton[i] = readyRows[i];
+          finalSkeleton[i] = readyRows[i] as CoreTestRow;
         }
 
         // If data exists, map it; otherwise, use fresh initialization
@@ -451,9 +455,10 @@ export function CoreTestingForm({
               dynamicValues,
               singleValue: r.value != null ? String(r.value) : (dynamicValues['1'] || ''),
               remark: r.result || '',
-              status: r.status || 'PENDING',
+              status: (r.status as 'PENDING' | 'PASS' | 'FAIL' | 'RETURNED') || 'PENDING',
               isReplacement: r.isReplacement || false,
-              replacedCoreId: r.replacedCoreId || null
+              replacedCoreId: r.replacedCoreId || null,
+              readyStockStatus: r.readyStockStatus || null
             };
           });
 
@@ -540,7 +545,13 @@ export function CoreTestingForm({
             setFailedCores(restoredFailedCores);
           }
 
-          const sanitizedRowsToShow = finalRowsToShow.filter(row => {
+
+          // Move used cores to the end
+          const isRowUsed = (r: CoreTestRow) => (r.readyStockStatus && r.readyStockStatus !== 'available') || (r.remark && String(r.remark).trim().toLowerCase() === 'used');
+          const unusedRows = finalRowsToShow.filter(r => !isRowUsed(r));
+          const usedRows = finalRowsToShow.filter(r => isRowUsed(r));
+
+          const sanitizedRowsToShow = [...unusedRows, ...usedRows].filter(row => {
             const id = row.internalCoreNo?.trim().toUpperCase();
             return !id || !dbFailedCoreIds.has(id);
           });
@@ -2398,6 +2409,7 @@ export function CoreTestingForm({
                       <Input
                         value={testDate} // Use the state variable
                         onChange={(e) => setTestDate(e.target.value)} // Allow manual changes if needed
+                        disabled={isReadOnly || isRowLocked(row)}
                         className="w-28 h-7 text-xs border-gray-300 text-center mx-auto"
                       />
                     </td>
@@ -2437,10 +2449,12 @@ export function CoreTestingForm({
                     ))}
                     <td className="p-2 border border-gray-300">
                       <div className="flex items-center justify-center gap-2">
-                        <div className={`min-w-[2rem] h-8 flex items-center justify-center font-medium text-xs ${row.remark === 'P' ? 'text-green-700' :
+                        <div className={`min-w-[2rem] h-8 flex items-center justify-center font-medium text-xs ${
+                          (row.readyStockStatus && row.readyStockStatus !== 'available') ? 'text-purple-700 font-bold' :
+                          row.remark === 'P' ? 'text-green-700' :
                           row.remark === 'F' ? 'text-red-600' : 'text-gray-400'
-                          }`}>
-                          {row.remark}
+                        }`}>
+                          {(row.readyStockStatus && row.readyStockStatus !== 'available') ? 'Used' : row.remark}
                         </div>
                         {row.remark === 'F' && (
                           <div className="flex flex-col gap-1">
@@ -3129,6 +3143,7 @@ export function CoreTestingForm({
                       <Input
                         value={testDate} // Use the state variable
                         onChange={(e) => setTestDate(e.target.value)} // Allow manual changes if needed
+                        disabled={isReadOnly || isRowLocked(row)}
                         className="w-28 h-7 text-xs border-gray-300 text-center mx-auto"
                       />
                     </td>
@@ -3152,6 +3167,7 @@ export function CoreTestingForm({
                       <td key={column.id} className="p-2 border border-gray-300 bg-white">
                         <Input
                           value={String(row.dynamicValues[column.id] || '')}
+                          disabled={isReadOnly || isRowLocked(row)}
                           onKeyDown={(e) => {
                             if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
                             if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
@@ -3168,10 +3184,12 @@ export function CoreTestingForm({
                     ))}
                     <td className="p-2 border border-gray-300">
                       <div className="flex items-center justify-center gap-2">
-                        <div className={`min-w-[2rem] h-8 flex items-center justify-center font-medium text-xs ${row.remark === 'P' ? 'text-green-700' :
+                        <div className={`min-w-[2rem] h-8 flex items-center justify-center font-medium text-xs ${
+                          (row.readyStockStatus && row.readyStockStatus !== 'available') ? 'text-purple-700 font-bold' :
+                          row.remark === 'P' ? 'text-green-700' :
                           row.remark === 'F' ? 'text-red-600' : 'text-gray-400'
-                          }`}>
-                          {row.remark}
+                        }`}>
+                          {(row.readyStockStatus && row.readyStockStatus !== 'available') ? 'Used' : row.remark}
                         </div>
                         {row.remark === 'F' && (
                           <div className="flex flex-col gap-1">
@@ -3891,8 +3909,9 @@ export function CoreTestingForm({
                 <tr key={index} className={`hover:bg-gray-50 transition-colors ${row.isReplacement ? 'bg-blue-50' : 'bg-white'}`}>
                   <td className="p-2 border border-gray-300">
                     <Input
-                      value={testDate}
+                      value={row.date || testDate}
                       onChange={(e) => handleRowChange(index, 'date', e.target.value)}
+                      disabled={isReadOnly || isRowLocked(row)}
                       className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
                       placeholder="DD/MM/YY"
                     />
@@ -3945,10 +3964,12 @@ export function CoreTestingForm({
                   })}
                   <td className="p-2 border border-gray-300">
                     <div className="flex items-center justify-center gap-2">
-                      <div className={`min-w-[2rem] h-8 flex items-center justify-center font-medium text-xs ${row.remark === 'P' ? 'text-green-700' :
+                      <div className={`min-w-[2rem] h-8 flex items-center justify-center font-medium text-xs ${
+                        (row.readyStockStatus && row.readyStockStatus !== 'available') ? 'text-purple-700 font-bold' :
+                        row.remark === 'P' ? 'text-green-700' :
                         row.remark === 'F' ? 'text-red-600' : 'text-gray-400'
-                        }`}>
-                        {row.remark}
+                      }`}>
+                        {(row.readyStockStatus && row.readyStockStatus !== 'available') ? 'Used' : row.remark}
                       </div>
                       {row.remark === 'F' && (
                         <div className="flex flex-col gap-1">

@@ -18,10 +18,20 @@ interface Order {
   createdAt?: string;
   assignedDate?: string;
   coreDetails?: Array<{
-    coreType: 'Metering' | 'PS' | 'Protection';
+    coreType: 'Metering' | 'PS' | 'Protection' | string;
     accuracyClass?: string;
     secondaryCurrent?: string;
+    iexLimit?: string;
+    leLimit?: string;
+    class?: string;
+    description?: string;
   }>;
+  primaryCurrents?: string[];
+  ratio?: string[] | string;
+  ratedSecondaryCurrent?: number | string;
+  transformerName?: string;
+  voltageRating?: string;
+  nominalSystemVoltage?: number | string;
 }
 
 interface CoreConfig {
@@ -157,7 +167,7 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
           } else if (order.ratio) {
             const firstRatio = Array.isArray(order.ratio) ? order.ratio[0] : order.ratio;
             if (firstRatio) {
-              primary = String(firstRatio).split('/')[0];
+              primary = String(firstRatio).split('/')[0] || 'N/A';
             }
           }
 
@@ -216,9 +226,16 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
   const reqPs = getCoresCountForType('ps') * totalQty;
   const reqProtection = getCoresCountForType('protection') * totalQty;
 
-  const testedMetering = readyStock.metering.length;
-  const testedPs = readyStock.ps.length;
-  const testedProtection = readyStock.protection.length;
+  const activeCount = transformers.length;
+  const displayReqMetering = getCoresCountForType('metering') * activeCount;
+  const displayReqPs = getCoresCountForType('ps') * activeCount;
+  const displayReqProtection = getCoresCountForType('protection') * activeCount;
+
+  const isCoreVisible = (c: any) => !c.isAssigned || transformers.some(t => t.uniqueId === c.assignedUniqueId);
+
+  const displayTestedMetering = readyStock.metering.filter(isCoreVisible).length;
+  const displayTestedPs = readyStock.ps.filter(isCoreVisible).length;
+  const displayTestedProtection = readyStock.protection.filter(isCoreVisible).length;
 
   const generateCoreId = (type: string, seqNum: number) => {
     let prefix = type === 'metering' ? 'M' : (type === 'ps' ? 'PS' : 'P');
@@ -289,45 +306,50 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
     }
   };
 
+  const getFailureReasons = (transformer: Transformer) => {
+    let reasons: string[] = [];
+    transformer.cores.forEach(core => {
+      const type = core.coreType;
+      const results = transformer.testHistory?.secondary_test?.[`${type}_results`] || [];
+      
+      results.forEach((res: any) => {
+        const accClass = res.accuracyClass || res.protectionClass || core.accuracyClass || 'N/A';
+        const coreName = `Core ${core.coreNumber} (${type.toUpperCase()})`;
+        
+        if (type === 'metering' && res.rows) {
+          res.rows.forEach((row: any) => {
+            const load = row.current || 'N/A';
+            if (row.r100_r_pass === false) {
+              const msg = row.r100_reason ? row.r100_reason.replace('Ratio Error', 'Current Error') : `Current Error at ${load}`;
+              reasons.push(`${coreName}: ${msg}`);
+            }
+            if (row.r100_p_pass === false) {
+              const msg = row.r100_reason ? row.r100_reason.replace('Phase Error', 'Phase Error') : `Phase Error at ${load}`;
+              reasons.push(`${coreName}: ${msg}`);
+            }
+            if (row.r25_r_pass === false) {
+              const msg = row.r25_reason ? row.r25_reason.replace('Ratio Error', 'Current Error') : `Current Error at ${load}`;
+              reasons.push(`${coreName}: ${msg}`);
+            }
+            if (row.r25_p_pass === false) {
+              const msg = row.r25_reason ? row.r25_reason.replace('Phase Error', 'Phase Error') : `Phase Error at ${load}`;
+              reasons.push(`${coreName}: ${msg}`);
+            }
+          });
+        } else if (res.isPass === false) {
+          const msg = res.reason || `Limit Failure [Class ${accClass}]`;
+          reasons.push(`${coreName}: ${msg}`);
+        }
+      });
+    });
+    return reasons;
+  };
+
   const handleStrictApproval = async (transformer: Transformer) => {
     try {
       if (!confirm("Are you sure you want to request Strict Admin Approval?")) return;
-      let reasons: string[] = [];
       
-      transformer.cores.forEach(core => {
-        const type = core.coreType;
-        const results = transformer.testHistory?.secondary_test?.[`${type}_results`] || [];
-        
-        results.forEach((res: any) => {
-          const accClass = res.accuracyClass || res.protectionClass || core.accuracyClass || 'N/A';
-          const coreName = `Core ${core.coreNumber} (${type.toUpperCase()})`;
-          
-          if (type === 'metering' && res.rows) {
-            res.rows.forEach((row: any) => {
-              const load = row.current || 'N/A';
-              if (row.r100_r_pass === false) {
-                const msg = row.r100_reason ? row.r100_reason.replace('Ratio Error', 'Current Error') : `Current Error at ${load}`;
-                reasons.push(`${coreName}: ${msg}`);
-              }
-              if (row.r100_p_pass === false) {
-                const msg = row.r100_reason ? row.r100_reason.replace('Phase Error', 'Phase Error') : `Phase Error at ${load}`;
-                reasons.push(`${coreName}: ${msg}`);
-              }
-              if (row.r25_r_pass === false) {
-                const msg = row.r25_reason ? row.r25_reason.replace('Ratio Error', 'Current Error') : `Current Error at ${load}`;
-                reasons.push(`${coreName}: ${msg}`);
-              }
-              if (row.r25_p_pass === false) {
-                const msg = row.r25_reason ? row.r25_reason.replace('Phase Error', 'Phase Error') : `Phase Error at ${load}`;
-                reasons.push(`${coreName}: ${msg}`);
-              }
-            });
-          } else if (res.isPass === false) {
-            const msg = res.reason || `Limit Failure [Class ${accClass}]`;
-            reasons.push(`${coreName}: ${msg}`);
-          }
-        });
-      });
+      const reasons = getFailureReasons(transformer);
       const finalReason = reasons.length > 0 ? [...new Set(reasons)].join(' | ') : "Limits Exceeded";
       
       const extractedTypes = new Set<string>();
@@ -364,6 +386,41 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
     }
   };
 
+  const handleMoveToFailed = async (transformer: Transformer) => {
+    try {
+      if (!confirm("Are you sure you want to move this transformer to Failed Transformers?")) return;
+      
+      const reasons = getFailureReasons(transformer);
+      const finalReason = reasons.length > 0 ? [...new Set(reasons)].join(' | ') : "Accuracy Limits Exceeded";
+
+      const payload = {
+        transformerId: transformer._id || transformer.id,
+        transformerUniqueId: transformer.uniqueId,
+        orderId: order._id,
+        jobNumber: order.jobId,
+        clientName: order.clientName,
+        coreType: "Multiple",
+        testType: "Secondary Testing",
+        failureParameters: { transformer },
+        failureReason: finalReason,
+        reportedBy: userName || 'Testing Engineer',
+        stage: "SECONDARY_TESTING",
+        status: "FAILED"
+      };
+
+      const response = await axios.post(`/failed-transformers`, payload, { withCredentials: true });
+      if (response.data.success) {
+        toast.success("Transformer moved to failed list successfully.");
+        fetchData();
+      } else {
+        toast.error("Failed to add to failed transformers.");
+      }
+    } catch (err) {
+      console.error("Move to failed failed", err);
+      toast.error("Failed to move to failed transformers.");
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-blue-100 text-blue-700';
@@ -394,6 +451,7 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
       if (typeCores.length === 0) return 1;
       
       const activeCoreConfig = typeCores[index % typeCores.length];
+      if (!activeCoreConfig) return 1;
       const orderIndex = order.coreDetails.indexOf(activeCoreConfig);
       return orderIndex !== -1 ? orderIndex + 1 : 1;
     };
@@ -450,8 +508,11 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
             >
               <ChevronLeft className="w-4 h-4" /> Previous Core
             </Button>
-            <span className="font-semibold text-sm">
+            <span className="font-semibold text-sm flex items-center gap-2">
               Testing {coreType.toUpperCase()} Core {index + 1} of {maxIndex + 1} ({coreId})
+              {readyStock[coreType]?.some((c: any) => c.coreId === coreId && c.status === 'Fail') && (
+                <Badge variant="destructive">FAILED</Badge>
+              )}
             </span>
             <Button
               variant="outline"
@@ -545,11 +606,11 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
       <div>
         <h3 className="text-lg font-semibold mb-3">Core Testing Progress</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {reqMetering > 0 && (
+          {displayReqMetering > 0 && (
             <Card className="p-5 flex flex-col justify-between h-40 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
               <div>
                 <p className="text-sm font-semibold text-blue-700 uppercase tracking-wide">Metering Cores</p>
-                <p className="text-2xl font-bold text-gray-800 mt-2">{testedMetering} / {reqMetering} Tested</p>
+                <p className="text-2xl font-bold text-gray-800 mt-2">{displayTestedMetering} / {displayReqMetering} Tested</p>
               </div>
               <Button
                 className="bg-blue-600 hover:bg-blue-700 text-white w-full"
@@ -560,11 +621,11 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
             </Card>
           )}
 
-          {reqPs > 0 && (
+          {displayReqPs > 0 && (
             <Card className="p-5 flex flex-col justify-between h-40 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
               <div>
                 <p className="text-sm font-semibold text-purple-700 uppercase tracking-wide">PS Cores</p>
-                <p className="text-2xl font-bold text-gray-800 mt-2">{testedPs} / {reqPs} Tested</p>
+                <p className="text-2xl font-bold text-gray-800 mt-2">{displayTestedPs} / {displayReqPs} Tested</p>
               </div>
               <Button
                 className="bg-purple-600 hover:bg-purple-700 text-white w-full"
@@ -575,11 +636,11 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
             </Card>
           )}
 
-          {reqProtection > 0 && (
+          {displayReqProtection > 0 && (
             <Card className="p-5 flex flex-col justify-between h-40 bg-gradient-to-br from-green-50 to-green-100 border-green-200">
               <div>
                 <p className="text-sm font-semibold text-green-700 uppercase tracking-wide">Protection Cores</p>
-                <p className="text-2xl font-bold text-gray-800 mt-2">{testedProtection} / {reqProtection} Tested</p>
+                <p className="text-2xl font-bold text-gray-800 mt-2">{displayTestedProtection} / {displayReqProtection} Tested</p>
               </div>
               <Button
                 className="bg-green-600 hover:bg-green-700 text-white w-full"
@@ -654,11 +715,14 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
                                 onChange={(e) => handleCoreAssignmentChange(transformer.uniqueId, 'metering', e.target.value)}
                               >
                                 <option value="">-- Select Metering Core --</option>
-                                {getAvailableStockForDropdown('metering', transformer.uniqueId).map((core) => (
-                                  <option key={core.coreId} value={core.coreId}>
-                                    {core.coreId} {core.turnsUsed ? `(${core.turnsUsed} Turns)` : ''}
-                                  </option>
-                                ))}
+                                {getAvailableStockForDropdown('metering', transformer.uniqueId).map((core) => {
+                                  const isFailed = core.status === 'Fail';
+                                  return (
+                                    <option key={core.coreId} value={core.coreId} className={isFailed ? "text-red-600 font-bold" : ""}>
+                                      {core.coreId} {core.turnsUsed ? `(${core.turnsUsed} Turns)` : ''} {isFailed ? '(FAILED)' : ''}
+                                    </option>
+                                  );
+                                })}
                               </select>
                             </div>
                           )}
@@ -672,11 +736,14 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
                                 onChange={(e) => handleCoreAssignmentChange(transformer.uniqueId, 'ps', e.target.value)}
                               >
                                 <option value="">-- Select PS Core --</option>
-                                {getAvailableStockForDropdown('ps', transformer.uniqueId).map((core) => (
-                                  <option key={core.coreId} value={core.coreId}>
-                                    {core.coreId} {core.turnsUsed ? `(${core.turnsUsed} Turns)` : ''}
-                                  </option>
-                                ))}
+                                {getAvailableStockForDropdown('ps', transformer.uniqueId).map((core) => {
+                                  const isFailed = core.status === 'Fail';
+                                  return (
+                                    <option key={core.coreId} value={core.coreId} className={isFailed ? "text-red-600 font-bold" : ""}>
+                                      {core.coreId} {core.turnsUsed ? `(${core.turnsUsed} Turns)` : ''} {isFailed ? '(FAILED)' : ''}
+                                    </option>
+                                  );
+                                })}
                               </select>
                             </div>
                           )}
@@ -690,11 +757,14 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
                                 onChange={(e) => handleCoreAssignmentChange(transformer.uniqueId, 'protection', e.target.value)}
                               >
                                 <option value="">-- Select Protection Core --</option>
-                                {getAvailableStockForDropdown('protection', transformer.uniqueId).map((core) => (
-                                  <option key={core.coreId} value={core.coreId}>
-                                    {core.coreId} {core.turnsUsed ? `(${core.turnsUsed} Turns)` : ''}
-                                  </option>
-                                ))}
+                                {getAvailableStockForDropdown('protection', transformer.uniqueId).map((core) => {
+                                  const isFailed = core.status === 'Fail';
+                                  return (
+                                    <option key={core.coreId} value={core.coreId} className={isFailed ? "text-red-600 font-bold" : ""}>
+                                      {core.coreId} {core.turnsUsed ? `(${core.turnsUsed} Turns)` : ''} {isFailed ? '(FAILED)' : ''}
+                                    </option>
+                                  );
+                                })}
                               </select>
                             </div>
                           )}
@@ -709,7 +779,7 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
                             {canApprove && (
                               <Button
                                 size="sm"
-                                className="bg-green-600 hover:bg-green-700 text-white w-full max-w-[140px]"
+                                className="bg-green-600 hover:bg-green-700 text-white w-full max-w-[150px]"
                                 onClick={() => handleApproveTransformer(transformer)}
                               >
                                 <CheckCircle className="w-4 h-4 mr-2" /> Approve
@@ -717,13 +787,22 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
                             )}
 
                             {canRequestStrictApproval && (
-                              <Button
-                                size="sm"
-                                className="bg-red-600 hover:bg-red-700 text-white w-full max-w-[140px]"
-                                onClick={() => handleStrictApproval(transformer)}
-                              >
-                                <CheckCircle className="w-4 h-4 mr-2" /> Strict Approve
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  className="bg-yellow-600 hover:bg-yellow-700 text-white w-full max-w-[150px]"
+                                  onClick={() => handleStrictApproval(transformer)}
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" /> Strict Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="bg-red-600 hover:bg-red-700 text-white w-full max-w-[150px]"
+                                  onClick={() => handleMoveToFailed(transformer)}
+                                >
+                                  Move to Failed
+                                </Button>
+                              </>
                             )}
 
                             {!canApprove && !canRequestStrictApproval && (
