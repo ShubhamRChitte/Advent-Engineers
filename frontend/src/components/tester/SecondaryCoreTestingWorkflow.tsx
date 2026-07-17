@@ -243,15 +243,34 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
     return `${prefix}-${jobSuffix}-${String(seqNum).padStart(3, '0')}`;
   };
 
-  const getFirstUntestedIndex = (type: 'metering' | 'ps' | 'protection') => {
-    const total = type === 'metering' ? reqMetering : type === 'ps' ? reqPs : reqProtection;
+  const getAvailableCoreIds = (type: 'metering' | 'ps' | 'protection') => {
+    const activeTIds = transformers.map(t => t.uniqueId);
+    const goneCoreIds = new Set(
+      (readyStock[type] || [])
+        .filter(c => c.isAssigned && c.assignedUniqueId && !activeTIds.includes(c.assignedUniqueId))
+        .map(c => c.coreId)
+    );
+
+    const totalOriginal = type === 'metering' ? reqMetering : type === 'ps' ? reqPs : reqProtection;
     const list = approvedIds[type] || [];
+    
+    const availableIds = [];
+    for (let i = 0; i < totalOriginal; i++) {
+      const id = list[i] || generateCoreId(type, i + 1);
+      if (!goneCoreIds.has(id)) {
+        availableIds.push(id);
+      }
+    }
+    return availableIds;
+  };
+
+  const getFirstUntestedIndex = (type: 'metering' | 'ps' | 'protection') => {
+    const availableIds = getAvailableCoreIds(type);
     const testedRecords = readyStock[type] || [];
     const testedCoreIds = new Set(testedRecords.map((r: any) => r.coreId));
 
-    for (let i = 0; i < total; i++) {
-      const currentCoreId = list[i] || generateCoreId(type, i + 1);
-      if (!testedCoreIds.has(currentCoreId)) {
+    for (let i = 0; i < availableIds.length; i++) {
+      if (!testedCoreIds.has(availableIds[i])) {
         return i;
       }
     }
@@ -433,9 +452,10 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
   // Rendering report screen for unassigned core
   if (activeTestMode) {
     const { coreType, index } = activeTestMode;
+    const availableIds = getAvailableCoreIds(coreType);
+    
     const getCoreId = () => {
-      const list = approvedIds[coreType] || [];
-      return list[index] || generateCoreId(coreType, index + 1);
+      return availableIds[index] || generateCoreId(coreType, index + 1);
     };
     const coreId = getCoreId();
 
@@ -490,7 +510,7 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
       fetchData();
     };
 
-    const maxIndex = (coreType === 'metering' ? reqMetering : coreType === 'ps' ? reqPs : reqProtection) - 1;
+    const maxIndex = availableIds.length > 0 ? availableIds.length - 1 : 0;
 
     return (
       <div className="space-y-6">
