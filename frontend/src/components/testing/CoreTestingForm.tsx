@@ -1644,7 +1644,11 @@ export function CoreTestingForm({
             status: row.status || (row.remark === 'P' ? 'PASS' : (row.remark === 'F' ? 'FAIL' : 'PENDING'))
           })),
           testSetup: finalPayload.testSetup,
-          testLimits: isMetering ? finalPayload.testLimits : finalPayload.testSpecification
+          testLimits: isMetering ? finalPayload.testLimits : (isProtectionCore || isPSCore ? {
+            bsatGauss: (isProtectionCore ? protectionBColumns : psBColumns).map(col => parseFloat(col.bsatValue) || 0),
+            setMilliVolt: (isProtectionCore ? protectionBColumns : psBColumns).map(col => parseFloat(col.setMvValue) || 0),
+            leLimitMa: (isProtectionCore ? protectionBColumns : psBColumns).map(col => parseFloat(col.leLimitValue) || 0)
+          } : finalPayload.testSpecification)
         };
 
         await axios.patch(`/pre-test-batches/${batchData.batchId}`, batchPayload, {

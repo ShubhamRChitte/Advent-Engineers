@@ -691,6 +691,14 @@ router.post("/transformer-secondary-ps-tests", async (req, res) => {
     const newResults = ps_results.map(r => ({ ...r, internalCoreNo: coreId }));
     const turnsUsed = await getCoreTurns(coreId);
 
+    let isOverallPass = true;
+    for (const res of newResults) {
+      if (res.isPass === false) {
+        isOverallPass = false;
+      }
+    }
+    const finalStatus = isOverallPass ? "Pass" : "Fail";
+
     // Save to SecondaryPSTestModel
     const testRecord = await SecondaryPSTestModel.findOneAndUpdate(
       { orderId: order._id, coreId },
@@ -702,7 +710,7 @@ router.post("/transformer-secondary-ps-tests", async (req, res) => {
         ps_results: newResults,
         testDate: new Date(),
         reportDate: new Date(),
-        status: "Pass", // PS test defaults to Pass
+        status: finalStatus,
         turnsUsed
       },
       { upsert: true, new: true }
@@ -718,7 +726,7 @@ router.post("/transformer-secondary-ps-tests", async (req, res) => {
         r.internalCoreNo !== coreId && r.coreId !== coreId
       );
       transformer.testHistory.secondary_test.ps_results = [...otherCoresResults, ...newResults];
-      transformer.testHistory.secondary_test.status = "Completed";
+      transformer.testHistory.secondary_test.status = finalStatus;
       transformer.testHistory.secondary_test.timestamp = new Date();
 
       if (!transformer.testHistory.secondary_test.reportDate) {
