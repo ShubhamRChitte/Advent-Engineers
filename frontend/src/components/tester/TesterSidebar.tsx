@@ -65,6 +65,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
       return [
         { id: 'home', label: 'Home Dashboard', icon: Home },
         { id: 'testing', label: 'Final PT Testing', icon: ClipboardCheck },
+        { id: 'inspection', label: 'Inspection', icon: ClipboardCheck },
         { id: 'reports', label: 'Customer Reports', icon: FileText },
         { id: 'view-orders', label: 'View Orders', icon: FileText },
       ];
@@ -98,6 +99,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
     ];
 
     if (userRole === 'final-tester') {
+      baseItems.splice(2, 0, { id: 'inspection', label: 'Inspection', icon: ClipboardCheck });
       baseItems.push({ id: 'reports', label: 'Customer Reports', icon: FileText });
     }
 

@@ -248,4 +248,33 @@ router.post('/:id/generate-save', isAuthenticated, async (req, res) => {
     }
 });
 
+// ── CT INSPECTION ROUTES ─────────────────────────────────────────────────────
+// GET /api/final/inspection/:id  — load saved inspection data
+router.get('/inspection/:id', isAuthenticated, async (req, res) => {
+    try {
+        const transformer = await TransformerModel.findOne({ uniqueId: req.params.id });
+        if (!transformer) return res.status(404).json({ success: false, message: 'Transformer not found' });
+        res.json({ success: true, data: transformer.testHistory?.inspection_data || {} });
+    } catch (err) {
+        console.error('[CT Inspection GET]', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// POST /api/final/inspection/:id  — save inspection data
+router.post('/inspection/:id', isAuthenticated, async (req, res) => {
+    try {
+        const result = await TransformerModel.findOneAndUpdate(
+            { uniqueId: req.params.id },
+            { $set: { 'testHistory.inspection_data': { ...req.body, savedAt: new Date() } } },
+            { new: true }
+        );
+        if (!result) return res.status(404).json({ success: false, message: 'Transformer not found' });
+        res.json({ success: true, message: 'CT Inspection report saved successfully.' });
+    } catch (err) {
+        console.error('[CT Inspection POST]', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 module.exports = router;

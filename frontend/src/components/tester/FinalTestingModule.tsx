@@ -318,14 +318,14 @@ export function FinalTestingModule({ userName }: FinalTestingModuleProps) {
             <div className="no-print">
               <HeaderWithTimer title="Comprehensive Final Test Report" onBack={handleBackToTransformers} />
             </div>
-          <FinalTestReport
-            transformer={selectedTransformer}
-            testerName={testerName}
-            onBack={handleBackToTransformers}
-            onApprove={() => handleApproveTransformer(selectedTransformer)}
-            onNext={onNext}
-            onSaveSuccess={refreshTransformer}
-          />
+            <FinalTestReport
+              transformer={selectedTransformer}
+              testerName={testerName}
+              onBack={handleBackToTransformers}
+              onApprove={() => handleApproveTransformer(selectedTransformer)}
+              onNext={onNext}
+              onSaveSuccess={refreshTransformer}
+            />
         </div>
       </div>
     );

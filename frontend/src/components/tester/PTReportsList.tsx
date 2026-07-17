@@ -143,16 +143,15 @@ export function PTReportsList({ onBack }: PTReportsListProps) {
                     </div>
                 </div>
 
-                <div ref={printRef}>
-                    <PTCustomerReport
-                        order={orderData}
-                        transformer={selectedTransformer}
-                        reportData={ptTest}
-                        pretestData={pretestData}
-                        activeCores={activeCores}
-                        user={null}
-                    />
-                </div>
+                <PTCustomerReport
+                    order={orderData}
+                    transformer={selectedTransformer}
+                    reportData={ptTest}
+                    pretestData={pretestData}
+                    activeCores={activeCores}
+                    user={null}
+                    printRef={printRef}
+                />
             </div>
         );
     }

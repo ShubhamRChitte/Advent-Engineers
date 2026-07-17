@@ -11,6 +11,7 @@ export interface PTCustomerReportProps {
   pretestData: any;
   activeCores: string[];
   user: any;
+  printRef?: any;
 }
 
 /** Shared print CSS — identical pattern to PTFinalPrintableReport */
@@ -18,16 +19,33 @@ const PRINT_STYLE = `
   @page { size: A4 portrait; margin: 0; }
   @media print {
     html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; }
-    /* Force absolute positioning on print so sidebar/header margins don't offset the page */
-    .pt-print-wrapper { position: relative !important; width: 100% !important; margin: 0 auto !important; }
-    .cr-print-root { padding: 12mm 14mm !important; margin: 0 auto !important; box-shadow: none !important; border: none !important; border-radius: 0 !important; width: 100% !important; max-width: 100% !important; }
+    #pt-customer-report {
+      visibility: visible !important;
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      width: 210mm !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      box-shadow: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      background: #fff !important;
+    }
+    #pt-customer-report * {
+      visibility: visible !important;
+    }
     .screen-only { display: none !important; }
     .no-print { display: none !important; }
-    .cr-page { page-break-after: always; page-break-inside: avoid; display: flex; flex-direction: column; min-height: 275mm; }
-    .cr-page:last-child { page-break-after: auto; }
+    .cr-page { page-break-after: always !important; break-after: page !important; page-break-inside: avoid !important; break-inside: avoid !important; display: flex !important; flex-direction: column !important; width: 210mm !important; height: 297mm !important; padding: 12mm 14mm !important; box-sizing: border-box !important; }
+    .cr-page:last-child { page-break-after: auto !important; break-after: auto !important; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   }
-  .cr-page { display: flex; flex-direction: column; min-height: 275mm; }
-  .cr-print-root { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #000; background: #fff; width: 210mm; margin: 0 auto; padding: 16px; box-sizing: border-box; }
+  @media screen {
+    .cr-print-root { max-width: 210mm; margin: 0 auto; margin-bottom: 3rem; }
+  }
+  .cr-page { width: 210mm; height: 297mm; padding: 12mm 14mm; box-sizing: border-box; display: flex; flex-direction: column; position: relative; background: #fff; }
+  .cr-print-root { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #000; background: #fff; width: 210mm; margin: 0 auto; padding: 0; box-sizing: border-box; }
   .cr-header-table,.cr-main-table { width:100%; border-collapse:collapse; table-layout:fixed; }
   .cr-main-table td,.cr-main-table th { border:1px solid #000; padding:4px 6px; vertical-align:middle; word-break:break-word; }
   .cr-header-table td { padding:4px 6px; vertical-align:middle; }
@@ -58,7 +76,6 @@ const PRINT_STYLE = `
   .cr-sig-title { font-size:10px; }
   .cr-qr-footer { text-align:right; font-size:10px; font-style:italic; border-top:1px solid #000; padding-top:2px; margin-top:4px; }
   .cr-end-report { text-align:center; font-weight:bold; font-size:12px; margin:8px 0; }
-  .cr-page { width:100%; min-height:257mm; box-sizing:border-box; display:flex; flex-direction:column; padding-bottom:6px; }
 `;
 
 function getCoreLabel(core: string) {
@@ -68,7 +85,7 @@ function getCoreLabel(core: string) {
   return core;
 }
 
-export function PTCustomerReport({ order, transformer, reportData, pretestData, activeCores, user }: PTCustomerReportProps) {
+export function PTCustomerReport({ order, transformer, reportData, pretestData, activeCores, user, printRef }: PTCustomerReportProps) {
   const today = new Date().toLocaleDateString('en-GB').replace(/\//g, '.');
   const testDate = reportData?.date || today;
   const reportNo = order?.jobId
@@ -128,40 +145,34 @@ export function PTCustomerReport({ order, transformer, reportData, pretestData, 
   };
 
   return (
-    <>
+    <div
+      ref={printRef}
+      id="pt-customer-report"
+      className="cr-print-root pt-print-wrapper bg-white rounded-lg shadow-sm border border-gray-300"
+    >
       {/* ── Print CSS ── */}
       <style>{PRINT_STYLE}</style>
 
       {/* ── Unified Layout: 4-Page Report rendered natively on screen and print ── */}
-      <div 
-        className="cr-print-root pt-print-wrapper bg-white rounded-lg shadow-sm border border-gray-300"
-        style={{ 
-          maxWidth: '210mm', 
-          margin: '0 auto', 
-          marginBottom: '3rem',
-          boxSizing: 'border-box'
-        }}
-      >
-        <Page1Overview {...page1Props} />
-        <div className="cr-page-divider no-print" style={{ height: '16px', background: '#f9fafb', borderTop: '1px dashed #cbd5e1', borderBottom: '1px dashed #cbd5e1', margin: '20px -8px' }}></div>
-        <Page2TestDetails reportNo={reportNo} date={testDate} {...sharedSig} />
-        <div className="cr-page-divider no-print" style={{ height: '16px', background: '#f9fafb', borderTop: '1px dashed #cbd5e1', borderBottom: '1px dashed #cbd5e1', margin: '20px -8px' }}></div>
-        <Page3TestResults
-          reportNo={reportNo} date={testDate}
-          ptRatio={order?.ratio?.[0] || '33KV/√3/110V/√3'}
-          burden={`${order?.burden || '50'}VA`}
-          accuracyClass={order?.accuracyClass || '0.2'}
-          accuracyTest={accuracyTest}
-          activeCores={activeCores}
-          primaryTerminals="A-N"
-          secondaryTerminals="a-n"
-          terminalMarkingResult="Confirms"
-          hvPrimaryResult="Confirms"
-          {...sharedSig}
-        />
-        <div className="cr-page-divider no-print" style={{ height: '16px', background: '#f9fafb', borderTop: '1px dashed #cbd5e1', borderBottom: '1px dashed #cbd5e1', margin: '20px -8px' }}></div>
-        <Page4FinalRemarks reportNo={reportNo} date={testDate} {...sharedSig} />
-      </div>
-    </>
+      <Page1Overview {...page1Props} />
+      <div className="cr-page-divider no-print" style={{ height: '16px', background: '#f9fafb', borderTop: '1px dashed #cbd5e1', borderBottom: '1px dashed #cbd5e1', margin: '20px -8px' }}></div>
+      <Page2TestDetails reportNo={reportNo} date={testDate} {...sharedSig} />
+      <div className="cr-page-divider no-print" style={{ height: '16px', background: '#f9fafb', borderTop: '1px dashed #cbd5e1', borderBottom: '1px dashed #cbd5e1', margin: '20px -8px' }}></div>
+      <Page3TestResults
+        reportNo={reportNo} date={testDate}
+        ptRatio={order?.ratio?.[0] || '33KV/√3/110V/√3'}
+        burden={`${order?.burden || '50'}VA`}
+        accuracyClass={order?.accuracyClass || '0.2'}
+        accuracyTest={accuracyTest}
+        activeCores={activeCores}
+        primaryTerminals="A-N"
+        secondaryTerminals="a-n"
+        terminalMarkingResult="Confirms"
+        hvPrimaryResult="Confirms"
+        {...sharedSig}
+      />
+      <div className="cr-page-divider no-print" style={{ height: '16px', background: '#f9fafb', borderTop: '1px dashed #cbd5e1', borderBottom: '1px dashed #cbd5e1', margin: '20px -8px' }}></div>
+      <Page4FinalRemarks reportNo={reportNo} date={testDate} {...sharedSig} />
+    </div>
   );
 }

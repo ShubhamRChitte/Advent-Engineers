@@ -6,6 +6,8 @@ import { CoreTestingModule } from './CoreTestingModule';
 import { SecondaryTestingModule } from './SecondaryTestingModule';
 import { AfterPrimaryTestingModule } from './AfterPrimaryTestingModule';
 import { FinalTestingModule } from './FinalTestingModule';
+import { CTInspectionModule } from './CTInspectionModule';
+import { PTInspectionModule } from './PTInspectionModule';
 import { TesterNotifications } from './TesterNotifications';
 import { SecondaryReportsList } from './SecondaryReportsList';
 import { CoreTrackingDashboard } from '../testing/CoreTrackingDashboard';
@@ -110,7 +112,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
     if (user.role === 'pt-tester') {
       if (activeView === 'home') return <PTTesterDashboard setActiveView={setActiveView} stats={stats} recentActivity={recentActivity} loading={loading} />;
       if (activeView === 'testing') return <PTTestingModule user={user} />;
-
+      if (activeView === 'inspection') return <PTInspectionModule user={user} />;
       if (activeView === 'view-orders') return <OrdersListViewEnhanced userRole={user.role} />;
       if (activeView === 'reports') return <PTReportsList onBack={setViewHome} />;
       return <PTTesterDashboard setActiveView={setActiveView} stats={stats} recentActivity={recentActivity} loading={loading} />;
@@ -298,6 +300,8 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
         );
       } else if (activeView === 'testing') {
         return <FinalTestingModule userName={user.name} />;
+      } else if (activeView === 'inspection') {
+        return <CTInspectionModule userName={user.name} />;
       } else if (activeView === 'reports') {
         return <CTReportsList onBack={setViewHome} />;
       } else if (activeView === 'view-orders') {
