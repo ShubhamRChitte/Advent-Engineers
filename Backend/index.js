@@ -182,6 +182,8 @@ app.use('/api/notifications', notificationRoutes); // Persistent Notifications
 app.use('/api/ready-transformers', require('./routes/readyTransformerRoutes')); // Ready Transformers System
 app.use('/api/pre-test-batches', require('./routes/preTestBatchRoutes')); // Pre-Test Batch Management
 app.use('/api/database-admin', require('./routes/databaseAdminRoutes')); // Database Management (Delete/Cleanup)
+app.use('/api/pt-inspection', require('./routes/ptInspectionRoutes')); // PT Inspection Batch Management
+app.use('/api/ct-inspection', require('./routes/ctInspectionRoutes')); // CT Inspection Batch Management
 
 // Provide configuration for Protection Classes dynamically to the frontend
 app.get('/api/protection-limits', (req, res) => {

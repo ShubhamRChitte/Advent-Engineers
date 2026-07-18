@@ -19,6 +19,10 @@ import { SecondaryProtectionReport } from './SecondaryProtectionReport';
 interface CTInspectionReportProps {
   transformer: any;
   testerName: string;
+  /** When provided, load/save from the independent CT Inspection batch collection */
+  batchId?: string;
+  batchTransformerId?: string;
+  onSaved?: () => void;
 }
 
 const INSPECTION_PRINT_EXTRAS = `
@@ -79,7 +83,8 @@ const PassFailButton = ({
   );
 };
 
-export function CTInspectionReport({ transformer, testerName }: CTInspectionReportProps) {
+export function CTInspectionReport({ transformer, testerName, batchId, batchTransformerId, onSaved }: CTInspectionReportProps) {
+  const isBatchMode = !!(batchId && batchTransformerId);
   const [readOnly, setReadOnly] = useState(false);
   const [saving, setSaving] = useState(false);
   const [inspectionData, setInspectionData] = useState<any>({});
@@ -167,7 +172,11 @@ export function CTInspectionReport({ transformer, testerName }: CTInspectionRepo
   // Load existing inspection data
   const load = async () => {
     try {
-      const res = await axios.get(`/final/inspection/${encodeURIComponent(transformer.uniqueId)}`, { withCredentials: true });
+      // Batch mode: load from independent CT inspection collection
+      const url = isBatchMode
+        ? `/ct-inspection/report/${batchId}/${encodeURIComponent(batchTransformerId!)}`
+        : `/final/inspection/${encodeURIComponent(transformer.uniqueId)}`;
+      const res = await axios.get(url, { withCredentials: true });
       if (res.data.success) {
         const d = res.data.data;
         if (d && Object.keys(d).length > 0) {
@@ -181,7 +190,6 @@ export function CTInspectionReport({ transformer, testerName }: CTInspectionRepo
           setHvPrimaryWinding(d.hvPrimaryWinding || '');
           setHvBetweenCore(d.hvBetweenCore || '');
           setOvitTest(d.ovitTest || '');
-          
           setSelectedCoreIndex(d.selectedCoreIndex !== undefined ? d.selectedCoreIndex : 0);
           setReadOnly(true);
         }
@@ -204,11 +212,16 @@ export function CTInspectionReport({ transformer, testerName }: CTInspectionRepo
         testerName, reportDate: new Date(),
         selectedCoreIndex
       };
-      const res = await axios.post(`/final/inspection/${encodeURIComponent(transformer.uniqueId)}`, payload, { withCredentials: true });
+      // Batch mode: save to independent CT inspection collection
+      const saveUrl = isBatchMode
+        ? `/ct-inspection/report/${batchId}/${encodeURIComponent(batchTransformerId!)}`
+        : `/final/inspection/${encodeURIComponent(transformer.uniqueId)}`;
+      const res = await axios.post(saveUrl, payload, { withCredentials: true });
       if (res.data.success) {
         toast.success('Inspection report saved successfully.');
         setReadOnly(true);
         load();
+        onSaved?.();
       } else {
         toast.error(res.data.message || 'Failed to save inspection report.');
       }
