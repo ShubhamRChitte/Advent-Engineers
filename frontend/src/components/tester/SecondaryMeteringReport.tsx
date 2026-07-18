@@ -79,6 +79,7 @@ export function SecondaryMeteringReport({
   ));
 
   const printRef = useRef<HTMLDivElement>(null);
+  const [saving, setSaving] = useState(false);
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `Advent_Engineers_Test_Report_${transformer.uniqueId}`,
@@ -392,6 +393,7 @@ export function SecondaryMeteringReport({
 
   const handleDatabaseSave = async () => {
     if (readOnly) return;
+    setSaving(true);
     try {
       const payload = {
         uniqueId: transformer.uniqueId,
@@ -448,6 +450,8 @@ export function SecondaryMeteringReport({
       if (onRefresh) onRefresh();
     } catch (error) {
       toast.error("Failed to save data.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -527,6 +531,7 @@ export function SecondaryMeteringReport({
   }
 
   return (
+    <div className="w-full flex flex-col">
     <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll">
       <style>{secondaryReportPrintStyles}</style>
 
@@ -539,7 +544,14 @@ export function SecondaryMeteringReport({
                 <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2"><AlertTriangle className="w-4 h-4" /> Add to Failed Transformer</Button>
               )}
               {!readOnly && (
-                <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2"><Save className="w-4 h-4" /> Save</Button>
+                <Button
+                  onClick={handleDatabaseSave}
+                  disabled={saving}
+                  className="gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold"
+                >
+                  <Save className="w-4 h-4" />
+                  {saving ? 'Saving...' : 'Save'}
+                </Button>
               )}
               {onPrev && (
                 <Button 
@@ -548,7 +560,7 @@ export function SecondaryMeteringReport({
                   onClick={onPrev} 
                   className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 font-medium shadow-sm transition-all duration-200 hover:scale-105"
                 >
-                  <ChevronLeft className="w-4 h-4" /> Previous Core
+                  <ChevronLeft className="w-4 h-4" /> {(stage === 'primary' || stage === 'final') ? 'Previous' : 'Previous Core'}
                 </Button>
               )}
               {onNext && (
@@ -558,7 +570,7 @@ export function SecondaryMeteringReport({
                   onClick={onNext} 
                   className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm transition-all duration-200 hover:scale-105"
                 >
-                  Next Core <ChevronRight className="w-4 h-4" />
+                  {(stage === 'primary' || stage === 'final') ? 'Next' : 'Next Core'} <ChevronRight className="w-4 h-4" />
                 </Button>
               )}
               <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2"><Printer className="w-4 h-4" /> Print</Button>
@@ -669,6 +681,20 @@ export function SecondaryMeteringReport({
           <ReportSignatures testerName={testerName} hideStampAndSignature={true} />
         </div>
       </div>
+    </div>
+
+      {!readOnly && (
+        <div className="no-print mt-6 mb-8 flex justify-center">
+          <Button
+            onClick={handleDatabaseSave}
+            disabled={saving}
+            className="bg-green-600 hover:bg-green-700 text-white px-10 py-2.5 font-semibold text-sm shadow-sm gap-2"
+          >
+            <Save className="w-4 h-4" />
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

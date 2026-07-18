@@ -37,6 +37,15 @@ const INSPECTION_PRINT_EXTRAS = `
       background: #ffffff !important;
       box-shadow: none !important;
     }
+    .secondary-report-wrapper {
+      position: relative !important;
+      width: 190mm !important;
+      min-height: auto;
+      margin: 0 auto !important;
+      padding: 0 !important;
+      background: #ffffff !important;
+      box-shadow: none !important;
+    }
     .ae-report-table select,
     .ae-report-table input,
     .ae-report-table .input-field {
@@ -312,9 +321,6 @@ export function CTInspectionReport({ transformer, testerName, batchId, batchTran
   return (
     <>
       <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll print:block print:w-auto print:overflow-visible print:bg-white print:p-0">
-        <style>{secondaryReportPrintStyles}</style>
-        <style>{INSPECTION_PRINT_EXTRAS}</style>
-
         <div className="print-container w-[210mm] min-w-[210mm] print:w-full print:min-w-0 print:max-w-full secondary-print-page">
           {/* Toolbar */}
           <div className="flex items-center justify-between insp-no-print mb-4 w-full px-2">
@@ -326,18 +332,20 @@ export function CTInspectionReport({ transformer, testerName, batchId, batchTran
                 </Button>
               ) : (
                 <Button variant="outline" size="sm" onClick={handleSave} disabled={saving}
-                   className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold">
+                   className="gap-2 border-green-600 text-green-600 hover:bg-green-50 font-semibold">
                   <Save className="w-4 h-4" />{saving ? 'Saving...' : 'Save'}
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={() => handlePrint()} className="gap-2">
+              <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
                 <Printer className="w-4 h-4" /> Print
               </Button>
             </div>
           </div>
 
           {/* Printable Report */}
-          <div ref={printRef} id="ct-inspection-printable-report" className="report-wrapper secondary-report-wrapper">
+          <div ref={printRef} id="printable-report" className="report-wrapper secondary-report-wrapper">
+            <style>{secondaryReportPrintStyles}</style>
+            <style>{INSPECTION_PRINT_EXTRAS}</style>
             {/* Header — identical to FinalTestReport */}
             <header className="ae-report-header secondary-report-header">
               <div className="ae-logo-panel">
@@ -526,6 +534,19 @@ export function CTInspectionReport({ transformer, testerName, batchId, batchTran
           </div>
         </div>
       </div>
+
+      {!readOnly && (
+        <div className="no-print mt-6 flex justify-center pb-8">
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-green-600 hover:bg-green-700 text-white px-8 py-2.5 font-semibold text-sm shadow-sm gap-2"
+          >
+            <Save className="w-4 h-4" />
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </div>
+      )}
     </>
   );
 }

@@ -105,6 +105,7 @@ export function PTPretestReport({ order, transformer, onBack, user, noTimer = fa
   const [coreClassesMap, setCoreClassesMap] = useState<Record<string, string>>({});
 
   const printRef = useRef<HTMLDivElement>(null);
+  const [saving, setSaving] = useState(false);
   const handlePrint = useReactToPrint({
     contentRef: printRef,
   });
@@ -374,8 +375,12 @@ export function PTPretestReport({ order, transformer, onBack, user, noTimer = fa
   };
 
   const handleSubmit = async () => {
+    setSaving(true);
     try {
-        if (transformersData.length === 0) return;
+        if (transformersData.length === 0) {
+            setSaving(false);
+            return;
+        }
         
         // Validation: Ensure all fields are filled
         for (const t of transformersData) {
@@ -417,6 +422,8 @@ export function PTPretestReport({ order, transformer, onBack, user, noTimer = fa
     } catch (err: any) {
         console.error("Submission error", err);
         toast.error(err.response?.data?.message || "Failed to submit test reports");
+    } finally {
+        setSaving(false);
     }
   };
 
@@ -723,11 +730,15 @@ export function PTPretestReport({ order, transformer, onBack, user, noTimer = fa
                     </Button>
                 )}
 
-                {!isReadOnly && (
-                  <Button variant="outline" size="sm" onClick={handleSubmit} className="gap-2">
-                      <Save className="w-4 h-4" /> Save
-                  </Button>
-                )}
+                 {!isReadOnly && (
+                   <Button
+                     onClick={handleSubmit}
+                     disabled={saving}
+                     className="gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold"
+                   >
+                       <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save'}
+                   </Button>
+                 )}
 
                 {isReadOnly && activeTabId && (noTimer || !(reportsData[activeTabId]?.approved === true || reportsData[activeTabId]?.approved === 'true')) && (
                     <Button 
@@ -793,6 +804,18 @@ export function PTPretestReport({ order, transformer, onBack, user, noTimer = fa
                 })}
             </div>
         </div>
+
+        {!isReadOnly && (
+            <div className="no-print mt-6 flex justify-center pb-8">
+                <Button
+                    onClick={handleSubmit}
+                    disabled={saving}
+                    className="bg-green-600 hover:bg-green-700 text-white px-8 py-2.5 font-semibold text-sm shadow-sm gap-2"
+                >
+                    <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save'}
+                </Button>
+            </div>
+        )}
 
         {/* Failure Modal */}
         {showFailureModal && (

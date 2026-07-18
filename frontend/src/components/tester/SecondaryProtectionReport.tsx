@@ -156,6 +156,7 @@ export function SecondaryProtectionReport({
   ));
 
   const printRef = useRef<HTMLDivElement>(null);
+  const [saving, setSaving] = useState(false);
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `Advent_Engineers_Test_Report_${transformer.uniqueId}`,
@@ -707,6 +708,7 @@ export function SecondaryProtectionReport({
 
   const handleDatabaseSave = async () => {
     if (readOnly) return;
+    setSaving(true);
     console.log("handleDatabaseSave: STARTED (Protection)");
     try {
       // 1. Build the array based on your ProtectionBlockSchema
@@ -803,6 +805,8 @@ export function SecondaryProtectionReport({
     } catch (error) {
       console.error("handleDatabaseSave: ERROR CAUGHT", error);
       toast.error("Failed to save protection data.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1003,6 +1007,7 @@ export function SecondaryProtectionReport({
   }
 
   return (
+    <div className="w-full flex flex-col">
     <div className="w-full overflow-x-auto bg-gray-50 py-4 flex justify-start md:justify-center no-print-scroll">
       <style>{secondaryReportPrintStyles}</style>
 
@@ -1015,8 +1020,12 @@ export function SecondaryProtectionReport({
               </Button>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleDatabaseSave} className="gap-2">
-                <Save className="w-4 h-4" /> Save
+              <Button
+                onClick={handleDatabaseSave}
+                disabled={saving}
+                className="gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold"
+              >
+                <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save'}
               </Button>
               {onPrev && (
                 <Button 
@@ -1025,7 +1034,7 @@ export function SecondaryProtectionReport({
                   onClick={onPrev} 
                   className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 font-medium shadow-sm transition-all duration-200 hover:scale-105"
                 >
-                  <ChevronLeft className="w-4 h-4" /> Previous Core
+                  <ChevronLeft className="w-4 h-4" /> {(stage === 'primary' || stage === 'final') ? 'Previous' : 'Previous Core'}
                 </Button>
               )}
               {onNext && (
@@ -1035,7 +1044,7 @@ export function SecondaryProtectionReport({
                   onClick={onNext} 
                   className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm transition-all duration-200 hover:scale-105"
                 >
-                  Next Core <ChevronRight className="w-4 h-4" />
+                  {(stage === 'primary' || stage === 'final') ? 'Next' : 'Next Core'} <ChevronRight className="w-4 h-4" />
                 </Button>
               )}
               {!transformer.isDummy && hasFailures && !isFailedSection && (
@@ -1362,6 +1371,20 @@ export function SecondaryProtectionReport({
           <ReportSignatures testerName={testerName} hideStampAndSignature={true} />
         </div>
       </div>
+    </div>
+
+      {!readOnly && (
+        <div className="no-print mt-6 mb-8 flex justify-center">
+          <Button
+            onClick={handleDatabaseSave}
+            disabled={saving}
+            className="bg-green-600 hover:bg-green-700 text-white px-10 py-2.5 font-semibold text-sm shadow-sm gap-2"
+          >
+            <Save className="w-4 h-4" />
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

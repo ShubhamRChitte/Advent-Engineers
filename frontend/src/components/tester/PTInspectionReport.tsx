@@ -459,8 +459,6 @@ export function PTInspectionReport({
 
   return (
     <>
-      <style>{STYLE}</style>
-
       {/* ── Toolbar ── */}
       <div className="pt-insp-no-print flex items-center justify-between mb-4 px-1">
         <div className="flex items-center gap-3">
@@ -479,13 +477,13 @@ export function PTInspectionReport({
               size="sm"
               onClick={handleSave}
               disabled={saving}
-              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              className="gap-2 bg-green-600 hover:bg-green-700 text-white"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {saving ? 'Saving...' : 'Save'}
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => handlePrint()} className="gap-2">
+          <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
             <Printer className="w-4 h-4" /> Print
           </Button>
         </div>
@@ -493,7 +491,8 @@ export function PTInspectionReport({
 
       {/* ── Printable Report ── */}
       <div className="pt-insp-scroll-wrap">
-        <div ref={printRef} className="pt-insp-page">
+        <div ref={printRef} id="printable-report" className="pt-insp-page">
+          <style>{STYLE}</style>
 
           {/* ═══ HEADER ═══ */}
           <table className="pit-header-outer">
@@ -753,6 +752,19 @@ export function PTInspectionReport({
 
         </div>
       </div>
+
+      {!isReadOnly && (
+        <div className="no-print mt-6 flex justify-center pb-8">
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-green-600 hover:bg-green-700 text-white px-8 py-2.5 font-semibold text-sm shadow-sm gap-2"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </div>
+      )}
     </>
   );
 }

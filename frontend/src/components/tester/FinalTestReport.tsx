@@ -64,6 +64,8 @@ export function FinalTestReport({
     return 'N/A';
   })();
 
+  const [saving, setSaving] = useState(false);
+
   // Polarity Testing
   const [polarityResult, setPolarityResult] = useState('');
 
@@ -165,9 +167,11 @@ export function FinalTestReport({
   };
 
   const handleSave = async (skipValidation = false) => {
+    setSaving(true);
     try {
       if (hasFailures && !skipValidation) {
         toast.error("There are failed conditions. Please use 'Add to Failed Transformer' instead.");
+        setSaving(false);
         return false;
       }
 
@@ -192,12 +196,15 @@ export function FinalTestReport({
       if (response.data.success) {
         toast.success("Final readings saved successfully!");
         if (onSaveSuccess) onSaveSuccess();
+        setSaving(false);
         return true;
       }
+      setSaving(false);
       return false;
     } catch (err: any) {
       console.error("Error saving final readings:", err);
       toast.error(err.response?.data?.message || "Failed to save final readings");
+      setSaving(false);
       return false;
     }
   };
@@ -288,12 +295,11 @@ export function FinalTestReport({
                 {!readOnly && (
                   <Button
                     onClick={() => handleSave()}
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold"
+                    disabled={saving}
+                    className="gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold"
                   >
                     <Save className="w-4 h-4" />
-                    Save
+                    {saving ? 'Saving...' : 'Save'}
                   </Button>
                 )}
                 {!readOnly && comprehensiveComplete && !coresComplete && (
@@ -314,7 +320,7 @@ export function FinalTestReport({
                     onClick={onNext}
                     className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm transition-all duration-200 hover:scale-105"
                   >
-                    Next Core <ChevronRight className="w-4 h-4" />
+                    Next <ChevronRight className="w-4 h-4" />
                   </Button>
                 )}
                 <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
@@ -657,29 +663,38 @@ export function FinalTestReport({
               <ReportSignatures testerName={testerName} />
             </div>
 
-            {/* Actions Toolbar at bottom (Screen only) */}
-            {!readOnly && (
-              <div className="no-print mt-6 flex flex-col gap-4">
-                {hasFailures && (
-                  <div className="bg-red-50 border border-red-200 p-4 rounded-lg text-red-600 text-sm font-semibold">
-                    Failure Limits Reached: {validationFailures.join(', ')}
-                  </div>
-                )}
-                {comprehensiveComplete && coresComplete && (
-                  <div className="bg-white p-4 rounded-lg shadow border border-gray-100 flex justify-end">
-                    <Button
-                      onClick={handleSaveAndApprove}
-                      className="bg-green-600 text-white hover:bg-green-700 gap-2 font-bold px-6 shadow-md transition-all hover:scale-105"
-                    >
-                      <Save className="w-4 h-4" />
-                      APPROVE & FINISH UNIT
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
+
+        {!readOnly && (
+          <div className="no-print mt-6 mb-8 flex flex-col gap-4">
+            {hasFailures && (
+              <div className="bg-red-50 border border-red-200 p-4 rounded-lg text-red-600 text-sm font-semibold mx-auto max-w-lg">
+                Failure Limits Reached: {validationFailures.join(', ')}
+              </div>
+            )}
+            <div className="flex gap-4 justify-center items-center">
+              <Button
+                onClick={() => handleSave()}
+                disabled={saving}
+                className="bg-green-600 hover:bg-green-700 text-white px-10 py-2.5 font-semibold text-sm shadow-sm gap-2"
+              >
+                <Save className="w-4 h-4" />
+                {saving ? 'Saving...' : 'Save'}
+              </Button>
+              {comprehensiveComplete && coresComplete && (
+                <Button
+                  onClick={handleSaveAndApprove}
+                  className="bg-green-600 text-white hover:bg-green-700 gap-2 font-bold px-6 shadow-md transition-all hover:scale-105"
+                >
+                  <Save className="w-4 h-4" />
+                  APPROVE & FINISH UNIT
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
     </>
   );
