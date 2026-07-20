@@ -191,16 +191,24 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
         const secResults = transformer.testHistory?.secondary_test?.[`${mappedType}_results`] || [];
         foundResult = findResultForCore(secResults, coreNum, mappedType, coreDetails);
         
-        if (!foundResult) {
+        if (!foundResult || !(foundResult.internalCoreNo || foundResult.coreId)) {
           const primResults = transformer.testHistory?.primary_test?.[`${mappedType}_results`] || [];
           foundResult = findResultForCore(primResults, coreNum, mappedType, coreDetails);
         }
       }
+      
+      let fallbackId = 'N/A';
+      const secTest = transformer?.testHistory?.secondary_test;
+      if (mappedType === 'metering' && secTest?.meteringCoreId) fallbackId = secTest.meteringCoreId;
+      else if (mappedType === 'ps' && secTest?.psCoreId) fallbackId = secTest.psCoreId;
+      else if (mappedType === 'protection' && secTest?.protectionCoreId) fallbackId = secTest.protectionCoreId;
+      
+      const currentId = foundResult ? (foundResult.internalCoreNo || foundResult.coreId) : null;
 
       return {
         coreNumber: coreNum,
         coreType: mappedType,
-        currentCoreId: foundResult ? (foundResult.internalCoreNo || foundResult.coreId) : 'N/A'
+        currentCoreId: currentId || fallbackId
       };
     });
   };
@@ -286,10 +294,19 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
           };
 
           const totalQty = retestingTransformer.orderId?.quantity || retestingTransformer.orderId?.transformerQuantity || 0;
+          
+          const getPool = (type: 'metering' | 'ps' | 'protection', generatedList: string[]) => {
+            const backendPool = transformerObj.availableCoreIdsPool?.[type];
+            if (backendPool && Array.isArray(backendPool) && backendPool.length > 0) {
+              return backendPool.filter((id: string) => !getUsedIds(type).has(id));
+            }
+            return generatedList;
+          };
+
           const pool = {
-            metering: Array.from({ length: totalQty }, (_, i) => generateCoreId('metering', i + 1)).filter(id => !getUsedIds('metering').has(id)),
-            ps: Array.from({ length: totalQty }, (_, i) => generateCoreId('ps', i + 1)).filter(id => !getUsedIds('ps').has(id)),
-            protection: Array.from({ length: totalQty }, (_, i) => generateCoreId('protection', i + 1)).filter(id => !getUsedIds('protection').has(id))
+            metering: getPool('metering', Array.from({ length: totalQty }, (_, i) => generateCoreId('metering', i + 1)).filter(id => !getUsedIds('metering').has(id))),
+            ps: getPool('ps', Array.from({ length: totalQty }, (_, i) => generateCoreId('ps', i + 1)).filter(id => !getUsedIds('ps').has(id))),
+            protection: getPool('protection', Array.from({ length: totalQty }, (_, i) => generateCoreId('protection', i + 1)).filter(id => !getUsedIds('protection').has(id)))
           };
           setRetestAvailablePool(pool);
         } catch (err) {
@@ -362,11 +379,17 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
   };
 
   const filterActiveResults = (results: any[], activeCoreIds: string[]) => {
-    return (results || []).filter((r: any) => {
+    const filtered = (results || []).filter((r: any) => {
       const id = r.internalCoreNo || r.coreId || '';
       if (!id) return false;
       return activeCoreIds.includes(id) || activeCoreIds.some(cid => cid.endsWith(id.slice(-4)));
     });
+
+    if (filtered.length === 0 && (results || []).length > 0) {
+      return results;
+    }
+
+    return filtered;
   };
 
   const checkIsAllCoresCompleted = (transformer: any, order: any, stage: string) => {

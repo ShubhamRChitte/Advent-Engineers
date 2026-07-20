@@ -126,7 +126,6 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
       const failedRecords = failedRes.data.success ? failedRes.data.data : [];
       const activeFailedIds = new Set(
         failedRecords
-          .filter((f: any) => f.status === 'FAILED')
           .map((f: any) => f.transformerUniqueId || f.transformerId?.uniqueId)
           .filter(Boolean)
       );
@@ -575,9 +574,9 @@ export function SecondaryTransformersList({ order, onStartTest, onBack, onRefres
                         
                         {transformer.canRequestStrictApproval && (
                           <Button
-                            size="sm"
-                            className="ml-2 bg-red-600 hover:bg-red-700 text-white"
-                            onClick={async () => {
+                                  size="sm"
+                                  className="ml-2 bg-orange-500 hover:bg-orange-600 text-white"
+                                  onClick={async () => {
                               if (!confirm("Are you sure you want to request Strict Admin Approval?")) return;
                               let reasons: string[] = [];
                               transformer.cores.forEach(core => {
