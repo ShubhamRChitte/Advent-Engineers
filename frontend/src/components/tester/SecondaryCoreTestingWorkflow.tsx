@@ -96,10 +96,11 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [transRes, stockRes, approvedRes] = await Promise.all([
+      const [transRes, stockRes, approvedRes, failedRes] = await Promise.all([
         axios.get(`/orders/${order._id}/transformers`, { withCredentials: true }),
         axios.get(`/secondary-core-tests/ready-stock/${order._id}`, { withCredentials: true }),
-        axios.get(`/core-tests/approved-ids/${order._id}`, { withCredentials: true })
+        axios.get(`/core-tests/approved-ids/${order._id}`, { withCredentials: true }),
+        axios.get(`/failed-transformers?stage=SECONDARY_TESTING`, { withCredentials: true })
       ]);
 
       if (approvedRes.data?.success) {
@@ -109,6 +110,13 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
           protection: approvedRes.data.protection || []
         });
       }
+
+      const failedRecords = failedRes.data?.success ? failedRes.data.data : [];
+      const activeFailedIds = new Set(
+        failedRecords
+          .map((f: any) => f.transformerUniqueId || f.transformerId?.uniqueId)
+          .filter(Boolean)
+      );
 
       const totalQty = order.quantity || order.transformerQuantity || 0;
       const details = order.coreDetails || [];
@@ -201,7 +209,9 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
         };
       });
 
-      setTransformers(mappedTrans.filter(t => t.currentStage === 'secondary' || t.currentStage === 'admin_review'));
+      setTransformers(
+        mappedTrans.filter(t => t.currentStage === 'secondary' && !activeFailedIds.has(t.uniqueId))
+      );
       setReadyStock(stockRes.data);
     } catch (err) {
       console.error("Failed to load data for workflow", err);
@@ -305,7 +315,7 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
 
       const response = await axios.put(`/transformers/${transformer.uniqueId}/approve-stage`, {
         stage: 'secondary',
-        nextStage: 'primary'
+        nextStage: 'final'
       }, { withCredentials: true });
 
       if (response.data.success) {
@@ -692,11 +702,18 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
 
                     // Check validation and fail state
                     const hasFailures = transformer.cores.some(core => {
+                      const assignedCoreId = secTest[`${core.coreType}CoreId`];
+                      if (assignedCoreId) {
+                        const assignedCoreObj = getAvailableStockForDropdown(core.coreType as any, transformer.uniqueId).find(c => c.coreId === assignedCoreId);
+                        if (assignedCoreObj && assignedCoreObj.status === 'Fail') return true;
+                      }
+
                       const results = secTest[`${core.coreType}_results`] || [];
                       if (core.coreType === 'metering') {
                         return results.some((res: any) => res.rows?.some((row: any) =>
                           row.r100_r_pass === false || row.r100_p_pass === false ||
-                          row.r25_r_pass === false || row.r25_p_pass === false
+                          row.r25_r_pass === false || row.r25_p_pass === false ||
+                          row.r100_pass === false || row.r25_pass === false
                         ));
                       }
                       return results.some((res: any) => res.isPass === false);
@@ -804,7 +821,7 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
                               <>
                                 <Button
                                   size="sm"
-                                  className="bg-yellow-600 hover:bg-yellow-700 text-white w-full max-w-[150px]"
+                                  className="bg-orange-500 hover:bg-orange-600 text-white w-full max-w-[150px]"
                                   onClick={() => handleStrictApproval(transformer)}
                                 >
                                   <CheckCircle className="w-4 h-4 mr-2" /> Strict Approve
