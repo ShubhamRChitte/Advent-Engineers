@@ -231,6 +231,21 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
     }).length || 0;
   };
 
+  const coreCount = (() => {
+    if (order.coreDetails && Array.isArray(order.coreDetails) && order.coreDetails.length > 0) {
+      return order.coreDetails.length;
+    }
+    if ((order as any).coreConfiguration && Array.isArray((order as any).coreConfiguration) && (order as any).coreConfiguration.length > 0) {
+      return (order as any).coreConfiguration.length;
+    }
+    if (transformers && transformers.length > 0 && transformers[0].cores && transformers[0].cores.length > 0) {
+      return transformers[0].cores.length;
+    }
+    return 1;
+  })();
+
+  const isMultiCore = coreCount > 1;
+
   const totalQty = order.quantity || order.transformerQuantity || 0;
   const reqMetering = getCoresCountForType('metering') * totalQty;
   const reqPs = getCoresCountForType('ps') * totalQty;
@@ -597,6 +612,16 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
 
     const maxIndex = availableIds.length > 0 ? availableIds.length - 1 : 0;
 
+    const handleNextCore = () => {
+      fetchData();
+      if (index < maxIndex) {
+        setActiveTestMode({ coreType, index: index + 1 });
+      } else {
+        toast.info(`Completed testing all available ${coreType.toUpperCase()} cores.`);
+        setActiveTestMode(null);
+      }
+    };
+
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-gray-200">
@@ -639,6 +664,7 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
               coreId={coreId}
               testerName={userName}
               onBack={handleBackFromReport}
+              onNext={handleNextCore}
               stage="secondary"
               onRefresh={fetchData}
             />
@@ -650,6 +676,7 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
               coreId={coreId}
               testerName={userName}
               onBack={handleBackFromReport}
+              onNext={handleNextCore}
               stage="secondary"
               onRefresh={fetchData}
             />
@@ -661,6 +688,7 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
               coreId={coreId}
               testerName={userName}
               onBack={handleBackFromReport}
+              onNext={handleNextCore}
               stage="secondary"
               onRefresh={fetchData}
             />
@@ -758,196 +786,198 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
         </div>
       </div>
 
-      {/* Transformers & Core Assignment */}
-      <div>
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-lg font-semibold">Transformers & Core Assignment</h3>
-          {transformers.length > 0 && (
-            <Button
-              size="sm"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all shadow-sm"
-              onClick={handleAutoAssign}
-            >
-              Auto-Assign Cores
-            </Button>
-          )}
-        </div>
-        <Card className="overflow-hidden border border-gray-200">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="text-left p-4 text-sm font-semibold">Transformer Unique ID</th>
-                  <th className="text-left p-4 text-sm font-semibold">Name / Rating</th>
-                  <th className="text-left p-4 text-sm font-semibold">Core Assignments</th>
-                  <th className="text-left p-4 text-sm font-semibold">Status</th>
-                  <th className="text-center p-4 text-sm font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transformers.length > 0 ? (
-                  transformers.map((transformer) => {
-                    const secTest = transformer.testHistory?.secondary_test || {};
-                    const hasMeteringReq = transformer.cores.some(c => c.coreType === 'metering');
-                    const hasPsReq = transformer.cores.some(c => c.coreType === 'ps');
-                    const hasProtectionReq = transformer.cores.some(c => c.coreType === 'protection');
-
-                    // Check validation and fail state
-                    const hasFailures = transformer.cores.some(core => {
-                      const assignedCoreId = secTest[`${core.coreType}CoreId`];
-                      if (assignedCoreId) {
-                        const assignedCoreObj = getAvailableStockForDropdown(core.coreType as any, transformer.uniqueId).find(c => c.coreId === assignedCoreId);
-                        if (assignedCoreObj && assignedCoreObj.status === 'Fail') return true;
-                      }
-
-                      const results = secTest[`${core.coreType}_results`] || [];
-                      if (core.coreType === 'metering') {
-                        return results.some((res: any) => res.rows?.some((row: any) =>
-                          row.r100_r_pass === false || row.r100_p_pass === false ||
-                          row.r25_r_pass === false || row.r25_p_pass === false ||
-                          row.r100_pass === false || row.r25_pass === false
-                        ));
-                      }
-                      return results.some((res: any) => res.isPass === false);
-                    });
-
-                    const allRequiredAssigned =
-                      (!hasMeteringReq || !!secTest.meteringCoreId) &&
-                      (!hasPsReq || !!secTest.psCoreId) &&
-                      (!hasProtectionReq || !!secTest.protectionCoreId);
-
-                    const canApprove = allRequiredAssigned && !hasFailures && transformer.currentStage === 'secondary';
-                    const canRequestStrictApproval = allRequiredAssigned && hasFailures && transformer.currentStage === 'secondary';
-
-                    return (
-                      <tr key={transformer.uniqueId} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="p-4 font-medium">{transformer.uniqueId}</td>
-                        <td className="p-4">
-                          <div>
-                            <p className="font-semibold text-gray-800">{transformer.name}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">{transformer.rating}</p>
-                          </div>
-                        </td>
-                        <td className="p-4 space-y-3">
-                          {hasMeteringReq && (
-                            <div className="flex flex-col gap-1 max-w-xs">
-                              <label className="text-[10px] font-semibold text-blue-700 uppercase">Metering Core</label>
-                              <select
-                                className="p-2 text-xs rounded border border-gray-300 bg-white"
-                                value={secTest.meteringCoreId || ""}
-                                onChange={(e) => handleCoreAssignmentChange(transformer.uniqueId, 'metering', e.target.value)}
-                              >
-                                <option value="">-- Select Metering Core --</option>
-                                {getAvailableStockForDropdown('metering', transformer.uniqueId).map((core) => {
-                                  const isFailed = core.status === 'Fail';
-                                  return (
-                                    <option key={core.coreId} value={core.coreId} className={isFailed ? "text-red-600 font-bold" : ""}>
-                                      {core.coreId} {core.turnsUsed ? `(${core.turnsUsed} Turns)` : ''} {isFailed ? '(FAILED)' : ''}
-                                    </option>
-                                  );
-                                })}
-                              </select>
-                            </div>
-                          )}
-
-                          {hasPsReq && (
-                            <div className="flex flex-col gap-1 max-w-xs">
-                              <label className="text-[10px] font-semibold text-purple-700 uppercase">PS Core</label>
-                              <select
-                                className="p-2 text-xs rounded border border-gray-300 bg-white"
-                                value={secTest.psCoreId || ""}
-                                onChange={(e) => handleCoreAssignmentChange(transformer.uniqueId, 'ps', e.target.value)}
-                              >
-                                <option value="">-- Select PS Core --</option>
-                                {getAvailableStockForDropdown('ps', transformer.uniqueId).map((core) => {
-                                  const isFailed = core.status === 'Fail';
-                                  return (
-                                    <option key={core.coreId} value={core.coreId} className={isFailed ? "text-red-600 font-bold" : ""}>
-                                      {core.coreId} {core.turnsUsed ? `(${core.turnsUsed} Turns)` : ''} {isFailed ? '(FAILED)' : ''}
-                                    </option>
-                                  );
-                                })}
-                              </select>
-                            </div>
-                          )}
-
-                          {hasProtectionReq && (
-                            <div className="flex flex-col gap-1 max-w-xs">
-                              <label className="text-[10px] font-semibold text-green-700 uppercase">Protection Core</label>
-                              <select
-                                className="p-2 text-xs rounded border border-gray-300 bg-white"
-                                value={secTest.protectionCoreId || ""}
-                                onChange={(e) => handleCoreAssignmentChange(transformer.uniqueId, 'protection', e.target.value)}
-                              >
-                                <option value="">-- Select Protection Core --</option>
-                                {getAvailableStockForDropdown('protection', transformer.uniqueId).map((core) => {
-                                  const isFailed = core.status === 'Fail';
-                                  return (
-                                    <option key={core.coreId} value={core.coreId} className={isFailed ? "text-red-600 font-bold" : ""}>
-                                      {core.coreId} {core.turnsUsed ? `(${core.turnsUsed} Turns)` : ''} {isFailed ? '(FAILED)' : ''}
-                                    </option>
-                                  );
-                                })}
-                              </select>
-                            </div>
-                          )}
-                        </td>
-                        <td className="p-4">
-                          <Badge className={getStatusColor(transformer.status)}>
-                            {transformer.currentStage === 'admin_review' ? 'Admin Review' : transformer.status.replace('-', ' ')}
-                          </Badge>
-                        </td>
-                        <td className="p-4 text-center">
-                          <div className="flex flex-col gap-2 justify-center items-center">
-                            {canApprove && (
-                              <Button
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700 text-white w-full max-w-[150px]"
-                                onClick={() => handleApproveTransformer(transformer)}
-                              >
-                                <CheckCircle className="w-4 h-4 mr-2" /> Approve
-                              </Button>
-                            )}
-
-                            {canRequestStrictApproval && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  className="bg-orange-500 hover:bg-orange-600 text-white w-full max-w-[150px]"
-                                  onClick={() => handleStrictApproval(transformer)}
-                                >
-                                  <CheckCircle className="w-4 h-4 mr-2" /> Strict Approve
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  className="bg-red-600 hover:bg-red-700 text-white w-full max-w-[150px]"
-                                  onClick={() => handleMoveToFailed(transformer)}
-                                >
-                                  Move to Failed
-                                </Button>
-                              </>
-                            )}
-
-                            {!canApprove && !canRequestStrictApproval && (
-                              <span className="text-xs text-gray-400 italic">Assign all cores to approve</span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="p-8 text-center text-gray-500">
-                      No active transformers in Secondary Testing stage.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+      {/* Transformers & Core Assignment - Only for Single Core Transformers */}
+      {!isMultiCore && (
+        <div>
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-lg font-semibold">Transformers & Core Assignment</h3>
+            {transformers.length > 0 && (
+              <Button
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all shadow-sm"
+                onClick={handleAutoAssign}
+              >
+                Auto-Assign Cores
+              </Button>
+            )}
           </div>
-        </Card>
-      </div>
+          <Card className="overflow-hidden border border-gray-200">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left p-4 text-sm font-semibold">Transformer Unique ID</th>
+                    <th className="text-left p-4 text-sm font-semibold">Name / Rating</th>
+                    <th className="text-left p-4 text-sm font-semibold">Core Assignments</th>
+                    <th className="text-left p-4 text-sm font-semibold">Status</th>
+                    <th className="text-center p-4 text-sm font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transformers.length > 0 ? (
+                    transformers.map((transformer) => {
+                      const secTest = transformer.testHistory?.secondary_test || {};
+                      const hasMeteringReq = transformer.cores.some(c => c.coreType === 'metering');
+                      const hasPsReq = transformer.cores.some(c => c.coreType === 'ps');
+                      const hasProtectionReq = transformer.cores.some(c => c.coreType === 'protection');
+
+                      // Check validation and fail state
+                      const hasFailures = transformer.cores.some(core => {
+                        const assignedCoreId = secTest[`${core.coreType}CoreId`];
+                        if (assignedCoreId) {
+                          const assignedCoreObj = getAvailableStockForDropdown(core.coreType as any, transformer.uniqueId).find(c => c.coreId === assignedCoreId);
+                          if (assignedCoreObj && assignedCoreObj.status === 'Fail') return true;
+                        }
+
+                        const results = secTest[`${core.coreType}_results`] || [];
+                        if (core.coreType === 'metering') {
+                          return results.some((res: any) => res.rows?.some((row: any) =>
+                            row.r100_r_pass === false || row.r100_p_pass === false ||
+                            row.r25_r_pass === false || row.r25_p_pass === false ||
+                            row.r100_pass === false || row.r25_pass === false
+                          ));
+                        }
+                        return results.some((res: any) => res.isPass === false);
+                      });
+
+                      const allRequiredAssigned =
+                        (!hasMeteringReq || !!secTest.meteringCoreId) &&
+                        (!hasPsReq || !!secTest.psCoreId) &&
+                        (!hasProtectionReq || !!secTest.protectionCoreId);
+
+                      const canApprove = allRequiredAssigned && !hasFailures && transformer.currentStage === 'secondary';
+                      const canRequestStrictApproval = allRequiredAssigned && hasFailures && transformer.currentStage === 'secondary';
+
+                      return (
+                        <tr key={transformer.uniqueId} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="p-4 font-medium">{transformer.uniqueId}</td>
+                          <td className="p-4">
+                            <div>
+                              <p className="font-semibold text-gray-800">{transformer.name}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">{transformer.rating}</p>
+                            </div>
+                          </td>
+                          <td className="p-4 space-y-3">
+                            {hasMeteringReq && (
+                              <div className="flex flex-col gap-1 max-w-xs">
+                                <label className="text-[10px] font-semibold text-blue-700 uppercase">Metering Core</label>
+                                <select
+                                  className="p-2 text-xs rounded border border-gray-300 bg-white"
+                                  value={secTest.meteringCoreId || ""}
+                                  onChange={(e) => handleCoreAssignmentChange(transformer.uniqueId, 'metering', e.target.value)}
+                                >
+                                  <option value="">-- Select Metering Core --</option>
+                                  {getAvailableStockForDropdown('metering', transformer.uniqueId).map((core) => {
+                                    const isFailed = core.status === 'Fail';
+                                    return (
+                                      <option key={core.coreId} value={core.coreId} className={isFailed ? "text-red-600 font-bold" : ""}>
+                                        {core.coreId} {core.turnsUsed ? `(${core.turnsUsed} Turns)` : ''} {isFailed ? '(FAILED)' : ''}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </div>
+                            )}
+
+                            {hasPsReq && (
+                              <div className="flex flex-col gap-1 max-w-xs">
+                                <label className="text-[10px] font-semibold text-purple-700 uppercase">PS Core</label>
+                                <select
+                                  className="p-2 text-xs rounded border border-gray-300 bg-white"
+                                  value={secTest.psCoreId || ""}
+                                  onChange={(e) => handleCoreAssignmentChange(transformer.uniqueId, 'ps', e.target.value)}
+                                >
+                                  <option value="">-- Select PS Core --</option>
+                                  {getAvailableStockForDropdown('ps', transformer.uniqueId).map((core) => {
+                                    const isFailed = core.status === 'Fail';
+                                    return (
+                                      <option key={core.coreId} value={core.coreId} className={isFailed ? "text-red-600 font-bold" : ""}>
+                                        {core.coreId} {core.turnsUsed ? `(${core.turnsUsed} Turns)` : ''} {isFailed ? '(FAILED)' : ''}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </div>
+                            )}
+
+                            {hasProtectionReq && (
+                              <div className="flex flex-col gap-1 max-w-xs">
+                                <label className="text-[10px] font-semibold text-green-700 uppercase">Protection Core</label>
+                                <select
+                                  className="p-2 text-xs rounded border border-gray-300 bg-white"
+                                  value={secTest.protectionCoreId || ""}
+                                  onChange={(e) => handleCoreAssignmentChange(transformer.uniqueId, 'protection', e.target.value)}
+                                >
+                                  <option value="">-- Select Protection Core --</option>
+                                  {getAvailableStockForDropdown('protection', transformer.uniqueId).map((core) => {
+                                    const isFailed = core.status === 'Fail';
+                                    return (
+                                      <option key={core.coreId} value={core.coreId} className={isFailed ? "text-red-600 font-bold" : ""}>
+                                        {core.coreId} {core.turnsUsed ? `(${core.turnsUsed} Turns)` : ''} {isFailed ? '(FAILED)' : ''}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            <Badge className={getStatusColor(transformer.status)}>
+                              {transformer.currentStage === 'admin_review' ? 'Admin Review' : transformer.status.replace('-', ' ')}
+                            </Badge>
+                          </td>
+                          <td className="p-4 text-center">
+                            <div className="flex flex-col gap-2 justify-center items-center">
+                              {canApprove && (
+                                <Button
+                                  size="sm"
+                                  className="bg-green-600 hover:bg-green-700 text-white w-full max-w-[150px]"
+                                  onClick={() => handleApproveTransformer(transformer)}
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" /> Approve
+                                </Button>
+                              )}
+
+                              {canRequestStrictApproval && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    className="bg-orange-500 hover:bg-orange-600 text-white w-full max-w-[150px]"
+                                    onClick={() => handleStrictApproval(transformer)}
+                                  >
+                                    <CheckCircle className="w-4 h-4 mr-2" /> Strict Approve
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    className="bg-red-600 hover:bg-red-700 text-white w-full max-w-[150px]"
+                                    onClick={() => handleMoveToFailed(transformer)}
+                                  >
+                                    Move to Failed
+                                  </Button>
+                                </>
+                              )}
+
+                              {!canApprove && !canRequestStrictApproval && (
+                                <span className="text-xs text-gray-400 italic">Assign all cores to approve</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="p-8 text-center text-gray-500">
+                        No active transformers in Secondary Testing stage.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

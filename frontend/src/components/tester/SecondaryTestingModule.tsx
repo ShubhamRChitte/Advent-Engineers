@@ -116,6 +116,21 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
     setSelectedAccuracyClass(undefined);
   };
 
+  const handleNextTransformerCore = () => {
+    if (selectedTransformer && selectedCoreNumber < (selectedTransformer.cores?.length || 1)) {
+      const nextCoreNum = selectedCoreNumber + 1;
+      const nextConfig = selectedTransformer.cores.find(c => c.coreNumber === nextCoreNum);
+      if (nextConfig) {
+        setSelectedCoreNumber(nextCoreNum);
+        setSelectedCoreType(nextConfig.coreType as ReportType);
+        setEnteredCoreId(nextConfig.coreId || '');
+        setSelectedAccuracyClass(nextConfig.accuracyClass);
+        return;
+      }
+    }
+    handleBackFromReport();
+  };
+
   return (
     <>
     <div className="space-y-6">
@@ -185,6 +200,7 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
                 coreId={enteredCoreId}
                 testerName={userName || 'Unknown Tester'}
                 onBack={handleBackFromReport}
+                onNext={handleNextTransformerCore}
                 onFail={handleBackToOrders}
                 stage="secondary"
                 accuracyClass={selectedAccuracyClass}
@@ -199,6 +215,7 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
                 coreId={enteredCoreId}
                 testerName={userName || 'Unknown Tester'}
                 onBack={handleBackFromReport}
+                onNext={handleNextTransformerCore}
                 onFail={handleBackToOrders}
                 stage="secondary"
                 accuracyClass={selectedAccuracyClass}
@@ -213,6 +230,7 @@ export function SecondaryTestingModule({ userName }: SecondaryTestingModuleProps
                 coreId={enteredCoreId}
                 testerName={userName || 'Unknown Tester'}
                 onBack={handleBackFromReport}
+                onNext={handleNextTransformerCore}
                 onFail={handleBackToOrders}
                 stage="secondary"
                 accuracyClass={selectedAccuracyClass}
