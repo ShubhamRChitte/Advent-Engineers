@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
 
-import { Printer, ArrowLeft, Save, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Printer, ArrowLeft, Save, AlertTriangle, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
 import { Transformer } from './SecondaryTransformersList';
 import { toast } from 'sonner';
 
@@ -25,7 +25,7 @@ interface SecondaryMeteringReportProps {
   testerName: string;
   onBack: () => void;
   readOnly?: boolean;
-  stage?: 'secondary' | 'primary' | 'final';
+  stage?: 'secondary' | 'primary' | 'final' | 'inspection';
   accuracyClass?: string | undefined;
   primaryCurrent?: string;
   secondaryCurrent?: string;
@@ -72,12 +72,6 @@ export function SecondaryMeteringReport({
   const coreIndex = (coreNumber && coreNumber > 0) ? (coreNumber - 1) :
     (!isNaN(parseInt(coreId.replace(/[^0-9]/g, ''))) ? parseInt(coreId.replace(/[^0-9]/g, '')) - 1 : 0);
 
-  const hasBeenRetested = !!(retestHistory?.some((h: any) =>
-    Array.isArray(h.newTreatmentReadings) && h.newTreatmentReadings.some((r: any) =>
-      r.internalCoreNo === coreId || r.coreId === coreId
-    )
-  ));
-
   const printRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
   const handlePrint = useReactToPrint({
@@ -100,19 +94,10 @@ export function SecondaryMeteringReport({
   }, []);
 
   const dynamicRatios: string[] = (() => {
-    // 1. Determine core index from prop or ID
-    const order = propOrder || transformer.fullOrder || transformer.orderId;
+    const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
     const orderCores = order?.coreDetails || [];
     const coreFromOrder = orderCores[coreIndex];
-
-    // Priority: Manual Prop -> Core Specific -> Order Level -> Fallback
-    const secCurr = manualSecondary || 
-      coreFromOrder?.secondaryCurrent ||
-      order?.ratedSecondaryCurrent ||
-      '1';
-
-    // Extract and split primary currents
-    // Priority: Manual Prop -> Order PrimaryCurrents -> Order Ratio -> Fallback
+    const secCurr = manualSecondary || coreFromOrder?.secondaryCurrent || order?.ratedSecondaryCurrent || '1';
     const rawPrimaryCurrs = manualPrimary ? [manualPrimary] :
       ((order?.primaryCurrents && order.primaryCurrents.length > 0) ? order.primaryCurrents :
       (Array.isArray(order?.ratio) ? order.ratio.map((r: string) => String(r).split('/')[0]) : ['200']));
@@ -125,86 +110,35 @@ export function SecondaryMeteringReport({
     return primaryCurrs.map((p: string) => `${p}/${secCurr}`);
   })();
 
-  const [accuracyClass] = useState<string>(() => {
-    if (explicitClass) return extractAccuracyClass(explicitClass);
-    const order = propOrder || transformer.fullOrder || transformer.orderId;
+  const accuracyClass = (() => {
+    if (explicitClass) return explicitClass;
+    const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
     const orderCores = order?.coreDetails || [];
-    const coreFromOrder = orderCores[coreIndex];
-
-    return extractAccuracyClass(
-      coreFromOrder?.accuracyClass ||
-      transformer.accuracyClass ||
-      '0.5'
-    );
-  });
+    return orderCores[coreIndex]?.accuracyClass || order?.accuracyClass || extractAccuracyClass(transformer.rating || '');
+  })();
 
   const displayBurden = (() => {
-    const order = propOrder || transformer.fullOrder || transformer.orderId;
+    const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
     let rawBurden = order?.burden;
     if (Array.isArray(rawBurden)) {
       rawBurden = rawBurden[Math.min(coreIndex, rawBurden.length - 1)];
     }
-    const val = rawBurden || transformer.burden;
+    const val = rawBurden || (transformer as any).burden;
     if (!val) return 'N/A';
     return String(val).replace(/VA/i, '').trim();
   })();
 
   const displaySTC = (() => {
-    const order = propOrder || transformer.fullOrder || transformer.orderId;
-    return order?.stc || order?.STC || transformer.stc || 'N/A';
+    const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
+    return order?.stc || order?.STC || (transformer as any).stc || 'N/A';
   })();
 
-  const [testResults, setTestResults] = useState<{ ratioValue: string; rows: any[] }[]>(() => {
-    const initial = dynamicRatios.map(ratio => ({
-      ratioValue: ratio,
-      rows: getInitialData(accuracyClass)
-    }));
+  const initialBlankData = dynamicRatios.map(ratio => ({
+    ratioValue: ratio,
+    rows: getInitialData(accuracyClass)
+  }));
 
-    let myResults = [];
-
-    const shouldLoadFromTreated = isFailedSection && failedStatus === 'TREATED' && (isFailedCore || hasBeenRetested);
-    if (shouldLoadFromTreated) {
-      const secHistory = transformer.testHistory?.secondary_test;
-      if (secHistory?.metering_results?.length > 0) {
-        myResults = secHistory.metering_results.filter((res: any) => res.internalCoreNo === coreId);
-        if (myResults.length === 0 && secHistory.meteringCoreId === coreId) {
-          myResults = secHistory.metering_results;
-        }
-      }
-    }
-
-    if (myResults.length === 0) {
-      const stageHistory = transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory] as any;
-      if (stageHistory?.metering_results?.length > 0) {
-        myResults = stageHistory.metering_results.filter((res: any) => res.internalCoreNo === coreId);
-        if (myResults.length === 0 && transformer.testHistory?.secondary_test?.meteringCoreId === coreId) {
-          myResults = stageHistory.metering_results;
-        }
-      }
-    }
-
-    if (myResults.length === 0 && sourceStage && sourceStage !== stage) {
-      const sourceHistory = transformer.testHistory?.[`${sourceStage}_test` as keyof typeof transformer.testHistory] as any;
-      if (sourceHistory?.metering_results?.length > 0) {
-        myResults = sourceHistory.metering_results.filter((res: any) => res.internalCoreNo === coreId);
-        if (myResults.length === 0 && transformer.testHistory?.secondary_test?.meteringCoreId === coreId) {
-          myResults = sourceHistory.metering_results;
-        }
-      }
-    }
-
-    if (myResults.length > 0) {
-      return initial.map((item, idx) => {
-        let matched = myResults.find((r: any) => r.ratioValue === item.ratioValue);
-        if (!matched && myResults[idx]) {
-          matched = myResults[idx];
-        }
-        return matched ? { ...item, rows: matched.rows } : item;
-      });
-    }
-    return initial;
-  });
-
+  const [testResults, setTestResults] = useState(initialBlankData);
   const [approvedCores, setApprovedCores] = useState<string[]>([]);
   const [secondaryTestedCores, setSecondaryTestedCores] = useState<string[]>([]);
   const [selectedCoreId, setSelectedCoreId] = useState<string>(coreId);
@@ -213,7 +147,7 @@ export function SecondaryMeteringReport({
 
   useEffect(() => {
     const fetchApprovedCores = async () => {
-      const order = transformer.fullOrder || transformer.orderId;
+      const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
       const orderId = order?._id || order;
       if (!orderId || readOnly) return;
       try {
@@ -233,7 +167,7 @@ export function SecondaryMeteringReport({
       }
     };
     fetchApprovedCores();
-  }, [transformer.orderId, transformer.fullOrder, readOnly]);
+  }, [transformer.orderId, (transformer as any).fullOrder, readOnly]);
 
   useEffect(() => {
     setSelectedCoreId(coreId);
@@ -242,20 +176,15 @@ export function SecondaryMeteringReport({
   useEffect(() => {
     const fetchLatestData = async () => {
       try {
-        const initialBlankData = dynamicRatios.map(ratio => ({
-          ratioValue: ratio,
-          rows: getInitialData(accuracyClass)
-        }));
-
         if (stage === 'inspection') {
-          let currentInspectionData = transformer.inspectionData || {};
+          let currentInspectionData = (transformer as any).inspectionData || {};
           try {
             const checkRes = await axios.get(`/final/inspection/${encodeURIComponent(transformer.uniqueId)}`, { withCredentials: true });
             if (checkRes.data.success && checkRes.data.data) {
               currentInspectionData = checkRes.data.data;
             }
           } catch (e) {
-            console.error("Failed to fetch latest inspection data in fetchLatestData", e);
+            console.error("Failed to fetch latest inspection data in fetchLatestData (Metering)", e);
           }
           const savedResults = (currentInspectionData as any).coreTests?.[selectedCoreId];
           if (savedResults && savedResults.metering_results) {
@@ -272,7 +201,6 @@ export function SecondaryMeteringReport({
           return;
         }
 
-        let freshTransformer = transformer;
         if (transformer.isDummy) {
           const res = await axios.get(`/secondary-core-tests/metering/${selectedCoreId}`, { withCredentials: true });
           if (res.data?.success && res.data.data) {
@@ -293,9 +221,9 @@ export function SecondaryMeteringReport({
         }
 
         const res = await axios.get(`/transformers/${transformer.uniqueId}`, { withCredentials: true });
-        freshTransformer = res.data.data || res.data;
-        let myResults = [];
+        const freshTransformer = res.data.data || res.data;
 
+        let myResults = [];
         let currentFailedStatus = failedStatus;
         let currentRetestHistory = retestHistory;
 
@@ -334,16 +262,6 @@ export function SecondaryMeteringReport({
           }
         }
 
-        if (myResults.length === 0 && sourceStage && sourceStage !== stage) {
-          const sourceHistory = freshTransformer?.testHistory?.[`${sourceStage}_test`] as any;
-          if (sourceHistory?.metering_results?.length > 0) {
-            myResults = sourceHistory.metering_results.filter((res: any) => res.internalCoreNo === selectedCoreId);
-            if (myResults.length === 0 && freshTransformer.testHistory?.secondary_test?.meteringCoreId === selectedCoreId) {
-              myResults = sourceHistory.metering_results;
-            }
-          }
-        }
-
         if (myResults.length > 0) {
             setTestResults(prev => prev.map((item, idx) => {
               let matched = myResults.find((r: any) => r.ratioValue === item.ratioValue);
@@ -352,6 +270,23 @@ export function SecondaryMeteringReport({
               }
               return matched ? { ...item, rows: matched.rows } : item;
             }));
+        } else if (stage === 'secondary') {
+          // Fetch from ready stock secondary test collection if no results exist on transformer
+          const fallbackRes = await axios.get(`/secondary-core-tests/metering/${selectedCoreId}`, { withCredentials: true });
+          if (fallbackRes.data?.success && fallbackRes.data.data) {
+            const testDoc = fallbackRes.data.data;
+            if (testDoc.metering_results && testDoc.metering_results.length > 0) {
+              setTestResults(prev => prev.map((item, idx) => {
+                let matched = testDoc.metering_results.find((r: any) => r.ratioValue === item.ratioValue);
+                if (!matched && testDoc.metering_results[idx]) {
+                  matched = testDoc.metering_results[idx];
+                }
+                return matched ? { ...item, rows: matched.rows } : item;
+              }));
+              return;
+            }
+          }
+          setTestResults(initialBlankData);
         } else {
           setTestResults(initialBlankData);
         }
@@ -391,7 +326,18 @@ export function SecondaryMeteringReport({
     });
   };
 
-  const handleDatabaseSave = async () => {
+  const areAllReadingsFilled = () => {
+    return testResults.every(item => 
+      item.rows.every(row => 
+        row.r100 !== null && row.r100 !== undefined && String(row.r100).trim() !== '' &&
+        row.p100 !== null && row.p100 !== undefined && String(row.p100).trim() !== '' &&
+        row.r25 !== null && row.r25 !== undefined && String(row.r25).trim() !== '' &&
+        row.p25 !== null && row.p25 !== undefined && String(row.p25).trim() !== ''
+      )
+    );
+  };
+
+  const handleDatabaseSave = async (isApprove: boolean = false) => {
     if (readOnly) return;
     setSaving(true);
     try {
@@ -401,6 +347,7 @@ export function SecondaryMeteringReport({
         loginType: `${stage}_login`,
         tester: testerName,
         coreId: selectedCoreId,
+        status: isApprove || stage === 'secondary' ? "Pass" : "In-Progress",
         metering_results: testResults.map(item => ({
           ratioValue: item.ratioValue,
           rows: item.rows,
@@ -410,7 +357,6 @@ export function SecondaryMeteringReport({
         }))
       };
 
-      
       if (stage === 'inspection') {
         let currentInspectionData = {};
         try {
@@ -420,7 +366,7 @@ export function SecondaryMeteringReport({
           }
         } catch (e) {
           console.error("Failed to load existing inspection data for merge, using prop defaults", e);
-          currentInspectionData = transformer.inspectionData || {};
+          currentInspectionData = (transformer as any).inspectionData || {};
         }
 
         const updatedCoreTests = {
@@ -433,7 +379,6 @@ export function SecondaryMeteringReport({
         };
         await axios.post(`/final/inspection/${encodeURIComponent(transformer.uniqueId)}`, updatedInspectionData, { withCredentials: true });
       } else if (isFailedSection && failedTransformerId) {
-        // Save to retest-save endpoint
         await axios.put(`/failed-transformers/${failedTransformerId}/retest-save`, {
             treatedReadings: payload.metering_results,
             treatedBy: testerName,
@@ -445,9 +390,16 @@ export function SecondaryMeteringReport({
       }
 
       if (onCompleteTimer) await onCompleteTimer();
-      toast.success("Data saved successfully!");
+      
       setSecondaryTestedCores(prev => [...new Set([...prev, selectedCoreId])]);
       if (onRefresh) onRefresh();
+
+      if (isApprove) {
+        toast.success("Metering Core Approved successfully!");
+        if (onNext) onNext(); else onBack();
+      } else {
+        toast.success("Data saved successfully!");
+      }
     } catch (error) {
       toast.error("Failed to save data.");
     } finally {
@@ -470,14 +422,14 @@ export function SecondaryMeteringReport({
         });
       });
 
-      const orderObj = propOrder || transformer.fullOrder || transformer.orderId;
+      const orderObj = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
 
       const payload = {
-        transformerId: transformer.id || transformer._id,
+        transformerId: transformer.id || (transformer as any)._id,
         transformerUniqueId: transformer.uniqueId,
-        orderId: transformer.orderId?._id || transformer.orderId || orderObj?._id || orderObj?.id,
-        jobNumber: transformer.jobId || orderObj?.jobId || '',
-        clientName: transformer.clientName || orderObj?.clientName || '',
+        orderId: (transformer as any).orderId?._id || (transformer as any).orderId || orderObj?._id || orderObj?.id,
+        jobNumber: (transformer as any).jobId || orderObj?.jobId || '',
+        clientName: (transformer as any).clientName || orderObj?.clientName || '',
         coreType: "Metering",
         testType: stage === 'primary' ? "After Primary Metering" : stage === 'final' ? "Final Metering" : "Secondary Metering",
         failureParameters: { failureStage: `${stage}_metering_test`, dynamicValues: testResults, coreId: selectedCoreId },
@@ -487,8 +439,7 @@ export function SecondaryMeteringReport({
         status: "FAILED"
       };
 
-      // Persist the entered test values to the transformer's history first
-      await handleDatabaseSave();
+      await handleDatabaseSave(false);
 
       const response = await axios.post(`/failed-transformers`, payload, { withCredentials: true });
       if (response.data.success) {
@@ -511,7 +462,7 @@ export function SecondaryMeteringReport({
   if (isUnified) {
     return (
       <div className="ae-section-container print:break-inside-avoid print:mt-6" style={{ pageBreakInside: 'avoid', marginTop: 24 }}>
-        <ReportSectionTitle title={`${transformer.voltageRating || '33'} KV, CT, ${dynamicRatios.join('-')}A, ${displayBurden}VA, METERING`} />
+        <ReportSectionTitle title={`${(transformer as any).voltageRating || '33'} KV, CT, ${dynamicRatios.join('-')}A, ${displayBurden}VA, METERING`} />
         <div className="mt-2 mb-2">
           <ReportSpecBox
             items={[
@@ -540,18 +491,31 @@ export function SecondaryMeteringReport({
           <div className="flex items-center justify-between no-print mb-4 w-full">
             <Button variant="outline" size="sm" onClick={onBack} className="gap-2"><ArrowLeft className="w-4 h-4" /> Back</Button>
             <div className="flex gap-2">
-              {!readOnly && !transformer.isDummy && hasAnyFailures && !isFailedSection && (
+              {!readOnly && !(transformer as any).isDummy && hasAnyFailures && !isFailedSection && (
                 <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2"><AlertTriangle className="w-4 h-4" /> Add to Failed Transformer</Button>
               )}
               {!readOnly && (
-                <Button
-                  onClick={handleDatabaseSave}
-                  disabled={saving}
-                  className="gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold"
-                >
-                  <Save className="w-4 h-4" />
-                  {saving ? 'Saving...' : 'Save'}
-                </Button>
+                <>
+                  <Button
+                    onClick={() => handleDatabaseSave(false)}
+                    disabled={saving}
+                    variant="outline"
+                    className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold"
+                  >
+                    <Save className="w-4 h-4" />
+                    {saving ? 'Saving...' : 'Save Draft'}
+                  </Button>
+                  {stage === 'secondary' && areAllReadingsFilled() && (
+                    <Button
+                      onClick={() => handleDatabaseSave(true)}
+                      disabled={saving}
+                      className="gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      {saving ? 'Approving...' : 'Approve Core'}
+                    </Button>
+                  )}
+                </>
               )}
               {onPrev && (
                 <Button 
@@ -606,7 +570,7 @@ export function SecondaryMeteringReport({
               index={2} 
               title={`${transformer.voltageRating || '33'} KV , CT , ${dynamicRatios.join('-')}A , ${displayBurden}VA , Metering`} 
             />
-            {!readOnly && stage !== 'primary' && stage !== 'final' && !isFailedSection ? (
+            {!readOnly && !isFailedSection && stage !== 'final' ? (
               <div className="flex items-center gap-3 bg-white p-3 rounded-lg border border-[#103b63]/20 shadow-sm max-w-md my-3 no-print relative">
                 <span className="text-xs font-bold text-[#103b63] uppercase tracking-wide shrink-0">Select Core ID (from Core Testing):</span>
                 <div className="relative flex-1">
@@ -635,10 +599,27 @@ export function SecondaryMeteringReport({
                           />
                         </div>
                         <div className="overflow-y-auto flex-1 max-h-40">
-                          {[
-                            coreId,
-                            ...approvedCores.filter(id => id !== coreId && (id === selectedCoreId || !secondaryTestedCores.includes(id)))
-                          ]
+                          {(() => {
+                            const isPrimaryOrFinal = stage === 'primary';
+                            let availableList: string[] = [];
+                            if (isPrimaryOrFinal) {
+                              availableList.push(...secondaryTestedCores);
+                              const secResults = (transformer.testHistory?.secondary_test as any)?.metering_results || [];
+                              secResults.forEach((r: any) => { if (r.internalCoreNo) availableList.push(r.internalCoreNo); if (r.coreId) availableList.push(r.coreId); });
+                              const secMetaId = (transformer.testHistory?.secondary_test as any)?.meteringCoreId;
+                              if (secMetaId) availableList.push(secMetaId);
+                              
+                              const primResults = (transformer.testHistory?.primary_test as any)?.metering_results || [];
+                              primResults.forEach((r: any) => { if (r.internalCoreNo) availableList.push(r.internalCoreNo); if (r.coreId) availableList.push(r.coreId); });
+                              
+                              availableList.push(...approvedCores);
+                              if (selectedCoreId) availableList.push(selectedCoreId);
+                            } else {
+                              availableList.push(coreId, selectedCoreId);
+                              availableList.push(...approvedCores.filter(id => id === selectedCoreId || !secondaryTestedCores.includes(id)));
+                            }
+                            return Array.from(new Set(availableList.filter(Boolean)));
+                          })()
                             .filter(id => id.toLowerCase().includes(selectSearch.toLowerCase()))
                             .map(id => (
                               <button
@@ -657,11 +638,7 @@ export function SecondaryMeteringReport({
                               </button>
                             ))
                           }
-                          {[
-                            coreId,
-                            ...approvedCores.filter(id => id !== coreId && (id === selectedCoreId || !secondaryTestedCores.includes(id)))
-                          ]
-                            .filter(id => id.toLowerCase().includes(selectSearch.toLowerCase())).length === 0 && (
+                          {approvedCores.length === 0 && secondaryTestedCores.length === 0 && !coreId && (
                             <div className="px-3 py-2 text-xs text-gray-500 italic text-center">
                               No matching cores
                             </div>
@@ -684,15 +661,28 @@ export function SecondaryMeteringReport({
     </div>
 
       {!readOnly && (
-        <div className="no-print mt-6 mb-8 flex justify-center">
+        <div className="no-print mt-6 mb-8 flex justify-center gap-3">
           <Button
-            onClick={handleDatabaseSave}
+            onClick={() => handleDatabaseSave(false)}
             disabled={saving}
             className="bg-green-600 hover:bg-green-700 text-white px-10 py-2.5 font-semibold text-sm shadow-sm gap-2"
           >
             <Save className="w-4 h-4" />
             {saving ? 'Saving...' : 'Save'}
           </Button>
+          {onNext && (
+            <Button
+              onClick={async () => {
+                await handleDatabaseSave(false);
+                onNext();
+              }}
+              disabled={saving}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-2.5 font-semibold text-sm shadow-sm gap-2"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? 'Saving...' : 'Save & Next'}
+            </Button>
+          )}
         </div>
       )}
     </div>

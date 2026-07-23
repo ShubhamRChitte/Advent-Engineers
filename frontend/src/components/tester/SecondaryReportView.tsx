@@ -26,45 +26,29 @@ export function SecondaryReportView({
         return validCores.length > 0 ? validCores : cores;
     };
 
-    // Extract all UNIQUE core IDs per type from the saved results
-    const uniqueMeteringCores: string[] = (() => {
-        const results = history?.metering_results || [];
+    // Extract all UNIQUE core IDs per type across all stages (secondary, primary, final)
+    const extractCoreIds = (type: 'metering' | 'protection' | 'ps') => {
         const seen = new Set<string>();
-        if (history?.meteringCoreId) {
-            seen.add(history.meteringCoreId);
-        }
-        results.forEach((r: any) => {
-            const id = r.internalCoreNo || r.coreId;
-            if (id) seen.add(id);
+        const stages = ['secondary', 'primary', 'final'];
+        stages.forEach(st => {
+            const stageHistory = transformer.testHistory?.[`${st}_test` as keyof typeof transformer.testHistory] as any;
+            if (stageHistory) {
+                if (stageHistory[`${type}CoreId`]) {
+                    seen.add(stageHistory[`${type}CoreId`]);
+                }
+                const results = stageHistory[`${type}_results`] || [];
+                results.forEach((r: any) => {
+                    const id = r.internalCoreNo || r.coreId;
+                    if (id) seen.add(id);
+                });
+            }
         });
-        return filterPendingIfValidExists(Array.from(seen));
-    })();
+        return filterPendingIfValidExists(Array.from(seen).filter(Boolean));
+    };
 
-    const uniqueProtectionCores: string[] = (() => {
-        const results = history?.protection_results || [];
-        const seen = new Set<string>();
-        if (history?.protectionCoreId) {
-            seen.add(history.protectionCoreId);
-        }
-        results.forEach((r: any) => {
-            const id = r.internalCoreNo || r.coreId;
-            if (id) seen.add(id);
-        });
-        return filterPendingIfValidExists(Array.from(seen));
-    })();
-
-    const uniquePSCores: string[] = (() => {
-        const results = history?.ps_results || [];
-        const seen = new Set<string>();
-        if (history?.psCoreId) {
-            seen.add(history.psCoreId);
-        }
-        results.forEach((r: any) => {
-            const id = r.internalCoreNo || r.coreId;
-            if (id) seen.add(id);
-        });
-        return filterPendingIfValidExists(Array.from(seen));
-    })();
+    const uniqueMeteringCores = extractCoreIds('metering');
+    const uniqueProtectionCores = extractCoreIds('protection');
+    const uniquePSCores = extractCoreIds('ps');
 
     // Determine which tabs have data
     const hasMetering = uniqueMeteringCores.length > 0;

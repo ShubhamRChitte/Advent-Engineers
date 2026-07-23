@@ -131,6 +131,50 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
       orderToUnitMap[oId].push(t.uniqueId);
     });
 
+    if (stageKey === 'primary') {
+      try {
+        const { SecondaryMeteringTestModel } = require('../models/SecondaryMeteringTestModel');
+        const { SecondaryPSTestModel } = require('../models/SecondaryPSTestModel');
+        const { SecondaryProtectionTestModel } = require('../models/SecondaryProtectionTestModel');
+
+        const [secM, secPS, secProt, secTrans] = await Promise.all([
+          SecondaryMeteringTestModel.distinct('orderId'),
+          SecondaryPSTestModel.distinct('orderId'),
+          SecondaryProtectionTestModel.distinct('orderId'),
+          TransformerModel.find({
+            $or: [
+              { 'testHistory.secondary_test.metering_results.0': { $exists: true } },
+              { 'testHistory.secondary_test.ps_results.0': { $exists: true } },
+              { 'testHistory.secondary_test.protection_results.0': { $exists: true } }
+            ]
+          }).select('orderId uniqueId').lean()
+        ]);
+
+        const secOrderIds = [
+          ...secM.map(id => id ? id.toString() : ''),
+          ...secPS.map(id => id ? id.toString() : ''),
+          ...secProt.map(id => id ? id.toString() : ''),
+          ...secTrans.map(t => t.orderId ? t.orderId.toString() : '')
+        ].filter(Boolean);
+
+        secOrderIds.forEach(oId => {
+          if (!orderToUnitMap[oId]) {
+            orderToUnitMap[oId] = [];
+          }
+        });
+        secTrans.forEach(t => {
+          if (t.orderId && t.uniqueId) {
+            const oId = t.orderId.toString();
+            if (!orderToUnitMap[oId].includes(t.uniqueId)) {
+              orderToUnitMap[oId].push(t.uniqueId);
+            }
+          }
+        });
+      } catch (secErr) {
+        console.error("Error including secondary tested orders for Primary stage:", secErr);
+      }
+    }
+
     const activeOrderIds = Object.keys(orderToUnitMap);
 
     // -------------------------------------------------------------------------

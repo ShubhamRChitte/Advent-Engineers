@@ -2,7 +2,7 @@
 import logoImage from 'figma:asset/d4d1bc6f9b0c444f1821bbe84a4da57caf7080d2.png';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 
-type ReportStage = 'secondary' | 'primary' | 'final';
+export type ReportStage = 'secondary' | 'primary' | 'final' | 'inspection';
 
 interface ReportHeaderProps {
   stage: ReportStage;
@@ -16,6 +16,7 @@ interface ReportHeaderProps {
 export const getStageBannerTitle = (stage: ReportStage) => {
   if (stage === 'primary') return 'AFTER PRIMARY CORE TEST REPORT';
   if (stage === 'final') return 'FINAL CORE TEST REPORT';
+  if (stage === 'inspection') return 'FINAL INSPECTION CORE TEST REPORT';
   return 'METERING & PROTECTION CORE TEST REPORT';
 };
 

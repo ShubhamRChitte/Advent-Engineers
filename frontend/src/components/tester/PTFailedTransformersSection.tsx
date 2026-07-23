@@ -17,7 +17,7 @@ import { PTPretestReport } from './PTPretestReport';
 import { PTTestingReport } from './PTTestingReport';
 
 interface PTFailedTransformersSectionProps {
-  stage: 'PT_PRETEST_TESTING' | 'PT_TESTING';
+  stage: 'PT_PRETEST_TESTING' | 'PT_TESTING' | 'PT_PRETEST_TESTING,PT_TESTING';
   user?: any;
 }
 

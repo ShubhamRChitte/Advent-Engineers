@@ -309,6 +309,87 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
     }
   };
 
+  const handleAutoAssign = async () => {
+    // 1. Get copies of available stock lists (unassigned ready stock cores)
+    const availableMetering = (readyStock.metering || []).filter((c: any) => !c.isAssigned && c.status !== 'In-Progress');
+    const availablePs = (readyStock.ps || []).filter((c: any) => !c.isAssigned && c.status !== 'In-Progress');
+    const availableProtection = (readyStock.protection || []).filter((c: any) => !c.isAssigned && c.status !== 'In-Progress');
+
+    let mIdx = 0;
+    let psIdx = 0;
+    let pIdx = 0;
+
+    const promises = [];
+    let assignedCount = 0;
+
+    for (const t of transformers) {
+      const secTest = t.testHistory?.secondary_test || {};
+      const hasMeteringReq = t.cores.some(c => c.coreType === 'metering');
+      const hasPsReq = t.cores.some(c => c.coreType === 'ps');
+      const hasProtectionReq = t.cores.some(c => c.coreType === 'protection');
+
+      let currentMeteringId = secTest.meteringCoreId || '';
+      let currentPsId = secTest.psCoreId || '';
+      let currentProtectionId = secTest.protectionCoreId || '';
+
+      let changed = false;
+
+      if (hasMeteringReq && !currentMeteringId) {
+        if (mIdx < availableMetering.length) {
+          currentMeteringId = availableMetering[mIdx].coreId;
+          mIdx++;
+          changed = true;
+        }
+      }
+
+      if (hasPsReq && !currentPsId) {
+        if (psIdx < availablePs.length) {
+          currentPsId = availablePs[psIdx].coreId;
+          psIdx++;
+          changed = true;
+        }
+      }
+
+      if (hasProtectionReq && !currentProtectionId) {
+        if (pIdx < availableProtection.length) {
+          currentProtectionId = availableProtection[pIdx].coreId;
+          pIdx++;
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        const payload = {
+          meteringCoreId: currentMeteringId || null,
+          psCoreId: currentPsId || null,
+          protectionCoreId: currentProtectionId || null
+        };
+        promises.push(
+          axios.put(`/transformers/${t.uniqueId}/assign-secondary-cores`, payload, { withCredentials: true })
+        );
+        assignedCount++;
+      }
+    }
+
+    if (assignedCount === 0) {
+      toast.info("No new cores could be auto-assigned. Make sure tested ready stock is available.");
+      return;
+    }
+
+    try {
+      const toastId = toast.loading("Auto-assigning cores...");
+      await Promise.all(promises);
+      toast.dismiss(toastId);
+      toast.success(`Successfully auto-assigned cores to ${assignedCount} transformer(s)!`);
+      fetchData();
+    } catch (err) {
+      toast.dismiss();
+      console.error("Auto assignment failed", err);
+      toast.error("Some core assignments failed to save.");
+      fetchData();
+    }
+  };
+
   const handleApproveTransformer = async (transformer: Transformer) => {
     try {
       if (!confirm(`Are you sure you want to approve Transformer ${transformer.uniqueId} and move it to Primary Testing?`)) return;
@@ -679,7 +760,18 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
 
       {/* Transformers & Core Assignment */}
       <div>
-        <h3 className="text-lg font-semibold mb-3">Transformers & Core Assignment</h3>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-lg font-semibold">Transformers & Core Assignment</h3>
+          {transformers.length > 0 && (
+            <Button
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all shadow-sm"
+              onClick={handleAutoAssign}
+            >
+              Auto-Assign Cores
+            </Button>
+          )}
+        </div>
         <Card className="overflow-hidden border border-gray-200">
           <div className="overflow-x-auto">
             <table className="w-full">

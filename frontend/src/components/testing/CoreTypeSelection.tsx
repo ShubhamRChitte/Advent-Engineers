@@ -90,6 +90,7 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack, inline = fa
         const isMetering = type === 'Metering';
         const endpoint = isMetering ? '/metering-tests' : '/protection-tests';
         const typeParam = !isMetering ? `?type=${type}` : '';
+        const required = getRequiredRows(type as string);
 
         // Calculate assigned ready stock cores for this specific type
         const assignedReadyCount = assignedCores.filter((c: any) => {
@@ -152,7 +153,6 @@ export function CoreTypeSelection({ order, onSelectCoreType, onBack, inline = fa
             }
           }
 
-          const required = getRequiredRows(type as string);
           // Mark as complete if we have enough saved, completed rows + assigned ready cores
           statusUpdate[type as string] = (savedCount + assignedReadyCount) >= required && required > 0;
 

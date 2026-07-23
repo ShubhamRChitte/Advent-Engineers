@@ -81,6 +81,11 @@ export function MultiReadyStockModal({
     onSave(selectedIds);
   };
 
+  const handleAutoSelect = () => {
+    const autoIds = (cores || []).slice(0, requiredCount).map(c => c.coreId);
+    setSelectedIds(autoIds);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 bg-slate-50 border-none shadow-2xl">
@@ -108,6 +113,16 @@ export function MultiReadyStockModal({
               className="pl-10 h-10 bg-slate-50 border-slate-200 focus:bg-white transition-all rounded-lg"
             />
           </div>
+          {(cores || []).length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAutoSelect}
+              className="h-10 px-4 border-blue-200 hover:border-blue-300 text-blue-600 hover:bg-blue-50 font-bold rounded-lg shrink-0 transition-all"
+            >
+              Auto Select
+            </Button>
+          )}
           <div className="text-sm font-bold text-slate-700 bg-slate-100 px-4 py-2 rounded-lg shrink-0">
             Selected: <span className="text-blue-600">{selectedIds.length}</span> / {requiredCount}
           </div>

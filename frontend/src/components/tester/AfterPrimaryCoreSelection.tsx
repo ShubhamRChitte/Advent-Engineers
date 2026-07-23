@@ -46,6 +46,31 @@ export function AfterPrimaryCoreSelection({
 
   const [transformer, setTransformer] = useState<AfterPrimaryTransformer>(initialTransformer);
   const [isLoading, setIsLoading] = useState(false);
+  const [readyStock, setReadyStock] = useState<{ metering: any[]; ps: any[]; protection: any[] }>({
+    metering: [],
+    ps: [],
+    protection: []
+  });
+
+  const fetchReadyStock = async () => {
+    if (!order?._id) return;
+    try {
+      const res = await axios.get(`/secondary-core-tests/ready-stock/${order._id}`, { withCredentials: true });
+      if (res.data?.success) {
+        setReadyStock({
+          metering: res.data.metering || [],
+          ps: res.data.ps || [],
+          protection: res.data.protection || []
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch ready stock cores", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchReadyStock();
+  }, [order?._id]);
 
   // Sync when parent passes updated testHistory (e.g., after saving a report and navigating back)
   useEffect(() => {
@@ -78,6 +103,36 @@ export function AfterPrimaryCoreSelection({
 
     fetchTransformerData();
   }, [initialTransformer.uniqueId]);
+
+  const handleAssignCore = async (coreType: 'metering' | 'ps' | 'protection', value: string) => {
+    const secTest = transformer.testHistory?.secondary_test || {};
+    const currentAssignments = {
+      meteringCoreId: coreType === 'metering' ? value : secTest.meteringCoreId,
+      psCoreId: coreType === 'ps' ? value : secTest.psCoreId,
+      protectionCoreId: coreType === 'protection' ? value : secTest.protectionCoreId
+    };
+
+    try {
+      const res = await axios.put(`/transformers/${transformer.uniqueId}/assign-secondary-cores`, currentAssignments, { withCredentials: true });
+      if (res.data?.success) {
+        toast.success("Secondary Core assigned successfully");
+        setTransformer(prev => ({
+          ...prev,
+          testHistory: res.data.transformer.testHistory,
+          cores: prev.cores.map(c => {
+            if (c.coreType === coreType) {
+              return { ...c, coreId: value };
+            }
+            return c;
+          })
+        }));
+        fetchReadyStock();
+      }
+    } catch (err) {
+      console.error("Core assignment failed", err);
+      toast.error("Failed to assign secondary core");
+    }
+  };
 
 
   const getCoreTypeColor = (type: string) => {
@@ -325,14 +380,27 @@ export function AfterPrimaryCoreSelection({
             const secondaryVal = coreFromOrder?.secondaryCurrent || order?.ratedSecondaryCurrent || '1';
             const primaryVal = coreFromOrder?.primaryCurrent || order?.primaryCurrents?.[0] || (order?.ratio?.[0]?.split('/')[0] || '');
 
+            const secTest = transformer.testHistory?.secondary_test || {};
+            const assignedId = secTest[`${core.coreType}CoreId`] || core.coreId;
+            const availableCores = (readyStock[core.coreType] || []).filter(
+              (c: any) => c.status !== 'In-Progress' && (!c.isAssigned || c.assignedUniqueId === transformer.uniqueId)
+            );
+
+            const handleCardClick = () => {
+              if (!assignedId) {
+                toast.error(`Please select a tested ${core.coreType.toUpperCase()} Core ID before opening report.`);
+                return;
+              }
+              onSelectCore(core, String(primaryVal), String(secondaryVal));
+            };
+
             return (
               <Card
                 key={core.coreNumber}
-                className={`p-6 hover:shadow-lg transition-all cursor-pointer border-2 ${
+                className={`p-6 hover:shadow-lg transition-all border-2 ${
                   isCompleted ? (hasFailure ? 'border-amber-400 bg-amber-50' : 'border-green-400 bg-green-50') : 
                   getCoreTypeColor(core.coreType)
                 }`}
-                onClick={() => onSelectCore(core, String(primaryVal), String(secondaryVal))}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div>
@@ -358,8 +426,23 @@ export function AfterPrimaryCoreSelection({
                     <p className="font-medium">{getCoreTypeLabel(core.coreType)}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Core ID (from Secondary)</p>
-                    <p className="font-medium text-blue-600">{core.coreId}</p>
+                    <p className="text-sm text-gray-600 font-medium">Secondary Core ID</p>
+                    {availableCores.length > 0 ? (
+                      <select
+                        className="mt-1 p-2 text-xs rounded border border-gray-300 bg-white font-medium text-blue-600 w-full"
+                        value={assignedId || ''}
+                        onChange={(e) => handleAssignCore(core.coreType, e.target.value)}
+                      >
+                        <option value="">-- Select Tested Core --</option>
+                        {availableCores.map((c: any) => (
+                          <option key={c.coreId} value={c.coreId}>
+                            {c.coreId} {c.status === 'Fail' ? '(FAILED)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p className="font-medium text-blue-600 mt-1">{assignedId || 'Not Assigned'}</p>
+                    )}
                   </div>
                   <div className="flex justify-between items-center bg-white p-2 rounded border border-gray-100 shadow-sm">
                     <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Secondary Current</span>
@@ -371,10 +454,7 @@ export function AfterPrimaryCoreSelection({
 
                 <Button
                   className={`w-full ${isCompleted ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectCore(core, '', String(secondaryVal));
-                  }}
+                  onClick={handleCardClick}
                 >
                   {isCompleted ? (
                     <>

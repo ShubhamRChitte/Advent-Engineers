@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { ArrowLeft, Save, Printer, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Save, Printer, AlertTriangle, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
 import { Transformer } from './SecondaryTransformersList';
 import { toast } from 'sonner';
 
@@ -27,7 +27,7 @@ interface SecondaryProtectionReportProps {
   testerName: string;
   onBack: () => void;
   readOnly?: boolean;
-  stage?: 'secondary' | 'primary' | 'final';
+  stage?: 'secondary' | 'primary' | 'final' | 'inspection';
   accuracyClass?: string | undefined; // Optinally passed from list
   primaryCurrent?: string;
   secondaryCurrent?: string;
@@ -386,7 +386,7 @@ export function SecondaryProtectionReport({
         }));
 
         if (stage === 'inspection') {
-          let currentInspectionData = transformer.inspectionData || {};
+          let currentInspectionData = (transformer as any).inspectionData || {};
           try {
             const checkRes = await axios.get(`/final/inspection/${encodeURIComponent(transformer.uniqueId)}`, { withCredentials: true });
             if (checkRes.data.success && checkRes.data.data) {
@@ -562,9 +562,45 @@ export function SecondaryProtectionReport({
               }
               return row;
             }));
-          } else {
-            setTestResults(initialBlank);
+        } else if (stage === 'secondary') {
+          // Fetch from ready stock secondary test collection if no results exist on transformer
+          const fallbackRes = await axios.get(`/secondary-core-tests/protection/${selectedCoreId}`, { withCredentials: true });
+          if (fallbackRes.data?.success && fallbackRes.data.data) {
+            const testDoc = fallbackRes.data.data;
+            if (testDoc.protection_results && testDoc.protection_results.length > 0) {
+              setTestResults(prev => prev.map((row, index) => {
+                let saved = testDoc.protection_results.find((r: any) => r.ratioValue === row.ratio);
+                if (!saved && testDoc.protection_results[index]) {
+                  saved = testDoc.protection_results[index];
+                }
+                if (saved) {
+                  const safeStr = (val: any) => (val !== undefined && val !== null) ? String(val) : '';
+                  if (saved.protectionClass && saved.protectionClass !== protectionClass) {
+                    setProtectionClass(saved.protectionClass);
+                  }
+                  return {
+                    ...row,
+                    ratioError100: safeStr(saved.ratioError100 ?? saved.burden100_1),
+                    phaseError: safeStr(saved.phaseError ?? saved.burden100_2),
+                    resistance: safeStr(saved.resistance),
+                    alf: safeStr(saved.alf),
+                    secondaryLimitingVoltage: safeStr(saved.secondaryLimitingVoltage ?? saved.secondaryLimitingVtg),
+                    excitationCurrent: safeStr(saved.excitationCurrent ?? saved.excitationCurr),
+                    compositeError: safeStr(saved.compositeError),
+                    isPass: saved.isPass,
+                    reason: saved.reason,
+                    protectionClass: saved.protectionClass
+                  };
+                }
+                return row;
+              }));
+              return;
+            }
           }
+          setTestResults(initialBlank);
+        } else {
+          setTestResults(initialBlank);
+        }
       } catch (err) {
         console.error("Failed to load existing protection data", err);
       }
@@ -706,7 +742,17 @@ export function SecondaryProtectionReport({
 
 
 
-  const handleDatabaseSave = async () => {
+  const areAllReadingsFilled = () => {
+    return testResults.every(row => 
+      row.ratioError100 !== null && row.ratioError100 !== undefined && String(row.ratioError100).trim() !== '' &&
+      row.phaseError !== null && row.phaseError !== undefined && String(row.phaseError).trim() !== '' &&
+      row.resistance !== null && row.resistance !== undefined && String(row.resistance).trim() !== '' &&
+      row.alf !== null && row.alf !== undefined && String(row.alf).trim() !== '' &&
+      row.excitationCurrent !== null && row.excitationCurrent !== undefined && String(row.excitationCurrent).trim() !== ''
+    );
+  };
+
+  const handleDatabaseSave = async (isApprove: boolean = false) => {
     if (readOnly) return;
     setSaving(true);
     console.log("handleDatabaseSave: STARTED (Protection)");
@@ -748,6 +794,7 @@ export function SecondaryProtectionReport({
         loginType: `${stage}_login`, // Consistent with your schema path
         tester: testerName,
         coreId: selectedCoreId,
+        status: isApprove || stage === 'secondary' ? "Pass" : "In-Progress",
         protection_results: protectionResults
       };
 
@@ -764,7 +811,7 @@ export function SecondaryProtectionReport({
           }
         } catch (e) {
           console.error("Failed to load existing inspection data for merge, using prop defaults", e);
-          currentInspectionData = transformer.inspectionData || {};
+          currentInspectionData = (transformer as any).inspectionData || {};
         }
 
         const updatedCoreTests = {
@@ -798,9 +845,15 @@ export function SecondaryProtectionReport({
       if (onCompleteTimer) await onCompleteTimer();
 
       console.log("handleDatabaseSave: Response received", response);
-      toast.success("Protection data saved to database successfully!");
       setSecondaryTestedCores(prev => [...new Set([...prev, selectedCoreId])]);
       if (onRefresh) onRefresh();
+
+      if (isApprove) {
+        toast.success("Protection Core Approved successfully!");
+        if (onNext) onNext(); else onBack();
+      } else {
+        toast.success("Protection data saved to database successfully!");
+      }
 
     } catch (error) {
       console.error("handleDatabaseSave: ERROR CAUGHT", error);
@@ -1020,13 +1073,29 @@ export function SecondaryProtectionReport({
               </Button>
             </div>
             <div className="flex gap-2">
-              <Button
-                onClick={handleDatabaseSave}
-                disabled={saving}
-                className="gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold"
-              >
-                <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save'}
-              </Button>
+              {!readOnly && (
+                <>
+                  <Button
+                    onClick={() => handleDatabaseSave(false)}
+                    disabled={saving}
+                    variant="outline"
+                    className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold"
+                  >
+                    <Save className="w-4 h-4" />
+                    {saving ? 'Saving...' : 'Save Draft'}
+                  </Button>
+                  {stage === 'secondary' && areAllReadingsFilled() && (
+                    <Button
+                      onClick={() => handleDatabaseSave(true)}
+                      disabled={saving}
+                      className="gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      {saving ? 'Approving...' : 'Approve Core'}
+                    </Button>
+                  )}
+                </>
+              )}
               {onPrev && (
                 <Button 
                   variant="outline" 
@@ -1084,7 +1153,7 @@ export function SecondaryProtectionReport({
 
           <div className="ae-section-container">
             <ReportSectionTitle index={2} title="Protection Core Test" />
-            {!readOnly && stage !== 'primary' && stage !== 'final' && !isFailedSection ? (
+            {!readOnly && !isFailedSection && stage !== 'final' ? (
               <div className="flex items-center gap-3 bg-white p-3 rounded-lg border border-[#103b63]/20 shadow-sm max-w-md my-3 no-print relative">
                 <span className="text-xs font-bold text-[#103b63] uppercase tracking-wide shrink-0">Select Core ID (from Core Testing):</span>
                 <div className="relative flex-1">
@@ -1113,10 +1182,27 @@ export function SecondaryProtectionReport({
                           />
                         </div>
                         <div className="overflow-y-auto flex-1 max-h-40">
-                          {[
-                            coreId,
-                            ...approvedCores.filter(id => id !== coreId && (id === selectedCoreId || !secondaryTestedCores.includes(id)))
-                          ]
+                          {(() => {
+                            const isPrimaryOrFinal = stage === 'primary';
+                            let availableList: string[] = [];
+                            if (isPrimaryOrFinal) {
+                              availableList.push(...secondaryTestedCores);
+                              const secResults = (transformer.testHistory?.secondary_test as any)?.protection_results || [];
+                              secResults.forEach((r: any) => { if (r.internalCoreNo) availableList.push(r.internalCoreNo); if (r.coreId) availableList.push(r.coreId); });
+                              const secMetaId = (transformer.testHistory?.secondary_test as any)?.protectionCoreId;
+                              if (secMetaId) availableList.push(secMetaId);
+                              
+                              const primResults = (transformer.testHistory?.primary_test as any)?.protection_results || [];
+                              primResults.forEach((r: any) => { if (r.internalCoreNo) availableList.push(r.internalCoreNo); if (r.coreId) availableList.push(r.coreId); });
+                              
+                              availableList.push(...approvedCores);
+                              if (selectedCoreId) availableList.push(selectedCoreId);
+                            } else {
+                              availableList.push(coreId, selectedCoreId);
+                              availableList.push(...approvedCores.filter(id => id === selectedCoreId || !secondaryTestedCores.includes(id)));
+                            }
+                            return Array.from(new Set(availableList.filter(Boolean)));
+                          })()
                             .filter(id => id.toLowerCase().includes(selectSearch.toLowerCase()))
                             .map(id => (
                               <button
@@ -1135,11 +1221,7 @@ export function SecondaryProtectionReport({
                               </button>
                             ))
                           }
-                          {[
-                            coreId,
-                            ...approvedCores.filter(id => id !== coreId && (id === selectedCoreId || !secondaryTestedCores.includes(id)))
-                          ]
-                            .filter(id => id.toLowerCase().includes(selectSearch.toLowerCase())).length === 0 && (
+                          {approvedCores.length === 0 && secondaryTestedCores.length === 0 && !coreId && (
                             <div className="px-3 py-2 text-xs text-gray-500 italic text-center">
                               No matching cores
                             </div>
@@ -1374,15 +1456,28 @@ export function SecondaryProtectionReport({
     </div>
 
       {!readOnly && (
-        <div className="no-print mt-6 mb-8 flex justify-center">
+        <div className="no-print mt-6 mb-8 flex justify-center gap-3">
           <Button
-            onClick={handleDatabaseSave}
+            onClick={() => handleDatabaseSave(false)}
             disabled={saving}
             className="bg-green-600 hover:bg-green-700 text-white px-10 py-2.5 font-semibold text-sm shadow-sm gap-2"
           >
             <Save className="w-4 h-4" />
             {saving ? 'Saving...' : 'Save'}
           </Button>
+          {onNext && (
+            <Button
+              onClick={async () => {
+                await handleDatabaseSave(false);
+                onNext();
+              }}
+              disabled={saving}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-2.5 font-semibold text-sm shadow-sm gap-2"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? 'Saving...' : 'Save & Next'}
+            </Button>
+          )}
         </div>
       )}
     </div>

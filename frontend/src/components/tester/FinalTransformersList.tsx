@@ -113,12 +113,12 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
           } else if (t.currentStage === 'shipped') {
             status = 'completed';
           }
-
-          // Helper to get real ID from Secondary History
+          // Helper to get real ID from Primary or Secondary History
+          const primTest = t.testHistory?.primary_test || {};
           const secTest = t.testHistory?.secondary_test || {};
-          const meteringResults = secTest.metering_results || [];
-          const psResults = secTest.ps_results || [];
-          const protectionResults = secTest.protection_results || [];
+          const meteringResults = (primTest.metering_results?.length > 0 ? primTest.metering_results : (secTest.metering_results || [])).filter((r: any) => (r.internalCoreNo && String(r.internalCoreNo).trim() !== '') || (r.coreId && String(r.coreId).trim() !== ''));
+          const psResults = (primTest.ps_results?.length > 0 ? primTest.ps_results : (secTest.ps_results || [])).filter((r: any) => (r.internalCoreNo && String(r.internalCoreNo).trim() !== '') || (r.coreId && String(r.coreId).trim() !== ''));
+          const protectionResults = (primTest.protection_results?.length > 0 ? primTest.protection_results : (secTest.protection_results || [])).filter((r: any) => (r.internalCoreNo && String(r.internalCoreNo).trim() !== '') || (r.coreId && String(r.coreId).trim() !== ''));
 
           let currentCoreNum = 1;
           // Track indices to find next available result of each type
@@ -137,13 +137,13 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
               let coreId = '';
               let accuracyClass = coreGroup.accuracyClass || '0.5';
 
-              // Try to find the real ID from secondary results based on type
+              // Try to find the real ID from primary or secondary results based on type
               if (mappedType === 'metering') {
-                if (secTest.meteringCoreId) {
-                  coreId = secTest.meteringCoreId;
+                if (primTest.meteringCoreId || secTest.meteringCoreId) {
+                  coreId = primTest.meteringCoreId || secTest.meteringCoreId;
                 } else if (mIndex < meteringResults.length) {
                   const res = meteringResults[mIndex];
-                  coreId = res.internalCoreNo || (res.rows && res.rows[0]?.internalCoreNo) || '';
+                  coreId = res.internalCoreNo || res.coreId || (res.rows && res.rows[0]?.internalCoreNo) || '';
                   // Only update accuracyClass from history if not already set by order spec
                   if (!coreGroup.accuracyClass) {
                     accuracyClass = res.accuracyClass || res.classOption || '0.5';
@@ -153,21 +153,21 @@ export function FinalTransformersList({ order, onStartTest, onBack, onApprove }:
                   coreId = '';
                 }
               } else if (mappedType === 'ps') {
-                if (secTest.psCoreId) {
-                  coreId = secTest.psCoreId;
+                if (primTest.psCoreId || secTest.psCoreId) {
+                  coreId = primTest.psCoreId || secTest.psCoreId;
                 } else if (psIndex < psResults.length) {
                   const res = psResults[psIndex];
-                  coreId = res.internalCoreNo || '';
+                  coreId = res.internalCoreNo || res.coreId || '';
                   psIndex++;
                 } else {
                   coreId = '';
                 }
               } else if (mappedType === 'protection') {
-                if (secTest.protectionCoreId) {
-                  coreId = secTest.protectionCoreId;
+                if (primTest.protectionCoreId || secTest.protectionCoreId) {
+                  coreId = primTest.protectionCoreId || secTest.protectionCoreId;
                 } else if (pIndex < protectionResults.length) {
                   const res = protectionResults[pIndex];
-                  coreId = res.internalCoreNo || '';
+                  coreId = res.internalCoreNo || res.coreId || '';
                   // Only update accuracyClass from history if not already set by order spec
                   if (!coreGroup.accuracyClass) {
                     accuracyClass = res.protectionClass || '5P';

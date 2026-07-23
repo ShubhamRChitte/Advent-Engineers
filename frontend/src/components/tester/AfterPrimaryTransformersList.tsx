@@ -120,13 +120,14 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
           let currentCoreNum = 1;
           const coresList: CoreConfig[] = [];
 
-          // Helper to get real ID from Secondary History
+          // Helper to get real ID from Primary or Secondary History
+          const primTest = t.testHistory?.primary_test || {};
           const secTest = t.testHistory?.secondary_test || {};
 
-          // Flatten secondary results for easy lookup
-          const meteringResults = secTest.metering_results || [];
-          const psResults = secTest.ps_results || [];
-          const protectionResults = secTest.protection_results || [];
+          // Flatten results for easy lookup (primary first, then secondary) and filter out empty core IDs
+          const meteringResults = (primTest.metering_results?.length > 0 ? primTest.metering_results : (secTest.metering_results || [])).filter((r: any) => (r.internalCoreNo && String(r.internalCoreNo).trim() !== '') || (r.coreId && String(r.coreId).trim() !== ''));
+          const psResults = (primTest.ps_results?.length > 0 ? primTest.ps_results : (secTest.ps_results || [])).filter((r: any) => (r.internalCoreNo && String(r.internalCoreNo).trim() !== '') || (r.coreId && String(r.coreId).trim() !== ''));
+          const protectionResults = (primTest.protection_results?.length > 0 ? primTest.protection_results : (secTest.protection_results || [])).filter((r: any) => (r.internalCoreNo && String(r.internalCoreNo).trim() !== '') || (r.coreId && String(r.coreId).trim() !== ''));
 
           // Counters for indexing into results
           let mIndex = 0, psIndex = 0, pIndex = 0;
@@ -139,16 +140,16 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
               if (typeStr.includes('protection')) mappedType = 'protection';
               else if (typeStr.includes('ps')) mappedType = 'ps';
 
-              // Try to find the real ID from secondary results
+              // Try to find the real ID from primary or secondary results
               let coreId = '';
               let accuracyClass = '0.5'; // fallback
 
               if (mappedType === 'metering') {
-                if (secTest.meteringCoreId) {
-                  coreId = secTest.meteringCoreId;
+                if (primTest.meteringCoreId || secTest.meteringCoreId) {
+                  coreId = primTest.meteringCoreId || secTest.meteringCoreId;
                 } else if (mIndex < meteringResults.length) {
                   const res = meteringResults[mIndex];
-                  coreId = res.internalCoreNo || (res.rows && res.rows[0]?.internalCoreNo) || '';
+                  coreId = res.internalCoreNo || res.coreId || (res.rows && res.rows[0]?.internalCoreNo) || '';
                   accuracyClass = res.accuracyClass || res.classOption || '0.5';
                   mIndex++;
                 } else {
@@ -163,11 +164,11 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                   }
                 }
               } else if (mappedType === 'ps') {
-                if (secTest.psCoreId) {
-                  coreId = secTest.psCoreId;
+                if (primTest.psCoreId || secTest.psCoreId) {
+                  coreId = primTest.psCoreId || secTest.psCoreId;
                 } else if (psIndex < psResults.length) {
                   const res = psResults[psIndex];
-                  coreId = res.internalCoreNo || '';
+                  coreId = res.internalCoreNo || res.coreId || '';
                   psIndex++;
                 } else {
                   coreId = '';
@@ -177,11 +178,11 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                   accuracyClass = coreDetail.accuracyClass;
                 }
               } else { // This is the 'protection' case
-                if (secTest.protectionCoreId) {
-                  coreId = secTest.protectionCoreId;
+                if (primTest.protectionCoreId || secTest.protectionCoreId) {
+                  coreId = primTest.protectionCoreId || secTest.protectionCoreId;
                 } else if (pIndex < protectionResults.length) {
                   const res = protectionResults[pIndex];
-                  coreId = res.internalCoreNo || '';
+                  coreId = res.internalCoreNo || res.coreId || '';
                   pIndex++;
                 } else {
                   coreId = '';
@@ -228,7 +229,8 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
             return coresList.every(core => {
               if (core.coreType === 'metering') {
                 const results = primaryTest.metering_results?.filter((r: any) =>
-                  r.coreId === core.coreId || r.internalCoreNo === core.coreId
+                  (core.coreId && (r.coreId === core.coreId || r.internalCoreNo === core.coreId)) ||
+                  (!core.coreId && primaryTest.metering_results?.length > 0)
                 );
                 if (!results || results.length === 0) return false;
 
@@ -241,7 +243,8 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                 );
               } else if (core.coreType === 'ps') {
                 const results = primaryTest.ps_results?.filter((r: any) =>
-                  r.coreId === core.coreId || r.internalCoreNo === core.coreId
+                  (core.coreId && (r.coreId === core.coreId || r.internalCoreNo === core.coreId)) ||
+                  (!core.coreId && primaryTest.ps_results?.length > 0)
                 );
                 if (!results || results.length === 0) return false;
 
@@ -253,7 +256,8 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
                 );
               } else if (core.coreType === 'protection') {
                 const results = primaryTest.protection_results?.filter((r: any) =>
-                  r.coreId === core.coreId || r.internalCoreNo === core.coreId
+                  (core.coreId && (r.coreId === core.coreId || r.internalCoreNo === core.coreId)) ||
+                  (!core.coreId && primaryTest.protection_results?.length > 0)
                 );
                 if (!results || results.length === 0) return false;
 
@@ -357,7 +361,7 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
           const hasFailures = checkFailures();
           const isFullyComplete = checkCompleteness();
 
-          if (t.currentStage === 'primary') {
+          if (t.currentStage === 'primary' || t.currentStage === 'secondary') {
             const primTest = t.testHistory?.primary_test || {};
             if (isFullyComplete) status = 'completed';
             else if (
@@ -372,8 +376,8 @@ export function AfterPrimaryTransformersList({ order, onStartTest, onBack }: Aft
           }
 
           // Can Approve logic
-          const canApprove = status === 'completed' && !hasFailures && t.currentStage === 'primary';
-          const canRequestStrictApproval = status === 'completed' && hasFailures && t.currentStage === 'primary';
+          const canApprove = status === 'completed' && !hasFailures && (t.currentStage === 'primary' || t.currentStage === 'secondary');
+          const canRequestStrictApproval = status === 'completed' && hasFailures && (t.currentStage === 'primary' || t.currentStage === 'secondary');
 
           return {
             id: t._id,

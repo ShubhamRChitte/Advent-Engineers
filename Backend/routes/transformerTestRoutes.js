@@ -596,7 +596,7 @@ router.post("/transformer-secondary-metering-tests", async (req, res) => {
       return { ...resultBlock, internalCoreNo: coreId, accuracyClass: coreAccuracyClass };
     });
 
-    const finalStatus = isOverallPass ? "Pass" : "Fail";
+    const finalStatus = req.body.status === "In-Progress" ? "In-Progress" : (isOverallPass ? "Pass" : "Fail");
     const turnsUsed = await getCoreTurns(coreId);
 
     // 1. Save detailed test report (Upsert)
@@ -697,7 +697,7 @@ router.post("/transformer-secondary-ps-tests", async (req, res) => {
         isOverallPass = false;
       }
     }
-    const finalStatus = isOverallPass ? "Pass" : "Fail";
+    const finalStatus = req.body.status === "In-Progress" ? "In-Progress" : (isOverallPass ? "Pass" : "Fail");
 
     // Save to SecondaryPSTestModel
     const testRecord = await SecondaryPSTestModel.findOneAndUpdate(
@@ -791,7 +791,7 @@ router.post("/transformer-secondary-protection-tests", async (req, res) => {
       };
     });
 
-    const finalStatus = isOverallPass ? "Pass" : "Fail";
+    const finalStatus = req.body.status === "In-Progress" ? "In-Progress" : (isOverallPass ? "Pass" : "Fail");
     const turnsUsed = await getCoreTurns(coreId);
 
     // Save to SecondaryProtectionTestModel
