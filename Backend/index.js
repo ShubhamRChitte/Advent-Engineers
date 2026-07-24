@@ -13,7 +13,7 @@ const uri = process.env.MONGO_URL;
 // --- RATE LIMITERS ---
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 500, // Limit each IP to 500 requests per windowMs
+  max: process.env.NODE_ENV === 'production' ? 10000 : 100000, // Generous limit for polling & real-time updates
   message: { success: false, message: 'Too many requests from this IP, please try again after 15 minutes' }
 });
 

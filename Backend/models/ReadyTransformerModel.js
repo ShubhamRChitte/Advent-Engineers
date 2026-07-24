@@ -19,7 +19,7 @@ const ReadyTransformerSchema = new mongoose.Schema({
   },
   createdFrom: {
     type: String,
-    enum: ["MANUAL", "PRE_TEST", "ORDER_FAIL"],
+    enum: ["MANUAL", "PRE_TEST", "ORDER_FAIL", "REUSE"],
     required: true,
     default: "MANUAL"
   },
@@ -31,7 +31,8 @@ const ReadyTransformerSchema = new mongoose.Schema({
   },
   testResults: {
     type: Object, // same structure as readings
-    required: true
+    required: false,
+    default: {}
   },
   testedBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -43,7 +44,7 @@ const ReadyTransformerSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["available", "reserved", "used"],
+    enum: ["available", "reserved", "used", "pending_test"],
     default: "available"
   },
   linkedOrderId: {

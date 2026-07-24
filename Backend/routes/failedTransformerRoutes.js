@@ -348,8 +348,7 @@ router.put('/:id/retest-save', isAuthenticated, async (req, res) => {
             remarks: remarks || "Treated After Primary Failure"
         });
 
-        // 3. Update status to TREATED
-        record.status = "TREATED";
+        // 3. Keep record status as FAILED until explicit Approve or Strict Approve is clicked
         record.treatedBy = treatedBy || 'System';
         record.treatedAt = new Date();
         if (remarks) {
@@ -360,7 +359,7 @@ router.put('/:id/retest-save', isAuthenticated, async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: "Retest saved and transformer updated to TREATED",
+            message: "Retest saved successfully",
             data: record
         });
 
@@ -443,6 +442,18 @@ router.put('/:id/status', isAuthenticated, async (req, res) => {
 
                 // NOTE: secondary_test data is intentionally preserved — it holds the latest
                 // passing retest values which are now the canonical secondary test results.
+
+                // Mark reserved ready stock cores for this order as used
+                try {
+                    const ReadyTransformerModel = require('../models/ReadyTransformerModel');
+                    await ReadyTransformerModel.updateMany(
+                        { linkedOrderId: record.orderId, status: "reserved" },
+                        { $set: { status: "used" } }
+                    );
+                    if (global.io) global.io.emit("readyStockUpdated");
+                } catch (stockErr) {
+                    console.warn("Could not update ready stock to used upon treatment:", stockErr);
+                }
 
                 transformer.markModified('testHistory');
                 await transformer.save();
@@ -616,10 +627,21 @@ router.put('/:id/replace-core', isAuthenticated, async (req, res) => {
         // Update Ready Stock status if this core was selected from ready stock
         try {
             const ReadyTransformerModel = require('../models/ReadyTransformerModel');
+            
+            // Mark old core as failed in Ready Stock
+            if (oldCoreId) {
+                await ReadyTransformerModel.updateMany(
+                    { coreId: oldCoreId },
+                    { $set: { status: "failed", failureReason: "Failed in Testing" } }
+                );
+            }
+
+            // Reserve the newly selected ready core for this order
             const readyCore = await ReadyTransformerModel.findOne({ coreId: newCoreId });
             if (readyCore && readyCore.status !== 'used') {
                 const userId = req.user._id;
-                readyCore.status = 'used';
+                readyCore.status = 'reserved';
+                readyCore.linkedOrderId = transformer.orderId;
                 if (!readyCore.usageLogs) {
                     readyCore.usageLogs = [];
                 }
@@ -635,24 +657,114 @@ router.put('/:id/replace-core', isAuthenticated, async (req, res) => {
                 if (global.io) global.io.emit("readyStockUpdated");
             }
         } catch (stockErr) {
-            console.warn("Could not reserve/use core in ready stock tracking backend:", stockErr);
+            console.warn("Could not reserve core in ready stock tracking backend:", stockErr);
         }
 
-        // Save the updated transformer
-        transformer.currentStage = failedRecord.stage === "PRIMARY_TESTING" ? "primary" : "secondary";
+        // Update core ID pointers directly on transformer and testHistory
+        const typeLower = (coreType || '').toLowerCase();
+        if (!transformer.testHistory) transformer.testHistory = {};
+        if (!transformer.testHistory.secondary_test) transformer.testHistory.secondary_test = {};
+
+        if (typeLower === 'metering') {
+            transformer.meteringCoreId = newCoreId;
+            transformer.testHistory.secondary_test.meteringCoreId = newCoreId;
+        } else if (typeLower === 'ps') {
+            transformer.psCoreId = newCoreId;
+            transformer.testHistory.secondary_test.psCoreId = newCoreId;
+        } else if (typeLower === 'protection') {
+            transformer.protectionCoreId = newCoreId;
+            transformer.testHistory.secondary_test.protectionCoreId = newCoreId;
+        }
+
+        if (!transformer.retestHistory || !Array.isArray(transformer.retestHistory)) {
+            transformer.retestHistory = [];
+        }
+        transformer.retestHistory.push({
+            action: 'Core Replaced',
+            coreNumber,
+            coreType,
+            oldCoreId,
+            newCoreId,
+            treatedBy: treatedBy || "Secondary Tester",
+            treatedAt: new Date()
+        });
+        transformer.markModified('retestHistory');
+        transformer.markModified('testHistory');
+
+        // Save the updated transformer with core pointers and history updated
         await transformer.save();
 
-        // Update Failed Transformer record
-        failedRecord.status = "TREATED";
+        // Update Failed Transformer record details and log audit entry
         failedRecord.treatedBy = treatedBy || "Secondary Tester";
         failedRecord.treatedAt = new Date();
         failedRecord.resolutionRemarks = `Core Replaced: ${oldCoreId || 'N/A'} -> ${newCoreId}. Retest required.`;
         
+        if (!failedRecord.retestHistory || !Array.isArray(failedRecord.retestHistory)) {
+            failedRecord.retestHistory = [];
+        }
+        failedRecord.retestHistory.push({
+            action: 'Core Replaced',
+            coreNumber,
+            coreType,
+            oldCoreId,
+            newCoreId,
+            treatedBy: treatedBy || "Secondary Tester",
+            treatedAt: new Date()
+        });
+        failedRecord.markModified('retestHistory');
+
         failedRecord.failureParameters = failedRecord.failureParameters || {};
         failedRecord.failureParameters.coreId = newCoreId;
         failedRecord.markModified('failureParameters');
 
         await failedRecord.save();
+
+        // Automatically register the replaced failed core into FailedCore collection for inventory tracking
+        try {
+            const { FailedCoreModel } = require('../models/FailedCoreModel');
+            const coreIdToRecord = (oldCoreId && oldCoreId !== 'N/A' && oldCoreId.trim() !== '')
+                ? oldCoreId
+                : `${failedRecord.transformerUniqueId}-Core${coreNumber}`;
+
+            const mappedCoreType = coreType.toLowerCase().includes('ps') ? 'PS'
+                : coreType.toLowerCase().includes('protect') ? 'PROTECTION'
+                : 'METERING';
+
+            const mappedFailureStage = failedRecord.stage === 'PRIMARY_TESTING' ? 'PRIMARY_TEST'
+                : failedRecord.stage === 'FINAL_TESTING' ? 'FINAL_QA'
+                : 'SECONDARY_TEST';
+
+            const order = await OrderModel.findById(failedRecord.orderId);
+
+            await FailedCoreModel.findOneAndUpdate(
+                { $or: [{ internalCoreNo: coreIdToRecord }, { coreId: coreIdToRecord }] },
+                {
+                    orderId: failedRecord.orderId,
+                    orderNumber: order ? (order.orderNumber || order.jobId) : failedRecord.jobNumber,
+                    jobId: failedRecord.jobNumber || (order ? order.jobId : ''),
+                    clientName: failedRecord.clientName || (order ? order.clientName : ''),
+                    internalCoreNo: coreIdToRecord,
+                    coreId: coreIdToRecord,
+                    vendorCoreNo: coreIdToRecord,
+                    coreType: mappedCoreType,
+                    vendorName: order ? (order.vendorName || "SECONDARY TEST") : "SECONDARY TEST",
+                    failureReason: failedRecord.failureReason || `Core ${coreNumber} replaced during ${failedRecord.stage || 'testing'} on transformer ${failedRecord.transformerUniqueId}`,
+                    failureStage: mappedFailureStage,
+                    status: "FAILED",
+                    returnStatus: "PENDING",
+                    failedAt: new Date(),
+                    replacementInternalCoreNo: newCoreId
+                },
+                { upsert: true, new: true }
+            );
+
+            if (global.io) {
+                global.io.emit("failedCoreLogged");
+                global.io.emit("readyStockUpdated");
+            }
+        } catch (failedCoreErr) {
+            console.error("Error creating FailedCore inventory entry upon core replacement:", failedCoreErr);
+        }
 
         res.status(200).json({
             success: true,

@@ -30,7 +30,7 @@ export function TesterSidebar({ activeView, setActiveView, userRole }: TesterSid
       
       try {
         if (userRole === 'secondary-tester') {
-          const res = await axios.get(`/failed-transformers/count`, { withCredentials: true });
+          const res = await axios.get(`/failed-transformers/count?stage=PRIMARY_TESTING,FINAL_TESTING`, { withCredentials: true });
           if (res.data.success) {
             setFailedTransformersCount(res.data.count);
           }

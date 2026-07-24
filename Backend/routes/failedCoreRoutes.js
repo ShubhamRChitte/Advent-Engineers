@@ -143,6 +143,70 @@ router.put('/:id/undo-return', isAuthenticated, async (req, res, next) => {
     }
 });
 
+// PUT /api/failed-cores/:id/reuse
+// Marks a failed core as REUSED and adds it to Ready Stock for individual core testing
+router.put('/:id/reuse', isAuthenticated, async (req, res) => {
+    try {
+        const failedCoreId = req.params.id;
+        const failedCore = await FailedCoreModel.findById(failedCoreId);
+
+        if (!failedCore) {
+            return res.status(404).json({ success: false, message: "Failed core record not found" });
+        }
+
+        // 1. Update FailedCore status
+        failedCore.status = "REUSED";
+        await failedCore.save();
+
+        // 2. Add or update ReadyTransformer record for ready stock individual testing
+        const ReadyTransformerModel = require('../models/ReadyTransformerModel');
+        let coreTypeFormatted = 'Metering';
+        const typeUpper = (failedCore.coreType || '').toUpperCase();
+        if (typeUpper.includes('PS')) coreTypeFormatted = 'PS';
+        else if (typeUpper.includes('PROTECT')) coreTypeFormatted = 'Protection';
+
+        let readyCore = await ReadyTransformerModel.findOne({ coreId: failedCore.internalCoreNo });
+        if (readyCore) {
+            readyCore.status = 'pending_test';
+            readyCore.createdFrom = 'REUSE';
+            readyCore.linkedOrderId = null;
+            readyCore.reservedBy = null;
+            readyCore.usedInReplacementOf = null;
+            readyCore.testResults = {};
+            await readyCore.save();
+        } else {
+            readyCore = new ReadyTransformerModel({
+                coreId: failedCore.internalCoreNo,
+                batchId: failedCore.jobId ? `REUSE-${failedCore.jobId}` : `REUSE-${Date.now()}`,
+                coreType: coreTypeFormatted,
+                createdFrom: 'REUSE',
+                status: 'pending_test',
+                specifications: {
+                    ratio: 'N/A',
+                    class: '0.5',
+                    turns: 'N/A'
+                },
+                testResults: {}
+            });
+            await readyCore.save();
+        }
+
+        if (global.io) {
+            global.io.emit("readyStockUpdated");
+            global.io.emit("failedCoreLogged");
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Core marked for reuse and added to Ready Stock for individual testing.",
+            data: { failedCore, readyCore }
+        });
+    } catch (error) {
+        console.error("Error reusing failed core:", error);
+        res.status(500).json({ success: false, message: "Server error during core reuse." });
+    }
+});
+
 // GET /api/failed-cores
 // Fetch failed cores with advanced filtering and pagination
 router.get('/', isAuthenticated, async (req, res) => {

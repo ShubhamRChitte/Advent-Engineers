@@ -34,9 +34,20 @@ exports.batchAddReadyTransformers = async (req, res) => {
     }
 
     // Find the batch to verify it exists
-    const batch = await PreTestBatchModel.findOne({ batchId });
+    let batch = await PreTestBatchModel.findOne({ batchId });
     if (!batch) {
-      return res.status(404).json({ message: "Batch not found" });
+      if (batchId && (batchId.startsWith('REUSE-') || batchId.startsWith('INDIVIDUAL-'))) {
+        batch = await PreTestBatchModel.create({
+          batchId,
+          coreType: coreType || 'Metering',
+          vendorName: vendorName || 'REUSED CORE',
+          numberOfCores: readings.length,
+          turns: turns || '10',
+          status: 'COMPLETED'
+        });
+      } else {
+        return res.status(404).json({ message: "Batch not found" });
+      }
     }
 
     // Validation: All cores must be tested
@@ -49,59 +60,79 @@ exports.batchAddReadyTransformers = async (req, res) => {
     const passingReadings = readings.filter(r => r.result === 'P');
     const { generateMultipleCoreIdsFromBatch } = require('../utils/idGenerator');
     const globalCoreIds = await generateMultipleCoreIdsFromBatch(batchId, passingReadings.length);
-    const coresToInsert = passingReadings.map((reading, idx) => ({
-      coreId: reading.internalCoreNo || globalCoreIds[idx],
-      batchId,
-      coreType,
-      specifications: {
-        turns,
-        ratio: testSetup?.ratio || '', // Extract from setup if provided
-        burden: testSetup?.burden || '',
-        class: testSetup?.class || ''
-      },
-      testResults: reading,
-      createdFrom: "PRE_TEST",
-      testedBy: userId,
-      status: "available"
-    }));
-
-    if (coresToInsert.length > 0) {
-      await ReadyTransformer.insertMany(coresToInsert);
+    
+    for (let idx = 0; idx < passingReadings.length; idx++) {
+      const reading = passingReadings[idx];
+      const targetCoreId = reading.internalCoreNo || globalCoreIds[idx];
+      
+      await ReadyTransformer.findOneAndUpdate(
+        { coreId: targetCoreId },
+        {
+          coreId: targetCoreId,
+          batchId,
+          coreType,
+          specifications: {
+            turns,
+            ratio: testSetup?.ratio || '',
+            burden: testSetup?.burden || '',
+            class: testSetup?.class || ''
+          },
+          testResults: reading,
+          createdFrom: batchId.startsWith('REUSE') ? "REUSE" : "PRE_TEST",
+          testedBy: userId,
+          status: "available"
+        },
+        { upsert: true, new: true }
+      );
     }
 
     // 2. Process FAIL Cores -> FailedCores
     const failingReadings = readings.filter(r => r.result === 'F');
-    const failedCoresToInsert = failingReadings.map(reading => ({
-      batchId,
-      vendorName: vendorName || batch.vendorName,
-      coreType: coreType.toUpperCase(),
-      internalCoreNo: reading.internalCoreNo || `FAIL-${Date.now()}`,
-      vendorCoreNo: reading.vendorCoreNo || "N/A",
-      failureReason: "RETURN_TO_VENDOR",
-      failureStage: "INITIAL_TEST",
-      status: "FAILED",
-      returnStatus: "PENDING",
-      dynamicValues: reading.measuredMa || reading.dynamicValues || {},
-      // Snapshots for audit
-      jobId: batchId,
-      clientName: "PRE-TEST BATCH"
-    }));
+    for (const reading of failingReadings) {
+      const targetCoreId = reading.internalCoreNo || `FAIL-${Date.now()}`;
+      
+      // Delete from ReadyTransformer if it was pending
+      await ReadyTransformer.deleteOne({ coreId: targetCoreId });
 
-    if (failedCoresToInsert.length > 0) {
-      await FailedCoreModel.insertMany(failedCoresToInsert);
+      await FailedCoreModel.findOneAndUpdate(
+        { internalCoreNo: targetCoreId },
+        {
+          batchId,
+          vendorName: vendorName || (batch ? batch.vendorName : "REUSED CORE"),
+          coreType: (coreType || 'METERING').toUpperCase(),
+          internalCoreNo: targetCoreId,
+          vendorCoreNo: reading.vendorCoreNo || "N/A",
+          failureReason: reading.remarkReason || "RETURN_TO_VENDOR",
+          failureStage: "INITIAL_TEST",
+          status: "FAILED",
+          returnStatus: "PENDING",
+          dynamicValues: reading.measuredMa || reading.dynamicValues || {},
+          jobId: batchId,
+          clientName: "RETEST BATCH"
+        },
+        { upsert: true, new: true }
+      );
     }
 
-    // 3. Update Batch Status
-    batch.status = "COMPLETED";
+    // 3. Update Batch Status ONLY if all cores in batch are fully tested
+    const totalTested = (batch.passedCount || 0) + (batch.failedCount || 0) + (batch.discardedCount || 0) + passingReadings.length + failingReadings.length;
+    if (totalTested >= (batch.numberOfCores || 0) && (batch.numberOfCores || 0) > 0) {
+      batch.status = "COMPLETED";
+    } else {
+      batch.status = "IN_PROGRESS";
+    }
     await batch.save();
 
-    if (global.io) global.io.emit("readyStockUpdated");
+    if (global.io) {
+      global.io.emit("readyStockUpdated");
+      global.io.emit("failedCoreLogged");
+    }
 
     res.status(201).json({
       message: "Batch testing completed and processed",
       batchId,
-      passedCount: coresToInsert.length,
-      failedCount: failedCoresToInsert.length
+      passedCount: passingReadings.length,
+      failedCount: failingReadings.length
     });
   } catch (err) {
     console.error("Batch Add Error:", err);
@@ -123,13 +154,22 @@ exports.getAllReadyTransformers = async (req, res) => {
       if (coreType && coreType !== 'All') {
         query.coreType = coreType;
       }
+      if (req.query.createdFrom) {
+        query.createdFrom = req.query.createdFrom;
+      }
+      if (req.query.status) {
+        query.status = req.query.status;
+      } else {
+        query.status = { $ne: 'used' };
+      }
       
       if (search) {
         const searchRegex = new RegExp(escapeRegExp(search), 'i');
         query.$or = [
           { coreId: searchRegex },
           { serialNumber: searchRegex },
-          { 'specifications.ratio': searchRegex }
+          { 'specifications.ratio': searchRegex },
+          { batchId: searchRegex }
         ];
       }
 
@@ -142,10 +182,15 @@ exports.getAllReadyTransformers = async (req, res) => {
       const totalCount = await ReadyTransformer.countDocuments(query);
       res.status(200).json({ success: true, data, totalCount });
     } else {
-      const data = await ReadyTransformer.find().sort({ createdAt: -1 }).limit(1000).lean();
+      let query = {};
+      if (req.query.createdFrom) query.createdFrom = req.query.createdFrom;
+      if (req.query.status) query.status = req.query.status;
+      else query.status = { $ne: 'used' };
+      const data = await ReadyTransformer.find(query).sort({ createdAt: -1 }).limit(1000).lean();
       res.status(200).json(data);
     }
   } catch (err) {
+    console.error("getAllReadyTransformers Error:", err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -260,16 +305,16 @@ exports.useReadyTransformer = async (req, res) => {
 
 exports.getReadyStockAnalytics = async (req, res) => {
   try {
-    const total = await ReadyTransformer.countDocuments();
+    const total = await ReadyTransformer.countDocuments({ status: { $ne: "used" } });
     const available = await ReadyTransformer.countDocuments({ status: "available" });
     const used = await ReadyTransformer.countDocuments({ status: "used" });
     const reserved = await ReadyTransformer.countDocuments({ status: "reserved" });
 
-    const metering = await ReadyTransformer.countDocuments({ status: "available", coreType: "Metering" });
-    const protection = await ReadyTransformer.countDocuments({ status: "available", coreType: "Protection" });
-    const ps = await ReadyTransformer.countDocuments({ status: "available", coreType: "PS" });
+    const metering = await ReadyTransformer.countDocuments({ status: { $ne: "used" }, coreType: "Metering" });
+    const protection = await ReadyTransformer.countDocuments({ status: { $ne: "used" }, coreType: "Protection" });
+    const ps = await ReadyTransformer.countDocuments({ status: { $ne: "used" }, coreType: "PS" });
 
-    const usageRate = total > 0 ? (used / total) * 100 : 0;
+    const usageRate = total > 0 ? (used / (total + used)) * 100 : 0;
 
     res.json({
       total,
@@ -356,6 +401,84 @@ exports.assignToOrder = async (req, res) => {
     res.status(200).json({ success: true, message: "Cores assigned to order successfully" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.testIndividualReadyTransformer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { specifications, testResults, isPass, failureReason, sendToFailedCores } = req.body;
+    const userId = req.user._id;
+
+    const core = await ReadyTransformer.findById(id);
+    if (!core) {
+      return res.status(404).json({ message: "Ready stock core not found" });
+    }
+
+    if (specifications) {
+      core.specifications = {
+        ...core.specifications,
+        ...specifications
+      };
+    }
+    if (testResults) {
+      core.testResults = testResults;
+    }
+
+    if (isPass === false || sendToFailedCores) {
+      // Core Failed Retest -> Send to Failed Cores section
+      const { FailedCoreModel } = require('../models/FailedCoreModel');
+      
+      let failedRecord = await FailedCoreModel.findOne({ internalCoreNo: core.coreId });
+      if (failedRecord) {
+        failedRecord.status = "FAILED";
+        failedRecord.failureReason = failureReason || testResults?.remark || "Failed Individual Retest in Ready Stock";
+        failedRecord.failedAt = new Date();
+        await failedRecord.save();
+      } else {
+        await FailedCoreModel.create({
+          internalCoreNo: core.coreId,
+          coreType: (core.coreType || 'Metering').toUpperCase(),
+          failureReason: failureReason || testResults?.remark || "Failed Individual Retest in Ready Stock",
+          failureStage: "READY_STOCK_RETEST",
+          status: "FAILED",
+          returnStatus: "PENDING"
+        });
+      }
+
+      // Delete from ready stock so it's only in Failed Cores
+      await ReadyTransformer.findByIdAndDelete(id);
+
+      if (global.io) {
+        global.io.emit("readyStockUpdated");
+        global.io.emit("failedCoreLogged");
+      }
+
+      return res.status(200).json({
+        success: true,
+        sentToFailedCores: true,
+        message: "Core retest failed. Core returned to Failed Cores section.",
+        data: null
+      });
+    }
+
+    // Core Passed -> Mark AVAILABLE in Ready Stock
+    core.status = "available";
+    core.testedBy = userId;
+    core.testedAt = new Date();
+
+    await core.save();
+
+    if (global.io) global.io.emit("readyStockUpdated");
+
+    res.status(200).json({
+      success: true,
+      message: "Individual core testing completed and marked AVAILABLE in Ready Stock.",
+      data: core
+    });
+  } catch (err) {
+    console.error("Error testing individual ready transformer:", err);
+    res.status(500).json({ message: err.message });
   }
 };
 

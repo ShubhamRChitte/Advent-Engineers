@@ -11,12 +11,14 @@ const {
   getReadyStockAnalytics,
   getAvailableForOrder,
   getAssignedToOrder,
-  assignToOrder
+  assignToOrder,
+  testIndividualReadyTransformer
 } = require("../controllers/readyTransformerController");
 
 router.get("/", isAuthenticated, getAllReadyTransformers);
 router.post("/add", isAuthenticated, addReadyTransformer);
 router.post("/batch-add", isAuthenticated, batchAddReadyTransformers);
+router.post("/test-individual/:id", isAuthenticated, testIndividualReadyTransformer);
 
 router.get("/available", isAuthenticated, getAvailableReadyTransformers);
 router.post("/reserve/:id", isAuthenticated, reserveReadyTransformer);

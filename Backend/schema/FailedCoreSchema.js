@@ -90,7 +90,7 @@ const FailedCoreSchema = new Schema(
         // --- Replacement Tracking (Future Safe) ---
         status: {
             type: String,
-            enum: ["FAILED", "REPLACED", "SCRAPPED", "UNDER_ANALYSIS", "RETURNED"],
+            enum: ["FAILED", "REPLACED", "SCRAPPED", "UNDER_ANALYSIS", "RETURNED", "REUSED", "REUSE_TESTING"],
             default: "FAILED",
             index: true
         },

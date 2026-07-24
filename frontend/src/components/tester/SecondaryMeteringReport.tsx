@@ -1,11 +1,14 @@
 import axios from "axios";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
-
-import { Printer, ArrowLeft, Save, AlertTriangle, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
+import { Input } from '../ui/input';
+import { Printer, ArrowLeft, Save, AlertTriangle, ChevronLeft, ChevronRight, CheckCircle, RefreshCw, Loader2, Wrench, Search } from 'lucide-react';
 import { Transformer } from './SecondaryTransformersList';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
+import { Label } from '../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 import { 
   ReportHeader, 
@@ -40,8 +43,8 @@ interface SecondaryMeteringReportProps {
   isFailedCore?: boolean;
   retestHistory?: any[];
   isUnified?: boolean;
-  onNext?: () => void;
-  onPrev?: () => void;
+  onNext?: (() => void) | undefined;
+  onPrev?: (() => void) | undefined;
 }
 
 export function SecondaryMeteringReport({
@@ -145,36 +148,110 @@ export function SecondaryMeteringReport({
   const [isSelectOpen, setIsSelectOpen] = useState(false);
   const [selectSearch, setSelectSearch] = useState('');
 
-  useEffect(() => {
-    const fetchApprovedCores = async () => {
-      const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
-      const orderId = order?._id || order;
-      if (!orderId || readOnly) return;
-      try {
-        const [appRes, secRes] = await Promise.all([
-          axios.get(`/core-tests/approved-ids/${orderId}`, { withCredentials: true }),
-          axios.get(`/secondary-core-tests/ready-stock/${orderId}`, { withCredentials: true })
-        ]);
-        if (appRes.data?.success) {
-          setApprovedCores(appRes.data.metering || []);
-        }
-        if (secRes.data?.success) {
-          const testedIds = (secRes.data.metering || []).map((c: any) => c.coreId);
-          setSecondaryTestedCores(testedIds);
-        }
-      } catch (err) {
-        console.error("Failed to fetch approved core IDs", err);
+  // Replace Core Modal State
+  const [isReplaceModalOpen, setIsReplaceModalOpen] = useState(false);
+  const [availableReadyCores, setAvailableReadyCores] = useState<any[]>([]);
+  const [loadingReadyCores, setLoadingReadyCores] = useState(false);
+  const [selectedNewCoreId, setSelectedNewCoreId] = useState('');
+  const [isReplacingCore, setIsReplacingCore] = useState(false);
+  const [coreSearchTerm, setCoreSearchTerm] = useState('');
+
+  const filteredReadyCores = useMemo(() => {
+    if (!coreSearchTerm.trim()) return availableReadyCores;
+    const term = coreSearchTerm.toLowerCase();
+    return availableReadyCores.filter((c: any) => {
+      const idStr = (c.coreId || c.id || '').toLowerCase();
+      const turnsStr = (c.specifications?.turns || '').toString().toLowerCase();
+      const typeStr = (c.coreType || '').toLowerCase();
+      return idStr.includes(term) || turnsStr.includes(term) || typeStr.includes(term);
+    });
+  }, [availableReadyCores, coreSearchTerm]);
+
+  const handleOpenReplaceModal = async () => {
+    setIsReplaceModalOpen(true);
+    setLoadingReadyCores(true);
+    setCoreSearchTerm('');
+    setSelectedNewCoreId('');
+    try {
+      const res = await axios.get('/ready-transformers/available?coreType=Metering', { withCredentials: true });
+      setAvailableReadyCores(res.data || []);
+    } catch (err) {
+      toast.error("Failed to load available ready stock cores");
+    } finally {
+      setLoadingReadyCores(false);
+    }
+  };
+
+  const handleConfirmReplaceCore = async () => {
+    if (!selectedNewCoreId) {
+      toast.error("Please select a replacement core from Ready Stock");
+      return;
+    }
+    try {
+      setIsReplacingCore(true);
+      const orderObj = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
+      const orderId = (transformer as any).orderId?._id || (transformer as any).orderId || orderObj?._id || orderObj?.id;
+
+      const res = await axios.post('/secondary-core-tests/replace-failed-core', {
+        orderId,
+        transformerId: transformer.id || (transformer as any)._id,
+        uniqueId: transformer.uniqueId,
+        oldCoreId: selectedCoreId,
+        newCoreId: selectedNewCoreId,
+        coreType: 'Metering',
+        failureReason: "Failed Secondary Metering Test"
+      }, { withCredentials: true });
+
+      if (res.data?.success) {
+        const replacedCoreId = selectedNewCoreId;
+        toast.success(`Core ${selectedCoreId} moved to Failed Cores. Replaced with ${replacedCoreId}!`);
+        setIsReplaceModalOpen(false);
+        setSelectedCoreId(replacedCoreId);
+        setTestResults(initialBlankData);
+        await fetchApprovedCores();
+        if (onRefresh) onRefresh();
       }
-    };
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to replace core");
+    } finally {
+      setIsReplacingCore(false);
+    }
+  };
+
+  const fetchApprovedCores = React.useCallback(async () => {
+    const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
+    const orderId = order?._id || order;
+    if (!orderId || readOnly) return;
+    try {
+      const [appRes, secRes] = await Promise.all([
+        axios.get(`/core-tests/approved-ids/${orderId}`, { withCredentials: true }),
+        axios.get(`/secondary-core-tests/ready-stock/${orderId}`, { withCredentials: true })
+      ]);
+      if (appRes.data?.success) {
+        setApprovedCores(appRes.data.metering || []);
+      }
+      if (secRes.data?.success) {
+        const testedIds = (secRes.data.metering || []).map((c: any) => c.coreId);
+        setSecondaryTestedCores(testedIds);
+      }
+    } catch (err) {
+      console.error("Failed to fetch approved core IDs", err);
+    }
+  }, [propOrder, transformer.fullOrder, (transformer as any).orderId, readOnly]);
+
+  useEffect(() => {
     fetchApprovedCores();
-  }, [transformer.orderId, (transformer as any).fullOrder, readOnly]);
+  }, [fetchApprovedCores]);
 
   useEffect(() => {
     setSelectedCoreId(coreId);
   }, [coreId]);
 
   useEffect(() => {
+    let isCancelled = false;
+
     const fetchLatestData = async () => {
+      const targetCoreId = coreId || selectedCoreId;
       try {
         if (stage === 'inspection') {
           let currentInspectionData = (transformer as any).inspectionData || {};
@@ -186,13 +263,11 @@ export function SecondaryMeteringReport({
           } catch (e) {
             console.error("Failed to fetch latest inspection data in fetchLatestData (Metering)", e);
           }
-          const savedResults = (currentInspectionData as any).coreTests?.[selectedCoreId];
+          if (isCancelled) return;
+          const savedResults = (currentInspectionData as any).coreTests?.[targetCoreId];
           if (savedResults && savedResults.metering_results) {
-            setTestResults(prev => prev.map((item, idx) => {
-              let matched = savedResults.metering_results.find((r: any) => r.ratioValue === item.ratioValue);
-              if (!matched && savedResults.metering_results[idx]) {
-                matched = savedResults.metering_results[idx];
-              }
+            setTestResults(prev => (prev.length > 0 ? prev : initialBlankData).map((item) => {
+              const matched = savedResults.metering_results.find((r: any) => r.ratioValue === item.ratioValue);
               return matched ? { ...item, rows: matched.rows } : item;
             }));
           } else {
@@ -202,25 +277,45 @@ export function SecondaryMeteringReport({
         }
 
         if (transformer.isDummy) {
-          const res = await axios.get(`/secondary-core-tests/metering/${selectedCoreId}`, { withCredentials: true });
+          const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
+          const orderId = order?._id || order;
+          const res = await axios.get(`/secondary-core-tests/metering/${targetCoreId}${orderId ? `?orderId=${orderId}` : ''}`, { withCredentials: true });
+          if (isCancelled) return;
           if (res.data?.success && res.data.data) {
             const testDoc = res.data.data;
             if (testDoc.metering_results && testDoc.metering_results.length > 0) {
-              setTestResults(prev => prev.map((item, idx) => {
-                let matched = testDoc.metering_results.find((r: any) => r.ratioValue === item.ratioValue);
-                if (!matched && testDoc.metering_results[idx]) {
-                  matched = testDoc.metering_results[idx];
-                }
-                return matched ? { ...item, rows: matched.rows } : item;
-              }));
+              setTestResults(prev => {
+                const base = prev.length > 0 ? prev : initialBlankData;
+                return base.map((item, idx) => {
+                  let matched = testDoc.metering_results.find((r: any) => r.ratioValue === item.ratioValue);
+                  if (!matched && testDoc.metering_results[idx]) {
+                    matched = testDoc.metering_results[idx];
+                  }
+                  if (!matched) return item;
+                  return {
+                    ...item,
+                    rows: item.rows.map((rowItem, rIdx) => {
+                      const savedRow = matched.rows?.[rIdx] || {};
+                      return {
+                        ...rowItem,
+                        r100: (savedRow.r100 !== undefined && savedRow.r100 !== null) ? String(savedRow.r100) : rowItem.r100,
+                        p100: (savedRow.p100 !== undefined && savedRow.p100 !== null) ? String(savedRow.p100) : rowItem.p100,
+                        r25: (savedRow.r25 !== undefined && savedRow.r25 !== null) ? String(savedRow.r25) : rowItem.r25,
+                        p25: (savedRow.p25 !== undefined && savedRow.p25 !== null) ? String(savedRow.p25) : rowItem.p25
+                      };
+                    })
+                  };
+                });
+              });
               return;
             }
           }
-          setTestResults(initialBlankData);
+          if (!isCancelled) setTestResults(initialBlankData);
           return;
         }
 
         const res = await axios.get(`/transformers/${transformer.uniqueId}`, { withCredentials: true });
+        if (isCancelled) return;
         const freshTransformer = res.data.data || res.data;
 
         let myResults = [];
@@ -237,6 +332,7 @@ export function SecondaryMeteringReport({
           } catch (e) {
             console.error("Failed to fetch latest failed record", e);
           }
+          if (isCancelled) return;
         }
 
         const currentHasBeenRetested = currentRetestHistory && currentRetestHistory.length > 0;
@@ -245,57 +341,94 @@ export function SecondaryMeteringReport({
         if (shouldLoadFromTreated) {
           const secHistory = freshTransformer.testHistory?.secondary_test;
           if (secHistory?.metering_results?.length > 0) {
-            myResults = secHistory.metering_results.filter((res: any) => res.internalCoreNo === selectedCoreId);
-            if (myResults.length === 0 && secHistory.meteringCoreId === selectedCoreId) {
+            myResults = secHistory.metering_results.filter((res: any) =>
+              res.internalCoreNo === targetCoreId || res.coreId === targetCoreId
+            );
+            if (myResults.length === 0 && secHistory.meteringCoreId === targetCoreId) {
               myResults = secHistory.metering_results;
             }
           }
         }
 
         if (myResults.length === 0) {
-          const stageHistory = freshTransformer?.testHistory?.[`${stage}_test`] as any;
+          const stageKey = `${stage}_test` as keyof typeof freshTransformer.testHistory;
+          const stageHistory = freshTransformer?.testHistory?.[stageKey];
           if (stageHistory?.metering_results?.length > 0) {
-            myResults = stageHistory.metering_results.filter((res: any) => res.internalCoreNo === selectedCoreId);
-            if (myResults.length === 0 && freshTransformer.testHistory?.secondary_test?.meteringCoreId === selectedCoreId) {
+            myResults = stageHistory.metering_results.filter((res: any) =>
+              res.internalCoreNo === targetCoreId || res.coreId === targetCoreId
+            );
+            if (myResults.length === 0 && freshTransformer.testHistory?.secondary_test?.meteringCoreId === targetCoreId) {
               myResults = stageHistory.metering_results;
             }
           }
         }
 
+        if (myResults.length === 0 && sourceStage && sourceStage !== stage) {
+          const sourceHistory = freshTransformer?.testHistory?.[`${sourceStage}_test`] as any;
+          if (sourceHistory?.metering_results?.length > 0) {
+            myResults = sourceHistory.metering_results.filter((res: any) =>
+              res.internalCoreNo === targetCoreId || res.coreId === targetCoreId
+            );
+            if (myResults.length === 0 && freshTransformer.testHistory?.secondary_test?.meteringCoreId === targetCoreId) {
+              myResults = sourceHistory.metering_results;
+            }
+          }
+        }
+
         if (myResults.length > 0) {
-            setTestResults(prev => prev.map((item, idx) => {
-              let matched = myResults.find((r: any) => r.ratioValue === item.ratioValue);
-              if (!matched && myResults[idx]) {
-                matched = myResults[idx];
-              }
-              return matched ? { ...item, rows: matched.rows } : item;
-            }));
+          setTestResults(prev => (prev.length > 0 ? prev : initialBlankData).map(item => {
+            const matched = myResults.find((r: any) => r.ratioValue === item.ratioValue);
+            return matched ? { ...item, rows: matched.rows } : item;
+          }));
         } else if (stage === 'secondary') {
-          // Fetch from ready stock secondary test collection if no results exist on transformer
-          const fallbackRes = await axios.get(`/secondary-core-tests/metering/${selectedCoreId}`, { withCredentials: true });
-          if (fallbackRes.data?.success && fallbackRes.data.data) {
+          const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
+          const orderId = order?._id || order;
+          const fallbackRes = orderId ? await axios.get(`/secondary-core-tests/metering/${targetCoreId}?orderId=${orderId}`, { withCredentials: true }) : null;
+          if (isCancelled) return;
+          if (fallbackRes?.data?.success && fallbackRes.data.data) {
             const testDoc = fallbackRes.data.data;
             if (testDoc.metering_results && testDoc.metering_results.length > 0) {
-              setTestResults(prev => prev.map((item, idx) => {
-                let matched = testDoc.metering_results.find((r: any) => r.ratioValue === item.ratioValue);
-                if (!matched && testDoc.metering_results[idx]) {
-                  matched = testDoc.metering_results[idx];
-                }
-                return matched ? { ...item, rows: matched.rows } : item;
-              }));
+              setTestResults(prev => {
+                const base = prev.length > 0 ? prev : initialBlankData;
+                return base.map((item, idx) => {
+                  let matched = testDoc.metering_results.find((r: any) => r.ratioValue === item.ratioValue);
+                  if (!matched && testDoc.metering_results[idx]) {
+                    matched = testDoc.metering_results[idx];
+                  }
+                  if (!matched) return item;
+                  return {
+                    ...item,
+                    rows: item.rows.map((rowItem, rIdx) => {
+                      const savedRow = matched.rows?.[rIdx] || {};
+                      return {
+                        ...rowItem,
+                        r100: (savedRow.r100 !== undefined && savedRow.r100 !== null) ? String(savedRow.r100) : rowItem.r100,
+                        p100: (savedRow.p100 !== undefined && savedRow.p100 !== null) ? String(savedRow.p100) : rowItem.p100,
+                        r25: (savedRow.r25 !== undefined && savedRow.r25 !== null) ? String(savedRow.r25) : rowItem.r25,
+                        p25: (savedRow.p25 !== undefined && savedRow.p25 !== null) ? String(savedRow.p25) : rowItem.p25
+                      };
+                    })
+                  };
+                });
+              });
               return;
             }
           }
-          setTestResults(initialBlankData);
+          if (!isCancelled) setTestResults(initialBlankData);
         } else {
-          setTestResults(initialBlankData);
+          if (!isCancelled) setTestResults(initialBlankData);
         }
       } catch (err) {
-        console.error("Failed to load existing metering data", err);
+        if (!isCancelled) console.error("Failed to load existing metering data", err);
       }
     };
+
     fetchLatestData();
-  }, [transformer.uniqueId, selectedCoreId, stage, failedStatus, isFailedCore, retestHistory]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [transformer.uniqueId, selectedCoreId, coreId, stage, failedStatus, isFailedCore, retestHistory]);
 
   const handleDataChange = (ratioIdx: number, rowIndex: number, field: string, value: string) => {
     if (readOnly) return;
@@ -454,10 +587,16 @@ export function SecondaryMeteringReport({
     }
   };
 
-  const hasAnyFailures = testResults.some(item => item.rows.some(row => 
-    row.r100_r_pass === false || row.r100_p_pass === false || 
-    row.r25_r_pass === false || row.r25_p_pass === false
-  ));
+  const hasAnyFailures = useMemo(() => {
+    const isOldCoreFailed = (selectedCoreId === coreId) && (isFailedCore || failedStatus === 'FAILED');
+    if (isOldCoreFailed) return true;
+    return testResults.some(item => item.rows.some(row => {
+      if (row.r100_r_pass === false || row.r100_p_pass === false || row.r25_r_pass === false || row.r25_p_pass === false) return true;
+      const v100 = validateMeteringUI(accuracyClass, row.current, row.r100, row.p100, dbLimits);
+      const v25 = validateMeteringUI(accuracyClass, row.current, row.r25, row.p25, dbLimits);
+      return v100.rPass === false || v100.pPass === false || v25.rPass === false || v25.pPass === false;
+    }));
+  }, [testResults, accuracyClass, dbLimits, isFailedCore, failedStatus, selectedCoreId, coreId]);
 
   if (isUnified) {
     return (
@@ -489,9 +628,32 @@ export function SecondaryMeteringReport({
       <div className="print-container w-[210mm] min-w-[210mm] print:w-full print:min-w-0 print:max-w-full secondary-print-page">
         {!readOnly && (
           <div className="flex items-center justify-between no-print mb-4 w-full">
-            <Button variant="outline" size="sm" onClick={onBack} className="gap-2"><ArrowLeft className="w-4 h-4" /> Back</Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={async () => {
+                if (!readOnly && onPrev) await handleDatabaseSave(false);
+                if (onPrev) onPrev();
+              }}
+              disabled={saving || !onPrev}
+              className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold disabled:opacity-50"
+            >
+              <ChevronLeft className="w-4 h-4" /> Previous Core
+            </Button>
             <div className="flex gap-2">
-              {!readOnly && !(transformer as any).isDummy && hasAnyFailures && !isFailedSection && (
+              {stage === 'secondary' && !readOnly && hasAnyFailures && (
+                <Button
+                  onClick={handleOpenReplaceModal}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 border-orange-500 text-orange-700 bg-orange-50 hover:bg-orange-100 font-bold shadow-sm"
+                  title="Replace failed core with a new core from Ready Stock"
+                >
+                  <RefreshCw className="w-4 h-4 text-orange-600" />
+                  Replace Core (Ready Stock)
+                </Button>
+              )}
+              {stage !== 'secondary' && !readOnly && !(transformer as any).isDummy && hasAnyFailures && !isFailedSection && (
                 <Button variant="destructive" size="sm" onClick={handleMarkAsFailed} className="gap-2"><AlertTriangle className="w-4 h-4" /> Add to Failed Transformer</Button>
               )}
               {!readOnly && (
@@ -517,21 +679,14 @@ export function SecondaryMeteringReport({
                   )}
                 </>
               )}
-              {onPrev && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={onPrev} 
-                  className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 font-medium shadow-sm transition-all duration-200 hover:scale-105"
-                >
-                  <ChevronLeft className="w-4 h-4" /> {(stage === 'primary' || stage === 'final') ? 'Previous' : 'Previous Core'}
-                </Button>
-              )}
               {onNext && (
                 <Button 
                   variant="default" 
                   size="sm" 
-                  onClick={onNext} 
+                  onClick={async () => {
+                    if (!readOnly) await handleDatabaseSave(false);
+                    onNext();
+                  }} 
                   className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm transition-all duration-200 hover:scale-105"
                 >
                   {(stage === 'primary' || stage === 'final') ? 'Next' : 'Next Core'} <ChevronRight className="w-4 h-4" />
@@ -615,8 +770,8 @@ export function SecondaryMeteringReport({
                               availableList.push(...approvedCores);
                               if (selectedCoreId) availableList.push(selectedCoreId);
                             } else {
-                              availableList.push(coreId, selectedCoreId);
-                              availableList.push(...approvedCores.filter(id => id === selectedCoreId || !secondaryTestedCores.includes(id)));
+                              if (selectedCoreId) availableList.push(selectedCoreId);
+                              availableList.push(...approvedCores);
                             }
                             return Array.from(new Set(availableList.filter(Boolean)));
                           })()
@@ -630,11 +785,14 @@ export function SecondaryMeteringReport({
                                   setIsSelectOpen(false);
                                   setSelectSearch('');
                                 }}
-                                className={`w-full text-left px-3 py-2 text-xs hover:bg-blue-50 hover:text-blue-800 transition-colors ${
+                                className={`w-full text-left px-3 py-2 text-xs hover:bg-blue-50 hover:text-blue-800 transition-colors flex justify-between items-center ${
                                   id === selectedCoreId ? 'bg-blue-50 text-blue-800 font-bold' : 'text-gray-700'
                                 }`}
                               >
-                                {id} {id === coreId ? '(Default)' : ''}
+                                <span>{id} {id === coreId ? '(Default)' : ''}</span>
+                                {secondaryTestedCores.includes(id) && (
+                                  <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">Tested</span>
+                                )}
                               </button>
                             ))
                           }
@@ -683,6 +841,100 @@ export function SecondaryMeteringReport({
               {saving ? 'Saving...' : 'Save & Next'}
             </Button>
           )}
+        </div>
+      )}
+      {/* REPLACE CORE FROM READY STOCK MODAL */}
+      {isReplaceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 no-print">
+          <div className="w-full max-w-md p-6 bg-white shadow-2xl rounded-xl border border-gray-100 flex flex-col gap-4 animate-in fade-in duration-200">
+            <div>
+              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <Wrench className="w-5 h-5 text-orange-500" />
+                Core Replacement
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Replace failed core <span className="font-mono font-bold text-red-600">{selectedCoreId}</span> with a pre-tested core from Ready Stock.
+              </p>
+            </div>
+
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <div className="text-xs font-bold text-red-800 uppercase">Failed Core Info:</div>
+              <div className="text-sm text-red-700 mt-1 font-mono">
+                <strong>Type:</strong> Metering <br />
+                <strong>Core Serial No:</strong> {selectedCoreId}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-gray-500 block">
+                Choose Core (from Ready Stock)
+              </label>
+
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
+                <Input
+                  type="text"
+                  placeholder="Search by Core Serial or Turns..."
+                  value={coreSearchTerm}
+                  onChange={(e) => setCoreSearchTerm(e.target.value)}
+                  className="pl-9 text-xs font-mono border-gray-300 h-9"
+                />
+              </div>
+
+              {loadingReadyCores ? (
+                <div className="flex items-center gap-2 py-4 text-xs text-gray-500 justify-center">
+                  <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                  Loading ready stock cores...
+                </div>
+              ) : filteredReadyCores.length === 0 ? (
+                <p className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200 mt-1">
+                  {coreSearchTerm ? 'No ready stock cores match your search.' : 'No available cores in Ready Stock matching this type.'}
+                </p>
+              ) : (
+                <select
+                  value={selectedNewCoreId}
+                  onChange={(e) => setSelectedNewCoreId(e.target.value)}
+                  className="w-full bg-white border border-gray-300 rounded-lg p-2.5 text-sm font-mono outline-none focus:border-orange-500 shadow-sm"
+                >
+                  <option value="">-- Select Replacement Core ({filteredReadyCores.length}) --</option>
+                  {filteredReadyCores.map((c: any) => (
+                    <option key={c._id || c.id} value={c.coreId || c.id}>
+                      {c.coreId || c.id} {c.specifications?.turns ? `(Turns: ${c.specifications.turns})` : ''} ({c.coreType})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
+              <Button
+                variant="outline"
+                onClick={() => setIsReplaceModalOpen(false)}
+                disabled={isReplacingCore}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmReplaceCore}
+                disabled={isReplacingCore || !selectedNewCoreId}
+                className="bg-orange-600 hover:bg-orange-700 text-white text-xs gap-1.5 font-bold"
+              >
+                {isReplacingCore ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Replacing...
+                  </>
+                ) : (
+                  <>
+                    <Wrench className="w-3.5 h-3.5" />
+                    Confirm Replace
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

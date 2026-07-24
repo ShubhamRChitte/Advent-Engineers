@@ -238,7 +238,7 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
     if ((order as any).coreConfiguration && Array.isArray((order as any).coreConfiguration) && (order as any).coreConfiguration.length > 0) {
       return (order as any).coreConfiguration.length;
     }
-    if (transformers && transformers.length > 0 && transformers[0].cores && transformers[0].cores.length > 0) {
+    if (transformers && transformers.length > 0 && transformers[0]?.cores && transformers[0].cores.length > 0) {
       return transformers[0].cores.length;
     }
     return 1;
@@ -256,40 +256,75 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
   const displayReqPs = getCoresCountForType('ps') * activeCount;
   const displayReqProtection = getCoresCountForType('protection') * activeCount;
 
-  const isCoreVisible = (c: any) => !c.isAssigned || transformers.some(t => t.uniqueId === c.assignedUniqueId);
-
-  const displayTestedMetering = readyStock.metering.filter(isCoreVisible).length;
-  const displayTestedPs = readyStock.ps.filter(isCoreVisible).length;
-  const displayTestedProtection = readyStock.protection.filter(isCoreVisible).length;
+  const isCoreRecordCompleted = (r: any, type: 'metering' | 'ps' | 'protection') => {
+    if (!r) return false;
+    if (r.status === 'Pass' || r.status === 'PASS' || r.status === 'Fail' || r.status === 'FAILED') return true;
+    if (type === 'metering' && r.metering_results) {
+      return r.metering_results.some((mr: any) => mr.rows && mr.rows.some((rw: any) => 
+        (rw.r100 !== undefined && rw.r100 !== null && String(rw.r100).trim() !== '') || 
+        (rw.p100 !== undefined && rw.p100 !== null && String(rw.p100).trim() !== '') || 
+        (rw.r25 !== undefined && rw.r25 !== null && String(rw.r25).trim() !== '') || 
+        (rw.p25 !== undefined && rw.p25 !== null && String(rw.p25).trim() !== '')
+      ));
+    }
+    if (type === 'ps' && r.ps_results) {
+      return r.ps_results.some((pr: any) => 
+        (pr.turnRatioError && String(pr.turnRatioError).trim() !== '') || 
+        (pr.resistance && String(pr.resistance).trim() !== '') || 
+        (pr.vk && String(pr.vk).trim() !== '') || 
+        (pr.iexVk && String(pr.iexVk).trim() !== '')
+      );
+    }
+    if (type === 'protection' && r.protection_results) {
+      return r.protection_results.some((pr: any) => 
+        (pr.ratioError100 && String(pr.ratioError100).trim() !== '') || 
+        (pr.phaseError && String(pr.phaseError).trim() !== '') || 
+        (pr.resistance && String(pr.resistance).trim() !== '') || 
+        (pr.excitationCurrent && String(pr.excitationCurrent).trim() !== '')
+      );
+    }
+    return false;
+  };
 
   const getAvailableCoreIds = (type: 'metering' | 'ps' | 'protection') => {
-    const activeTIds = transformers.map(t => t.uniqueId);
-    const goneCoreIds = new Set(
-      (readyStock[type] || [])
-        .filter(c => c.isAssigned && c.assignedUniqueId && !activeTIds.includes(c.assignedUniqueId))
-        .map(c => c.coreId)
-    );
-
-    const totalOriginal = type === 'metering' ? reqMetering : type === 'ps' ? reqPs : reqProtection;
     const list = approvedIds[type] || [];
+    const totalReq = type === 'metering' ? reqMetering : (type === 'ps' ? reqPs : reqProtection);
     
-    const availableIds = [];
-    for (let i = 0; i < totalOriginal; i++) {
-      const id = list[i];
-      if (id && !goneCoreIds.has(id)) {
-        availableIds.push(id);
-      }
+    let availableIds = list.filter(Boolean);
+
+    if (totalReq > 0 && availableIds.length > totalReq) {
+      availableIds = availableIds.slice(0, totalReq);
     }
+
     return availableIds;
   };
+
+  const getCompletedCoreCount = (type: 'metering' | 'ps' | 'protection') => {
+    const availableIds = getAvailableCoreIds(type);
+    const testedRecords = readyStock[type] || [];
+    const completedSet = new Set(
+      testedRecords
+        .filter((r: any) => isCoreRecordCompleted(r, type))
+        .map((r: any) => r.coreId)
+    );
+    return availableIds.filter(id => completedSet.has(id)).length;
+  };
+
+  const displayTestedMetering = getCompletedCoreCount('metering');
+  const displayTestedPs = getCompletedCoreCount('ps');
+  const displayTestedProtection = getCompletedCoreCount('protection');
 
   const getFirstUntestedIndex = (type: 'metering' | 'ps' | 'protection') => {
     const availableIds = getAvailableCoreIds(type);
     const testedRecords = readyStock[type] || [];
-    const testedCoreIds = new Set(testedRecords.map((r: any) => r.coreId));
+    const completedCoreIds = new Set(
+      testedRecords
+        .filter((r: any) => isCoreRecordCompleted(r, type))
+        .map((r: any) => r.coreId)
+    );
 
     for (let i = 0; i < availableIds.length; i++) {
-      if (!testedCoreIds.has(availableIds[i])) {
+      if (!completedCoreIds.has(availableIds[i])) {
         return i;
       }
     }
@@ -622,48 +657,45 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
       }
     };
 
+    const currentTotalReq = coreType === 'metering' ? reqMetering : (coreType === 'ps' ? reqPs : reqProtection);
+
+    const handlePrevCore = () => {
+      if (activeTestMode && activeTestMode.index > 0) {
+        setActiveTestMode({
+          coreType: activeTestMode.coreType,
+          index: activeTestMode.index - 1
+        });
+      }
+    };
+
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <Button variant="outline" size="sm" onClick={handleBackFromReport} className="gap-2">
             <ArrowLeft className="w-4 h-4" /> Back to Dashboard
           </Button>
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={index <= 0}
-              onClick={() => setActiveTestMode({ coreType, index: index - 1 })}
-              className="gap-1"
-            >
-              <ChevronLeft className="w-4 h-4" /> Previous Core
-            </Button>
-            <span className="font-semibold text-sm flex items-center gap-2">
-              Testing {coreType.toUpperCase()} Core {index + 1} of {maxIndex + 1} ({coreId})
-              {readyStock[coreType]?.some((c: any) => c.coreId === coreId && c.status === 'Fail') && (
-                <Badge variant="destructive">FAILED</Badge>
-              )}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={index >= maxIndex}
-              onClick={() => setActiveTestMode({ coreType, index: index + 1 })}
-              className="gap-1"
-            >
-              Next Core <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
+          <span className="font-semibold text-sm flex items-center gap-2">
+            Testing {coreType.toUpperCase()} Core {(() => {
+              const allList = approvedIds[coreType] || [];
+              const pos = allList.indexOf(coreId);
+              return pos !== -1 ? pos + 1 : index + 1;
+            })()} of {currentTotalReq > 0 ? currentTotalReq : (maxIndex + 1)} ({coreId})
+            {readyStock[coreType]?.some((c: any) => c.coreId === coreId && c.status === 'Fail') && (
+              <Badge variant="destructive">FAILED</Badge>
+            )}
+          </span>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm">
           {coreType === 'metering' && (
             <SecondaryMeteringReport
+              key={coreId}
               transformer={dummyTransformer}
               coreNumber={coreNumber}
               coreId={coreId}
               testerName={userName}
               onBack={handleBackFromReport}
+              onPrev={handlePrevCore}
               onNext={handleNextCore}
               stage="secondary"
               onRefresh={fetchData}
@@ -671,11 +703,13 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
           )}
           {coreType === 'ps' && (
             <SecondaryPSReport
+              key={coreId}
               transformer={dummyTransformer}
               coreNumber={coreNumber}
               coreId={coreId}
               testerName={userName}
               onBack={handleBackFromReport}
+              onPrev={handlePrevCore}
               onNext={handleNextCore}
               stage="secondary"
               onRefresh={fetchData}
@@ -683,11 +717,13 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
           )}
           {coreType === 'protection' && (
             <SecondaryProtectionReport
+              key={coreId}
               transformer={dummyTransformer}
               coreNumber={coreNumber}
               coreId={coreId}
               testerName={userName}
               onBack={handleBackFromReport}
+              onPrev={handlePrevCore}
               onNext={handleNextCore}
               stage="secondary"
               onRefresh={fetchData}
@@ -737,7 +773,41 @@ export function SecondaryCoreTestingWorkflow({ order, userName, onBack, onRefres
 
       {/* Core Testing Section */}
       <div>
-        <h3 className="text-lg font-semibold mb-3">Core Testing Progress</h3>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-lg font-semibold">Core Testing Progress</h3>
+          {((displayReqMetering === 0 || displayTestedMetering >= displayReqMetering) &&
+            (displayReqPs === 0 || displayTestedPs >= displayReqPs) &&
+            (displayReqProtection === 0 || displayTestedProtection >= displayReqProtection)) && (
+            <Button
+              className="bg-green-600 hover:bg-green-700 text-white font-bold px-5 py-2.5 gap-2 shadow-md hover:shadow-lg transition-all"
+              onClick={async () => {
+                try {
+                  if (!confirm(`Are you sure you want to approve all cores for Job ${order.jobId} and move to Primary Testing?`)) return;
+
+                  const toastId = toast.loading("Approving all cores and updating order...");
+
+                  if (transformers.length > 0) {
+                    await handleAutoAssign();
+                  }
+
+                  await axios.put(`/secondary-core-tests/complete-batch/${order._id}`, {}, { withCredentials: true });
+
+                  toast.dismiss(toastId);
+                  toast.success(`All cores approved successfully for ${order.jobId}! Order moved to Primary Testing.`);
+
+                  if (onRefreshOrders) onRefreshOrders();
+                  onBack();
+                } catch (err) {
+                  toast.dismiss();
+                  console.error("Approve all cores failed", err);
+                  toast.error("Failed to approve all cores.");
+                }
+              }}
+            >
+              <CheckCircle className="w-5 h-5" /> Approve All Cores & Move to Primary Testing
+            </Button>
+          )}
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {displayReqMetering > 0 && (
             <Card className="p-5 flex flex-col justify-between h-40 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">

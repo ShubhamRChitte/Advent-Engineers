@@ -8,7 +8,10 @@ import {
   Printer,
   Search,
   Eye,
+  RotateCcw,
 } from 'lucide-react';
+import axios from '@/utils/axiosConfig';
+import { toast } from 'sonner';
 import { FailedCore } from './CoreTestingForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { FailedCoreReturnForm } from './FailedCoreReturnForm';
@@ -369,7 +372,6 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
     if (!window.confirm("Are you sure you want to undo the return of this core? It will be marked as FAILED again.")) return;
 
     try {
-      const { default: axios } = await import('axios');
       const res = await axios.put(`/failed-cores/${coreId}/undo-return`, {}, { withCredentials: true });
       if (res.data.success) {
         alert("Core return undone successfully.");
@@ -378,6 +380,29 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
       }
     } catch (err: any) {
       alert(err.response?.data?.message || "Failed to undo return");
+    }
+  };
+
+  const handleReuseCore = async (core: FailedCore) => {
+    if (!core || !(core as any)._id) {
+      toast.error("Invalid core record.");
+      return;
+    }
+    if (!confirm(`Are you sure you want to mark core ${core.internalCoreNo} for Reuse?\n\nThis will send the core to the Ready Stock Individual Core Testing page.`)) return;
+
+    try {
+      const res = await axios.put(`/failed-cores/${(core as any)._id}/reuse`, {}, { withCredentials: true });
+      if (res.data.success) {
+        toast.success(`Core ${core.internalCoreNo} sent to Ready Stock for Individual Core Testing!`);
+        setLocalCores(prev => prev.map(c => 
+          (c as any)._id === (core as any)._id ? { ...c, status: 'REUSED' } : c
+        ));
+      } else {
+        toast.error(res.data.message || "Failed to reuse core.");
+      }
+    } catch (err: any) {
+      console.error("Reuse core failed:", err);
+      toast.error(err.response?.data?.message || "Failed to mark core for reuse.");
     }
   };
 
@@ -574,6 +599,10 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                           <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
                             🔄 RETURNED
                           </span>
+                        ) : (core as any).status === "REUSED" ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                            ♻️ REUSED
+                          </span>
                         ) : (core as any).adminApprovalStatus === "PENDING" ? (
                           <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
                             ⏳ REVIEW PENDING
@@ -589,15 +618,27 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                         )}
                       </td>}
                       <td className="p-2 flex gap-2">
-                        {(core as any).status !== "RETURNED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
-                            onClick={() => handleReturnToVendor(core._id)}
-                          >
-                            Return
-                          </Button>
+                        {(core as any).status !== "RETURNED" && (core as any).status !== "REUSED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING" && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs border-green-600 text-green-700 hover:bg-green-50 flex items-center gap-1 font-semibold"
+                              onClick={() => handleReuseCore(core)}
+                              title="Send this core to Ready Stock for Individual Core Testing"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              Reuse
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
+                              onClick={() => handleReturnToVendor(core._id)}
+                            >
+                              Return
+                            </Button>
+                          </>
                         )}
                         {(core as any).status === "RETURNED" && (
                           <Button
@@ -708,6 +749,10 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
                                   🔄 RETURNED
                                 </span>
+                              ) : (core as any).status === "REUSED" ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                                  ♻️ REUSED
+                                </span>
                               ) : (core as any).adminApprovalStatus === "PENDING" ? (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
                                   ⏳ REVIEW PENDING
@@ -723,15 +768,27 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                               )}
                             </td>}
                             <td className="p-2 flex gap-2">
-                              {(core as any).status !== "RETURNED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING" && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
-                                  onClick={() => handleReturnToVendor(core._id)}
-                                >
-                                  Return
-                                </Button>
+                              {(core as any).status !== "RETURNED" && (core as any).status !== "REUSED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING" && (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs border-green-600 text-green-700 hover:bg-green-50 flex items-center gap-1 font-semibold"
+                                    onClick={() => handleReuseCore(core)}
+                                    title="Send this core to Ready Stock for Individual Core Testing"
+                                  >
+                                    <RotateCcw className="w-3 h-3" />
+                                    Reuse
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
+                                    onClick={() => handleReturnToVendor(core._id)}
+                                  >
+                                    Return
+                                  </Button>
+                                </>
                               )}
                               {(core as any).status === "RETURNED" && (
                                 <Button
@@ -839,6 +896,10 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
                                   🔄 RETURNED
                                 </span>
+                              ) : (core as any).status === "REUSED" ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                                  ♻️ REUSED
+                                </span>
                               ) : (core as any).adminApprovalStatus === "PENDING" ? (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
                                   ⏳ REVIEW PENDING
@@ -854,15 +915,27 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                               )}
                             </td>
                             <td className="p-2 flex gap-2">
-                              {(core as any).status !== "RETURNED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING" && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
-                                  onClick={() => handleReturnToVendor(core._id)}
-                                >
-                                  Return
-                                </Button>
+                              {(core as any).status !== "RETURNED" && (core as any).status !== "REUSED" && (core as any).adminApprovalStatus !== "PENDING" && (core as any).adminApprovalStatus !== "APPROVED" && (core as any).status !== "RETEST_APPROVED" && (core as any).retestStatus !== "PENDING" && (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs border-green-600 text-green-700 hover:bg-green-50 flex items-center gap-1 font-semibold"
+                                    onClick={() => handleReuseCore(core)}
+                                    title="Send this core to Ready Stock for Individual Core Testing"
+                                  >
+                                    <RotateCcw className="w-3 h-3" />
+                                    Reuse
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
+                                    onClick={() => handleReturnToVendor(core._id)}
+                                  >
+                                    Return
+                                  </Button>
+                                </>
                               )}
                               {(core as any).status === "RETURNED" && (
                                 <Button

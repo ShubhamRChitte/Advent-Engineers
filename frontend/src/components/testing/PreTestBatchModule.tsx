@@ -321,7 +321,7 @@ export function PreTestBatchModule({ onBack, user, initialBatch }: PreTestBatchM
           }}
           user={user}
           isPreTest={true}
-          isReadOnly={batchData.status === 'COMPLETED'}
+          isReadOnly={batchData.status === 'COMPLETED' && (((initialBatch?.passedCount || 0) + (initialBatch?.failedCount || 0) + (initialBatch?.discardedCount || 0)) >= numCores)}
           batchData={{
             batchId: batchData.batchId,
             vendorName: batchData.vendorName,

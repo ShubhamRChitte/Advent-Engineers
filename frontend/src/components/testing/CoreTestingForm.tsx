@@ -198,13 +198,15 @@ export function CoreTestingForm({
   const getSystemDate = () => new Date().toLocaleDateString('en-GB');
 
   const isRowLocked = (row: CoreTestRow) => {
-    if (row.isReadyStock) return true; // Ready stock cores are locked!
-    // If the core has been pushed to ready stock AND is no longer available (used), lock it down
-    if (row.readyStockStatus && row.readyStockStatus !== 'available') return true;
-    if (row.remark && String(row.remark).trim().toLowerCase() === 'used') return true;
+    // 1. Reserved or Used ready stock cores are ALWAYS locked across ALL views (including pre-test)
+    if (row.readyStockStatus && row.readyStockStatus !== 'available' && row.readyStockStatus !== 'pending_test') return true;
+    if (row.remark && (String(row.remark).trim().toLowerCase() === 'used' || String(row.remark).trim().toLowerCase() === 'reserved')) return true;
+    if (row.isReadyStock) return true;
+
+    // 2. Active pre-test batch rows are editable
     if (isPreTest) return false;
+
     if (row.isReplacement) return false; // Always allow editing replacements
-    // Allow editing even if it's FAIL, as long as it's not approved (isReadOnly)
     return row.status === 'PASS' || row.status === 'RETURNED';
   };
 
@@ -262,18 +264,27 @@ export function CoreTestingForm({
     }
 
     const vendors = getVendors();
+    const validVendorValues = vendors.map(v => `${v.serialNo} - ${v.name}`);
+    const defaultVendor = validVendorValues[0] || '';
+
+    let selectedVendor = row.coreVendorNo;
+    if (!selectedVendor || !validVendorValues.includes(selectedVendor)) {
+      const matched = vendors.find(v => 
+        selectedVendor && (selectedVendor.includes(v.name) || selectedVendor.includes(v.serialNo))
+      );
+      selectedVendor = matched ? `${matched.serialNo} - ${matched.name}` : defaultVendor;
+    }
 
     return (
       <td className="p-2 border border-gray-300">
         {vendors.length > 0 ? (
           <select
-            value={String(row.coreVendorNo || '')}
+            value={String(selectedVendor)}
             onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
             disabled={isReadOnly || isRowLocked(row)}
             className="w-full h-7 text-xs border border-gray-300 text-center focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white rounded cursor-pointer appearance-none hover:bg-gray-50 transition-colors"
             title="Click to select vendor"
           >
-            <option value="">- Select Vendor -</option>
             {vendors.map((v: any, i: number) => (
               <option key={i} value={`${v.serialNo} - ${v.name}`}>
                 {v.serialNo} - {v.name}
@@ -447,26 +458,40 @@ export function CoreTestingForm({
           }
           console.log(`Successfully loaded ${response.data.readings?.length || 0} readings for ${coreType} batch ${batchData?.batchId || order.orderId}`);
 
+          const vendorsList = getVendors();
+          const defaultVendorStr = vendorsList.length > 0 && vendorsList[0] ? `${vendorsList[0].serialNo} - ${vendorsList[0].name}` : '';
+          const isIndividualReuse = isPreTest && batchData?.batchId && batchData.batchId.startsWith('REUSE-');
+
           const mappedSavedRows = response.data.readings.map((r: any) => {
             const dynamicValues: { [key: string]: string } = {};
-            if (Array.isArray(r.measuredMa) && r.measuredMa.length > 0) {
-              r.measuredMa.forEach((val: any, i: number) => {
-                dynamicValues[String(i + 1)] = val != null ? String(val) : '';
-              });
-            } else if (r.value != null) {
-              dynamicValues['1'] = String(r.value);
+            if (!isIndividualReuse) {
+              if (Array.isArray(r.measuredMa) && r.measuredMa.length > 0) {
+                r.measuredMa.forEach((val: any, i: number) => {
+                  dynamicValues[String(i + 1)] = val != null ? String(val) : '';
+                });
+              } else if (r.dynamicValues && typeof r.dynamicValues === 'object') {
+                Object.assign(dynamicValues, r.dynamicValues);
+              } else if (r.value != null) {
+                dynamicValues['1'] = String(r.value);
+              }
             }
+
+            const isReservedRow = !isIndividualReuse && r.readyStockStatus === 'reserved';
+            const isUsedRow = !isIndividualReuse && (r.readyStockStatus === 'used' || r.result === 'Used' || (r.readyStockStatus && r.readyStockStatus !== 'available' && r.readyStockStatus !== 'pending_test' && r.readyStockStatus !== 'reserved'));
+            const computedRemark = isUsedRow ? 'Used' : (isReservedRow ? 'Reserved' : (isIndividualReuse ? '' : (r.result || '')));
+
             return {
               date: r.date ? new Date(r.date).toLocaleDateString('en-GB') : getSystemDate(),
-              coreVendorNo: r.vendorCoreNo || '',
+              coreVendorNo: (isPreTest && defaultVendorStr) ? defaultVendorStr : (r.vendorCoreNo || defaultVendorStr),
               internalCoreNo: r.internalCoreNo || '',
               dynamicValues,
-              singleValue: r.value != null ? String(r.value) : (dynamicValues['1'] || ''),
-              remark: r.result || '',
+              singleValue: (!isIndividualReuse && r.value != null) ? String(r.value) : (dynamicValues['1'] || ''),
+              remark: computedRemark,
               status: (r.status as 'PENDING' | 'PASS' | 'FAIL' | 'RETURNED') || 'PENDING',
               isReplacement: r.isReplacement || false,
               replacedCoreId: r.replacedCoreId || null,
-              readyStockStatus: r.readyStockStatus || null
+              readyStockStatus: isIndividualReuse ? undefined : (r.readyStockStatus || (isUsedRow ? 'used' : (isReservedRow ? 'reserved' : null))),
+              isReadyStock: isIndividualReuse ? false : (r.isReadyStock || false)
             };
           });
 
@@ -555,7 +580,7 @@ export function CoreTestingForm({
 
 
           // Move used cores to the end
-          const isRowUsed = (r: CoreTestRow) => (r.readyStockStatus && r.readyStockStatus !== 'available') || (r.remark && String(r.remark).trim().toLowerCase() === 'used');
+          const isRowUsed = (r: CoreTestRow) => !isIndividualReuse && ((r.readyStockStatus && r.readyStockStatus !== 'available' && r.readyStockStatus !== 'pending_test') || (r.remark && String(r.remark).trim().toLowerCase() === 'used'));
           const unusedRows = finalRowsToShow.filter(r => !isRowUsed(r));
           const usedRows = finalRowsToShow.filter(r => isRowUsed(r));
 
@@ -854,15 +879,56 @@ export function CoreTestingForm({
     }
 
     try {
+      setIsSaving(true);
+      const isMetering = coreType === 'Metering';
+      const isPS = coreType === 'PS';
+
+      const validReadings = rows.filter(row => {
+        const hasId = row.internalCoreNo && String(row.internalCoreNo).trim() !== '';
+        const hasDynValues = Object.values(row.dynamicValues || {}).some(v => v !== '' && v !== null);
+        const hasSingleValue = row.singleValue !== '' && row.singleValue !== null;
+        return hasId && (hasDynValues || hasSingleValue || row.remark === 'P' || row.remark === 'F');
+      });
+
+      const activeCols = isMetering ? bsatColumns : (isProtectionCore ? protectionBColumns : psBColumns);
+      const vendorsList = getVendors();
+      const defaultVendorStr = vendorsList.length > 0 && vendorsList[0] ? `${vendorsList[0].serialNo} - ${vendorsList[0].name}` : '';
+
+      // 1. Post passed cores to batch-add
+      const passReadings = validReadings.filter(r => r.remark === 'P');
+      if (passReadings.length > 0) {
+        await axios.post('/ready-transformers/batch-add', {
+          batchId: batchData.batchId,
+          coreType: coreType,
+          turns: specs.turnUsed || '10',
+          vendorName: batchData.vendorName || 'VENDOR',
+          readings: passReadings.map(row => ({
+            internalCoreNo: row.internalCoreNo,
+            vendorCoreNo: row.coreVendorNo || defaultVendorStr,
+            result: 'P',
+            measuredMa: activeCols.map(col => {
+              const v = row.dynamicValues?.[col.id];
+              return (v === '' || v == null) ? null : (parseFloat(v) || 0);
+            }),
+            value: row.singleValue ? parseFloat(row.singleValue) : null,
+            dynamicValues: row.dynamicValues
+          }))
+        }, { withCredentials: true });
+      }
+
+      // 2. Approve batch
       const res = await axios.post(`/pre-test-batches/${batchData.batchId}/approve`, {}, {
         withCredentials: true
       });
       if (res.status === 200) {
-        toast.success("Batch approved and moved to Ready Stock!");
+        toast.success(`Batch approved! ${passed} passed cores moved directly to Ready Stock.`);
         onBack();
       }
     } catch (err: any) {
+      console.error("Approve batch error:", err);
       toast.error(err.response?.data?.message || "Failed to approve batch");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1663,7 +1729,32 @@ export function CoreTestingForm({
           withCredentials: true
         });
 
-        toast.success("Batch progress saved successfully!");
+        // Also post to batch-add so passed cores ('P') are immediately added to Ready Stock
+        try {
+          const passReadings = validReadings.filter(r => r.remark === 'P');
+          if (passReadings.length > 0) {
+            const activeCols = isMetering ? bsatColumns : (isProtectionCore ? protectionBColumns : psBColumns);
+            await axios.post('/ready-transformers/batch-add', {
+              batchId: batchData.batchId,
+              coreType: coreType,
+              turns: specs.turnUsed || '10',
+              vendorName: batchData.vendorName || 'VENDOR',
+              readings: passReadings.map(row => ({
+                internalCoreNo: row.internalCoreNo,
+                vendorCoreNo: row.coreVendorNo,
+                result: 'P',
+                measuredMa: activeCols.map(col => {
+                  const v = row.dynamicValues?.[col.id];
+                  return (v === '' || v == null) ? null : (parseFloat(v) || 0);
+                })
+              }))
+            }, { withCredentials: true });
+          }
+        } catch (rErr) {
+          console.warn("Direct ready stock sync warning:", rErr);
+        }
+
+        toast.success("Batch progress saved successfully! Passed cores are in Ready Stock.");
         return;
       }
 
@@ -3977,11 +4068,18 @@ export function CoreTestingForm({
                   <td className="p-2 border border-gray-300">
                     <div className="flex items-center justify-center gap-2">
                       <div className={`min-w-[2rem] h-8 flex items-center justify-center font-medium text-xs ${
-                        (row.readyStockStatus && row.readyStockStatus !== 'available') ? 'text-purple-700 font-bold' :
-                        row.remark === 'P' ? 'text-green-700' :
-                        row.remark === 'F' ? 'text-red-600' : 'text-gray-400'
+                        row.readyStockStatus === 'used' || row.remark === 'Used' ? 'text-purple-700 font-bold' :
+                        row.readyStockStatus === 'reserved' || row.remark === 'Reserved' ? 'text-blue-700 font-bold' :
+                        row.remark === 'P' ? 'text-green-700 font-bold' :
+                        row.remark === 'F' ? 'text-red-600 font-bold' : 'text-gray-400'
                       }`}>
-                        {(row.readyStockStatus && row.readyStockStatus !== 'available') ? 'Used' : row.remark}
+                        {row.readyStockStatus === 'used' || row.remark === 'Used' ? (
+                          <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[10px] font-bold shadow-sm border border-purple-200">Used</span>
+                        ) : row.readyStockStatus === 'reserved' || row.remark === 'Reserved' ? (
+                          <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold shadow-sm border border-blue-200">Reserved</span>
+                        ) : (
+                          row.remark
+                        )}
                       </div>
                       {row.remark === 'F' && (
                         <div className="flex flex-col gap-1">
@@ -4084,26 +4182,11 @@ export function CoreTestingForm({
               </div>
             </div>
           </div>
-          {isPreTest ? (
-            <div className="flex flex-col items-end gap-2">
-              <Button
-                onClick={handleApproveBatch}
-                className="bg-[#003a70] hover:bg-[#002a50] text-white px-6 h-12 gap-2 font-bold shadow-lg shadow-blue-100"
-              >
-                <CheckCircle2 className="w-5 h-5" />
-                Approve & Move to Ready Stock
-              </Button>
-              <p className="text-[10px] text-gray-500 italic">
-                Finalizes passed cores and updates inventory
-              </p>
+          {passed >= calculateTotalRowsNeeded() && (
+            <div className="flex items-center gap-2 text-green-600 font-bold">
+              <Check className="w-5 h-5" />
+              <span>Testing Complete (Passed Cores Auto-Synced to Ready Stock)</span>
             </div>
-          ) : (
-            passed >= calculateTotalRowsNeeded() && (
-              <div className="flex items-center gap-2 text-green-600">
-                <Check className="w-5 h-5" />
-                <span className="font-medium">Complete</span>
-              </div>
-            )
           )}
         </div>
       </Card>

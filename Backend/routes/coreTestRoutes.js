@@ -31,6 +31,13 @@ router.put('/approve/:orderId', isAuthenticated, async (req, res) => {
             }
         );
 
+        // Mark assigned ready stock cores for this order as used
+        const ReadyTransformerModel = require('../models/ReadyTransformerModel');
+        await ReadyTransformerModel.updateMany(
+            { linkedOrderId: orderId },
+            { $set: { status: "used" } }
+        );
+
         // Check if ANY transformers are left in 'core' for this order.
         const remainingCoreUnits = await TransformerModel.countDocuments({
             orderId: orderId,
@@ -46,7 +53,6 @@ router.put('/approve/:orderId', isAuthenticated, async (req, res) => {
             // --- AGGREGATE CORE TEST DATA FOR REPORT ---
             const { MeteringCoreTestModel } = require('../models/MeteringCoreTestModel');
             const { ProtectionCoreTestModel } = require('../models/ProtectionCoreTestModel');
-            const ReadyTransformerModel = require('../models/ReadyTransformerModel');
 
             const [meteringTests, protectionTests, readyCores] = await Promise.all([
                 MeteringCoreTestModel.find({ orderId: orderId }).lean(),
@@ -310,20 +316,109 @@ router.get('/approved-ids/:orderId', isAuthenticated, async (req, res) => {
         const { ProtectionCoreTestModel } = require('../models/ProtectionCoreTestModel');
         const ReadyTransformerModel = require('../models/ReadyTransformerModel');
 
-        const [meteringDocs, protectionDocs, readyCores] = await Promise.all([
-            MeteringCoreTestModel.find({ orderId }).lean(),
-            ProtectionCoreTestModel.find({ orderId }).lean(),
-            ReadyTransformerModel.find({ linkedOrderId: orderId }).lean()
+        const { FailedCoreModel } = require('../models/FailedCoreModel');
+
+        const mongoose = require('mongoose');
+        const { TransformerModel } = require('../models/TransformerModel');
+        const { OrderModel } = require('../models/OrderModel');
+
+        const validObjectId = mongoose.Types.ObjectId.isValid(orderId) ? new mongoose.Types.ObjectId(orderId) : null;
+        const order = await OrderModel.findById(orderId).lean();
+
+        const orderFilter = {
+            $or: [
+                { orderId: orderId },
+                ...(validObjectId ? [{ orderId: validObjectId }] : []),
+                ...(order?.jobId ? [{ batchId: order.jobId }] : [])
+            ]
+        };
+
+        const [meteringDocs, protectionDocs, readyCores, failedDocs, transformers] = await Promise.all([
+            MeteringCoreTestModel.find(orderFilter).lean(),
+            ProtectionCoreTestModel.find(orderFilter).lean(),
+            ReadyTransformerModel.find({ $or: [{ linkedOrderId: orderId }, ...(validObjectId ? [{ linkedOrderId: validObjectId }] : [])] }).lean(),
+            FailedCoreModel.find({
+                $or: [
+                    { orderId: orderId },
+                    ...(validObjectId ? [{ orderId: validObjectId }] : []),
+                    ...(order?.jobId ? [{ jobId: order.jobId }, { orderNumber: order.jobId }] : [])
+                ],
+                status: 'FAILED'
+            }).select('internalCoreNo coreId vendorCoreNo').lean(),
+            TransformerModel.find(orderFilter).lean()
         ]);
+
+        const failedCoreIds = new Set();
+
+        // 1. Collect from FailedCoreModel (strictly for THIS order's active FAILED status)
+        failedDocs.forEach(f => {
+          if (f.internalCoreNo) failedCoreIds.add(String(f.internalCoreNo).trim());
+          if (f.coreId) failedCoreIds.add(String(f.coreId).trim());
+          if (f.vendorCoreNo && f.vendorCoreNo !== 'N/A') failedCoreIds.add(String(f.vendorCoreNo).trim());
+        });
+
+        // 2. Collect from ReadyTransformerModel (failed status)
+        readyCores.forEach(r => {
+          if (r.status === 'failed' || r.status === 'Fail' || r.status === 'FAILED') {
+            if (r.coreId) failedCoreIds.add(String(r.coreId).trim());
+          }
+        });
+
+        // 3. Collect from TransformerModel retestHistory for replaced cores
+        transformers.forEach(t => {
+          if (t.retestHistory && Array.isArray(t.retestHistory)) {
+            t.retestHistory.forEach(rh => {
+              if (rh.oldCoreId && rh.oldCoreId !== 'N/A') {
+                failedCoreIds.add(String(rh.oldCoreId).trim());
+              }
+            });
+          }
+        });
+
+        // 4. Collect from readings marked as FAIL/F in Core Tests
+        meteringDocs.forEach(doc => {
+          (doc.readings || []).forEach(r => {
+            if (r.status === 'FAIL' || r.result === 'F') {
+              if (r.internalCoreNo) failedCoreIds.add(String(r.internalCoreNo).trim());
+            }
+          });
+        });
+        protectionDocs.forEach(doc => {
+          (doc.readings || []).forEach(r => {
+            if (r.status === 'FAIL' || r.result === 'F') {
+              if (r.internalCoreNo) failedCoreIds.add(String(r.internalCoreNo).trim());
+            }
+          });
+        });
 
         const meteringIds = [];
         const psIds = [];
         const protectionIds = [];
 
+        // Collect assigned cores from order.reportData (saved during Core Testing stage)
+        if (order && Array.isArray(order.reportData)) {
+          order.reportData.forEach(coreGroup => {
+            const groupType = (coreGroup.coreType || coreGroup.coreName || '').toLowerCase();
+            (coreGroup.tableData || []).forEach(row => {
+              const cId = row.internalCoreNo ? String(row.internalCoreNo).trim() : '';
+              if (cId && !failedCoreIds.has(cId) && row.result !== 'F' && row.result !== 'FAIL') {
+                if (groupType.includes('metering')) {
+                  meteringIds.push(cId);
+                } else if (groupType.includes('ps') || cId.toLowerCase().includes('-ps-') || cId.toLowerCase().includes('_ps_')) {
+                  psIds.push(cId);
+                } else if (groupType.includes('protection') || groupType.includes('prt')) {
+                  protectionIds.push(cId);
+                }
+              }
+            });
+          });
+        }
+
         meteringDocs.forEach(doc => {
             (doc.readings || []).forEach(r => {
-                if ((r.result === 'P' || r.status === 'PASS' || r.status === 'PENDING') && r.internalCoreNo) {
-                    meteringIds.push(r.internalCoreNo);
+                const cId = r.internalCoreNo ? String(r.internalCoreNo).trim() : '';
+                if ((r.result === 'P' || r.status === 'PASS' || r.status === 'PENDING') && cId && !failedCoreIds.has(cId)) {
+                    meteringIds.push(cId);
                 }
             });
         });
@@ -331,31 +426,72 @@ router.get('/approved-ids/:orderId', isAuthenticated, async (req, res) => {
         protectionDocs.forEach(doc => {
             const type = (doc.coreType || 'Protection').toLowerCase();
             (doc.readings || []).forEach(r => {
-                if ((r.result === 'P' || r.status === 'PASS' || r.status === 'PENDING') && r.internalCoreNo) {
-                    if (type === 'ps') {
-                        psIds.push(r.internalCoreNo);
+                const cId = r.internalCoreNo ? String(r.internalCoreNo).trim() : '';
+                const cIdLow = cId.toLowerCase();
+                if ((r.result === 'P' || r.status === 'PASS' || r.status === 'PENDING') && cId && !failedCoreIds.has(cId)) {
+                    if (type === 'ps' || cIdLow.includes('-ps-') || cIdLow.includes('_ps_') || cIdLow.endsWith('-ps') || cIdLow.includes('ps')) {
+                        psIds.push(cId);
                     } else {
-                        protectionIds.push(r.internalCoreNo);
+                        protectionIds.push(cId);
                     }
                 }
             });
         });
 
         readyCores.forEach(core => {
-            if (core.coreType === 'Metering') {
-                meteringIds.push(core.coreId);
-            } else if (core.coreType === 'PS') {
-                psIds.push(core.coreId);
-            } else if (core.coreType === 'Protection') {
-                protectionIds.push(core.coreId);
+            const cId = core.coreId ? String(core.coreId).trim() : '';
+            const cIdLow = cId.toLowerCase();
+            const typeStr = (core.coreType || '').toLowerCase();
+            if (cId && (core.status === 'reserved' || core.status === 'used' || core.status === 'available') && !failedCoreIds.has(cId)) {
+                if (typeStr === 'metering' || cIdLow.includes('mtr') || cIdLow.includes('meter')) {
+                    meteringIds.push(cId);
+                } else if (typeStr === 'ps' || cIdLow.includes('-ps-') || cIdLow.includes('_ps_') || cIdLow.includes('ps')) {
+                    psIds.push(cId);
+                } else if (typeStr === 'protection' || cIdLow.includes('prt') || cIdLow.includes('protect')) {
+                    protectionIds.push(cId);
+                }
             }
         });
 
+        // Determine required total core counts per type for the full order (coresPerUnit * totalUnits)
+        const totalUnits = order ? (order.quantity || order.transformerCount || 10) : 10;
+        let coresPerUnitMetering = 0;
+        let coresPerUnitPs = 0;
+        let coresPerUnitProtection = 0;
+
+        if (order && Array.isArray(order.coreDetails)) {
+          order.coreDetails.forEach(cd => {
+            const t = (cd.coreType || 'Metering').toLowerCase();
+            if (t.includes('ps')) coresPerUnitPs++;
+            else if (t.includes('protection') || t.includes('prt')) coresPerUnitProtection++;
+            else coresPerUnitMetering++;
+          });
+        }
+
+        let reqMetering = coresPerUnitMetering > 0 ? coresPerUnitMetering * totalUnits : totalUnits;
+        let reqPs = coresPerUnitPs > 0 ? coresPerUnitPs * totalUnits : (order?.coreDetails?.some((c) => String(c.coreType).toLowerCase().includes('ps')) ? totalUnits : 0);
+        let reqProtection = coresPerUnitProtection > 0 ? coresPerUnitProtection * totalUnits : (order?.coreDetails?.some((c) => String(c.coreType).toLowerCase().includes('protect')) ? totalUnits : 0);
+
+        let uniqueMetering = [...new Set(meteringIds)];
+        let uniquePs = [...new Set(psIds)];
+        let uniqueProtection = [...new Set(protectionIds)];
+
+        // Trim to total required count for the order if count exceeds
+        if (reqMetering > 0 && uniqueMetering.length > reqMetering) {
+          uniqueMetering = uniqueMetering.slice(0, reqMetering);
+        }
+        if (reqPs > 0 && uniquePs.length > reqPs) {
+          uniquePs = uniquePs.slice(0, reqPs);
+        }
+        if (reqProtection > 0 && uniqueProtection.length > reqProtection) {
+          uniqueProtection = uniqueProtection.slice(0, reqProtection);
+        }
+
         res.json({
             success: true,
-            metering: [...new Set(meteringIds)],
-            ps: [...new Set(psIds)],
-            protection: [...new Set(protectionIds)]
+            metering: uniqueMetering,
+            ps: uniquePs,
+            protection: uniqueProtection
         });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
