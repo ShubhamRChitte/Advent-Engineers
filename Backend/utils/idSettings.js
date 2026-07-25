@@ -66,22 +66,19 @@ function buildIdFromBlocks(blocks, seqNum, defaultPrefix = "", defaultPadLen = 3
                 break;
 
             case 'coreType':
-                let coreCode = 'M';
-                const fmt = block.format || 'SHORT';
+                let coreCode = block.meteringCode !== undefined ? block.meteringCode : (block.value || 'M');
 
                 if (metadata.coreType) {
                     const cTypeUpper = String(metadata.coreType).toUpperCase();
                     if (cTypeUpper.includes('METER') || cTypeUpper === 'M' || cTypeUpper === 'MTR') {
-                        coreCode = fmt === 'MEDIUM' ? 'MTR' : (fmt === 'FULL' ? 'Metering' : 'M');
+                        coreCode = block.meteringCode !== undefined ? block.meteringCode : 'M';
                     } else if (cTypeUpper.includes('PS')) {
-                        coreCode = 'PS';
+                        coreCode = block.psCode !== undefined ? block.psCode : 'PS';
                     } else if (cTypeUpper.includes('PROTECT') || cTypeUpper === 'P' || cTypeUpper === 'PRT') {
-                        coreCode = fmt === 'MEDIUM' ? 'PRT' : (fmt === 'FULL' ? 'Protection' : 'P');
+                        coreCode = block.protectionCode !== undefined ? block.protectionCode : 'P';
                     } else {
                         coreCode = String(metadata.coreType).slice(0, 3).toUpperCase();
                     }
-                } else if (block.value) {
-                    coreCode = block.value;
                 }
                 result += coreCode;
                 break;

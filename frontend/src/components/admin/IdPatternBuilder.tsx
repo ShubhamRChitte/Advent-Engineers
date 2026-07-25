@@ -27,6 +27,9 @@ export interface PatternBlock {
   value?: string | undefined;
   format?: string | undefined;
   padLength?: number | undefined;
+  meteringCode?: string | undefined;
+  psCode?: string | undefined;
+  protectionCode?: string | undefined;
 }
 
 interface IdPatternBuilderProps {
@@ -161,13 +164,7 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
           result += 'JOB-2026-298';
           break;
         case 'coreType':
-          if (b.format === 'MEDIUM') {
-            result += 'MTR';
-          } else if (b.format === 'FULL') {
-            result += 'Metering';
-          } else {
-            result += 'M';
-          }
+          result += b.meteringCode !== undefined ? b.meteringCode : (b.value || 'M');
           break;
         default:
           result += b.value || '';
@@ -538,17 +535,34 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
                         )}
 
                         {block.type === 'coreType' && (
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase text-pink-900 mb-1">Core Code Format</label>
-                            <select
-                              value={block.format || 'SHORT'}
-                              onChange={(e) => updateBlockProp(block.id, 'format', e.target.value)}
-                              className="w-full bg-white border border-pink-300 rounded-lg px-2 py-1.5 text-xs text-pink-950 font-bold text-center focus:outline-none focus:ring-2 focus:ring-pink-500 shadow-inner"
-                            >
-                              <option value="SHORT">M / PS / P (Short)</option>
-                              <option value="MEDIUM">MTR / PS / PRT (Standard)</option>
-                              <option value="FULL">Metering / PS / Protection (Full)</option>
-                            </select>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-[10px] font-bold text-pink-900 w-16">Metering:</span>
+                              <input
+                                type="text"
+                                value={block.meteringCode !== undefined ? block.meteringCode : (block.value || 'M')}
+                                onChange={(e) => updateBlockProp(block.id, 'meteringCode', e.target.value)}
+                                className="w-16 bg-white border border-pink-300 rounded px-1.5 py-0.5 text-xs text-pink-950 font-mono font-bold text-center focus:outline-none focus:ring-1 focus:ring-pink-500 shadow-inner"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-[10px] font-bold text-pink-900 w-16">PS:</span>
+                              <input
+                                type="text"
+                                value={block.psCode !== undefined ? block.psCode : 'PS'}
+                                onChange={(e) => updateBlockProp(block.id, 'psCode', e.target.value)}
+                                className="w-16 bg-white border border-pink-300 rounded px-1.5 py-0.5 text-xs text-pink-950 font-mono font-bold text-center focus:outline-none focus:ring-1 focus:ring-pink-500 shadow-inner"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-[10px] font-bold text-pink-900 w-16">Protection:</span>
+                              <input
+                                type="text"
+                                value={block.protectionCode !== undefined ? block.protectionCode : 'P'}
+                                onChange={(e) => updateBlockProp(block.id, 'protectionCode', e.target.value)}
+                                className="w-16 bg-white border border-pink-300 rounded px-1.5 py-0.5 text-xs text-pink-950 font-mono font-bold text-center focus:outline-none focus:ring-1 focus:ring-pink-500 shadow-inner"
+                              />
+                            </div>
                           </div>
                         )}
                       </div>
