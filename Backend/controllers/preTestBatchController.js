@@ -385,6 +385,8 @@ exports.approveBatch = async (req, res) => {
         batchId: batch.batchId,
         coreType: batch.coreType,
         createdFrom: "PRE_TEST",
+        initialVendorName: batch.vendorName || '',
+        vendorCoreNo: r.vendorCoreNo || '',
         status: 'available',
         specifications: {
           turns: batch.turns || "N/A",

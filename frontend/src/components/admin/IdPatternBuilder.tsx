@@ -374,7 +374,7 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
             >
               <Briefcase className="w-3.5 h-3.5 text-blue-700" /> + Job Ref
             </button>
-            {categoryKey === 'preTestCoreId' && (
+            {(categoryKey === 'preTestCoreId' || categoryKey === 'preTestBatchId') && (
               <button
                 onClick={() => addBlock('coreType')}
                 className="px-3 py-1.5 bg-pink-50 hover:bg-pink-100 border border-pink-300 rounded-xl text-xs font-bold text-pink-900 flex items-center gap-1.5 transition-all shadow-sm"
@@ -675,7 +675,7 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
                       <span className="text-[10px] text-blue-800 font-medium">Job Ref No</span>
                     </button>
 
-                    {categoryKey === 'preTestCoreId' && (
+                    {(categoryKey === 'preTestCoreId' || categoryKey === 'preTestBatchId') && (
                       <button
                         onClick={() => addBlock('coreType')}
                         className="p-2 bg-white hover:bg-pink-100/80 border border-pink-300 rounded-xl text-left transition-all group shadow-sm"
@@ -684,7 +684,7 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
                           <Zap className="w-3.5 h-3.5 text-pink-700" />
                           <span className="text-xs font-extrabold text-pink-950">Core Code</span>
                         </div>
-                        <span className="text-[10px] text-pink-800 font-medium">M/PS/P</span>
+                        <span className="text-[10px] text-pink-800 font-medium">Metering / PS / Protection</span>
                       </button>
                     )}
                   </div>

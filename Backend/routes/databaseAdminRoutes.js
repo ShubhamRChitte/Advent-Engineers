@@ -15,10 +15,13 @@ const { ProtectionCoreTestModel } = require('../models/ProtectionCoreTestModel')
 const { SecondaryMeteringTestModel } = require('../models/SecondaryMeteringTestModel');
 const { HeatingRecordModel } = require('../models/HeatingRecordModel');
 
+const { PreTestBatchModel } = require('../models/PreTestBatchModel');
+
 // Map of collection name to Mongoose Model
 const modelsMap = {
     'orders': OrderModel,
     'transformers': TransformerModel,
+    'pre-test-batches': PreTestBatchModel,
     'failed-transformers': FailedTransformerModel,
     'ready-stock': ReadyTransformerModel,
     'notifications': NotificationModel
@@ -28,6 +31,7 @@ const modelsMap = {
 const displayPropsMap = {
     'orders': { titleField: 'jobId', descField: 'clientName', subField: 'status' },
     'transformers': { titleField: 'uniqueId', descField: 'name', subField: 'currentStage' },
+    'pre-test-batches': { titleField: 'batchId', descField: 'vendorName', subField: 'status' },
     'failed-transformers': { titleField: 'transformerUniqueId', descField: 'coreType', subField: 'status' },
     'ready-stock': { titleField: 'coreId', descField: 'coreType', subField: 'status' },
     'notifications': { titleField: 'type', descField: 'message', subField: 'jobId' }
@@ -88,10 +92,26 @@ router.get('/records/:collection', isAuthenticated, isAdmin, async (req, res) =>
         const total = await Model.countDocuments(query);
 
         // Format uniformly for the frontend table
-        const formattedRecords = records.map(r => {
+        const formattedRecords = await Promise.all(records.map(async r => {
             let description = r[displayProps.descField];
             if (collectionKey === 'transformers' && r.orderId) {
                 description = r.orderId.transformerType || description;
+            }
+
+            let untestedCores = 0;
+            let availableCores = 0;
+
+            if (collectionKey === 'pre-test-batches') {
+                const totalCores = r.numberOfCores || (r.readings ? r.readings.length : 0);
+                const testedCount = Array.isArray(r.readings) 
+                    ? r.readings.filter(rd => rd.status && rd.status !== 'PENDING').length 
+                    : 0;
+                untestedCores = Math.max(0, totalCores - testedCount);
+
+                availableCores = await ReadyTransformerModel.countDocuments({
+                    batchId: r.batchId,
+                    status: 'available'
+                });
             }
             
             return {
@@ -99,9 +119,11 @@ router.get('/records/:collection', isAuthenticated, isAdmin, async (req, res) =>
                 title: r[displayProps.titleField] || 'N/A',
                 description: description || 'N/A',
                 sub: r[displayProps.subField] || 'N/A',
+                untestedCores,
+                availableCores,
                 createdAt: r.createdAt || r.created_at || new Date()
             };
-        });
+        }));
 
         res.status(200).json({
             success: true,
@@ -259,6 +281,7 @@ router.get('/id-settings', isAuthenticated, isAdmin, async (req, res) => {
                 ],
                 preTestBatchId: [
                     { id: 'b-prefix', type: 'static', value: 'B-' },
+                    { id: 'b-coreType', type: 'coreType', meteringCode: 'MTR', psCode: 'PS', protectionCode: 'PRT' },
                     { id: 'b-year', type: 'year', format: 'YYYY' },
                     { id: 'b-sep', type: 'separator', value: '-' },
                     { id: 'b-seq', type: 'sequence', padLength: 3 }

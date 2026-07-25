@@ -1,52 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Card } from '../ui/card';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Badge } from '../ui/badge';
-import { 
-  Package, 
-  Search, 
-  Plus, 
-  RefreshCw, 
-  CheckCircle2,
-  Trash2,
-  FlaskConical,
-  RotateCcw,
-  Check
-} from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter
-} from '../ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Label } from '../ui/label';
-import axios from '@/utils/axiosConfig';
 import useSWR from 'swr';
-import { socket } from '../../utils/socket';
-import { toast } from 'sonner';
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Search, Plus, Package, CheckCircle2, RotateCcw, FlaskConical, Trash2, RefreshCw } from 'lucide-react';
 import { PreTestBatchModule } from '../testing/PreTestBatchModule';
 import { CoreTestingForm } from '../testing/CoreTestingForm';
-
-interface ReadyTransformer {
-  _id: string;
-  batchId?: string;
-  coreId: string;
-  coreType: string;
-  createdFrom?: string;
-  serialNumber?: string;
-  status: 'available' | 'reserved' | 'used' | 'pending_test';
-  specifications: {
-    ratio?: string;
-    burden?: string;
-    class?: string;
-    turns?: string;
-  };
-  reservationExpiresAt?: string;
-}
+import axios from '@/utils/axiosConfig';
+import { socket } from '@/utils/socket';
+import { toast } from 'sonner';
 
 interface PreTestBatch {
   _id: string;
@@ -54,11 +17,29 @@ interface PreTestBatch {
   coreType: string;
   vendorName: string;
   numberOfCores: number;
-  passedCount: number;
-  failedCount: number;
-  discardedCount: number;
-  availableCoresCount?: number;
+  turns: string;
   status: string;
+  passedCount?: number;
+  failedCount?: number;
+  discardedCount?: number;
+  availableCoresCount?: number;
+  createdAt: string;
+}
+
+interface ReadyTransformer {
+  _id: string;
+  coreId: string;
+  serialNumber?: string;
+  batchId: string;
+  coreType: string;
+  specifications: {
+    ratio?: string;
+    turns?: string;
+    burden?: string;
+    class?: string;
+  };
+  createdFrom?: string;
+  status: 'available' | 'reserved' | 'used' | 'pending_test';
   createdAt: string;
 }
 
@@ -66,7 +47,7 @@ const fetcher = (url: string) => {
   const token = localStorage.getItem('token');
   return axios.get(url, {
     withCredentials: true,
-    headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
   }).then(res => res.data);
 };
 
@@ -74,7 +55,10 @@ export default function ReadyStockView() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [view, setView] = useState<'list' | 'pre-test' | 'individual-test'>('list');
-  const [activeTab, setActiveTab] = useState('All');
+  const [activeTab, setActiveTab] = useState<'Batches' | 'Individual Cores' | 'Available' | 'History'>('Batches');
+  const [availableFilter, setAvailableFilter] = useState<'All' | 'Metering' | 'PS' | 'Protection'>('All');
+  const [historyFilter, setHistoryFilter] = useState<'All' | 'Metering' | 'PS' | 'Protection'>('All');
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<'All' | 'used' | 'reserved'>('All');
   const [resumingBatch, setResumingBatch] = useState<PreTestBatch | null>(null);
   const [individualTestingCore, setIndividualTestingCore] = useState<ReadyTransformer | null>(null);
 
@@ -97,7 +81,7 @@ export default function ReadyStockView() {
     setStockPage(1);
     setSearch('');
     setDebouncedSearch('');
-  }, [activeTab]);
+  }, [activeTab, availableFilter, historyFilter, historyStatusFilter]);
 
   // SWR Hooks
   const { data: analytics, mutate: mutateAnalytics } = useSWR(
@@ -115,11 +99,19 @@ export default function ReadyStockView() {
     fetcher
   );
 
-  const stockQueryUrl = activeTab === 'All' 
-    ? null
-    : activeTab === 'Individual Cores'
-      ? `/ready-transformers?paginated=true&limit=${stockPage * 20}&createdFrom=REUSE&search=${encodeURIComponent(debouncedSearch)}`
-      : `/ready-transformers?paginated=true&limit=${stockPage * 20}&coreType=${encodeURIComponent(activeTab)}&search=${encodeURIComponent(debouncedSearch)}`;
+  // Dynamic stock query URL based on Active Tab
+  let stockQueryUrl: string | null = null;
+
+  if (activeTab === 'Individual Cores') {
+    stockQueryUrl = `/ready-transformers?paginated=true&limit=${stockPage * 20}&createdFrom=REUSE&search=${encodeURIComponent(debouncedSearch)}`;
+  } else if (activeTab === 'Available') {
+    const filterType = availableFilter !== 'All' ? `&coreType=${encodeURIComponent(availableFilter)}` : '';
+    stockQueryUrl = `/ready-transformers?paginated=true&limit=${stockPage * 20}&status=available${filterType}&search=${encodeURIComponent(debouncedSearch)}`;
+  } else if (activeTab === 'History') {
+    const filterType = historyFilter !== 'All' ? `&coreType=${encodeURIComponent(historyFilter)}` : '';
+    const filterStatus = historyStatusFilter !== 'All' ? `&status=${encodeURIComponent(historyStatusFilter)}` : '&status=history';
+    stockQueryUrl = `/ready-transformers?paginated=true&limit=${stockPage * 20}${filterStatus}${filterType}&search=${encodeURIComponent(debouncedSearch)}`;
+  }
 
   const { data: stockData, mutate: mutateStock, isLoading: isStockLoading } = useSWR(
     stockQueryUrl,
@@ -140,11 +132,10 @@ export default function ReadyStockView() {
   }, [mutateAnalytics, mutateBatches, mutateStock, mutateIndividualCount]);
 
   const counts = {
-    All: batchesData?.totalCount || 0,
+    Batches: batchesData?.totalCount || 0,
     'Individual Cores': Array.isArray(individualCountData) ? individualCountData.length : (individualCountData?.totalCount || individualCountData?.count || 0),
-    Metering: analytics?.metering || 0,
-    Protection: analytics?.protection || 0,
-    PS: analytics?.ps || 0
+    Available: analytics?.available || 0,
+    History: (analytics?.used || 0) + (analytics?.reserved || 0)
   };
 
   const filteredBatches: PreTestBatch[] = batchesData?.data || [];
@@ -178,7 +169,8 @@ export default function ReadyStockView() {
         ? 'Protection'
         : 'Metering';
 
-    const virtualBatchId = individualTestingCore.batchId || `REUSE-${individualTestingCore.coreId}`;
+    const virtualBatchId = `REUSE-${individualTestingCore.coreId}`;
+    const vendorNamePrefetched = (individualTestingCore as any).initialVendorName || 'ABC Electricals';
 
     const virtualOrder: any = {
       _id: individualTestingCore._id || individualTestingCore.coreId,
@@ -205,10 +197,15 @@ export default function ReadyStockView() {
           isReadOnly={false}
           batchData={{
             batchId: virtualBatchId,
-            vendorName: 'REUSED CORE',
+            vendorName: vendorNamePrefetched,
             vendorId: 'REUSE-VENDOR',
             numberOfCores: 1,
             turns: individualTestingCore.specifications?.turns || '10',
+            readings: [{
+              internalCoreNo: individualTestingCore.coreId,
+              vendorCoreNo: (individualTestingCore as any).vendorCoreNo || '',
+              status: 'PENDING'
+            }],
             discardedCoreIds: []
           }}
         />
@@ -248,51 +245,83 @@ export default function ReadyStockView() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header & Top Actions */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Ready Transformers Inventory</h1>
-          <p className="text-gray-500">Manage pre-tested cores available for immediate replacement</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Ready Stock Management</h1>
+          <p className="text-sm text-gray-500">Manage pre-tested cores, individual stock retests, and inventory allocation</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setView('pre-test')} className="gap-2 bg-[#003a70]">
+
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleManualRefresh}
+            className="flex items-center gap-2 border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-semibold h-9"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </Button>
+
+          <Button
+            onClick={() => {
+              setResumingBatch(null);
+              setView('pre-test');
+            }}
+            className="bg-[#003a70] hover:bg-[#002a50] text-white flex items-center gap-1.5 shadow-sm font-semibold text-xs h-9 px-3"
+          >
             <Plus className="w-4 h-4" />
-            Add Pre-Tested Core (Batch)
+            New Pre-Test Batch
           </Button>
         </div>
       </div>
 
-      {/* Stats Cards - Type-wise Distribution */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4 bg-green-50 border-green-100">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg text-green-700">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm text-green-700 font-medium">Metering Cores</p>
-              <p className="text-2xl font-bold text-green-900">{counts.Metering}</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4 bg-blue-50 border-blue-100">
+      {/* Analytics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-4 bg-blue-50/40 border-blue-100">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg text-blue-700">
               <Package className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-sm text-blue-700 font-medium">Protection Cores</p>
-              <p className="text-2xl font-bold text-blue-900">{counts.Protection}</p>
+              <p className="text-sm text-blue-700 font-medium">Batches</p>
+              <p className="text-2xl font-bold text-blue-900">{counts.Batches}</p>
             </div>
           </div>
         </Card>
-        <Card className="p-4 bg-orange-50 border-orange-100">
+
+        <Card className="p-4 bg-purple-50/40 border-purple-100">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-100 rounded-lg text-orange-700">
-              <Plus className="w-5 h-5" />
+            <div className="p-2 bg-purple-100 rounded-lg text-purple-700">
+              <RotateCcw className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-sm text-orange-700 font-medium">PS Cores</p>
-              <p className="text-2xl font-bold text-orange-900">{counts.PS}</p>
+              <p className="text-sm text-purple-700 font-medium">Individual Cores</p>
+              <p className="text-2xl font-bold text-purple-900">{counts['Individual Cores']}</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 bg-emerald-50/40 border-emerald-100">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-100 rounded-lg text-emerald-700">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-sm text-emerald-700 font-medium">Available Cores</p>
+              <p className="text-2xl font-bold text-emerald-900">{counts.Available}</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 bg-amber-50/40 border-amber-100">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-100 rounded-lg text-amber-700">
+              <FlaskConical className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-sm text-amber-700 font-medium">History (Used / Reserved)</p>
+              <p className="text-2xl font-bold text-amber-900">{counts.History}</p>
             </div>
           </div>
         </Card>
@@ -300,17 +329,17 @@ export default function ReadyStockView() {
 
       {/* Tabs Navigation */}
       <div className="flex gap-2 p-1 bg-gray-100 rounded-lg w-fit flex-wrap">
-        {['All', 'Individual Cores', 'Metering', 'Protection', 'PS'].map((tab) => (
+        {(['Batches', 'Individual Cores', 'Available', 'History'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+            className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${
               activeTab === tab 
                 ? 'bg-[#003a70] text-white shadow-sm' 
                 : 'text-gray-600 hover:bg-gray-200'
             }`}
           >
-            {tab} ({counts[tab as keyof typeof counts]})
+            {tab} ({counts[tab]})
           </button>
         ))}
       </div>
@@ -319,7 +348,7 @@ export default function ReadyStockView() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <Input 
           className="pl-10" 
-          placeholder={`Search ${activeTab === 'All' ? 'batches' : activeTab + ' cores'}...`}
+          placeholder={`Search ${activeTab.toLowerCase()}...`}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -328,113 +357,135 @@ export default function ReadyStockView() {
       <Card className="overflow-x-auto border-none shadow-md">
         <table className="w-full text-sm text-left min-w-[1000px] table-fixed">
           <thead className="bg-gray-50 border-b">
-            {activeTab === 'All' ? (
+            {activeTab === 'Batches' ? (
               <tr>
                 <th className="px-3 py-4 font-bold text-gray-700 w-[18%]">Batch ID</th>
                 <th className="px-3 py-4 font-bold text-gray-700 w-[10%]">Type</th>
-                <th className="px-3 py-4 font-bold text-gray-700 w-[15%]">Vendor</th>
-                <th className="px-3 py-4 font-bold text-gray-700 text-center w-[10%]">Total</th>
-                <th className="px-3 py-4 font-bold text-gray-700 text-center w-[12%]">P / F</th>
-                <th className="px-3 py-4 font-bold text-gray-700 text-center w-[12%]">Status</th>
-                <th className="px-3 py-4 font-bold text-gray-700 text-right w-[10%]">Date</th>
-                <th className="px-3 py-4 font-bold text-gray-700 text-right w-[13%] pr-6">Actions</th>
+                <th className="px-3 py-4 font-bold text-gray-700 w-[16%]">Vendor</th>
+                <th className="px-3 py-4 font-bold text-gray-700 w-[8%] text-center">Total</th>
+                <th className="px-3 py-4 font-bold text-gray-700 w-[8%] text-center text-green-600">Passed</th>
+                <th className="px-3 py-4 font-bold text-gray-700 w-[8%] text-center text-red-600">Failed</th>
+                <th className="px-3 py-4 font-bold text-gray-700 w-[14%] text-center">Status</th>
+                <th className="px-3 py-4 font-bold text-gray-700 w-[18%] text-right pr-6">Action</th>
               </tr>
             ) : activeTab === 'Individual Cores' ? (
               <tr>
-                <th className="px-6 py-4 font-semibold text-gray-700 w-[22%]">Core ID</th>
-                <th className="px-6 py-4 font-semibold text-gray-700 w-[15%]">Type</th>
-                <th className="px-6 py-4 font-semibold text-gray-700 w-[23%]">Specs (Ratio / Turns)</th>
-                <th className="px-6 py-4 font-semibold text-gray-700 w-[15%]">Source</th>
-                <th className="px-6 py-4 font-semibold text-gray-700 text-center w-[13%]">Status</th>
-                <th className="px-6 py-4 font-semibold text-gray-700 text-right pr-6 w-[12%]">Action</th>
+                <th className="px-6 py-4 font-bold text-gray-700">Core ID</th>
+                <th className="px-6 py-4 font-bold text-gray-700">Type</th>
+                <th className="px-6 py-4 font-bold text-gray-700">Turns</th>
+                <th className="px-6 py-4 font-bold text-gray-700">Source</th>
+                <th className="px-6 py-4 font-bold text-gray-700 text-center">Status</th>
+                <th className="px-6 py-4 font-bold text-gray-700 text-right pr-6">Action</th>
               </tr>
             ) : (
               <tr>
-                <th className="px-6 py-4 font-semibold text-gray-700">Core ID</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Type</th>
-                <th className="px-6 py-4 font-semibold text-gray-700">Specs (Ratio/Turns)</th>
-                <th className="px-6 py-4 font-semibold text-gray-700 text-right">Status</th>
+                <th className="px-6 py-4 font-bold text-gray-700">Core ID</th>
+                <th className="px-6 py-4 font-bold text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <span>Core Type</span>
+                    <select
+                      value={activeTab === 'Available' ? availableFilter : historyFilter}
+                      onChange={(e) => {
+                        const val = e.target.value as any;
+                        if (activeTab === 'Available') setAvailableFilter(val);
+                        else setHistoryFilter(val);
+                      }}
+                      className="text-xs font-bold bg-white text-blue-700 border border-blue-200 rounded-md px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500/20 shadow-sm cursor-pointer hover:bg-blue-50/50 transition-colors"
+                    >
+                      <option value="All">All Types</option>
+                      <option value="Metering">Metering</option>
+                      <option value="PS">PS</option>
+                      <option value="Protection">Protection</option>
+                    </select>
+                  </div>
+                </th>
+                <th className="px-6 py-4 font-bold text-gray-700">Turns / Specs</th>
+                <th className="px-6 py-4 font-bold text-gray-700 text-right pr-6">
+                  {activeTab === 'History' ? (
+                    <div className="flex items-center justify-end gap-2">
+                      <span>Status</span>
+                      <select
+                        value={historyStatusFilter}
+                        onChange={(e) => setHistoryStatusFilter(e.target.value as any)}
+                        className="text-xs font-bold bg-white text-purple-700 border border-purple-200 rounded-md px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-purple-500/20 shadow-sm cursor-pointer hover:bg-purple-50/50 transition-colors"
+                      >
+                        <option value="All">All Statuses</option>
+                        <option value="reserved">RESERVED</option>
+                        <option value="used">USED</option>
+                      </select>
+                    </div>
+                  ) : (
+                    'Status'
+                  )}
+                </th>
               </tr>
             )}
           </thead>
           <tbody className="divide-y">
-            {activeTab === 'All' ? (
+            {activeTab === 'Batches' ? (
               isBatchesLoading && filteredBatches.length === 0 ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    <td colSpan={8} className="px-3 py-4">
+                    <td colSpan={8} className="px-6 py-4">
                       <div className="h-6 bg-gray-200 rounded w-full"></div>
                     </td>
                   </tr>
                 ))
               ) : filteredBatches.length > 0 ? (
-                filteredBatches.map((batch) => (
-                  <tr key={batch._id} className="hover:bg-gray-50 transition-colors border-b">
-                    <td className="px-3 py-4 font-medium text-gray-900 font-mono text-[10px] break-all" title={batch.batchId}>{batch.batchId}</td>
-                    <td className="px-4 py-4">
-                      <Badge variant="outline" className={`${getCoreTypeColor(batch.coreType)} text-[10px] px-1.5 py-0`}>
-                        {batch.coreType}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-4 text-gray-600 truncate max-w-[100px]" title={batch.vendorName}>{batch.vendorName}</td>
-                    <td className="px-4 py-4 font-semibold text-center">
-                      {((batch.availableCoresCount ?? batch.passedCount) + (batch.failedCount || 0))}
-                    </td>
-                    <td className="px-4 py-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <span className="text-green-600 font-bold">P: {Math.max(0, (batch.availableCoresCount ?? batch.passedCount))}</span>
-                        <span className="text-gray-300">/</span>
-                        <span className="text-red-600 font-bold">F: {Math.max(0, batch.failedCount || 0)}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-center">
-                      {batch.status === 'COMPLETED' ? (
-                        <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px]">COMPLETED</Badge>
-                      ) : isBatchFullyTested(batch) ? (
-                        <Badge className="bg-green-600 text-white border-none text-[10px] shadow-sm font-bold">TESTING FINISHED</Badge>
-                      ) : batch.status === 'IN_PROGRESS' ? (
-                        <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px]">IN_PROGRESS</Badge>
-                      ) : batch.status === 'CONFIGURED' ? (
-                        <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">CONFIGURED</Badge>
-                      ) : (
-                        <Badge className="bg-gray-100 text-gray-700 border-gray-200 text-[10px]">CREATED</Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-right text-gray-500 whitespace-nowrap text-xs">
-                      {new Date(batch.createdAt).toLocaleDateString('en-GB')}
-                    </td>
-                    <td className="px-3 py-4 text-right flex items-center justify-end gap-1">
-
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className={`h-8 px-3 text-[10px] font-bold ${
-                          isBatchFullyTested(batch) 
-                            ? 'border-gray-300 text-gray-700 hover:bg-gray-100' 
-                            : 'border-blue-600 bg-blue-50 text-blue-700 hover:bg-blue-100 shadow-sm'
-                        }`}
-                        onClick={() => {
-                          setResumingBatch(batch);
-                          setView('pre-test');
-                        }}
-                      >
-                        {isBatchFullyTested(batch) ? 'View Batch' : 'Test Core'}
-                      </Button>
-                      {/* Show delete if cores in batch becomes 0 or total cores is 0 */}
-                      {((batch.availableCoresCount || 0) === 0 || batch.numberOfCores === 0) && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
-                          title="Delete Batch"
-                          onClick={() => handleDeleteBatch(batch.batchId)}
+                filteredBatches.map((batch) => {
+                  const fullyTested = isBatchFullyTested(batch);
+                  return (
+                    <tr key={batch._id} className="hover:bg-gray-50 transition-colors border-b">
+                      <td className="px-3 py-4 font-mono font-bold text-gray-900 text-xs truncate" title={batch.batchId}>{batch.batchId}</td>
+                      <td className="px-3 py-4">
+                        <Badge variant="outline" className={getCoreTypeColor(batch.coreType)}>
+                          {batch.coreType}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-4 text-gray-600 text-xs font-medium truncate" title={batch.vendorName}>{batch.vendorName}</td>
+                      <td className="px-3 py-4 text-center font-bold text-gray-700 text-xs">{batch.numberOfCores}</td>
+                      <td className="px-3 py-4 text-center font-bold text-green-600 text-xs">{batch.passedCount || 0}</td>
+                      <td className="px-3 py-4 text-center font-bold text-red-600 text-xs">{batch.failedCount || 0}</td>
+                      <td className="px-3 py-4 text-center">
+                        <Badge 
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-tight whitespace-nowrap inline-flex items-center justify-center min-w-[85px] ${
+                            batch.status === 'COMPLETED' ? 'bg-green-100 text-green-700 border-green-200' :
+                            batch.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                            'bg-amber-100 text-amber-700 border-amber-200'
+                          }`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                          {batch.status === 'COMPLETED' ? 'COMPLETED' :
+                           batch.status === 'IN_PROGRESS' ? 'IN PROGRESS' : 'PENDING'}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-4 text-right pr-6">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2.5 text-xs font-bold border-blue-600 text-blue-700 hover:bg-blue-50 flex items-center gap-1"
+                            onClick={() => {
+                              setResumingBatch(batch);
+                              setView('pre-test');
+                            }}
+                          >
+                            <FlaskConical className="w-3.5 h-3.5" />
+                            {fullyTested ? 'View Test' : 'Continue Test'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2 text-xs font-bold border-red-200 text-red-600 hover:bg-red-50"
+                            onClick={() => handleDeleteBatch(batch.batchId)}
+                            title="Delete Batch"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
@@ -462,7 +513,7 @@ export default function ReadyStockView() {
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-gray-600 text-xs font-mono">
-                      {item.specifications?.ratio && item.specifications.ratio !== 'N/A' ? item.specifications.ratio : '300/5'} | {item.specifications?.turns && item.specifications.turns !== 'N/A' ? `${item.specifications.turns}T` : '10T'}
+                      {item.specifications?.turns && item.specifications.turns !== 'N/A' ? `${item.specifications.turns}T` : '10T'}
                     </td>
                     <td className="px-6 py-4 text-xs font-semibold text-gray-500">
                       {item.createdFrom === 'REUSE' ? '♻️ Reused Core' : item.batchId || 'Individual'}
@@ -480,18 +531,41 @@ export default function ReadyStockView() {
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-right pr-6">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-3 text-xs font-bold border-blue-600 text-blue-700 hover:bg-blue-50 flex items-center gap-1.5 ml-auto"
-                        onClick={() => {
-                          setIndividualTestingCore(item);
-                          setView('individual-test');
-                        }}
-                      >
-                        <FlaskConical className="w-3.5 h-3.5" />
-                        {item.status === 'pending_test' ? 'Test Core' : 'Edit & Retest'}
-                      </Button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-3 text-xs font-bold border-blue-600 text-blue-700 hover:bg-blue-50 flex items-center gap-1.5"
+                          onClick={() => {
+                            setIndividualTestingCore(item);
+                            setView('individual-test');
+                          }}
+                        >
+                          <FlaskConical className="w-3.5 h-3.5" />
+                          {item.status === 'pending_test' ? 'Test Core' : 'Edit & Retest'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2.5 text-xs font-bold border-purple-300 text-purple-700 hover:bg-purple-50 flex items-center gap-1"
+                          onClick={async () => {
+                            if (!window.confirm(`Reassign auto-generated Core ID for ${item.coreId}?`)) return;
+                            try {
+                              const res = await axios.post(`/ready-transformers/reassign-id/${item._id}`, {}, { withCredentials: true });
+                              if (res.data.success) {
+                                toast.success(res.data.message || "Core ID reassigned successfully!");
+                                handleManualRefresh();
+                              }
+                            } catch (err: any) {
+                              toast.error(err.response?.data?.message || "Failed to reassign Core ID");
+                            }
+                          }}
+                          title="Reassign Core ID"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          Reassign ID
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -499,7 +573,7 @@ export default function ReadyStockView() {
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                     <Package className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                    No Individual Cores found for testing. Reused cores from Failed Cores will appear here.
+                    No Individual Cores found for testing.
                   </td>
                 </tr>
               )
@@ -521,10 +595,10 @@ export default function ReadyStockView() {
                         {item.coreType}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.specifications?.ratio || '-'} | {item.specifications?.turns ? `${item.specifications.turns}T` : (item.specifications?.burden || '-')}
+                    <td className="px-6 py-4 text-gray-600 text-xs font-mono">
+                      {item.specifications?.turns ? `${item.specifications.turns}T` : (item.specifications?.burden || '-')}
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right pr-6">
                       <Badge 
                         className={`px-2 py-0.5 rounded-full text-[9px] font-bold tracking-tight whitespace-nowrap inline-flex items-center justify-center min-w-[70px] ${
                           item.status === 'available' ? 'bg-green-100 text-green-700 border-green-200' :
@@ -541,7 +615,7 @@ export default function ReadyStockView() {
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
                     <Package className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                    No {activeTab} cores found matching your criteria.
+                    No {activeTab.toLowerCase()} cores found matching your criteria.
                   </td>
                 </tr>
               )
@@ -550,8 +624,7 @@ export default function ReadyStockView() {
         </table>
       </Card>
       
-      {/* Pagination Controls */}
-      {activeTab === 'All' && batchesData?.totalCount > filteredBatches.length && (
+      {activeTab === 'Batches' && batchesData?.totalCount > filteredBatches.length && (
         <div className="flex justify-center mt-4">
           <Button 
             variant="outline" 
@@ -563,7 +636,7 @@ export default function ReadyStockView() {
           </Button>
         </div>
       )}
-      {activeTab !== 'All' && stockData?.totalCount > filteredStock.length && (
+      {activeTab !== 'Batches' && stockData?.totalCount > filteredStock.length && (
         <div className="flex justify-center mt-4">
           <Button 
             variant="outline" 
@@ -575,7 +648,6 @@ export default function ReadyStockView() {
           </Button>
         </div>
       )}
-
     </div>
   );
 }

@@ -148,7 +148,7 @@ export function CoreTestingForm({
   };
 
   const updatePreTestBatchStatus = async (newStatus: string) => {
-    if (!isPreTest || !batchData?.batchId) return;
+    if (!isPreTest || !batchData?.batchId || batchData.batchId.startsWith('REUSE-')) return;
     if ((batchData as any).status === 'COMPLETED') return; // Do not downgrade a COMPLETED batch
     try {
       await axios.patch(`/pre-test-batches/${batchData.batchId}/status`, { status: newStatus }, {
@@ -194,8 +194,8 @@ export function CoreTestingForm({
   // Vendor selection helpers
   const getVendors = () => {
     if (isPreTest && batchData?.vendorName) {
-      // For pre-test, include the batch vendor as an option
-      return [{ serialNo: "V-1", name: batchData.vendorName }];
+      // For pre-test, return the exact prefetched vendor name (e.g. "ABC Electricals")
+      return [{ serialNo: "", name: batchData.vendorName }];
     }
     const vendorsObj = ((order as any).coreVendors || (order as any).order?.coreVendors) || {};
     return (vendorsObj[coreType.toLowerCase()] || []) as { serialNo: string; name: string }[];
@@ -245,15 +245,16 @@ export function CoreTestingForm({
     }
 
     const vendors = getVendors();
-    const validVendorValues = vendors.map(v => `${v.serialNo} - ${v.name}`);
+    const getVendorLabel = (v: { serialNo?: string; name: string }) => v.serialNo ? `${v.serialNo} - ${v.name}` : v.name;
+    const validVendorValues = vendors.map(v => getVendorLabel(v));
     const defaultVendor = validVendorValues[0] || '';
 
     let selectedVendor = row.coreVendorNo;
     if (!selectedVendor || !validVendorValues.includes(selectedVendor)) {
       const matched = vendors.find(v => 
-        selectedVendor && (selectedVendor.includes(v.name) || selectedVendor.includes(v.serialNo))
+        selectedVendor && (selectedVendor.includes(v.name) || (v.serialNo && selectedVendor.includes(v.serialNo)))
       );
-      selectedVendor = matched ? `${matched.serialNo} - ${matched.name}` : defaultVendor;
+      selectedVendor = matched ? getVendorLabel(matched) : defaultVendor;
     }
 
     return (
@@ -267,8 +268,8 @@ export function CoreTestingForm({
             title="Click to select vendor"
           >
             {vendors.map((v: any, i: number) => (
-              <option key={i} value={`${v.serialNo} - ${v.name}`}>
-                {v.serialNo} - {v.name}
+              <option key={i} value={getVendorLabel(v)}>
+                {getVendorLabel(v)}
               </option>
             ))}
           </select>
@@ -301,17 +302,33 @@ export function CoreTestingForm({
         const token = localStorage.getItem('token');
 
         if (isPreTest && batchData?.batchId) {
-          response = await axios.get(`/pre-test-batches/${batchData.batchId}`, {
-            withCredentials: true,
-            headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-          });
+          const isIndividualReuse = batchData.batchId.startsWith('REUSE-');
+          if (isIndividualReuse) {
+            response = {
+              data: {
+                batchId: batchData.batchId,
+                coreType: coreType,
+                vendorName: batchData.vendorName,
+                numberOfCores: 1,
+                readings: batchData.readings || [{
+                  internalCoreNo: order.jobId?.split(': ')?.[1] || batchData.batchId.replace('REUSE-', ''),
+                  status: 'PENDING'
+                }]
+              }
+            };
+          } else {
+            response = await axios.get(`/pre-test-batches/${batchData.batchId}`, {
+              withCredentials: true,
+              headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+            });
+          }
 
           if (response.data.numberOfCores !== undefined) {
             setLocalCoreCount(response.data.numberOfCores);
           }
 
-          // Auto-configure if data exists in batch
-          if (response.data.testSetup) {
+          // Auto-configure if data exists in batch (except for individual core retests)
+          if (response.data.testSetup && !isIndividualReuse) {
             setSpecs({
               coreSize1: String(response.data.testSetup.coreSizeMm?.id || ''),
               coreSize2: String(response.data.testSetup.coreSizeMm?.od || ''),
@@ -463,7 +480,7 @@ export function CoreTestingForm({
 
             return {
               date: r.date ? new Date(r.date).toLocaleDateString('en-GB') : getSystemDate(),
-              coreVendorNo: (isPreTest && defaultVendorStr) ? defaultVendorStr : (r.vendorCoreNo || defaultVendorStr),
+              coreVendorNo: r.vendorCoreNo || batchData?.vendorName || defaultVendorStr,
               internalCoreNo: r.internalCoreNo || '',
               dynamicValues,
               singleValue: (!isIndividualReuse && r.value != null) ? String(r.value) : (dynamicValues['1'] || ''),
@@ -874,7 +891,7 @@ export function CoreTestingForm({
   };
 
   const performConfigSave = async (updatedSpecs?: any) => {
-    if (!isPreTest || !batchData?.batchId) return;
+    if (!isPreTest || !batchData?.batchId || batchData.batchId.startsWith('REUSE-')) return;
     const currentSpecs = updatedSpecs || specsRef.current;
     const currentBsatCols = bsatColumnsRef.current;
     const currentProtCols = protectionBColumnsRef.current;
@@ -1324,7 +1341,7 @@ export function CoreTestingForm({
   }, []);
 
   const performRowSave = async (row: CoreTestRow, index: number) => {
-    if (!isPreTest || !batchData?.batchId) return;
+    if (!isPreTest || !batchData?.batchId || batchData.batchId.startsWith('REUSE-')) return;
     const currentSpecs = specsRef.current;
     const currentBsatCols = bsatColumnsRef.current;
     const currentProtCols = protectionBColumnsRef.current;
@@ -1438,6 +1455,23 @@ export function CoreTestingForm({
     }
 
     try {
+      if (batchData.batchId.startsWith('REUSE-')) {
+        const mongoId = (order as any)?._id || batchData.batchId.replace('REUSE-', '');
+        await axios.post(`/ready-transformers/test-individual/${mongoId}`, {
+          isPass: false,
+          sendToFailedCores: true,
+          failureReason: "Discarded during individual retest"
+        }, { withCredentials: true });
+
+        toast.success("Individual core discarded and moved to Failed Cores");
+        const newRows = [...rows];
+        newRows.splice(index, 1);
+        setRows(newRows);
+        setLocalCoreCount(prev => Math.max(0, prev - 1));
+        if (onBack) onBack();
+        return;
+      }
+
       const token = localStorage.getItem('token');
       const response = await axios.post(`/pre-test-batches/${batchData.batchId}/discard-core`, {
         internalCoreNo: row.internalCoreNo,
@@ -1598,7 +1632,35 @@ export function CoreTestingForm({
       }
 
       if (isPreTest && batchData) {
-        // Redirect to Pre-Test Batch API
+        // Handle Individual Core Retesting ('REUSE-')
+        if (batchData.batchId && batchData.batchId.startsWith('REUSE-')) {
+          const firstReading = validReadings[0];
+          if (firstReading) {
+            const activeCols = isMetering ? bsatColumns : (isProtectionCore ? protectionBColumns : psBColumns);
+            const testResults = {
+              vendorCoreNo: firstReading.coreVendorNo,
+              result: firstReading.remark || 'P',
+              measuredMa: activeCols.map(col => {
+                const v = firstReading.dynamicValues?.[col.id];
+                return (v === '' || v == null) ? null : (parseFloat(v) || 0);
+              })
+            };
+
+            const readyCoreId = (order as any)._id;
+            await axios.post(`/ready-transformers/test-individual/${readyCoreId}`, {
+              specifications: { turns: specs.turnUsed || '10' },
+              testResults,
+              isPass: firstReading.remark !== 'F',
+              sendToFailedCores: firstReading.remark === 'F'
+            }, { withCredentials: true });
+          }
+
+          toast.success("Individual Core tested successfully! Core is marked AVAILABLE in Ready Stock.");
+          onBack();
+          return;
+        }
+
+        // Redirect to Pre-Test Batch API for normal batches
         const batchPayload = {
           readings: validReadings.map(row => ({
             date: formattedDate,

@@ -23,6 +23,14 @@ const ReadyTransformerSchema = new mongoose.Schema({
     required: true,
     default: "MANUAL"
   },
+  initialVendorName: {
+    type: String,
+    default: ""
+  },
+  vendorCoreNo: {
+    type: String,
+    default: ""
+  },
   specifications: {
     ratio: String,
     burden: String,

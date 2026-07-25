@@ -18,6 +18,8 @@ interface RecordData {
   title: string;
   description: string;
   sub: string;
+  untestedCores?: number;
+  availableCores?: number;
   createdAt: string;
 }
 
@@ -220,6 +222,9 @@ export function DataCleanupPage() {
                              activeCollection === 'transformers' ? 'Current Stage / Date' :
                              'Status / Date'}
                           </th>
+                          {activeCollection === 'pre-test-batches' && (
+                            <th className="px-6 py-4 whitespace-nowrap">Cores Remaining</th>
+                          )}
                           <th className="px-6 py-4 text-right whitespace-nowrap">Actions</th>
                         </tr>
                       </thead>
@@ -249,6 +254,18 @@ export function DataCleanupPage() {
                               <span className="inline-block px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md font-medium text-xs mb-1.5">{record.sub}</span>
                               <div className="text-xs text-gray-400">{new Date(record.createdAt).toLocaleDateString()}</div>
                             </td>
+                            {activeCollection === 'pre-test-batches' && (
+                              <td className="px-6 py-4 text-gray-700 whitespace-nowrap">
+                                <div className="flex flex-col gap-1 text-xs">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                    🧪 {record.untestedCores ?? 0} Untested
+                                  </span>
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    🔌 {record.availableCores ?? 0} In Ready Stock
+                                  </span>
+                                </div>
+                              </td>
+                            )}
                             <td className="px-6 py-4 text-right">
                               <div className="flex justify-end gap-2">
                                 <Button 

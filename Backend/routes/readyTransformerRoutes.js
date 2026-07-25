@@ -19,6 +19,7 @@ router.get("/", isAuthenticated, getAllReadyTransformers);
 router.post("/add", isAuthenticated, addReadyTransformer);
 router.post("/batch-add", isAuthenticated, batchAddReadyTransformers);
 router.post("/test-individual/:id", isAuthenticated, testIndividualReadyTransformer);
+router.post("/reassign-id/:id", isAuthenticated, require("../controllers/readyTransformerController").reassignCoreId);
 
 router.get("/available", isAuthenticated, getAvailableReadyTransformers);
 router.post("/reserve/:id", isAuthenticated, reserveReadyTransformer);

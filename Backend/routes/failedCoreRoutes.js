@@ -166,12 +166,17 @@ router.put('/:id/reuse', isAuthenticated, async (req, res) => {
         else if (typeUpper.includes('PROTECT')) coreTypeFormatted = 'Protection';
 
         let readyCore = await ReadyTransformerModel.findOne({ coreId: failedCore.internalCoreNo });
+        const initialVendor = failedCore.vendorName || failedCore.coreVendorNo || failedCore.vendorCoreNo || '';
+        const initialVendorCoreNo = failedCore.vendorCoreNo || failedCore.coreVendorNo || '';
+
         if (readyCore) {
             readyCore.status = 'pending_test';
             readyCore.createdFrom = 'REUSE';
             readyCore.linkedOrderId = null;
             readyCore.reservedBy = null;
             readyCore.usedInReplacementOf = null;
+            readyCore.initialVendorName = initialVendor;
+            readyCore.vendorCoreNo = initialVendorCoreNo;
             readyCore.testResults = {};
             await readyCore.save();
         } else {
@@ -181,6 +186,8 @@ router.put('/:id/reuse', isAuthenticated, async (req, res) => {
                 coreType: coreTypeFormatted,
                 createdFrom: 'REUSE',
                 status: 'pending_test',
+                initialVendorName: initialVendor,
+                vendorCoreNo: initialVendorCoreNo,
                 specifications: {
                     ratio: 'N/A',
                     class: '0.5',
@@ -226,7 +233,9 @@ router.get('/', isAuthenticated, async (req, res) => {
             endDate
         } = req.query;
 
-        const query = {};
+        const query = {
+            status: { $ne: 'REUSED' }
+        };
 
         // 1. Exact Filters
         if (orderId && orderId !== 'undefined' && orderId !== 'null') query.orderId = orderId;
@@ -309,7 +318,7 @@ router.get('/order/:orderId', isAuthenticated, async (req, res) => {
             return res.status(400).json({ success: false, message: "Valid Order ID required" });
         }
 
-        const failedCores = await FailedCoreModel.find({ orderId }).lean();
+        const failedCores = await FailedCoreModel.find({ orderId, status: { $ne: 'REUSED' } }).lean();
         res.status(200).json({
             success: true,
             count: failedCores.length,
@@ -325,7 +334,7 @@ router.get('/order/:orderId', isAuthenticated, async (req, res) => {
 // Quick count for badges (e.g., Navbar)
 router.get('/count', isAuthenticated, async (req, res) => {
     try {
-        const count = await FailedCoreModel.countDocuments({});
+        const count = await FailedCoreModel.countDocuments({ status: { $ne: 'REUSED' } });
         res.json({ success: true, count });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

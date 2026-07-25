@@ -157,7 +157,9 @@ exports.getAllReadyTransformers = async (req, res) => {
       if (req.query.createdFrom) {
         query.createdFrom = req.query.createdFrom;
       }
-      if (req.query.status) {
+      if (req.query.status === 'history') {
+        query.status = { $in: ['used', 'reserved'] };
+      } else if (req.query.status) {
         query.status = req.query.status;
       } else {
         query.status = { $ne: 'used' };
@@ -479,6 +481,38 @@ exports.testIndividualReadyTransformer = async (req, res) => {
   } catch (err) {
     console.error("Error testing individual ready transformer:", err);
     res.status(500).json({ message: err.message });
+  }
+};
+
+exports.reassignCoreId = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const core = await ReadyTransformer.findById(id);
+    if (!core) {
+      return res.status(404).json({ success: false, message: "Core not found" });
+    }
+
+    const { getNextGlobalId } = require('../utils/idSettings');
+    const newCoreId = await getNextGlobalId('preTestCoreId', { coreType: core.coreType });
+
+    if (!newCoreId) {
+      return res.status(500).json({ success: false, message: "Failed to generate new Core ID" });
+    }
+
+    const oldCoreId = core.coreId;
+    core.coreId = newCoreId;
+    await core.save();
+
+    if (global.io) global.io.emit("readyStockUpdated");
+
+    res.status(200).json({
+      success: true,
+      message: `Core ID reassigned from ${oldCoreId} to ${newCoreId}`,
+      newCoreId
+    });
+  } catch (err) {
+    console.error("Error reassigning Core ID:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
