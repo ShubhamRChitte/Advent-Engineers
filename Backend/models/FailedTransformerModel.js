@@ -41,6 +41,10 @@ const FailedTransformerSchema = new Schema(
             required: true,
             trim: true
         },
+        remark: {
+            type: String,
+            trim: true
+        },
         
         // --- Audit details ---
         reportedBy: {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { User } from '../../App';
 import { TesterSidebar } from './TesterSidebar';
 import { TesterHeader } from './TesterHeader';
@@ -34,12 +34,16 @@ import { PTFailedTransformersSection } from './PTFailedTransformersSection';
 interface TesterLayoutProps {
   user: User;
   onLogout: () => void;
+  onSwitchRole?: (newRole: User['role']) => void;
 }
 
-export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
-  const [activeView, _setActiveView] = useState(() => {
-    return localStorage.getItem(`${user.role}_activeView`) || 'home';
-  });
+export function TesterLayout({ user, onLogout, onSwitchRole }: TesterLayoutProps) {
+  const [activeView, _setActiveView] = useState(() => 'home');
+
+  useEffect(() => {
+    localStorage.setItem(`${user.role}_activeView`, 'home');
+    _setActiveView('home');
+  }, [user.role]);
 
   const { stats, recentActivity, loading } = useTesterStats(user.role, user.name);
 
@@ -379,7 +383,7 @@ export function TesterLayout({ user, onLogout }: TesterLayoutProps) {
       </div>
       <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible print:block">
         <div className="print:hidden">
-          <TesterHeader user={user} onLogout={onLogout} />
+          <TesterHeader user={user} onLogout={onLogout} onSwitchRole={onSwitchRole} />
         </div>
         <main className="flex-1 overflow-y-auto p-6 print:overflow-visible print:h-auto print:p-0">
           {renderView()}

@@ -91,10 +91,13 @@ export function FinalCoreSelection({
     ].filter(r => r.internalCoreNo === core.coreId || r.coreId === core.coreId);
 
     return results.some((res: any) => {
-        if (res.isPass === false) return true;
+        if (res.isPass === false || res.isPass === 'false') return true;
+        if (res.reason && typeof res.reason === 'string' && res.reason.toLowerCase().includes('fail')) return true;
         if (res.rows) return res.rows.some((row: any) => 
             row.r100_r_pass === false || row.r100_p_pass === false || row.r100_pass === false || 
-            row.r25_r_pass === false || row.r25_p_pass === false || row.r25_pass === false
+            row.r25_r_pass === false || row.r25_p_pass === false || row.r25_pass === false ||
+            row.r100_pass === 'false' || row.p100_pass === 'false' || row.r25_pass === 'false' || row.p25_pass === 'false' ||
+            row.isPass === false || row.isPass === 'false'
         );
         return false;
     });

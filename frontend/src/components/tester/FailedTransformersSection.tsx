@@ -92,6 +92,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
     isOpen: boolean;
     reason: string;
     serialNo: string;
+    remark?: string;
   } | null>(null);
 
   // Column Visibility State
@@ -336,30 +337,15 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
     const finalData = transformer.testHistory?.final_test || {};
     const secondaryData = transformer.testHistory?.secondary_test || {};
 
-    // If they failed in secondary, we only care about secondary
-    if (stage === 'SECONDARY_TESTING') return secondaryData;
+    if (stage === 'PRIMARY_TESTING') {
+      return primaryData;
+    }
 
-    // If they failed in primary or final, their retests are in secondary. We need to merge them.
-    const mergeType = (type: string) => {
-      const baseData = stage === 'FINAL_TESTING' ? finalData[type] || [] : primaryData[type] || [];
-      const sRes = secondaryData[type] || [];
-      
-      // Get all core IDs that have secondary test results
-      const secondaryCoreIds = new Set(sRes.map((r: any) => r.internalCoreNo || r.coreId));
+    if (stage === 'FINAL_TESTING') {
+      return finalData;
+    }
 
-      // Keep base results ONLY for cores that DO NOT have secondary results
-      const merged = baseData.filter((baseRow: any) => !secondaryCoreIds.has(baseRow.internalCoreNo || baseRow.coreId));
-
-      // Add all secondary results
-      merged.push(...sRes);
-      return merged;
-    };
-
-    return {
-      metering_results: mergeType('metering_results'),
-      protection_results: mergeType('protection_results'),
-      ps_results: mergeType('ps_results')
-    };
+    return secondaryData;
   };
 
   const getActiveCoreIds = (transformer: any) => {
@@ -397,8 +383,8 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       return activeCoreIds.includes(id) || activeCoreIds.some(cid => cid.endsWith(id.slice(-4)));
     });
 
-    if (filtered.length === 0 && (results || []).length > 0) {
-      return results;
+    if (activeCoreIds.length > 0) {
+      return filtered;
     }
 
     return filtered;
@@ -446,19 +432,37 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
 
       if (type === 'metering') {
         return results.every((res: any) =>
+          res.isPass !== false && res.isPass !== 'false' &&
           res.rows && res.rows.length > 0 && res.rows.every((row: any) =>
-            isFilled(row.r100) && isFilled(row.p100) && isFilled(row.r25) && isFilled(row.p25)
+            isFilled(row.r100) && isFilled(row.p100) && isFilled(row.r25) && isFilled(row.p25) &&
+            row.r100_r_pass !== false && row.r100_p_pass !== false &&
+            row.r25_r_pass !== false && row.r25_p_pass !== false &&
+            row.r100_pass !== false && row.p100_pass !== false &&
+            row.r25_pass !== false && row.p25_pass !== false &&
+            row.r100_pass !== 'false' && row.p100_pass !== 'false' &&
+            row.r25_pass !== 'false' && row.p25_pass !== 'false' &&
+            row.isPass !== false && row.isPass !== 'false'
           )
         );
       } else if (type === 'protection') {
         return results.every((res: any) =>
+          res.isPass !== false && res.isPass !== 'false' &&
           isFilled(res.ratioError100) &&
+          isFilled(res.phaseError) &&
           isFilled(res.resistance) &&
-          (isFilled(res.secondaryLimitingVoltage) || isFilled(res.secondaryLimitingVtg))
+          isFilled(res.alf) &&
+          isFilled(res.excitationCurrent) &&
+          (isFilled(res.secondaryLimitingVoltage) || isFilled(res.secondaryLimitingVtg)) &&
+          isFilled(res.compositeError)
         );
       } else if (type === 'ps') {
         return results.every((res: any) =>
-          isFilled(res.turnRatioError) && isFilled(res.vk) && isFilled(res.iexVk)
+          res.isPass !== false && res.isPass !== 'false' &&
+          isFilled(res.turnRatioError) &&
+          isFilled(res.resistance) &&
+          isFilled(res.vk) &&
+          isFilled(res.iexVk) &&
+          isFilled(res.iex11Vk)
         );
       }
       return false;
@@ -471,7 +475,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
     return meteringDone && protectionDone && psDone;
   };
 
-  const checkHasFailures = (transformer: any, order: any, stage: string) => {
+  const checkHasFailures = (transformer: any, order: any, stage: string, itemRecord?: any) => {
     if (!transformer || !order) return false;
     const testData = getMergedTestData(transformer, stage);
     const activeCoreIds = getActiveCoreIds(transformer);
@@ -489,17 +493,83 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
       return Array.from(map.values());
     };
 
-    const meteringFail = deduplicate(testData.metering_results).some((res: any) =>
-      res.rows && res.rows.some((row: any) =>
+    const meteringResults = deduplicate(testData.metering_results);
+    const protectionResults = deduplicate(testData.protection_results);
+    const psResults = deduplicate(testData.ps_results);
+
+    const meteringFail = meteringResults.some((res: any) =>
+      res.isPass === false || res.isPass === 'false' ||
+      (res.rows && res.rows.some((row: any) =>
         row.r100_r_pass === false || row.r100_p_pass === false ||
-        row.r25_r_pass === false || row.r25_p_pass === false
-      )
+        row.r25_r_pass === false || row.r25_p_pass === false ||
+        row.r100_pass === false || row.p100_pass === false ||
+        row.r25_pass === false || row.p25_pass === false ||
+        row.r100_pass === 'false' || row.p100_pass === 'false' ||
+        row.r25_pass === 'false' || row.p25_pass === 'false' ||
+        row.isPass === false || row.isPass === 'false' ||
+        (row.r100_reason && row.r100_reason !== 'OK' && row.r100_reason !== '') ||
+        (row.r25_reason && row.r25_reason !== 'OK' && row.r25_reason !== '')
+      ))
     );
 
-    const protectionFail = deduplicate(testData.protection_results).some((res: any) => res.isPass === false);
-    const psFail = deduplicate(testData.ps_results).some((res: any) => res.isPass === false);
+    const protectionFail = protectionResults.some((res: any) =>
+      res.isPass === false || res.isPass === 'false' ||
+      (res.reason && typeof res.reason === 'string' && res.reason.toLowerCase().includes('fail'))
+    );
+    const psFail = psResults.some((res: any) =>
+      res.isPass === false || res.isPass === 'false' ||
+      (res.reason && typeof res.reason === 'string' && res.reason.toLowerCase().includes('fail'))
+    );
 
-    return meteringFail || protectionFail || psFail;
+    if (meteringFail || protectionFail || psFail) {
+      return true;
+    }
+
+    // Check if any core has NOT been tested yet AND metadata records it as failed
+    const itemToUse = itemRecord || { orderId: order, transformerId: transformer, stage };
+    const cores = getCoresForItem(itemToUse);
+    const untestedCoreFailed = cores.some((core: any) => {
+      const suffix = `-${String(core.coreNumber).padStart(3, '0')}`;
+
+      // 1. Check if this core has test results already
+      let hasResults = false;
+      if (core.coreType === 'metering') hasResults = meteringResults.length > 0;
+      else if (core.coreType === 'protection') hasResults = protectionResults.length > 0;
+      else if (core.coreType === 'ps') hasResults = psResults.length > 0;
+
+      if (hasResults) {
+        // Test results exist and passed 100% (since meteringFail, protectionFail, psFail were all false above)
+        return false;
+      }
+
+      // 2. Check if this core was replaced in retestHistory
+      const historyArr = transformer?.retestHistory || itemToUse?.retestHistory;
+      const isReplaced = historyArr && Array.isArray(historyArr) &&
+        historyArr.some((h: any) => h.action === 'Core Replaced' && (h.newCoreId === core.currentCoreId || h.coreNumber === core.coreNumber));
+      if (isReplaced) return false;
+
+      // 3. Metadata failure for untested core
+      const tCoreType = (itemToUse?.coreType || '').toUpperCase();
+      const cCoreType = (core.coreType || '').toUpperCase();
+      const failureReason = (itemToUse?.failureReason || '').toLowerCase();
+      const failureParamCoreId = itemToUse?.failureParameters?.coreId;
+
+      if (failureParamCoreId && (failureParamCoreId === core.currentCoreId || failureParamCoreId.endsWith(suffix))) {
+        return true;
+      }
+      if (failureReason.includes(`core ${core.coreNumber}`) || failureReason.includes(`core-${core.coreNumber}`)) {
+        return true;
+      }
+      if (tCoreType === cCoreType || (tCoreType.includes(cCoreType) && !['MULTIPLE', 'COMPLETE UNIT', 'PT_FINAL'].includes(tCoreType))) {
+        return true;
+      }
+      if (['MULTIPLE', 'COMPLETE UNIT', 'PT_FINAL'].includes(tCoreType)) {
+        return true;
+      }
+      return false;
+    });
+
+    return untestedCoreFailed;
   };
 
   const refreshRetestingTransformer = async () => {
@@ -1062,7 +1132,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
     } else {
 
     const isAllCompleted = checkIsAllCoresCompleted(transformerObj, orderObj, retestingTransformer.stage);
-    const hasFailures = checkHasFailures(transformerObj, orderObj, retestingTransformer.stage);
+    const hasFailures = checkHasFailures(transformerObj, orderObj, retestingTransformer.stage, retestingTransformer);
 
       mainContent = (
       <div className="space-y-6 animate-in fade-in duration-200">
@@ -1100,6 +1170,26 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
             Refresh
           </Button>
         </div>
+
+        {/* Failure Details & Remark Alert */}
+        {(retestingTransformer.failureReason || retestingTransformer.remark) && (
+          <Card className="p-4 bg-red-50/70 border-red-200 shadow-sm space-y-2">
+            <div className="flex items-center gap-2 text-red-900 font-bold text-sm">
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+              <span>Failure Details</span>
+            </div>
+            {retestingTransformer.failureReason && (
+              <p className="text-xs text-red-800">
+                <span className="font-bold">Reason:</span> {retestingTransformer.failureReason}
+              </p>
+            )}
+            {retestingTransformer.remark && (
+              <p className="text-xs text-amber-900 bg-amber-100/70 p-2.5 rounded-md border border-amber-200/80 font-medium">
+                <span className="font-bold text-amber-950">Remark:</span> {retestingTransformer.remark}
+              </p>
+            )}
+          </Card>
+        )}
 
         {/* Transformer Info */}
         <Card className="p-6 bg-gray-50 border-gray-200">
@@ -1152,27 +1242,43 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
               const typeSeq = typeIndex !== -1 ? typeIndex + 1 : 1;
               const typeSuffix = `-${String(typeSeq).padStart(3, '0')}`;
               
-              const testStageKey = retestingTransformer.stage === 'PRIMARY_TESTING' ? 'primary_test' : 'secondary_test';
-              const results = transformerObj?.testHistory?.[testStageKey]?.[`${core.coreType}_results`] || [];
+              const normType = (core.coreType || 'metering').toLowerCase();
+              const targetField = normType.includes('ps') ? 'ps_results' : normType.includes('protect') ? 'protection_results' : 'metering_results';
+
+              const mergedTestData = getMergedTestData(transformerObj, retestingTransformer.stage);
+              const results = mergedTestData?.[targetField] || [];
 
               const rawCoreResults = results.filter((r: any) => {
-                const id = r.internalCoreNo || r.coreId || '';
+                const id = String(r.internalCoreNo || r.coreId || '').trim();
                 return id === core.currentCoreId ||
+                  id === String(core.coreNumber) ||
                   id.endsWith(suffix) || id.includes(suffix) ||
                   id.endsWith(typeSuffix) || id.includes(typeSuffix);
               });
 
-              // Deduplicate raw results to remove phantom old core records
-              const deduplicateByRatio = (arr: any[]) => {
-                const map = new Map<string, any>();
-                arr.forEach(res => {
-                  const key = res.ratioValue ? res.ratioValue : 'default';
-                  map.set(key, res);
+              // Extract retest/treated readings from retestHistory for this core
+              const retestReadings: any[] = [];
+              if (retestingTransformer.retestHistory && Array.isArray(retestingTransformer.retestHistory)) {
+                retestingTransformer.retestHistory.forEach((h: any) => {
+                  const readings = h.newTreatmentReadings || h.treatedReadings || h.readings || [];
+                  if (Array.isArray(readings)) {
+                    readings.forEach((r: any) => {
+                      const id = String(r.internalCoreNo || r.coreId || '').trim();
+                      const matchesId = !id || id === core.currentCoreId || id === String(core.coreNumber) || (suffix && id.endsWith(suffix)) || (typeSuffix && id.endsWith(typeSuffix));
+                      const isPsReading = normType.includes('ps') && (r.turnRatioError !== undefined || r.vk !== undefined || r.iexVk !== undefined);
+                      const isProtectionReading = (normType.includes('protect') || normType.includes('prt')) && (r.ratioError100 !== undefined || r.phaseError !== undefined || r.excitationCurrent !== undefined || r.compositeError !== undefined);
+                      const isMeteringReading = normType.includes('meter') && (r.rows !== undefined || r.r100 !== undefined);
+
+                      if (matchesId || isPsReading || isProtectionReading || isMeteringReading) {
+                        retestReadings.push(r);
+                      }
+                    });
+                  }
                 });
-                return Array.from(map.values());
-              };
-              
-              const coreResults = deduplicateByRatio(rawCoreResults);
+              }
+
+              // If retest readings exist in retestHistory, prioritize them over old stage history!
+              const coreResults = retestReadings.length > 0 ? retestReadings : rawCoreResults;
 
               // Check if core is failed or completed
               const tCoreType = (retestingTransformer.coreType || '').toUpperCase();
@@ -1187,77 +1293,109 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
               let isCompleted = false;
 
               if (coreResults.length > 0) {
-                if (core.coreType === 'metering') {
+                if (normType.includes('meter')) {
                   const hasAnyRows = coreResults.some((res: any) => res.rows && res.rows.length > 0);
                   if (hasAnyRows) {
                     hasTestResults = true;
                     testResultFailed = coreResults.some((res: any) =>
-                      res.rows && res.rows.length > 0 && res.rows.some((row: any) =>
+                      res.isPass === false || res.isPass === 'false' ||
+                      (res.rows && res.rows.length > 0 && res.rows.some((row: any) =>
                         row.r100_r_pass === false || row.r100_p_pass === false ||
-                        row.r25_r_pass === false || row.r25_p_pass === false
-                      )
+                        row.r25_r_pass === false || row.r25_p_pass === false ||
+                        row.r100_pass === false || row.p100_pass === false ||
+                        row.r25_pass === false || row.p25_pass === false ||
+                        row.r100_pass === 'false' || row.p100_pass === 'false' ||
+                        row.r25_pass === 'false' || row.p25_pass === 'false' ||
+                        row.isPass === false || row.isPass === 'false' ||
+                        (row.r100_reason && row.r100_reason !== 'OK' && row.r100_reason !== '') ||
+                        (row.r25_reason && row.r25_reason !== 'OK' && row.r25_reason !== '')
+                      ))
                     );
-                    isCompleted = coreResults.every((res: any) =>
+                    isCompleted = !testResultFailed && coreResults.every((res: any) =>
+                      res.isPass !== false && res.isPass !== 'false' &&
                       res.rows && res.rows.length > 0 && res.rows.every((row: any) =>
                         hasValue(row.r100) && hasValue(row.p100) && hasValue(row.r25) && hasValue(row.p25)
                       )
                     );
                   }
-                } else if (core.coreType === 'protection') {
-                  const latest = coreResults[coreResults.length - 1];
-                  if (latest && (hasValue(latest.ratioError100) || latest.isPass !== undefined)) {
-                    hasTestResults = true;
-                    testResultFailed = coreResults.some((res: any) => res.isPass === false);
-                    isCompleted = coreResults.every((res: any) =>
-                      hasValue(res.ratioError100) &&
-                      hasValue(res.resistance) &&
-                      (hasValue(res.secondaryLimitingVoltage) || hasValue(res.secondaryLimitingVtg))
-                    );
-                  }
-                } else if (core.coreType === 'ps') {
-                  const latest = coreResults[coreResults.length - 1];
-                  if (latest && (hasValue(latest.turnRatioError) || latest.isPass !== undefined)) {
-                    hasTestResults = true;
-                    testResultFailed = coreResults.some((res: any) => res.isPass === false);
-                    isCompleted = coreResults.every((res: any) =>
-                      hasValue(res.turnRatioError) && hasValue(res.vk) && hasValue(res.iexVk)
-                    );
-                  }
+                } else if (normType.includes('protect') || normType.includes('prt')) {
+                  hasTestResults = true;
+                  testResultFailed = coreResults.some((res: any) => {
+                    if (res.isPass === false || res.isPass === 'false') return true;
+                    if (res.reason && typeof res.reason === 'string' && res.reason.toLowerCase().includes('fail')) return true;
+                    if (res.ratioError100 || res.ratioError) {
+                      const rVal = Math.abs(parseFloat(res.ratioError100 || res.ratioError || '0'));
+                      if (!isNaN(rVal) && rVal > 1.0) return true;
+                    }
+                    if (res.phaseError) {
+                      const pVal = Math.abs(parseFloat(res.phaseError || '0'));
+                      if (!isNaN(pVal) && pVal > 60) return true;
+                    }
+                    return false;
+                  });
+                  isCompleted = !testResultFailed && coreResults.every((res: any) =>
+                    res.isPass !== false && res.isPass !== 'false' &&
+                    (hasValue(res.ratioError100) || hasValue(res.ratioError) || hasValue(res.ratio)) &&
+                    hasValue(res.phaseError)
+                  );
+                } else if (normType.includes('ps')) {
+                  hasTestResults = true;
+                  testResultFailed = coreResults.some((res: any) => {
+                    if (res.isPass === false || res.isPass === 'false') return true;
+                    if (res.reason && typeof res.reason === 'string' && res.reason.toLowerCase().includes('fail')) return true;
+                    if (res.turnRatioError && String(res.turnRatioError).trim() !== '') {
+                      const errVal = Math.abs(parseFloat(res.turnRatioError || '0'));
+                      if (!isNaN(errVal) && errVal > 0.25) return true;
+                    }
+                    return false;
+                  });
+                  isCompleted = !testResultFailed && coreResults.every((res: any) =>
+                    res.isPass !== false && res.isPass !== 'false' &&
+                    hasValue(res.turnRatioError)
+                  );
                 }
               }
 
-              // Determine metadata failure
+              // Determine metadata failure specifically for this core
               let recordSaysFailed = false;
+              const failureReasonLow = failureReason.toLowerCase();
               if (failureParamCoreId && (failureParamCoreId === core.currentCoreId || failureParamCoreId.endsWith(suffix))) {
                 recordSaysFailed = true;
-              } else if (failureReason.includes(`core ${core.coreNumber}`) || failureReason.includes(`core-${core.coreNumber}`)) {
+              } else if (failureReasonLow.includes(`core ${core.coreNumber}`) || failureReasonLow.includes(`core-${core.coreNumber}`)) {
                 recordSaysFailed = true;
-              } else if (tCoreType === cCoreType || (tCoreType.includes(cCoreType) && !['MULTIPLE', 'COMPLETE UNIT', 'PT_FINAL'].includes(tCoreType))) {
+              } else if (tCoreType.toLowerCase().includes(normType) || failureReasonLow.includes(normType)) {
                 recordSaysFailed = true;
               } else if (['MULTIPLE', 'COMPLETE UNIT', 'PT_FINAL'].includes(tCoreType)) {
-                const mentionsOtherCoreSpecifically = /core\s*[1-9]/i.test(failureReason);
+                const mentionsOtherCoreSpecifically = /core\s*[1-9]/i.test(failureReasonLow);
                 if (mentionsOtherCoreSpecifically) {
-                  if (failureReason.includes(`core ${core.coreNumber}`) || failureReason.includes(`core-${core.coreNumber}`)) {
+                  if (failureReasonLow.includes(`core ${core.coreNumber}`) || failureReasonLow.includes(`core-${core.coreNumber}`)) {
                     recordSaysFailed = true;
                   }
                 } else {
-                  if (!hasTestResults) {
-                    recordSaysFailed = true;
-                  }
+                  recordSaysFailed = true;
                 }
               }
 
               let isCoreFailed = false;
+              const isReplaced = retestingTransformer.retestHistory && Array.isArray(retestingTransformer.retestHistory) &&
+                retestingTransformer.retestHistory.some((h: any) => h.action === 'Core Replaced' && (h.newCoreId === core.currentCoreId || h.coreNumber === core.coreNumber));
+
               if (hasTestResults) {
-                isCoreFailed = testResultFailed;
-              } else {
-                const isReplaced = retestingTransformer.retestHistory && Array.isArray(retestingTransformer.retestHistory) &&
-                  retestingTransformer.retestHistory.some((h: any) => h.action === 'Core Replaced' && (h.newCoreId === core.currentCoreId || h.coreNumber === core.coreNumber));
-                if (isReplaced) {
-                  isCoreFailed = false;
+                // When test results exist for a core (whether original or replaced):
+                // If the test values fail accuracy/pass checks, mark as failed!
+                if (testResultFailed) {
+                  isCoreFailed = true;
+                } else if (!isReplaced && recordSaysFailed && !isCompleted) {
+                  isCoreFailed = true;
                 } else {
-                  isCoreFailed = recordSaysFailed;
+                  isCoreFailed = false;
                 }
+              } else if (isReplaced) {
+                // Untested freshly replaced core
+                isCoreFailed = false;
+              } else {
+                // Untested original core
+                isCoreFailed = recordSaysFailed;
               }
 
               if (isCoreFailed) isCompleted = false;
@@ -1718,6 +1856,7 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                             onClick={() => setReasonModalData({ 
                               isOpen: true, 
                               reason: item.failureReason || '', 
+                              remark: item.remark || '',
                               serialNo: item.transformerUniqueId || (item.transformerId && item.transformerId.uniqueId) || '-' 
                             })}
                           >
@@ -1763,12 +1902,11 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                           const transformerObj = item.transformerId;
                           const orderObj = item.orderId;
 
-                          // Strict conditions for enabling Approve button in UI:
                           const isAllCompleted = transformerObj && orderObj ? checkIsAllCoresCompleted(transformerObj, orderObj, item.stage) : false;
-                          const hasFailures = transformerObj && orderObj ? checkHasFailures(transformerObj, orderObj, item.stage) : false;
+                          const hasFailures = transformerObj && orderObj ? checkHasFailures(transformerObj, orderObj, item.stage, item) : true;
 
                           return (
-                            <div className="flex items-center justify-center gap-2.5">
+                            <div className="flex items-center justify-center gap-2">
                               <Button
                                 onClick={() => {
                                   if (!item.transformerId) {
@@ -1777,17 +1915,17 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                                   }
                                   setRetestingTransformer(item);
                                 }}
-                                className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-4 flex items-center justify-center gap-1.5 rounded-md shadow-sm transition-all hover:scale-105 active:scale-95 font-semibold"
+                                className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-3 flex items-center justify-center gap-1.5 rounded-md shadow-sm transition-all font-semibold"
                                 size="sm"
                               >
                                 <RefreshCw className="w-3.5 h-3.5" />
                                 Treat / Retest
                               </Button>
 
-                              {item.status !== 'FAILED' && isAllCompleted && !hasFailures && (
+                              {isAllCompleted && !hasFailures && (
                                 <Button
                                   onClick={() => handleApproveTransformerDirect(item)}
-                                  className="bg-green-600 hover:bg-green-700 text-white text-xs h-8 px-4 flex items-center justify-center gap-1.5 rounded-md shadow-sm transition-all hover:scale-105 active:scale-95 font-semibold"
+                                  className="bg-green-600 hover:bg-green-700 text-white text-xs h-8 px-3 flex items-center justify-center gap-1.5 rounded-md shadow-sm transition-all font-semibold"
                                   size="sm"
                                 >
                                   <CheckCircle2 className="w-3.5 h-3.5" />
@@ -1795,10 +1933,10 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                                 </Button>
                               )}
 
-                              {item.status !== 'FAILED' && isAllCompleted && hasFailures && (
+                              {isAllCompleted && hasFailures && (
                                 <Button
                                   onClick={() => handleRequestStrictApprovalDirect(item)}
-                                  className="bg-red-600 hover:bg-red-700 text-white text-xs h-8 px-4 flex items-center justify-center gap-1.5 rounded-md shadow-sm transition-all hover:scale-105 active:scale-95 font-semibold"
+                                  className="bg-red-600 hover:bg-red-700 text-white text-xs h-8 px-3 flex items-center justify-center gap-1.5 rounded-md shadow-sm transition-all font-semibold"
                                   size="sm"
                                 >
                                   <CheckCircle2 className="w-3.5 h-3.5" />
@@ -1923,15 +2061,25 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
               </p>
             </div>
             
-            <div className="bg-red-50/50 border border-red-100 rounded-lg p-4 my-2 max-h-[60vh] overflow-y-auto">
-              {reasonModalData.reason ? (
-                <ul className="list-disc pl-5 space-y-2 text-sm text-red-800 font-medium">
-                  {reasonModalData.reason.split(' | ').map((r, i) => (
-                    <li key={i}>{r}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-gray-500 italic">No reason provided.</p>
+            <div className="space-y-4 my-2 max-h-[60vh] overflow-y-auto">
+              <div className="bg-red-50/50 border border-red-100 rounded-lg p-4">
+                <h4 className="text-xs font-bold text-red-900 uppercase tracking-wider mb-2">Failure Reason</h4>
+                {reasonModalData.reason ? (
+                  <ul className="list-disc pl-5 space-y-1.5 text-sm text-red-800 font-medium">
+                    {reasonModalData.reason.split(' | ').map((r: string, i: number) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">No reason provided.</p>
+                )}
+              </div>
+
+              {reasonModalData.remark && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider mb-1">Tester Remark</h4>
+                  <p className="text-sm text-amber-900 font-medium whitespace-pre-wrap">{reasonModalData.remark}</p>
+                </div>
               )}
             </div>
 

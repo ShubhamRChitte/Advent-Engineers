@@ -12,17 +12,26 @@ const authLimiter = rateLimit({
 });
 
 // Helper to map designation/department to frontend role
-const getMappedRole = (user) => {
-    const role = user.designation === 'Admin' ? 'admin' :
-        (user.designation === 'Entry Operator' || user.designation === 'Entry Level') ? 'entry-operator' :
-            user.department === 'Core Test' ? 'core-tester' :
-                user.department === 'Secondary Test' ? 'secondary-tester' :
-                    user.department === 'Primary Test' ? 'after-primary-tester' :
-                        user.department === 'Final Test' ? 'final-tester' : 
-                            user.department === 'PT Test' ? 'pt-tester' :
-                                user.department === 'PT Pretest' ? 'pt-pretester' :
-                                    user.department === 'Heating' ? 'heating_operator' : 'viewer';
-    return role;
+const getMappedRole = (user, targetDept) => {
+    if (user.designation === 'Admin') return 'admin';
+    if (user.designation === 'Entry Operator' || user.designation === 'Entry Level') return 'entry-operator';
+    
+    const userDepts = Array.isArray(user.departments) && user.departments.length > 0 
+      ? user.departments 
+      : (Array.isArray(user.department) ? user.department : [user.department].filter(Boolean));
+
+    const deptToUse = targetDept || userDepts[0] || user.department;
+    
+    switch (deptToUse) {
+      case 'Core Test': return 'core-tester';
+      case 'Secondary Test': return 'secondary-tester';
+      case 'Primary Test': return 'after-primary-tester';
+      case 'Final Test': return 'final-tester';
+      case 'PT Test': return 'pt-tester';
+      case 'PT Pretest': return 'pt-pretester';
+      case 'Heating': return 'heating_operator';
+      default: return 'viewer';
+    }
 };
 
 // Login Route
@@ -35,6 +44,9 @@ router.post("/login", authLimiter, (req, res, next) => {
             if (err) return next(err);
 
             const role = getMappedRole(user);
+            const userDepts = Array.isArray(user.departments) && user.departments.length > 0 
+              ? user.departments 
+              : (Array.isArray(user.department) ? user.department : [user.department].filter(Boolean));
 
             // Generate JWT Token
             const token = jwt.sign(
@@ -57,6 +69,7 @@ router.post("/login", authLimiter, (req, res, next) => {
                         employeeId: user.employeeId,
                         designation: user.designation,
                         department: user.department,
+                        departments: userDepts,
                         role: role
                     }
                 });
@@ -76,7 +89,24 @@ router.post("/logout", (req, res, next) => {
 // Check Auth Status (Optional helper for frontend)
 router.get("/check-auth", (req, res) => {
     if (req.isAuthenticated()) {
-        res.status(200).json({ isAuthenticated: true, user: req.user });
+        const user = req.user;
+        const role = getMappedRole(user);
+        const userDepts = Array.isArray(user.departments) && user.departments.length > 0 
+          ? user.departments 
+          : (Array.isArray(user.department) ? user.department : [user.department].filter(Boolean));
+
+        res.status(200).json({
+            isAuthenticated: true,
+            user: {
+                id: user._id,
+                fullName: user.fullName,
+                employeeId: user.employeeId,
+                designation: user.designation,
+                department: user.department,
+                departments: userDepts,
+                role: role
+            }
+        });
     } else {
         res.status(200).json({ isAuthenticated: false });
     }
@@ -93,8 +123,11 @@ router.get("/testers", isAuthenticated, async (req, res) => {
         // Fetch all users and filter or just fetch all and frontend filters
         const users = await UserModel.find({
             activeStatus: true,
-            department: { $in: ['Core Test', 'Secondary Test', 'Primary Test', 'Final Test', 'PT Test', 'PT Pretest'] }
-        }).select("fullName designation department employeeId");
+            $or: [
+                { department: { $in: ['Core Test', 'Secondary Test', 'Primary Test', 'Final Test', 'PT Test', 'PT Pretest'] } },
+                { departments: { $in: ['Core Test', 'Secondary Test', 'Primary Test', 'Final Test', 'PT Test', 'PT Pretest'] } }
+            ]
+        }).select("fullName designation department departments employeeId");
 
         res.status(200).json({ success: true, users });
     } catch (error) {
@@ -159,13 +192,20 @@ router.post("/add-employee", authLimiter, isAdmin, async (req, res) => {
         // Hash Password
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        const depts = Array.isArray(req.body.departments) && req.body.departments.length > 0
+          ? req.body.departments
+          : (typeof department === 'string' ? department.split(',').map(d => d.trim()).filter(Boolean) : [department].filter(Boolean));
+
+        const primaryDeptStr = depts.join(', ') || department || 'Operations';
+
         const newUser = new UserModel({
             employeeId,
             fullName,
             mobileNumber,
             emailId,
             designation,
-            department,
+            department: primaryDeptStr,
+            departments: depts,
             dateOfJoining,
             employmentType,
             transformerSkills,
@@ -224,6 +264,16 @@ router.put("/update-employee/:id", isAdmin, async (req, res) => {
         const bcrypt = require("bcryptjs");
         const { id } = req.params;
         const updateData = { ...req.body };
+
+        if (updateData.departments || updateData.department) {
+            const depts = Array.isArray(updateData.departments) && updateData.departments.length > 0
+              ? updateData.departments
+              : (typeof updateData.department === 'string' ? updateData.department.split(',').map(d => d.trim()).filter(Boolean) : [updateData.department].filter(Boolean));
+            updateData.departments = depts;
+            if (depts.length > 0) {
+              updateData.department = depts.join(', ');
+            }
+        }
 
         // If password is provided, hash it
         if (updateData.password) {

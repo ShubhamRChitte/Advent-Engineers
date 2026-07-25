@@ -261,7 +261,9 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
                     // We call notifyNextStage which will handle creating notifications for assigned testers
                     // But we'll override the message style in the service or just call it here manually
                     // To follow the user's request for "only order information"
-                    const nextStageAssignments = order.assignments.filter(a => a.stage === nextStage);
+                    const nextStageAssignments = Array.isArray(order.assignments) 
+                        ? order.assignments.filter(a => a.stage === nextStage)
+                        : [];
                     for (const assignment of nextStageAssignments) {
                         await NotificationModel.create({
                             recipientName: assignment.testerName,
@@ -274,6 +276,11 @@ router.put('/:uniqueId/approve-stage', isAuthenticated, async (req, res) => {
                     }
                     console.log(`[NOTIFICATION] First unit reached ${nextStage}. Assignment notification sent for ${order.jobId}.`);
                 }
+            }
+
+            // Always ensure order.currentStage is updated to nextStage if unit reached nextStage
+            if (nextStage && nextStage !== 'admin_review' && nextStage !== 'shipped') {
+                order.currentStage = nextStage;
             }
 
             // 4. GLOBAL ORDER STAGE TRANSITION (If ALL units are done)

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
+import { Card } from '../ui/card';
 import { ArrowLeft, Save, Printer, AlertTriangle, ChevronRight } from 'lucide-react';
 import { FinalTransformer } from './FinalTransformersList';
 import { toast } from 'sonner';
@@ -166,7 +167,10 @@ export function FinalTestReport({
     }
   };
 
-  const handleSave = async (skipValidation = false) => {
+  const [isFailModalOpen, setIsFailModalOpen] = useState(false);
+  const [failRemark, setFailRemark] = useState('');
+
+  const handleSave = async (skipValidation = false, extraPayload: any = {}) => {
     setSaving(true);
     try {
       if (hasFailures && !skipValidation) {
@@ -186,7 +190,8 @@ export function FinalTestReport({
         hvBetweenCore,
         ovitTest,
         testerName: testerName,
-        reportDate: new Date()
+        reportDate: new Date(),
+        ...extraPayload
       };
 
       const response = await axios.post(`/final/${encodeURIComponent(transformer.uniqueId)}`, payload, {
@@ -209,14 +214,15 @@ export function FinalTestReport({
     }
   };
 
-  const handleMarkAsFailed = async () => {
+  const handleMarkAsFailed = () => {
     if (readOnly) return;
+    setIsFailModalOpen(true);
+  };
 
+  const handleConfirmMarkAsFailed = async () => {
     try {
-      // Persist the entered test values to the transformer's history first
-      // The backend finalTestRoutes.js will automatically detect the failure limits
-      // and log it to FailedTransformerModel with coreType: "COMPLETE UNIT"
-      const success = await handleSave(true);
+      const success = await handleSave(true, { remark: failRemark.trim() });
+      setIsFailModalOpen(false);
 
       if (success) {
         toast.success("Transformer added to failed list successfully.");
@@ -692,6 +698,45 @@ export function FinalTestReport({
                 </Button>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Add to Failed Transformer Modal */}
+        {isFailModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <Card className="w-full max-w-md p-6 bg-white shadow-2xl rounded-xl border border-gray-100 flex flex-col gap-4 animate-in fade-in duration-200">
+              <div>
+                <h3 className="text-lg font-bold text-red-700 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                  Add Transformer to Failed List
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Transformer: <span className="font-mono font-bold text-gray-800">{transformer.uniqueId}</span>
+                </p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-gray-700">Optional Tester Remark / Note:</label>
+                <textarea
+                  value={failRemark}
+                  onChange={(e) => setFailRemark(e.target.value)}
+                  placeholder="Enter optional remark or failure notes..."
+                  rows={3}
+                  className="w-full p-2.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:outline-none"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2 border-t">
+                <Button variant="outline" size="sm" onClick={() => setIsFailModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold"
+                  onClick={handleConfirmMarkAsFailed}
+                >
+                  Confirm & Add to Failed
+                </Button>
+              </div>
+            </Card>
           </div>
         )}
 

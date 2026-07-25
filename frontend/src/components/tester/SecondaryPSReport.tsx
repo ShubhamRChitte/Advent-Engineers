@@ -558,6 +558,7 @@ import React, { useState, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { Card } from '../ui/card';
 import { ArrowLeft, Save, Printer, AlertTriangle, ChevronLeft, ChevronRight, CheckCircle, RefreshCw, Loader2, Wrench, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Transformer } from './SecondaryTransformersList';
@@ -718,43 +719,24 @@ export function SecondaryPSReport({
     }));
 
     // Fast Load from props
-    let myResults = [];
+    let myResults: any[] = [];
 
-    const shouldLoadFromTreated = isFailedSection && failedStatus === 'TREATED' && (isFailedCore || hasBeenRetested);
-    if (shouldLoadFromTreated) {
-      const secHistory = transformer.testHistory?.secondary_test;
-      if (secHistory?.ps_results?.length > 0) {
-        myResults = secHistory.ps_results.filter((res: any) =>
-          res.internalCoreNo === coreId || res.coreId === coreId
-        );
-        if (myResults.length === 0 && secHistory.psCoreId === coreId) {
-          myResults = secHistory.ps_results;
-        }
+    const isMatch = (res: any, targetId: string) => {
+      if (!res) return false;
+      const id = String(res.internalCoreNo || res.coreId || '').trim();
+      const target = String(targetId || '').trim();
+      if (!id || !target) return false;
+      if (id === target || id.endsWith(target) || target.endsWith(id)) return true;
+      if (coreNumber) {
+        const suffix = `-${String(coreNumber).padStart(3, '0')}`;
+        if (id.endsWith(suffix) || target.endsWith(suffix) || id === String(coreNumber)) return true;
       }
-    }
+      return false;
+    };
 
-    if (myResults.length === 0) {
-      const stageHistory = transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory] as any;
-      if (stageHistory?.ps_results?.length > 0) {
-        myResults = stageHistory.ps_results.filter((res: any) =>
-          res.internalCoreNo === coreId || res.coreId === coreId
-        );
-        if (myResults.length === 0 && transformer.testHistory?.secondary_test?.psCoreId === coreId) {
-          myResults = stageHistory.ps_results;
-        }
-      }
-    }
-
-    if (myResults.length === 0 && sourceStage && sourceStage !== stage) {
-      const sourceHistory = transformer.testHistory?.[`${sourceStage}_test` as keyof typeof transformer.testHistory] as any;
-      if (sourceHistory?.ps_results?.length > 0) {
-        myResults = sourceHistory.ps_results.filter((res: any) =>
-          res.internalCoreNo === coreId || res.coreId === coreId
-        );
-        if (myResults.length === 0 && transformer.testHistory?.secondary_test?.psCoreId === coreId) {
-          myResults = sourceHistory.ps_results;
-        }
-      }
+    const stageHistory = transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory] as any;
+    if (stageHistory?.ps_results?.length > 0) {
+      myResults = stageHistory.ps_results.filter((res: any) => isMatch(res, coreId));
     }
 
     if (myResults.length > 0) {
@@ -1029,43 +1011,36 @@ export function SecondaryPSReport({
           if (isCancelled) return;
         }
 
-        const currentHasBeenRetested = currentRetestHistory && currentRetestHistory.length > 0;
-        const shouldLoadFromTreated = isFailedSection && currentFailedStatus === 'TREATED' && (isFailedCore || currentHasBeenRetested);
-        
-        if (shouldLoadFromTreated) {
-          const secHistory = freshTransformer?.testHistory?.secondary_test;
-          if (secHistory?.ps_results?.length > 0) {
-            myResults = secHistory.ps_results.filter((res: any) =>
-              res.internalCoreNo === targetCoreId || res.coreId === targetCoreId
-            );
-            if (myResults.length === 0 && secHistory.psCoreId === targetCoreId) {
-              myResults = secHistory.ps_results;
-            }
+        const isMatch = (res: any, targetId: string) => {
+          if (!res) return false;
+          const id = String(res.internalCoreNo || res.coreId || '').trim();
+          const target = String(targetId || '').trim();
+          if (!id || !target) return false;
+          if (id === target || id.endsWith(target) || target.endsWith(id)) return true;
+          if (coreNumber) {
+            const suffix = `-${String(coreNumber).padStart(3, '0')}`;
+            if (id.endsWith(suffix) || target.endsWith(suffix) || id === String(coreNumber)) return true;
+          }
+          return false;
+        };
+
+        // Priority 1: Check if core was retested / updated in Failed Transformers section (retestHistory)
+        if (isFailedSection && currentRetestHistory && Array.isArray(currentRetestHistory)) {
+          const latestRetest = currentRetestHistory.slice().reverse().find((h: any) =>
+            h.newTreatmentReadings && Array.isArray(h.newTreatmentReadings) &&
+            h.newTreatmentReadings.some((r: any) => isMatch(r, targetCoreId))
+          );
+          if (latestRetest) {
+            myResults = latestRetest.newTreatmentReadings.filter((res: any) => isMatch(res, targetCoreId));
           }
         }
 
+        // Priority 2: If no retested readings saved yet, fetch strictly from stage history where it failed
         if (myResults.length === 0) {
           const stageKey = `${stage}_test` as keyof typeof freshTransformer.testHistory;
           const stageHistory = freshTransformer?.testHistory?.[stageKey] as any;
           if (stageHistory?.ps_results?.length > 0) {
-            myResults = stageHistory.ps_results.filter((res: any) =>
-              res.internalCoreNo === targetCoreId || res.coreId === targetCoreId
-            );
-            if (myResults.length === 0 && freshTransformer.testHistory?.secondary_test?.psCoreId === targetCoreId) {
-              myResults = stageHistory.ps_results;
-            }
-          }
-        }
-
-        if (myResults.length === 0 && sourceStage && sourceStage !== stage) {
-          const sourceHistory = freshTransformer?.testHistory?.[`${sourceStage}_test`] as any;
-          if (sourceHistory?.ps_results?.length > 0) {
-            myResults = sourceHistory.ps_results.filter((res: any) =>
-              res.internalCoreNo === targetCoreId || res.coreId === targetCoreId
-            );
-            if (myResults.length === 0 && freshTransformer.testHistory?.secondary_test?.psCoreId === targetCoreId) {
-              myResults = sourceHistory.ps_results;
-            }
+            myResults = stageHistory.ps_results.filter((res: any) => isMatch(res, targetCoreId));
           }
         }
 
@@ -1094,42 +1069,6 @@ export function SecondaryPSReport({
               return row;
             });
           });
-        } else if (stage === 'secondary') {
-          const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
-          const orderId = order?._id || order;
-          const fallbackRes = orderId ? await axios.get(`/secondary-core-tests/ps/${targetCoreId}?orderId=${orderId}`, { withCredentials: true }) : null;
-          if (isCancelled) return;
-          if (fallbackRes?.data?.success && fallbackRes.data.data) {
-            const testDoc = fallbackRes.data.data;
-            if (testDoc.ps_results && testDoc.ps_results.length > 0) {
-              setPsData((prevData: PSRow[]) => {
-                const base = prevData.length > 0 ? prevData : initialBlank;
-                return base.map((row: PSRow, index: number) => {
-                  let savedRow = testDoc.ps_results.find((r: any) => r.ratioValue === row.ratioValue);
-                  if (!savedRow && testDoc.ps_results[index]) {
-                    savedRow = testDoc.ps_results[index];
-                  }
-                  if (savedRow) {
-                    if (savedRow.accuracyClass && savedRow.accuracyClass !== 'N/A' && savedRow.accuracyClass !== accuracyClass) {
-                      setAccuracyClass(savedRow.accuracyClass);
-                    }
-                    return {
-                      ...row,
-                      turnRatioError: savedRow.turnRatioError,
-                      resistance: savedRow.resistance,
-                      vk: savedRow.vk,
-                      vkVal: savedRow.vkVal || (savedRow.vk && !isNaN(parseFloat(savedRow.vk)) ? (parseFloat(savedRow.vk) * 1.1).toFixed(2) : ''),
-                      iexVk: savedRow.iexVk,
-                      iex11Vk: savedRow.iex11Vk
-                    };
-                  }
-                  return row;
-                });
-              });
-              return;
-            }
-          }
-          if (!isCancelled) setPsData(initialBlank);
         } else {
           if (!isCancelled) setPsData(initialBlank);
         }
@@ -1338,9 +1277,15 @@ export function SecondaryPSReport({
     });
   }, [psData, psLimit, isFailedCore, failedStatus, selectedCoreId, coreId]);
 
-  const handleMarkAsFailed = async () => {
-    if (readOnly) return;
+  const [isFailModalOpen, setIsFailModalOpen] = useState(false);
+  const [failRemark, setFailRemark] = useState('');
 
+  const handleMarkAsFailed = () => {
+    if (readOnly) return;
+    setIsFailModalOpen(true);
+  };
+
+  const handleConfirmMarkAsFailed = async () => {
     // Build automated failure reasons dynamically from failing rows
     let reasons: string[] = [];
     const limitRatio = psLimit?.psRatioErrorLimit ?? 0.25;
@@ -1381,6 +1326,7 @@ export function SecondaryPSReport({
         testType: stage === 'primary' ? "After Primary PS" : stage === 'final' ? "Final PS" : "Secondary PS",
         failureParameters: { failureStage: `${stage}_ps_test`, dynamicValues: psData, coreId: selectedCoreId },
         failureReason: finalReason,
+        remark: failRemark.trim() || undefined,
         reportedBy: testerName,
         stage: stage === 'primary' ? "PRIMARY_TESTING" : stage === 'final' ? "FINAL_TESTING" : "SECONDARY_TESTING",
         status: "FAILED"
@@ -1389,6 +1335,7 @@ export function SecondaryPSReport({
       console.log("[DEBUG] Frontend Failed Transformer Payload:", payload);
 
       const response = await axios.post(`/failed-transformers`, payload, { withCredentials: true });
+      setIsFailModalOpen(false);
       if (response.data.success) {
         toast.success(response.data.message || "Transformer marked as failed successfully.");
         if (onRefresh) onRefresh();
@@ -1401,6 +1348,44 @@ export function SecondaryPSReport({
       toast.error(error.response?.data?.message || "Error adding to failed transformers");
     }
   };
+
+  const failModalJSX = isFailModalOpen && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 no-print">
+      <Card className="w-full max-w-md p-6 bg-white shadow-2xl rounded-xl border border-gray-100 flex flex-col gap-4 animate-in fade-in duration-200">
+        <div>
+          <h3 className="text-lg font-bold text-red-700 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            Add Transformer to Failed List
+          </h3>
+          <p className="text-xs text-gray-500 mt-1">
+            Transformer: <span className="font-mono font-bold text-gray-800">{transformer.uniqueId}</span>
+          </p>
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-semibold text-gray-700">Optional Tester Remark / Note:</label>
+          <textarea
+            value={failRemark}
+            onChange={(e) => setFailRemark(e.target.value)}
+            placeholder="Enter optional remark or failure notes..."
+            rows={3}
+            className="w-full p-2.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:outline-none"
+          />
+        </div>
+        <div className="flex justify-end gap-3 pt-2 border-t">
+          <Button variant="outline" size="sm" onClick={() => setIsFailModalOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            className="bg-red-600 hover:bg-red-700 text-white font-bold"
+            onClick={handleConfirmMarkAsFailed}
+          >
+            Confirm & Add to Failed
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
 
   if (isUnified) {
     return (
@@ -1501,18 +1486,34 @@ export function SecondaryPSReport({
       <div className="print-container w-[210mm] min-w-[210mm] print:w-full print:min-w-0 print:max-w-full secondary-print-page">
         {!readOnly && (
           <div className="flex items-center justify-between no-print mb-4 w-full">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={async () => {
-                if (!readOnly && onPrev) await handleDatabaseSave(false);
-                if (onPrev) onPrev();
-              }}
-              disabled={saving || !onPrev}
-              className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold disabled:opacity-50"
-            >
-              <ChevronLeft className="w-4 h-4" /> Previous Core
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={async () => {
+                  if (!readOnly) await handleDatabaseSave(false);
+                  onBack();
+                }}
+                disabled={saving}
+                className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold"
+              >
+                <ArrowLeft className="w-4 h-4" /> Back to Testing
+              </Button>
+              {onPrev && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={async () => {
+                    if (!readOnly) await handleDatabaseSave(false);
+                    onPrev();
+                  }}
+                  disabled={saving || !onPrev}
+                  className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold disabled:opacity-50"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Previous Core
+                </Button>
+              )}
+            </div>
             <div className="flex gap-2">
               {stage === 'secondary' && !readOnly && hasFailures && (
                 <Button
@@ -1841,7 +1842,19 @@ export function SecondaryPSReport({
     </div>
 
       {!readOnly && (
-        <div className="no-print mt-6 mb-8 flex justify-center gap-3">
+        <div className="no-print mt-6 mb-8 flex justify-center items-center gap-3">
+          <Button
+            onClick={async () => {
+              await handleDatabaseSave(false);
+              onBack();
+            }}
+            disabled={saving}
+            variant="outline"
+            className="border-slate-300 text-slate-700 hover:bg-slate-100 px-8 py-2.5 font-semibold text-sm shadow-sm gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Testing
+          </Button>
           <Button
             onClick={() => handleDatabaseSave(false)}
             disabled={saving}
@@ -1959,6 +1972,7 @@ export function SecondaryPSReport({
           </div>
         </div>
       )}
+      {failModalJSX}
     </div>
   );
 }

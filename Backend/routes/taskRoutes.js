@@ -55,20 +55,42 @@ const { OrderModel } = require('../models/OrderModel');
 router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
   try {
     const user = req.user;
-    const stageMap = {
+    const roleStageMap = {
+      "core-tester": "core",
+      "secondary-tester": "secondary",
+      "after-primary-tester": "primary",
+      "final-tester": "final",
+      "pt-tester": "pt",
+      "pt-pretester": "pt-pretest",
+      "heating_operator": "heating"
+    };
+
+    const deptStageMap = {
       "Core Test": "core",
       "Secondary Test": "secondary",
       "Primary Test": "primary",
       "Final Test": "final",
-      "PT Test": "pt"
+      "PT Test": "pt",
+      "PT Pretest": "pt-pretest",
+      "Heating": "heating"
     };
 
-    let stageKey = stageMap[user.department];
-    console.log("ASSIGNEED ORDERS HIT: user=" + user.employeeId + ", dept=" + user.department + ", stageKey=" + stageKey);
+    const userDepts = Array.isArray(user.departments) && user.departments.length > 0 
+      ? user.departments 
+      : (Array.isArray(user.department) ? user.department : [user.department].filter(Boolean));
+
+    let stageKey = req.query.stage || roleStageMap[user.role] || deptStageMap[user.department];
+    if (!stageKey && userDepts.length > 0) {
+      for (const d of userDepts) {
+        if (deptStageMap[d]) { stageKey = deptStageMap[d]; break; }
+      }
+    }
+    console.log("ASSIGNEED ORDERS HIT: user=" + user.employeeId + ", role=" + user.role + ", depts=" + JSON.stringify(userDepts) + ", stageKey=" + stageKey);
 
     // Admin/Management Bypass
     const adminDepartments = ["Management", "Office", "Admin"];
-    if (adminDepartments.includes(user.department) || user.designation === "Admin") {
+    const isAdminUser = user.designation === "Admin" || userDepts.some(d => adminDepartments.includes(d));
+    if (isAdminUser) {
       const query = req.query.stage ? { currentStage: req.query.stage } : { currentStage: "core" };
       if (req.query.type === 'active') {
         query.approved = { $ne: true };
@@ -89,7 +111,15 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
     // 1. Identify the Assignment Field
     // Now querying the TRANSFORMER's assignments object directly
     const assignmentField = `assignments.${stageKey}_tester`;
-    const namesToCheck = [user.name, user.fullName, (user.name || '').trim(), (user.fullName || '').trim()].filter(Boolean);
+    const namesToCheck = [
+      user.name,
+      user.fullName,
+      user.fullName && user.employeeId ? `${user.fullName} (${user.employeeId})` : null,
+      user.fullName && user.employeeId ? `${user.fullName} (${user.employeeId.toLowerCase()})` : null,
+      user.fullName && user.employeeId ? `${user.fullName} (${user.employeeId.toUpperCase()})` : null,
+      (user.name || '').trim(),
+      (user.fullName || '').trim()
+    ].filter(Boolean);
 
     // Use $in to match any variation of the user's name
     // Also Ensure currentStage matches the user's department/role stage
@@ -130,50 +160,6 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
       }
       orderToUnitMap[oId].push(t.uniqueId);
     });
-
-    if (stageKey === 'primary') {
-      try {
-        const { SecondaryMeteringTestModel } = require('../models/SecondaryMeteringTestModel');
-        const { SecondaryPSTestModel } = require('../models/SecondaryPSTestModel');
-        const { SecondaryProtectionTestModel } = require('../models/SecondaryProtectionTestModel');
-
-        const [secM, secPS, secProt, secTrans] = await Promise.all([
-          SecondaryMeteringTestModel.distinct('orderId'),
-          SecondaryPSTestModel.distinct('orderId'),
-          SecondaryProtectionTestModel.distinct('orderId'),
-          TransformerModel.find({
-            $or: [
-              { 'testHistory.secondary_test.metering_results.0': { $exists: true } },
-              { 'testHistory.secondary_test.ps_results.0': { $exists: true } },
-              { 'testHistory.secondary_test.protection_results.0': { $exists: true } }
-            ]
-          }).select('orderId uniqueId').lean()
-        ]);
-
-        const secOrderIds = [
-          ...secM.map(id => id ? id.toString() : ''),
-          ...secPS.map(id => id ? id.toString() : ''),
-          ...secProt.map(id => id ? id.toString() : ''),
-          ...secTrans.map(t => t.orderId ? t.orderId.toString() : '')
-        ].filter(Boolean);
-
-        secOrderIds.forEach(oId => {
-          if (!orderToUnitMap[oId]) {
-            orderToUnitMap[oId] = [];
-          }
-        });
-        secTrans.forEach(t => {
-          if (t.orderId && t.uniqueId) {
-            const oId = t.orderId.toString();
-            if (!orderToUnitMap[oId].includes(t.uniqueId)) {
-              orderToUnitMap[oId].push(t.uniqueId);
-            }
-          }
-        });
-      } catch (secErr) {
-        console.error("Error including secondary tested orders for Primary stage:", secErr);
-      }
-    }
 
     const activeOrderIds = Object.keys(orderToUnitMap);
 
@@ -223,11 +209,6 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
         _id: { $in: activeOrderIds },
         isApproved: true
       };
-
-      // Special case: If user override stage is provided
-      if (req.query.stage) {
-        finalOrderQuery.currentStage = req.query.stage;
-      }
     } else if (filterType === 'history') {
       finalOrderQuery = {
         $or: [

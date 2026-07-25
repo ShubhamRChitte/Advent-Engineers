@@ -176,6 +176,7 @@ router.post('/:id', isAuthenticated, async (req, res) => {
                     testType: "Final Testing",
                     failureParameters: { failedStage },
                     failureReason: failureReason,
+                    remark: payload.remark || undefined,
                     reportedBy: testerName,
                     stage: "FINAL_TESTING",
                     status: "FAILED"
@@ -183,6 +184,7 @@ router.post('/:id', isAuthenticated, async (req, res) => {
                 await failedRecord.save();
             } else {
                 existingFailure.failureReason = failureReason;
+                if (payload.remark !== undefined) existingFailure.remark = payload.remark;
                 existingFailure.reportedBy = testerName;
                 existingFailure.status = "FAILED";
                 await existingFailure.save();

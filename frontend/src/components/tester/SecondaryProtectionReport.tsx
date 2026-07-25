@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { Card } from '../ui/card';
 import { ArrowLeft, Save, Printer, AlertTriangle, ChevronLeft, ChevronRight, CheckCircle, RefreshCw, Loader2, Wrench, Search } from 'lucide-react';
 import { Transformer } from './SecondaryTransformersList';
 import { toast } from 'sonner';
@@ -459,43 +460,36 @@ export function SecondaryProtectionReport({
           if (isCancelled) return;
         }
 
-        const currentHasBeenRetested = currentRetestHistory && currentRetestHistory.length > 0;
-        const shouldLoadFromTreated = isFailedSection && currentFailedStatus === 'TREATED' && (isFailedCore || currentHasBeenRetested);
-        
-        if (shouldLoadFromTreated) {
-          const secHistory = freshTransformer.testHistory?.secondary_test;
-          if (secHistory?.protection_results?.length > 0) {
-            myResults = secHistory.protection_results.filter((res: any) =>
-              res.internalCoreNo === targetCoreId || res.coreId === targetCoreId
-            );
-            if (myResults.length === 0 && secHistory.protectionCoreId === targetCoreId) {
-              myResults = secHistory.protection_results;
-            }
+        const isMatch = (res: any, targetId: string) => {
+          if (!res) return false;
+          const id = String(res.internalCoreNo || res.coreId || '').trim();
+          const target = String(targetId || '').trim();
+          if (!id || !target) return false;
+          if (id === target || id.endsWith(target) || target.endsWith(id)) return true;
+          if (coreNumber) {
+            const suffix = `-${String(coreNumber).padStart(3, '0')}`;
+            if (id.endsWith(suffix) || target.endsWith(suffix) || id === String(coreNumber)) return true;
+          }
+          return false;
+        };
+
+        // Priority 1: Check if core was retested / updated in Failed Transformers section (retestHistory)
+        if (isFailedSection && currentRetestHistory && Array.isArray(currentRetestHistory)) {
+          const latestRetest = currentRetestHistory.slice().reverse().find((h: any) =>
+            h.newTreatmentReadings && Array.isArray(h.newTreatmentReadings) &&
+            h.newTreatmentReadings.some((r: any) => isMatch(r, targetCoreId))
+          );
+          if (latestRetest) {
+            myResults = latestRetest.newTreatmentReadings.filter((res: any) => isMatch(res, targetCoreId));
           }
         }
 
+        // Priority 2: If no retested readings saved yet, fetch strictly from stage history where it failed
         if (myResults.length === 0) {
           const stageKey = `${stage}_test` as keyof typeof freshTransformer.testHistory;
-          const stageHistory = freshTransformer?.testHistory?.[stageKey];
+          const stageHistory = freshTransformer?.testHistory?.[stageKey] as any;
           if (stageHistory?.protection_results?.length > 0) {
-            myResults = stageHistory.protection_results.filter((res: any) =>
-              res.internalCoreNo === targetCoreId || res.coreId === targetCoreId
-            );
-            if (myResults.length === 0 && freshTransformer.testHistory?.secondary_test?.protectionCoreId === targetCoreId) {
-              myResults = stageHistory.protection_results;
-            }
-          }
-        }
-
-        if (myResults.length === 0 && sourceStage && sourceStage !== stage) {
-          const sourceHistory = freshTransformer?.testHistory?.[`${sourceStage}_test`] as any;
-          if (sourceHistory?.protection_results?.length > 0) {
-            myResults = sourceHistory.protection_results.filter((res: any) =>
-              res.internalCoreNo === targetCoreId || res.coreId === targetCoreId
-            );
-            if (myResults.length === 0 && freshTransformer.testHistory?.secondary_test?.protectionCoreId === targetCoreId) {
-              myResults = sourceHistory.protection_results;
-            }
+            myResults = stageHistory.protection_results.filter((res: any) => isMatch(res, targetCoreId));
           }
         }
 
@@ -529,44 +523,6 @@ export function SecondaryProtectionReport({
             }
             return row;
           }));
-        } else if (stage === 'secondary') {
-          const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
-          const orderId = order?._id || order;
-          const fallbackRes = orderId ? await axios.get(`/secondary-core-tests/protection/${targetCoreId}?orderId=${orderId}`, { withCredentials: true }) : null;
-          if (isCancelled) return;
-          if (fallbackRes?.data?.success && fallbackRes.data.data) {
-            const testDoc = fallbackRes.data.data;
-            if (testDoc.protection_results && testDoc.protection_results.length > 0) {
-              setTestResults(() => initialBlank.map((row: ProtectionTestRow, index: number) => {
-                let saved = testDoc.protection_results.find((r: any) => r.ratioValue === row.ratio || r.ratio === row.ratio);
-                if (!saved && testDoc.protection_results[index]) {
-                  saved = testDoc.protection_results[index];
-                }
-                if (saved) {
-                  const safeStr = (val: any) => (val !== undefined && val !== null) ? String(val) : '';
-                  if (saved.protectionClass && saved.protectionClass !== protectionClass) {
-                    setProtectionClass(saved.protectionClass);
-                  }
-                  return {
-                    ...row,
-                    ratioError100: safeStr(saved.ratioError100 ?? saved.burden100_1),
-                    phaseError: safeStr(saved.phaseError ?? saved.burden100_2),
-                    resistance: safeStr(saved.resistance),
-                    alf: safeStr(saved.alf),
-                    secondaryLimitingVoltage: safeStr(saved.secondaryLimitingVoltage ?? saved.secondaryLimitingVtg),
-                    excitationCurrent: safeStr(saved.excitationCurrent ?? saved.excitationCurr),
-                    compositeError: safeStr(saved.compositeError),
-                    isPass: saved.isPass,
-                    reason: saved.reason,
-                    protectionClass: saved.protectionClass
-                  };
-                }
-                return row;
-              }));
-              return;
-            }
-          }
-          if (!isCancelled) setTestResults(initialBlank);
         } else {
           if (!isCancelled) setTestResults(initialBlank);
         }
@@ -861,8 +817,15 @@ export function SecondaryProtectionReport({
     });
   }, [testResults, dbLimits, protectionClass, isFailedCore, failedStatus, selectedCoreId, coreId]);
 
-  const handleMarkAsFailed = async () => {
+  const [isFailModalOpen, setIsFailModalOpen] = useState(false);
+  const [failRemark, setFailRemark] = useState('');
+
+  const handleMarkAsFailed = () => {
     if (readOnly) return;
+    setIsFailModalOpen(true);
+  };
+
+  const handleConfirmMarkAsFailed = async () => {
     try {
       // Gather all reasons across all failed rows
       const allReasons = testResults
@@ -885,12 +848,14 @@ export function SecondaryProtectionReport({
         testType: stage === 'primary' ? "After Primary Protection" : stage === 'final' ? "Final Protection" : "Secondary Protection",
         failureParameters: { failureStage: `${stage}_protection_test`, dynamicValues: testResults, coreId: selectedCoreId },
         failureReason: allReasons || "Limits Exceeded",
+        remark: failRemark.trim() || undefined,
         reportedBy: testerName,
         stage: stage === 'primary' ? "PRIMARY_TESTING" : stage === 'final' ? "FINAL_TESTING" : "SECONDARY_TESTING",
         status: "FAILED"
       };
 
       const response = await axios.post(`/failed-transformers`, payload, { withCredentials: true });
+      setIsFailModalOpen(false);
       if (response.data.success) {
         toast.success(response.data.message || "Transformer marked as failed successfully.");
         if (onRefresh) onRefresh();
@@ -903,6 +868,44 @@ export function SecondaryProtectionReport({
       toast.error(err.response?.data?.message || "Could not add to failed transformers");
     }
   };
+
+  const failModalJSX = isFailModalOpen && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 no-print">
+      <Card className="w-full max-w-md p-6 bg-white shadow-2xl rounded-xl border border-gray-100 flex flex-col gap-4 animate-in fade-in duration-200">
+        <div>
+          <h3 className="text-lg font-bold text-red-700 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            Add Transformer to Failed List
+          </h3>
+          <p className="text-xs text-gray-500 mt-1">
+            Transformer: <span className="font-mono font-bold text-gray-800">{transformer.uniqueId}</span>
+          </p>
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-semibold text-gray-700">Optional Tester Remark / Note:</label>
+          <textarea
+            value={failRemark}
+            onChange={(e) => setFailRemark(e.target.value)}
+            placeholder="Enter optional remark or failure notes..."
+            rows={3}
+            className="w-full p-2.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:outline-none"
+          />
+        </div>
+        <div className="flex justify-end gap-3 pt-2 border-t">
+          <Button variant="outline" size="sm" onClick={() => setIsFailModalOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            className="bg-red-600 hover:bg-red-700 text-white font-bold"
+            onClick={handleConfirmMarkAsFailed}
+          >
+            Confirm & Add to Failed
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
 
   if (isUnified) {
     return (
@@ -1060,18 +1063,34 @@ export function SecondaryProtectionReport({
       <div className="print-container w-[210mm] min-w-[210mm] print:w-full print:min-w-0 print:max-w-full secondary-print-page">
         {!readOnly && (
           <div className="flex items-center justify-between no-print mb-4 w-full">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={async () => {
-                if (!readOnly && onPrev) await handleDatabaseSave(false);
-                if (onPrev) onPrev();
-              }}
-              disabled={saving || !onPrev}
-              className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold disabled:opacity-50"
-            >
-              <ChevronLeft className="w-4 h-4" /> Previous Core
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={async () => {
+                  if (!readOnly) await handleDatabaseSave(false);
+                  onBack();
+                }}
+                disabled={saving}
+                className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold"
+              >
+                <ArrowLeft className="w-4 h-4" /> Back to Testing
+              </Button>
+              {onPrev && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={async () => {
+                    if (!readOnly) await handleDatabaseSave(false);
+                    onPrev();
+                  }}
+                  disabled={saving || !onPrev}
+                  className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold disabled:opacity-50"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Previous Core
+                </Button>
+              )}
+            </div>
             <div className="flex gap-2">
               {!readOnly && (
                 <>
@@ -1464,7 +1483,19 @@ export function SecondaryProtectionReport({
     </div>
 
       {!readOnly && (
-        <div className="no-print mt-6 mb-8 flex justify-center gap-3">
+        <div className="no-print mt-6 mb-8 flex justify-center items-center gap-3">
+          <Button
+            onClick={async () => {
+              await handleDatabaseSave(false);
+              onBack();
+            }}
+            disabled={saving}
+            variant="outline"
+            className="border-slate-300 text-slate-700 hover:bg-slate-100 px-8 py-2.5 font-semibold text-sm shadow-sm gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Testing
+          </Button>
           <Button
             onClick={() => handleDatabaseSave(false)}
             disabled={saving}
@@ -1582,6 +1613,7 @@ export function SecondaryProtectionReport({
           </div>
         </div>
       )}
+      {failModalJSX}
     </div>
   );
 }

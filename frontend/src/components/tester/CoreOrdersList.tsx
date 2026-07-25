@@ -60,7 +60,7 @@ export function CoreOrdersList({ onStartTesting, onViewReports, user, type = 'ac
     try {
       setLoading(true);
       const response = await axios.get(`/assigneed_orders`, {
-        params: { type },
+        params: { type, stage: 'core' },
         withCredentials: true
       });
       setOrders(response.data);

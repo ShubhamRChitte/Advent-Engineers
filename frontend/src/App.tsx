@@ -7,7 +7,7 @@ import { HeatingOperatorLayout } from './components/heating/HeatingOperatorLayou
 import { Toaster } from 'sonner';
 import { ReportPage } from './pages/ReportPage';
 import { AdminReportViewPage } from './pages/AdminReportViewPage';
-import './utils/axiosConfig';
+import axios from './utils/axiosConfig';
 
 export interface User {
   id: string;
@@ -16,6 +16,8 @@ export interface User {
   email?: string; // Made optional as we login with employeeId
   role: 'admin' | 'entry-operator' | 'core-tester' | 'secondary-tester' | 'after-primary-tester' | 'final-tester' | 'pt-tester' | 'pt-pretester' | 'heating_operator';
   department?: string;
+  departments?: string[];
+  designation?: string;
 }
 
 export default function App() {
@@ -30,10 +32,31 @@ export default function App() {
       window.location.reload();
     };
     window.addEventListener('session-expired', handleSessionExpired);
+
+    // Sync current user session with backend so departments array is up to date
+    axios.get('/auth/check-auth')
+      .then(res => {
+        if (res.data?.isAuthenticated && res.data?.user) {
+          const latestUser = res.data.user;
+          setUser(prev => {
+            if (!prev) return latestUser;
+            const updated = { ...prev, ...latestUser, role: prev.role };
+            localStorage.setItem('user', JSON.stringify(updated));
+            return updated;
+          });
+        }
+      })
+      .catch(() => {});
+
     return () => window.removeEventListener('session-expired', handleSessionExpired);
   }, []);
 
   const handleLogin = (userData: User) => {
+    Object.keys(localStorage).forEach(key => {
+      if (key.endsWith('_activeView')) {
+        localStorage.removeItem(key);
+      }
+    });
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
   };
@@ -42,6 +65,14 @@ export default function App() {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     setUser(null);
+  };
+
+  const handleSwitchRole = (newRole: User['role']) => {
+    if (!user) return;
+    localStorage.setItem(`${newRole}_activeView`, 'home');
+    const updatedUser = { ...user, role: newRole };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    setUser(updatedUser);
   };
 
   // Manual route for the Report Page (accessible without strict tester login depending on needs)
@@ -103,7 +134,7 @@ export default function App() {
   if (['core-tester', 'secondary-tester', 'after-primary-tester', 'final-tester', 'pt-tester', 'pt-pretester'].includes(user.role)) {
     return (
       <>
-        <TesterLayout user={user} onLogout={handleLogout} />
+        <TesterLayout user={user} onLogout={handleLogout} onSwitchRole={handleSwitchRole} />
         <Toaster richColors toastOptions={{ style: { fontSize: '14px' } }} position="bottom-right" />
       </>
     );

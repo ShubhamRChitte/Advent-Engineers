@@ -33,9 +33,13 @@ const UserSchema = new Schema({
   },
 
   department: {
-    type: String,
+    type: Schema.Types.Mixed,
     required: true
   },
+
+  departments: [{
+    type: String
+  }],
 
   dateOfJoining: {
     type: Date,

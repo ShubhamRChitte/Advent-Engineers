@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { Card } from '../ui/card';
 import { Printer, ArrowLeft, Save, AlertTriangle, ChevronLeft, ChevronRight, CheckCircle, RefreshCw, Loader2, Wrench, Search } from 'lucide-react';
 import { Transformer } from './SecondaryTransformersList';
 import { toast } from 'sonner';
@@ -335,43 +336,36 @@ export function SecondaryMeteringReport({
           if (isCancelled) return;
         }
 
-        const currentHasBeenRetested = currentRetestHistory && currentRetestHistory.length > 0;
-        const shouldLoadFromTreated = isFailedSection && currentFailedStatus === 'TREATED' && (isFailedCore || currentHasBeenRetested);
-        
-        if (shouldLoadFromTreated) {
-          const secHistory = freshTransformer.testHistory?.secondary_test;
-          if (secHistory?.metering_results?.length > 0) {
-            myResults = secHistory.metering_results.filter((res: any) =>
-              res.internalCoreNo === targetCoreId || res.coreId === targetCoreId
-            );
-            if (myResults.length === 0 && secHistory.meteringCoreId === targetCoreId) {
-              myResults = secHistory.metering_results;
-            }
+        const isMatch = (res: any, targetId: string) => {
+          if (!res) return false;
+          const id = String(res.internalCoreNo || res.coreId || '').trim();
+          const target = String(targetId || '').trim();
+          if (!id || !target) return false;
+          if (id === target || id.endsWith(target) || target.endsWith(id)) return true;
+          if (coreNumber) {
+            const suffix = `-${String(coreNumber).padStart(3, '0')}`;
+            if (id.endsWith(suffix) || target.endsWith(suffix) || id === String(coreNumber)) return true;
+          }
+          return false;
+        };
+
+        // Priority 1: Check if core was retested / updated in Failed Transformers section (retestHistory)
+        if (isFailedSection && currentRetestHistory && Array.isArray(currentRetestHistory)) {
+          const latestRetest = currentRetestHistory.slice().reverse().find((h: any) =>
+            h.newTreatmentReadings && Array.isArray(h.newTreatmentReadings) &&
+            h.newTreatmentReadings.some((r: any) => isMatch(r, targetCoreId))
+          );
+          if (latestRetest) {
+            myResults = latestRetest.newTreatmentReadings.filter((res: any) => isMatch(res, targetCoreId));
           }
         }
 
+        // Priority 2: If no retested readings saved yet, fetch strictly from stage history where it failed
         if (myResults.length === 0) {
           const stageKey = `${stage}_test` as keyof typeof freshTransformer.testHistory;
-          const stageHistory = freshTransformer?.testHistory?.[stageKey];
+          const stageHistory = freshTransformer?.testHistory?.[stageKey] as any;
           if (stageHistory?.metering_results?.length > 0) {
-            myResults = stageHistory.metering_results.filter((res: any) =>
-              res.internalCoreNo === targetCoreId || res.coreId === targetCoreId
-            );
-            if (myResults.length === 0 && freshTransformer.testHistory?.secondary_test?.meteringCoreId === targetCoreId) {
-              myResults = stageHistory.metering_results;
-            }
-          }
-        }
-
-        if (myResults.length === 0 && sourceStage && sourceStage !== stage) {
-          const sourceHistory = freshTransformer?.testHistory?.[`${sourceStage}_test`] as any;
-          if (sourceHistory?.metering_results?.length > 0) {
-            myResults = sourceHistory.metering_results.filter((res: any) =>
-              res.internalCoreNo === targetCoreId || res.coreId === targetCoreId
-            );
-            if (myResults.length === 0 && freshTransformer.testHistory?.secondary_test?.meteringCoreId === targetCoreId) {
-              myResults = sourceHistory.metering_results;
-            }
+            myResults = stageHistory.metering_results.filter((res: any) => isMatch(res, targetCoreId));
           }
         }
 
@@ -380,41 +374,6 @@ export function SecondaryMeteringReport({
             const matched = myResults.find((r: any) => r.ratioValue === item.ratioValue);
             return matched ? { ...item, rows: matched.rows } : item;
           }));
-        } else if (stage === 'secondary') {
-          const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
-          const orderId = order?._id || order;
-          const fallbackRes = orderId ? await axios.get(`/secondary-core-tests/metering/${targetCoreId}?orderId=${orderId}`, { withCredentials: true }) : null;
-          if (isCancelled) return;
-          if (fallbackRes?.data?.success && fallbackRes.data.data) {
-            const testDoc = fallbackRes.data.data;
-            if (testDoc.metering_results && testDoc.metering_results.length > 0) {
-              setTestResults(prev => {
-                const base = prev.length > 0 ? prev : initialBlankData;
-                return base.map((item, idx) => {
-                  let matched = testDoc.metering_results.find((r: any) => r.ratioValue === item.ratioValue);
-                  if (!matched && testDoc.metering_results[idx]) {
-                    matched = testDoc.metering_results[idx];
-                  }
-                  if (!matched) return item;
-                  return {
-                    ...item,
-                    rows: item.rows.map((rowItem, rIdx) => {
-                      const savedRow = matched.rows?.[rIdx] || {};
-                      return {
-                        ...rowItem,
-                        r100: (savedRow.r100 !== undefined && savedRow.r100 !== null) ? String(savedRow.r100) : rowItem.r100,
-                        p100: (savedRow.p100 !== undefined && savedRow.p100 !== null) ? String(savedRow.p100) : rowItem.p100,
-                        r25: (savedRow.r25 !== undefined && savedRow.r25 !== null) ? String(savedRow.r25) : rowItem.r25,
-                        p25: (savedRow.p25 !== undefined && savedRow.p25 !== null) ? String(savedRow.p25) : rowItem.p25
-                      };
-                    })
-                  };
-                });
-              });
-              return;
-            }
-          }
-          if (!isCancelled) setTestResults(initialBlankData);
         } else {
           if (!isCancelled) setTestResults(initialBlankData);
         }
@@ -540,8 +499,15 @@ export function SecondaryMeteringReport({
     }
   };
 
-  const handleMarkAsFailed = async () => {
+  const [isFailModalOpen, setIsFailModalOpen] = useState(false);
+  const [failRemark, setFailRemark] = useState('');
+
+  const handleMarkAsFailed = () => {
     if (readOnly) return;
+    setIsFailModalOpen(true);
+  };
+
+  const handleConfirmMarkAsFailed = async () => {
     try {
       const allReasons: string[] = [];
       testResults.forEach(item => {
@@ -567,6 +533,7 @@ export function SecondaryMeteringReport({
         testType: stage === 'primary' ? "After Primary Metering" : stage === 'final' ? "Final Metering" : "Secondary Metering",
         failureParameters: { failureStage: `${stage}_metering_test`, dynamicValues: testResults, coreId: selectedCoreId },
         failureReason: allReasons.length > 0 ? [...new Set(allReasons)].join(' | ') : "Accuracy Limits Exceeded",
+        remark: failRemark.trim() || undefined,
         reportedBy: testerName,
         stage: stage === 'primary' ? "PRIMARY_TESTING" : stage === 'final' ? "FINAL_TESTING" : "SECONDARY_TESTING",
         status: "FAILED"
@@ -575,6 +542,7 @@ export function SecondaryMeteringReport({
       await handleDatabaseSave(false);
 
       const response = await axios.post(`/failed-transformers`, payload, { withCredentials: true });
+      setIsFailModalOpen(false);
       if (response.data.success) {
         toast.success(response.data.message || "Transformer marked as failed successfully.");
         if (onRefresh) onRefresh();
@@ -583,6 +551,7 @@ export function SecondaryMeteringReport({
         toast.error("Failed to add to failed transformers.");
       }
     } catch (error: any) {
+      console.error("Mark as failed error:", error);
       toast.error(error.response?.data?.message || "Error adding to failed transformers");
     }
   };
@@ -598,6 +567,44 @@ export function SecondaryMeteringReport({
     }));
   }, [testResults, accuracyClass, dbLimits, isFailedCore, failedStatus, selectedCoreId, coreId]);
 
+  const failModalJSX = isFailModalOpen && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 no-print">
+      <Card className="w-full max-w-md p-6 bg-white shadow-2xl rounded-xl border border-gray-100 flex flex-col gap-4 animate-in fade-in duration-200">
+        <div>
+          <h3 className="text-lg font-bold text-red-700 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            Add Transformer to Failed List
+          </h3>
+          <p className="text-xs text-gray-500 mt-1">
+            Transformer: <span className="font-mono font-bold text-gray-800">{transformer.uniqueId}</span>
+          </p>
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-semibold text-gray-700">Optional Tester Remark / Note:</label>
+          <textarea
+            value={failRemark}
+            onChange={(e) => setFailRemark(e.target.value)}
+            placeholder="Enter optional remark or failure notes..."
+            rows={3}
+            className="w-full p-2.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:outline-none"
+          />
+        </div>
+        <div className="flex justify-end gap-3 pt-2 border-t">
+          <Button variant="outline" size="sm" onClick={() => setIsFailModalOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            className="bg-red-600 hover:bg-red-700 text-white font-bold"
+            onClick={handleConfirmMarkAsFailed}
+          >
+            Confirm & Add to Failed
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+
   if (isUnified) {
     return (
       <div className="ae-section-container print:break-inside-avoid print:mt-6" style={{ pageBreakInside: 'avoid', marginTop: 24 }}>
@@ -606,7 +613,7 @@ export function SecondaryMeteringReport({
           <ReportSpecBox
             items={[
               { label: 'Core Number', value: `Core ${coreNumber || 1}` },
-              { label: 'Core ID', value: coreId.startsWith('M-') ? coreId : `M-${coreId}` },
+              { label: 'Core ID', value: selectedCoreId },
               { label: 'Core Type', value: 'Metering' },
               { label: 'CT Ratio', value: `${dynamicRatios.join('-')} A` },
               { label: 'Burden', value: `${displayBurden} VA` },
@@ -615,7 +622,14 @@ export function SecondaryMeteringReport({
             ]}
           />
         </div>
-        <MeteringTable testResults={testResults} onUpdate={() => {}} readOnly={true} />
+
+        <MeteringTable
+          testResults={testResults}
+          onUpdate={handleDataChange}
+          readOnly={readOnly}
+        />
+
+        {failModalJSX}
       </div>
     );
   }
@@ -628,18 +642,34 @@ export function SecondaryMeteringReport({
       <div className="print-container w-[210mm] min-w-[210mm] print:w-full print:min-w-0 print:max-w-full secondary-print-page">
         {!readOnly && (
           <div className="flex items-center justify-between no-print mb-4 w-full">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={async () => {
-                if (!readOnly && onPrev) await handleDatabaseSave(false);
-                if (onPrev) onPrev();
-              }}
-              disabled={saving || !onPrev}
-              className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold disabled:opacity-50"
-            >
-              <ChevronLeft className="w-4 h-4" /> Previous Core
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={async () => {
+                  if (!readOnly) await handleDatabaseSave(false);
+                  onBack();
+                }}
+                disabled={saving}
+                className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold"
+              >
+                <ArrowLeft className="w-4 h-4" /> Back to Testing
+              </Button>
+              {onPrev && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={async () => {
+                    if (!readOnly) await handleDatabaseSave(false);
+                    onPrev();
+                  }}
+                  disabled={saving || !onPrev}
+                  className="gap-2 border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold disabled:opacity-50"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Previous Core
+                </Button>
+              )}
+            </div>
             <div className="flex gap-2">
               {stage === 'secondary' && !readOnly && hasAnyFailures && (
                 <Button
@@ -819,7 +849,19 @@ export function SecondaryMeteringReport({
     </div>
 
       {!readOnly && (
-        <div className="no-print mt-6 mb-8 flex justify-center gap-3">
+        <div className="no-print mt-6 mb-8 flex justify-center items-center gap-3">
+          <Button
+            onClick={async () => {
+              await handleDatabaseSave(false);
+              onBack();
+            }}
+            disabled={saving}
+            variant="outline"
+            className="border-slate-300 text-slate-700 hover:bg-slate-100 px-8 py-2.5 font-semibold text-sm shadow-sm gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Testing
+          </Button>
           <Button
             onClick={() => handleDatabaseSave(false)}
             disabled={saving}
@@ -937,6 +979,7 @@ export function SecondaryMeteringReport({
           </div>
         </div>
       )}
+      {failModalJSX}
     </div>
   );
 }

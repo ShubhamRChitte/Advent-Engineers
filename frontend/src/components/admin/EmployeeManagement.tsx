@@ -35,6 +35,7 @@ interface Employee {
   mobileNumber: string;
   designation: string;
   department: string;
+  departments?: string[];
   dateOfJoining: string;
   employmentType: string;
   activeStatus: boolean;
@@ -69,6 +70,7 @@ export function EmployeeManagement() {
     password: '',
     designation: '',
     department: '',
+    departments: [] as string[],
     dateOfJoining: '',
     employmentType: '',
     assignedLab: '',
@@ -112,13 +114,18 @@ export function EmployeeManagement() {
 
   const handleEdit = (employee: Employee) => {
     setEditingEmployee(employee);
+    const empDepts = (employee.departments && employee.departments.length > 0)
+      ? employee.departments
+      : (employee.department ? [employee.department] : []);
+
     setFormData({
       fullName: employee.fullName || '',
       emailId: employee.emailId || '',
       mobileNumber: employee.mobileNumber || '',
       password: '', // Don't show password
       designation: employee.designation || '',
-      department: employee.department || '',
+      department: employee.department || (empDepts[0] || ''),
+      departments: empDepts,
       dateOfJoining: employee.dateOfJoining ? (new Date(employee.dateOfJoining).toISOString().split('T')[0] || '') : '',
       employmentType: employee.employmentType || '',
       assignedLab: employee.assignedLab || '',
@@ -148,7 +155,12 @@ export function EmployeeManagement() {
   };
 
   const handleSubmit = async () => {
-    const requiredFields = ['fullName', 'emailId', 'designation', 'department', 'mobileNumber', 'dateOfJoining', 'employmentType'];
+    if (!formData.departments || formData.departments.length === 0) {
+      toast.error('Please select at least one department.');
+      return;
+    }
+
+    const requiredFields = ['fullName', 'emailId', 'designation', 'mobileNumber', 'dateOfJoining', 'employmentType'];
     if (!editingEmployee) requiredFields.push('password');
 
     for (const field of requiredFields) {
@@ -306,22 +318,53 @@ export function EmployeeManagement() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="department">Department *</Label>
-                <Select value={formData.department} onValueChange={(v: string) => handleSelectChange('department', v)}>
-                  <SelectTrigger id="department"><SelectValue placeholder="Select Department" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Management">Management</SelectItem>
-                    <SelectItem value="Operations">Operations</SelectItem>
-                    <SelectItem value="Core Test">Core Test</SelectItem>
-                    <SelectItem value="Secondary Test">Secondary Test</SelectItem>
-                    <SelectItem value="Primary Test">Primary Test</SelectItem>
-                    <SelectItem value="Final Test">Final Test</SelectItem>
-                    <SelectItem value="PT Test">PT Test</SelectItem>
-                    <SelectItem value="PT Pretest">PT Pretest</SelectItem>
-                    <SelectItem value="Heating">Heating</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2 col-span-2 md:col-span-1">
+                <Label htmlFor="department">Departments (Select 1 or more) *</Label>
+                <div className="border border-gray-200 rounded-md p-3 max-h-48 overflow-y-auto bg-gray-50/50 space-y-2">
+                  {[
+                    "Management",
+                    "Operations",
+                    "Core Test",
+                    "Secondary Test",
+                    "Primary Test",
+                    "Final Test",
+                    "PT Test",
+                    "PT Pretest",
+                    "Heating"
+                  ].map(dept => {
+                    const isSelected = formData.departments?.includes(dept);
+                    return (
+                      <label key={dept} className="flex items-center space-x-2 text-xs font-medium cursor-pointer hover:text-blue-700 select-none">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={(checked: boolean) => {
+                            setFormData(prev => {
+                              const current = prev.departments || [];
+                              const updated = checked
+                                ? Array.from(new Set([...current, dept]))
+                                : current.filter(d => d !== dept);
+                              return {
+                                ...prev,
+                                departments: updated,
+                                department: updated[0] || ''
+                              };
+                            });
+                          }}
+                        />
+                        <span>{dept}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {formData.departments && formData.departments.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {formData.departments.map(d => (
+                      <Badge key={d} variant="secondary" className="text-[10px] bg-blue-100 text-blue-800">
+                        {d}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -464,7 +507,15 @@ export function EmployeeManagement() {
                         {employee.designation === 'Tester' ? 'Testing Engineer' : employee.designation}
                       </Badge>
                     </td>
-                    <td className="py-4 text-sm font-medium text-slate-600">{employee.department}</td>
+                    <td className="py-4 text-sm">
+                      <div className="flex flex-wrap gap-1 max-w-[220px]">
+                        {((employee.departments && employee.departments.length > 0) ? employee.departments : [employee.department].filter(Boolean)).map(d => (
+                          <Badge key={d} variant="outline" className="text-[11px] bg-slate-50 border-slate-300 text-slate-700 font-medium">
+                            {d}
+                          </Badge>
+                        ))}
+                      </div>
+                    </td>
                     <td className="py-4 text-sm">
                       <div className="flex flex-col gap-0.5">
                         <span className="flex items-center gap-1 text-slate-700"><Smartphone className="w-3 h-3" /> {employee.mobileNumber}</span>

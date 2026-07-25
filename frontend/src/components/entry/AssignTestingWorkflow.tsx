@@ -66,20 +66,25 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
         const response = await axios.get('/auth/testers');
         if (response.data.success) {
           const mappedWorkers: Worker[] = response.data.users.map((user: any) => {
-            // Map Department to Skill Category
-            let skill = '';
-            switch (user.department) {
-              case 'Core Test': skill = 'Core Test'; break;
-              case 'Secondary Test': skill = 'After Secondary Test'; break;
-              case 'Primary Test': skill = 'After Primary Test'; break;
-              case 'Final Test': skill = 'Final Test'; break;
-              case 'PT Test': skill = 'PT Test'; break;
-              default: skill = user.department;
-            }
+            const userDepts = Array.isArray(user.departments) && user.departments.length > 0
+              ? user.departments
+              : (Array.isArray(user.department) ? user.department : [user.department].filter(Boolean));
+
+            const skillCategories = userDepts.map((d: string) => {
+              switch (d) {
+                case 'Core Test': return 'Core Test';
+                case 'Secondary Test': return 'After Secondary Test';
+                case 'Primary Test': return 'After Primary Test';
+                case 'Final Test': return 'Final Test';
+                case 'PT Test': return 'PT Test';
+                case 'PT Pretest': return 'PT Pretest';
+                default: return d;
+              }
+            });
 
             // Map Designation to Experience Level
             let level: 'Junior' | 'Mid-Level' | 'Senior' | 'Expert' = 'Mid-Level';
-            const des = user.designation.toLowerCase();
+            const des = (user.designation || '').toLowerCase();
             if (des.includes('senior')) level = 'Senior';
             else if (des.includes('junior') || des.includes('trainee')) level = 'Junior';
             else if (des.includes('expert') || des.includes('lead') || des.includes('manager')) level = 'Expert';
@@ -88,9 +93,9 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
               id: user._id,
               name: user.fullName,
               workerId: user.employeeId,
-              skillCategories: [skill],
-              currentWorkload: 0, // Default for now
-              status: 'Available', // Default for now
+              skillCategories: skillCategories,
+              currentWorkload: 0,
+              status: 'Available',
               experienceLevel: level
             };
           });
@@ -177,13 +182,25 @@ export function AssignTestingWorkflow({ orderData, onComplete, onBack }: AssignT
     'after-primary': 'primary',
     'final-test': 'final'
   };
-  const targetStage = stageEnumMap[currentTest.id];
+  const targetStage = currentTest?.id ? stageEnumMap[currentTest.id] : undefined;
   const isQuantityChanged = orderData?.originalQuantity !== undefined && quantity !== orderData.originalQuantity;
-  const isStageFullyCompleted = orderData?.completionStages?.[targetStage] === true && !isQuantityChanged;
+  const isStageFullyCompleted = targetStage ? orderData?.completionStages?.[targetStage] === true && !isQuantityChanged : false;
 
-  const availableWorkers = allWorkers.filter((worker) =>
-    worker.skillCategories.includes(currentTest.name)
-  );
+  const availableWorkers = allWorkers.filter((worker) => {
+    if (!worker.skillCategories || worker.skillCategories.length === 0) return true;
+    return worker.skillCategories.some(sc => {
+      if (!sc) return false;
+      const normalizedCategory = sc.toLowerCase().replace(/^(after\s+)/, '').replace(/\s+test(ing)?$/, '').trim();
+      const normalizedTestName = (currentTest.name || '').toLowerCase().replace(/^(after\s+)/, '').replace(/\s+test(ing)?$/, '').trim();
+      const normalizedTestId = (currentTest.id || '').toLowerCase().replace(/^(after-)/, '').replace(/(-test|ing)$/, '').trim();
+      return (
+        normalizedCategory === normalizedTestName ||
+        normalizedCategory === normalizedTestId ||
+        sc.toLowerCase().includes(normalizedTestName) ||
+        currentTest.name.toLowerCase().includes(sc.toLowerCase())
+      );
+    });
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {

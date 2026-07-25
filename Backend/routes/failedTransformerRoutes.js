@@ -20,43 +20,134 @@ router.post('/', isAuthenticated, async (req, res) => {
             testType,
             failureParameters,
             failureReason,
+            remark,
             reportedBy,
             stage,
             status
         } = req.body;
 
-        if (!transformerId || !orderId || !coreType || !failureReason || !reportedBy) {
-            return res.status(400).json({ success: false, message: "Missing required fields: transformerId, orderId, coreType, failureReason, reportedBy" });
+        if (!transformerId || !coreType || !failureReason || !reportedBy) {
+            return res.status(400).json({ success: false, message: "Missing required fields: transformerId, coreType, failureReason, reportedBy" });
         }
 
-        // Check duplicates: If failure already exists for same transformerId + coreType, update/re-log it.
-        const existingFailure = await FailedTransformerModel.findOne({
-            transformerId,
-            coreType
-        });
+        // 1. Resolve Transformer safely (by ObjectId _id or uniqueId string)
+        let transformer = null;
+        if (mongoose.Types.ObjectId.isValid(transformerId)) {
+            transformer = await TransformerModel.findById(transformerId);
+        }
+        if (!transformer && transformerUniqueId) {
+            transformer = await TransformerModel.findOne({ uniqueId: transformerUniqueId });
+        }
+        if (!transformer && typeof transformerId === 'string') {
+            transformer = await TransformerModel.findOne({ uniqueId: transformerId });
+        }
 
-        // Update the Transformer's stage to secondary_failed
-        const transformer = await TransformerModel.findById(transformerId);
         if (!transformer) {
             return res.status(404).json({ success: false, message: "Transformer not found" });
         }
-        transformer.currentStage = "secondary_failed";
+
+        const validTransformerId = transformer._id;
+        const validTransformerUniqueId = transformer.uniqueId;
+
+        // 2. Resolve Order safely
+        let order = null;
+        if (orderId && mongoose.Types.ObjectId.isValid(orderId)) {
+            order = await OrderModel.findById(orderId);
+        }
+        if (!order && jobNumber) {
+            order = await OrderModel.findOne({ jobId: jobNumber });
+        }
+        if (!order && transformer.orderId) {
+            order = await OrderModel.findById(transformer.orderId);
+        }
+
+        const validOrderId = order ? order._id : (orderId && mongoose.Types.ObjectId.isValid(orderId) ? orderId : transformer.orderId);
+
+        if (!validOrderId) {
+            return res.status(400).json({ success: false, message: "Invalid or missing orderId for transformer" });
+        }
+
+        let normalizedStage = "SECONDARY_TESTING";
+        if (stage) {
+            const upper = String(stage).toUpperCase();
+            if (upper === 'PRIMARY' || upper === 'PRIMARY_TESTING') normalizedStage = 'PRIMARY_TESTING';
+            else if (upper === 'FINAL' || upper === 'FINAL_TESTING') normalizedStage = 'FINAL_TESTING';
+            else if (upper === 'SECONDARY' || upper === 'SECONDARY_TESTING') normalizedStage = 'SECONDARY_TESTING';
+            else if (upper.includes('PT_PRETEST')) normalizedStage = 'PT_PRETEST_TESTING';
+            else if (upper.includes('PT')) normalizedStage = 'PT_TESTING';
+            else if (upper.includes('FIELD')) normalizedStage = 'FIELD_RETURN';
+            else normalizedStage = 'SECONDARY_TESTING';
+        }
+
+        let normalizedStatus = "FAILED";
+        if (status) {
+            const upperStatus = String(status).toUpperCase();
+            const validStatuses = ["FAILED", "REPLACED", "SCRAPPED", "UNDER_ANALYSIS", "RETURNED", "TREATING", "RETESTED", "TREATED", "RESOLVED"];
+            if (validStatuses.includes(upperStatus)) {
+              normalizedStatus = upperStatus;
+            }
+        }
+
+        // Update the Transformer's stage to secondary_failed (or pt_failed / pt_pretest_failed)
+        transformer.currentStage = normalizedStage === 'PT_PRETEST_TESTING' ? "pt_pretest_failed" : normalizedStage === 'PT_TESTING' ? "pt_failed" : "secondary_failed";
         await transformer.save();
 
-        // Find parent Order to grab latest jobId/clientName if missing
-        const order = await OrderModel.findById(orderId);
+        // 3. Find any existing failure record for this transformer (guarantee single document per transformer)
+        let existingFailure = await FailedTransformerModel.findOne({
+            $or: [
+                { transformerId: validTransformerId },
+                { transformerUniqueId: validTransformerUniqueId }
+            ]
+        });
 
         if (existingFailure) {
-            existingFailure.status = status || "FAILED";
-            existingFailure.stage = stage || "SECONDARY_TESTING";
-            existingFailure.failureReason = failureReason;
-            existingFailure.failureParameters = failureParameters || {};
+            // Combine failure reasons for all failed cores
+            const existingReasons = existingFailure.failureReason ? existingFailure.failureReason.split(' | ') : [];
+            const newReasons = failureReason ? failureReason.split(' | ') : [];
+            const combinedReasonsSet = new Set([...existingReasons, ...newReasons].filter(Boolean));
+            const mergedFailureReason = Array.from(combinedReasonsSet).join(' | ');
+
+            // Combine core types (e.g. Metering + Protection -> Multiple)
+            let coreTypesSet = new Set();
+            if (existingFailure.coreType) {
+              existingFailure.coreType.split(/[,|]/).forEach(t => {
+                const trimmed = t.trim();
+                if (trimmed) coreTypesSet.add(trimmed);
+              });
+            }
+            if (coreType) {
+              coreTypesSet.add(coreType.trim());
+            }
+            const coreTypesArray = Array.from(coreTypesSet);
+            const mergedCoreType = coreTypesArray.length > 1 ? 'Multiple' : (coreTypesArray[0] || coreType);
+
+            existingFailure.status = normalizedStatus;
+            existingFailure.stage = normalizedStage;
+            existingFailure.coreType = mergedCoreType;
+            existingFailure.failureReason = mergedFailureReason;
+
+            if (remark !== undefined && String(remark).trim() !== '') {
+              const trimmedRemark = String(remark).trim();
+              if (existingFailure.remark && existingFailure.remark.trim() !== '') {
+                const existingRemarks = existingFailure.remark.split(' | ');
+                if (!existingRemarks.includes(trimmedRemark)) {
+                  existingFailure.remark = `${existingFailure.remark} | ${trimmedRemark}`;
+                }
+              } else {
+                existingFailure.remark = trimmedRemark;
+              }
+            }
+
+            existingFailure.failureParameters = {
+              ...(existingFailure.failureParameters || {}),
+              ...(failureParameters || {})
+            };
             existingFailure.reportedBy = reportedBy;
-            existingFailure.testType = testType || `Secondary ${coreType}`;
+            existingFailure.testType = testType || `Secondary ${mergedCoreType}`;
             existingFailure.jobNumber = jobNumber || transformer.jobId || (order ? order.jobId : '');
             existingFailure.clientName = clientName || transformer.clientName || (order ? order.clientName : '');
-            existingFailure.transformerUniqueId = transformerUniqueId || transformer.uniqueId;
-            existingFailure.orderId = orderId;
+            existingFailure.transformerUniqueId = validTransformerUniqueId;
+            existingFailure.orderId = validOrderId;
             existingFailure.date = Date.now();
             
             // Clear treatment details since it is now failing again
@@ -68,24 +159,25 @@ router.post('/', isAuthenticated, async (req, res) => {
 
             return res.status(200).json({
                 success: true,
-                message: "Failed transformer updated successfully",
+                message: "Failed transformer updated successfully with combined failure reasons",
                 data: existingFailure
             });
         }
 
         const failedRecord = new FailedTransformerModel({
-            transformerId,
-            transformerUniqueId: transformerUniqueId || transformer.uniqueId,
-            orderId,
+            transformerId: validTransformerId,
+            transformerUniqueId: validTransformerUniqueId,
+            orderId: validOrderId,
             jobNumber: jobNumber || transformer.jobId || (order ? order.jobId : ''),
             clientName: clientName || transformer.clientName || (order ? order.clientName : ''),
             coreType,
             testType: testType || `Secondary ${coreType}`,
             failureParameters,
             failureReason,
+            remark,
             reportedBy,
-            stage: stage || "SECONDARY_TESTING",
-            status: status || "FAILED"
+            stage: normalizedStage,
+            status: normalizedStatus
         });
 
         await failedRecord.save();
@@ -255,76 +347,36 @@ router.put('/:id/retest-save', isAuthenticated, async (req, res) => {
                 coreSlot = "1";
             }
 
-            const formattedReadings = treatedReadings.map(r => ({ ...r, internalCoreNo: coreSlot, coreId: coreSlot }));
+            const formattedReadings = treatedReadings.map(r => {
+                const targetId = r.internalCoreNo || r.coreId || coreSlot;
+                return { ...r, internalCoreNo: targetId, coreId: targetId };
+            });
+
+            const updateStageHistory = (stageName, resultField) => {
+                if (!transformer.testHistory[stageName]) transformer.testHistory[stageName] = {};
+                if (!transformer.testHistory[stageName][resultField]) transformer.testHistory[stageName][resultField] = [];
+                const existingResults = transformer.testHistory[stageName][resultField] || [];
+                const isSlotMatch = (r) => {
+                    const id = String(r.internalCoreNo || r.coreId || '').trim();
+                    const target = String(coreSlot || '').trim();
+                    return id === target || id.endsWith(target) || target.endsWith(id);
+                };
+                const firstIdx = existingResults.findIndex(isSlotMatch);
+                const otherCoresResults = existingResults.filter(r => !isSlotMatch(r));
+                if (firstIdx !== -1) {
+                    otherCoresResults.splice(firstIdx, 0, ...formattedReadings);
+                    transformer.testHistory[stageName][resultField] = otherCoresResults;
+                } else {
+                    transformer.testHistory[stageName][resultField] = [...otherCoresResults, ...formattedReadings];
+                }
+            };
 
             if (coreTypeLower.includes('meter') || (!coreType && testTypeLower.includes('meter'))) {
-                if (!transformer.testHistory.secondary_test.metering_results) transformer.testHistory.secondary_test.metering_results = [];
-                const existingResults = transformer.testHistory.secondary_test.metering_results || [];
-                const firstIdx = existingResults.findIndex(r => r.internalCoreNo === coreSlot || r.coreId === coreSlot);
-                const otherCoresResults = existingResults.filter(r =>
-                    r.internalCoreNo !== coreSlot && r.coreId !== coreSlot
-                );
-                if (firstIdx !== -1) {
-                    otherCoresResults.splice(firstIdx, 0, ...formattedReadings);
-                    transformer.testHistory.secondary_test.metering_results = otherCoresResults;
-                } else {
-                    transformer.testHistory.secondary_test.metering_results = [...otherCoresResults, ...formattedReadings];
-                }
-
-                // Clear from primary and final
-                ['primary_test', 'final_test'].forEach(stage => {
-                    if (transformer.testHistory[stage] && transformer.testHistory[stage].metering_results) {
-                        transformer.testHistory[stage].metering_results = transformer.testHistory[stage].metering_results.filter(r => 
-                            r.internalCoreNo !== coreSlot && r.coreId !== coreSlot
-                        );
-                    }
-                });
-
+                ['secondary_test', 'primary_test', 'final_test'].forEach(stg => updateStageHistory(stg, 'metering_results'));
             } else if (coreTypeLower.includes('ps') || (!coreType && testTypeLower.includes('ps'))) {
-                if (!transformer.testHistory.secondary_test.ps_results) transformer.testHistory.secondary_test.ps_results = [];
-                const existingResults = transformer.testHistory.secondary_test.ps_results || [];
-                const firstIdx = existingResults.findIndex(r => r.internalCoreNo === coreSlot || r.coreId === coreSlot);
-                const otherCoresResults = existingResults.filter(r =>
-                    r.internalCoreNo !== coreSlot && r.coreId !== coreSlot
-                );
-                if (firstIdx !== -1) {
-                    otherCoresResults.splice(firstIdx, 0, ...formattedReadings);
-                    transformer.testHistory.secondary_test.ps_results = otherCoresResults;
-                } else {
-                    transformer.testHistory.secondary_test.ps_results = [...otherCoresResults, ...formattedReadings];
-                }
-
-                // Clear from primary and final
-                ['primary_test', 'final_test'].forEach(stage => {
-                    if (transformer.testHistory[stage] && transformer.testHistory[stage].ps_results) {
-                        transformer.testHistory[stage].ps_results = transformer.testHistory[stage].ps_results.filter(r => 
-                            r.internalCoreNo !== coreSlot && r.coreId !== coreSlot
-                        );
-                    }
-                });
-
+                ['secondary_test', 'primary_test', 'final_test'].forEach(stg => updateStageHistory(stg, 'ps_results'));
             } else if (coreTypeLower.includes('protect') || (!coreType && testTypeLower.includes('protect'))) {
-                if (!transformer.testHistory.secondary_test.protection_results) transformer.testHistory.secondary_test.protection_results = [];
-                const existingResults = transformer.testHistory.secondary_test.protection_results || [];
-                const firstIdx = existingResults.findIndex(r => r.internalCoreNo === coreSlot || r.coreId === coreSlot);
-                const otherCoresResults = existingResults.filter(r =>
-                    r.internalCoreNo !== coreSlot && r.coreId !== coreSlot
-                );
-                if (firstIdx !== -1) {
-                    otherCoresResults.splice(firstIdx, 0, ...formattedReadings);
-                    transformer.testHistory.secondary_test.protection_results = otherCoresResults;
-                } else {
-                    transformer.testHistory.secondary_test.protection_results = [...otherCoresResults, ...formattedReadings];
-                }
-
-                // Clear from primary and final
-                ['primary_test', 'final_test'].forEach(stage => {
-                    if (transformer.testHistory[stage] && transformer.testHistory[stage].protection_results) {
-                        transformer.testHistory[stage].protection_results = transformer.testHistory[stage].protection_results.filter(r => 
-                            r.internalCoreNo !== coreSlot && r.coreId !== coreSlot
-                        );
-                    }
-                });
+                ['secondary_test', 'primary_test', 'final_test'].forEach(stg => updateStageHistory(stg, 'protection_results'));
             }
         }
 
@@ -457,6 +509,16 @@ router.put('/:id/status', isAuthenticated, async (req, res) => {
 
                 transformer.markModified('testHistory');
                 await transformer.save();
+
+                // Update parent Order currentStage to 'primary' as well so it appears on Primary Panel
+                if (transformer.orderId) {
+                    const { OrderModel } = require('../models/OrderModel');
+                    const order = await OrderModel.findById(transformer.orderId);
+                    if (order) {
+                        order.currentStage = 'primary';
+                        await order.save();
+                    }
+                }
             }
         }
 
