@@ -244,14 +244,40 @@ router.get('/id-settings', isAuthenticated, isAdmin, async (req, res) => {
     try {
         let settings = await SettingsModel.findOne({ key: 'id_generation_settings' });
         if (!settings) {
-            // Default configuration
+            const defaultBlocks = {
+                orderId: [
+                    { id: 'b-prefix', type: 'static', value: 'ORD-' },
+                    { id: 'b-year', type: 'year', format: 'YYYY' },
+                    { id: 'b-sep', type: 'separator', value: '-' },
+                    { id: 'b-seq', type: 'sequence', padLength: 3 }
+                ],
+                transformerId: [
+                    { id: 'b-prefix', type: 'static', value: 'TR-' },
+                    { id: 'b-job', type: 'jobRef' },
+                    { id: 'b-sep', type: 'separator', value: '-' },
+                    { id: 'b-seq', type: 'sequence', padLength: 3 }
+                ],
+                preTestBatchId: [
+                    { id: 'b-prefix', type: 'static', value: 'B-' },
+                    { id: 'b-year', type: 'year', format: 'YYYY' },
+                    { id: 'b-sep', type: 'separator', value: '-' },
+                    { id: 'b-seq', type: 'sequence', padLength: 3 }
+                ],
+                preTestCoreId: [
+                    { id: 'b-coreType', type: 'coreType', meteringCode: 'M', psCode: 'PS', protectionCode: 'P' },
+                    { id: 'b-year', type: 'year', format: 'YYYY' },
+                    { id: 'b-sep', type: 'separator', value: '-' },
+                    { id: 'b-seq', type: 'sequence', padLength: 3 }
+                ]
+            };
+
             settings = await SettingsModel.create({
                 key: 'id_generation_settings',
                 value: {
-                    orderId: { enabled: false, prefix: 'ORD-', lastSequence: '000' },
-                    transformerId: { enabled: false, prefix: 'TR-JOB-', lastSequence: '000' },
-                    preTestBatchId: { enabled: false, prefix: 'BATCH-', lastSequence: '000' },
-                    preTestCoreId: { enabled: false, prefix: 'PRE-', lastSequence: '000' }
+                    orderId: { enabled: true, prefix: 'ORD-', lastSequence: 0, padLength: 3, patternBlocks: defaultBlocks.orderId },
+                    transformerId: { enabled: true, prefix: 'TR-', lastSequence: 0, padLength: 3, patternBlocks: defaultBlocks.transformerId },
+                    preTestBatchId: { enabled: true, prefix: 'B-', lastSequence: 0, padLength: 3, patternBlocks: defaultBlocks.preTestBatchId },
+                    preTestCoreId: { enabled: true, prefix: 'M', lastSequence: 0, padLength: 3, patternBlocks: defaultBlocks.preTestCoreId }
                 }
             });
         }

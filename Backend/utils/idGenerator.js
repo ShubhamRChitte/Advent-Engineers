@@ -7,7 +7,7 @@ const { getNextGlobalId } = require('./idSettings');
  * @returns {Promise<string>}
  */
 exports.generateBatchId = async (coreType, dailyCount) => {
-  const globalBatchId = await getNextGlobalId('preTestBatchId');
+  const globalBatchId = await getNextGlobalId('preTestBatchId', { coreType });
   if (globalBatchId) return globalBatchId;
 
   const date = new Date();
@@ -28,10 +28,11 @@ exports.generateBatchId = async (coreType, dailyCount) => {
  * Generates a Core ID linked to its Batch ID
  * @param {string} batchId - The parent Batch ID
  * @param {number} transformerNum - Sequence number of the core in the batch
+ * @param {Object} metadata
  * @returns {Promise<string>}
  */
-exports.generateCoreIdFromBatch = async (batchId, transformerNum) => {
-  const globalCoreId = await getNextGlobalId('preTestCoreId');
+exports.generateCoreIdFromBatch = async (batchId, transformerNum, metadata = {}) => {
+  const globalCoreId = await getNextGlobalId('preTestCoreId', { batchId, ...metadata });
   if (globalCoreId) return globalCoreId;
 
   const parts = batchId.split('-');
@@ -54,14 +55,14 @@ exports.generateCoreIdFromBatch = async (batchId, transformerNum) => {
 };
 
 const { getMultipleNextGlobalIds } = require('./idSettings');
-exports.generateMultipleCoreIdsFromBatch = async (batchId, count) => {
-    const globalCoreIds = await getMultipleNextGlobalIds('preTestCoreId', count);
+exports.generateMultipleCoreIdsFromBatch = async (batchId, count, metadata = {}) => {
+    const globalCoreIds = await getMultipleNextGlobalIds('preTestCoreId', count, { batchId, ...metadata });
     if (globalCoreIds && globalCoreIds.length === count) return globalCoreIds;
     
     // If not global, generate manually
     const ids = [];
     for(let i=1; i<=count; i++){
-        ids.push(await exports.generateCoreIdFromBatch(batchId, i)); // Fallback internally uses old logic
+        ids.push(await exports.generateCoreIdFromBatch(batchId, i, metadata));
     }
     return ids;
 };

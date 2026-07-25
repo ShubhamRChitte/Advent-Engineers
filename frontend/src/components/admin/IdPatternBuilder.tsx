@@ -53,12 +53,19 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
   // Default fallback blocks if empty
   const blocks: PatternBlock[] = config.patternBlocks && config.patternBlocks.length > 0 
     ? config.patternBlocks 
-    : [
-        { id: 'b-prefix', type: 'static', value: config.prefix || 'PREFIX-' },
-        { id: 'b-year', type: 'year', format: 'YYYY' },
-        { id: 'b-sep', type: 'separator', value: '-' },
-        { id: 'b-seq', type: 'sequence', padLength: config.padLength || 3 }
-      ];
+    : (categoryKey === 'preTestCoreId' 
+      ? [
+          { id: 'b-coreType', type: 'coreType', meteringCode: 'M', psCode: 'PS', protectionCode: 'P' },
+          { id: 'b-year', type: 'year', format: 'YYYY' },
+          { id: 'b-sep', type: 'separator', value: '-' },
+          { id: 'b-seq', type: 'sequence', padLength: config.padLength || 3 }
+        ]
+      : [
+          { id: 'b-prefix', type: 'static', value: config.prefix || 'PREFIX-' },
+          { id: 'b-year', type: 'year', format: 'YYYY' },
+          { id: 'b-sep', type: 'separator', value: '-' },
+          { id: 'b-seq', type: 'sequence', padLength: config.padLength || 3 }
+        ]);
 
   const updateConfig = (newBlocks: PatternBlock[], newLastSeq?: number, newEnabled?: boolean) => {
     const prefixStr = evaluatePreview(newBlocks, 0, false);
@@ -265,62 +272,55 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-xl font-extrabold text-gray-900">{label}</h3>
-              <span className="px-2.5 py-0.5 text-xs font-mono font-bold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+              <span className="px-2.5 py-0.5 text-xs font-mono font-extrabold rounded-full bg-blue-600 text-white shadow-sm">
                 {categoryKey}
               </span>
             </div>
             <p className="text-xs text-gray-600 mt-1">{desc}</p>
           </div>
+        </div>
+      </div>
 
-          {/* Override Logic Toggle */}
-          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm ml-auto xl:ml-4">
-            <div className="text-right">
-              <span className="text-xs font-black text-gray-900 block">Override Default Logic</span>
-              <span className={`text-[10px] font-bold ${config.enabled ? 'text-emerald-700' : 'text-gray-500'}`}>
-                {config.enabled ? '🟢 Flowchart Active' : '⚪ Standard Format'}
+      {/* Real-Time Flowchart ID Output Banner */}
+      <div className="px-6 pt-4 pb-1 bg-white border-b border-gray-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-blue-50 border-2 border-blue-200 px-5 py-3.5 rounded-2xl shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-600 rounded-xl text-white shadow-sm">
+              <Sparkles className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <span className="text-xs font-black uppercase tracking-wider text-blue-900 block">
+                Real-Time Flowchart ID Output:
+              </span>
+              <span className="font-mono text-2xl font-black tracking-wider text-blue-700 block mt-0.5">
+                {previewNextId}
               </span>
             </div>
-            <button
-              onClick={handleToggleEnabled}
-              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
-                config.enabled ? 'bg-blue-600' : 'bg-gray-300'
-              }`}
-            >
-              <span
-                className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow-md"
-                style={{ transform: config.enabled ? 'translateX(24px)' : 'translateX(4px)' }}
-              />
-            </button>
-          </div>
-        </div>
-
-        {/* Right Live ID Preview Box */}
-        <div className="flex items-center gap-3 bg-slate-900 text-white px-4 py-3 rounded-2xl border border-slate-800 shadow-md shrink-0">
-          <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400">
-            <Sparkles className="w-5 h-5 animate-pulse" />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-              Real-Time Flowchart ID Output:
-            </span>
-            <span className="font-mono text-xl font-black tracking-wider text-emerald-300">
-              {previewNextId}
-            </span>
           </div>
 
           <button
             type="button"
             onClick={copyPreviewToClipboard}
-            className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors ml-2"
+            className="flex items-center gap-2 px-4 py-2 text-xs font-extrabold bg-white hover:bg-blue-100 text-blue-900 rounded-xl border border-blue-300 shadow-sm transition-all self-start sm:self-center"
             title="Copy Sample ID"
           >
-            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-blue-400" />}
+            {copied ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span className="text-emerald-700">Copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4 text-blue-600" />
+                <span>Copy Sample ID</span>
+              </>
+            )}
           </button>
         </div>
       </div>
 
       {/* Main Flowchart Studio Canvas */}
-      <div className={`p-6 bg-slate-50/50 transition-opacity ${config.enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
+      <div className="p-6 bg-slate-50/50">
         
         {/* Quick Insert Node Toolbar */}
         <div className="mb-5 p-4 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -374,12 +374,14 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
             >
               <Briefcase className="w-3.5 h-3.5 text-blue-700" /> + Job Ref
             </button>
-            <button
-              onClick={() => addBlock('coreType')}
-              className="px-3 py-1.5 bg-pink-50 hover:bg-pink-100 border border-pink-300 rounded-xl text-xs font-bold text-pink-900 flex items-center gap-1.5 transition-all shadow-sm"
-            >
-              <Zap className="w-3.5 h-3.5 text-pink-700" /> + Core Code
-            </button>
+            {categoryKey === 'preTestCoreId' && (
+              <button
+                onClick={() => addBlock('coreType')}
+                className="px-3 py-1.5 bg-pink-50 hover:bg-pink-100 border border-pink-300 rounded-xl text-xs font-bold text-pink-900 flex items-center gap-1.5 transition-all shadow-sm"
+              >
+                <Zap className="w-3.5 h-3.5 text-pink-700" /> + Core Code
+              </button>
+            )}
           </div>
         </div>
 
@@ -673,16 +675,18 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
                       <span className="text-[10px] text-blue-800 font-medium">Job Ref No</span>
                     </button>
 
-                    <button
-                      onClick={() => addBlock('coreType')}
-                      className="p-2 bg-white hover:bg-pink-100/80 border border-pink-300 rounded-xl text-left transition-all group shadow-sm"
-                    >
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <Zap className="w-3.5 h-3.5 text-pink-700" />
-                        <span className="text-xs font-extrabold text-pink-950">Core Code</span>
-                      </div>
-                      <span className="text-[10px] text-pink-800 font-medium">M/PS/P</span>
-                    </button>
+                    {categoryKey === 'preTestCoreId' && (
+                      <button
+                        onClick={() => addBlock('coreType')}
+                        className="p-2 bg-white hover:bg-pink-100/80 border border-pink-300 rounded-xl text-left transition-all group shadow-sm"
+                      >
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <Zap className="w-3.5 h-3.5 text-pink-700" />
+                          <span className="text-xs font-extrabold text-pink-950">Core Code</span>
+                        </div>
+                        <span className="text-[10px] text-pink-800 font-medium">M/PS/P</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : (

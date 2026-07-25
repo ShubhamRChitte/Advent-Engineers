@@ -23,6 +23,15 @@ exports.createBatch = async (req, res) => {
 
     const batchId = await generateBatchId(coreType, count);
 
+    // Generate initial core IDs for the batch using global settings if enabled
+    const { generateMultipleCoreIdsFromBatch } = require("../utils/idGenerator");
+    const coreIds = await generateMultipleCoreIdsFromBatch(batchId, numberOfCores, { coreType, batchId });
+
+    const initialReadings = coreIds.map((coreId) => ({
+      internalCoreNo: coreId,
+      status: "PENDING"
+    }));
+
     const newBatch = await PreTestBatchModel.create({
       batchId,
       vendorName,
@@ -30,6 +39,7 @@ exports.createBatch = async (req, res) => {
       coreType,
       numberOfCores,
       turns,
+      readings: initialReadings,
       status: "CREATED",
       createdBy: req.user._id
     });

@@ -98,60 +98,88 @@ function buildIdFromBlocks(blocks, seqNum, defaultPrefix = "", defaultPadLen = 3
  * @param {Object} metadata - Optional context (e.g. { jobNumber, coreType })
  * @returns {Promise<string|null>} - Returns the generated ID string, or null if disabled
  */
+async function checkIdExists(type, candidateId) {
+    if (!candidateId) return false;
+    try {
+        const { PreTestBatchModel } = require('../models/PreTestBatchModel');
+        const ReadyTransformer = require('../models/ReadyTransformerModel');
+        const Order = require('../models/OrderModel');
+
+        if (type === 'preTestBatchId') {
+            const batch = await PreTestBatchModel.findOne({ batchId: candidateId }).lean();
+            return !!batch;
+        }
+        if (type === 'preTestCoreId') {
+            const inBatch = await PreTestBatchModel.findOne({ 'readings.internalCoreNo': candidateId }).lean();
+            if (inBatch) return true;
+            const inReady = await ReadyTransformer.findOne({ coreId: candidateId }).lean();
+            return !!inReady;
+        }
+        if (type === 'orderId') {
+            const ord = await Order.findOne({ orderId: candidateId }).lean();
+            return !!ord;
+        }
+        if (type === 'transformerId') {
+            const inOrd = await Order.findOne({ 'transformers.transformerId': candidateId }).lean();
+            return !!inOrd;
+        }
+    } catch (err) {
+        console.error("Error checking ID uniqueness:", err);
+    }
+    return false;
+}
+
 async function getNextGlobalId(type, metadata = {}) {
-    // 1. Fetch current settings to check if enabled
     let settings = await SettingsModel.findOne({ key: 'id_generation_settings' });
-    
-    // If not found or not enabled for this type, return null
-    if (!settings || !settings.value || !settings.value[type] || !settings.value[type].enabled) {
-        return null;
+    if (!settings || !settings.value || !settings.value[type]) return null;
+
+    let currentSeqNum = parseInt(settings.value[type].lastSequence, 10) || 0;
+    let candidateId = null;
+    let attempts = 0;
+
+    while (attempts < 100) {
+        attempts++;
+        currentSeqNum++;
+
+        const updated = await SettingsModel.findOneAndUpdate(
+            { key: 'id_generation_settings' },
+            { 
+                $set: { 
+                    [`value.${type}.lastSequence`]: currentSeqNum,
+                    [`value.${type}.enabled`]: true
+                } 
+            },
+            { new: true }
+        );
+
+        const config = updated.value[type];
+        candidateId = buildIdFromBlocks(config.patternBlocks, currentSeqNum, config.prefix, config.padLength, metadata);
+
+        const exists = await checkIdExists(type, candidateId);
+        if (!exists) {
+            return candidateId;
+        }
     }
 
-    // 2. Atomically increment the sequence number
-    const updated = await SettingsModel.findOneAndUpdate(
-        { key: 'id_generation_settings' },
-        { $inc: { [`value.${type}.lastSequence`]: 1 } },
-        { new: true }
-    );
-
-    const config = updated.value[type];
-    const seqNum = config.lastSequence || 1;
-
-    return buildIdFromBlocks(config.patternBlocks, seqNum, config.prefix, config.padLength, metadata);
+    return candidateId;
 }
 
 /**
- * Atomically gets multiple sequential IDs for a given type.
- * @param {string} type 
- * @param {number} count 
- * @param {Object} metadata
- * @returns {Promise<string[]|null>}
+ * Atomically gets multiple sequential IDs for a given type with duplicate skip checks.
  */
 async function getMultipleNextGlobalIds(type, count, metadata = {}) {
     let settings = await SettingsModel.findOne({ key: 'id_generation_settings' });
-    
-    if (!settings || !settings.value || !settings.value[type] || !settings.value[type].enabled) {
-        return null;
-    }
-
-    // Atomically increment the sequence number by the required count
-    const updated = await SettingsModel.findOneAndUpdate(
-        { key: 'id_generation_settings' },
-        { $inc: { [`value.${type}.lastSequence`]: count } },
-        { new: true }
-    );
-
-    const config = updated.value[type];
-    const finalSeqNum = config.lastSequence; // This is the highest sequence after increment
-    const startSeqNum = finalSeqNum - count + 1;
+    if (!settings || !settings.value || !settings.value[type]) return null;
 
     const ids = [];
     for (let i = 0; i < count; i++) {
-        const seqNum = startSeqNum + i;
-        ids.push(buildIdFromBlocks(config.patternBlocks, seqNum, config.prefix, config.padLength, metadata));
+        const uniqueId = await getNextGlobalId(type, metadata);
+        if (uniqueId) {
+            ids.push(uniqueId);
+        }
     }
-    
-    return ids;
+
+    return ids.length === count ? ids : null;
 }
 
 module.exports = {

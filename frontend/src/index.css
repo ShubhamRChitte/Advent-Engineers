@@ -3612,3 +3612,13 @@ html {
     overflow: visible !important; 
   } 
 }
+
+/* Global Text Selection Contrast Fix */
+::selection {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+}
+::-moz-selection {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+}

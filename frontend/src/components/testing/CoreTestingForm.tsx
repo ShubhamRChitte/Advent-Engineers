@@ -57,6 +57,7 @@ import { CTTimerBadge } from '../tester/CTTimerBadge';interface CoreTestingFormP
     vendorId: string;
     numberOfCores: number;
     turns: string;
+    readings?: Array<{ internalCoreNo?: string; [key: string]: any }>;
     discardedCount?: number;
     passedCount?: number;
     failedCount?: number;
@@ -129,25 +130,12 @@ export function CoreTestingForm({
 
   // 1. REFINE ID GENERATION
   const generateCoreId = (transformerNum: number) => {
-    if (isPreTest && batchData) {
-      // If batchData already has pre-generated core IDs from global settings, use them if available
-      const upperType = coreType.toUpperCase();
-      let typeCode = 'M';
-      if (upperType === 'PROTECTION') typeCode = 'P';
-      else if (upperType.includes('PS')) typeCode = 'PS';
-
-      const parts = batchData.batchId.split('-');
-
-      if (parts.length >= 4) {
-        const datePart = parts[1];
-        const typePart = parts[2];
-        const batchSeq = parts[3]?.slice(-2) || '00';
-        return `PRE-${datePart}-${typePart}-${batchSeq}-${String(transformerNum).padStart(3, '0')}`;
-      }
-
-      // Default linked pattern format matching dynamic layout
-      return `PRE-${batchData.batchId}-${String(transformerNum).padStart(3, '0')}`;
+    // If pre-generated reading internalCoreNo exists from server batchData, use it directly
+    const existingCoreNo = batchData?.readings?.[transformerNum - 1]?.internalCoreNo;
+    if (isPreTest && existingCoreNo) {
+      return existingCoreNo;
     }
+    
     const upperType = coreType.toUpperCase();
     let prefix = 'P';
 
@@ -488,94 +476,13 @@ export function CoreTestingForm({
             };
           });
 
-          const finalRowsToShow: CoreTestRow[] = [];
-          const restoredFailedCores: FailedCore[] = [];
-
-          finalSkeleton.forEach(skel => {
-            if (skel.isReadyStock) {
-              finalRowsToShow.push(skel);
-              return;
-            }
-
-            const baseReading = mappedSavedRows.find((s: any) => 
-              s.internalCoreNo?.trim().toUpperCase() === skel.internalCoreNo?.trim().toUpperCase()
-            );
-            const sourceRow = baseReading || skel;
-
-            const currentSourceId = sourceRow.internalCoreNo?.trim().toUpperCase() || '';
-            console.log(`Checking if ${currentSourceId} is in Failed Cores:`, dbFailedCoreIds.has(currentSourceId));
-            if (dbFailedCoreIds.has(currentSourceId)) {
-              const dbFc = dbFailedCores.find((fc: any) => fc.internalCoreNo?.trim().toUpperCase() === currentSourceId);
-              restoredFailedCores.push({
-                _id: dbFc._id,
-                orderId: getSafeOrderId(order),
-                jobId: order.jobId,
-                clientName: order.clientName,
-                coreType: coreType,
-                internalCoreNo: sourceRow.internalCoreNo,
-                coreVendorNo: sourceRow.coreVendorNo,
-                vendorCoreNo: sourceRow.coreVendorNo,
-                date: sourceRow.date,
-                failureReason: dbFc.failureReason || 'Replaced from Ready Stock',
-                dynamicValues: sourceRow.dynamicValues,
-                value1000: sourceRow.value1000 || '',
-                value3000: sourceRow.value3000 || '',
-                value5000: sourceRow.value5000 || '',
-                value7000: sourceRow.value7000 || '',
-                singleValue: sourceRow.singleValue || '',
-                status: sourceRow.status || 'FAIL'
-              });
-            } else {
-              finalRowsToShow.push(sourceRow);
-            }
-
-            // Now trace any replacements
-            let lastId = sourceRow.internalCoreNo;
-            let furtherChild: any;
-            do {
-              furtherChild = mappedSavedRows.find((s: any) => 
-                s.isReplacement && s.replacedCoreId?.trim().toUpperCase() === lastId?.trim().toUpperCase()
-              );
-              if (furtherChild) {
-                const furtherChildId = furtherChild.internalCoreNo?.trim().toUpperCase() || '';
-                if (dbFailedCoreIds.has(furtherChildId)) {
-                  const dbFc = dbFailedCores.find((fc: any) => fc.internalCoreNo?.trim().toUpperCase() === furtherChildId);
-                  restoredFailedCores.push({
-                    _id: dbFc._id,
-                    orderId: getSafeOrderId(order),
-                    jobId: order.jobId,
-                    clientName: order.clientName,
-                    coreType: coreType,
-                    internalCoreNo: furtherChild.internalCoreNo,
-                    coreVendorNo: furtherChild.coreVendorNo,
-                    vendorCoreNo: furtherChild.coreVendorNo,
-                    date: furtherChild.date,
-                    failureReason: dbFc.failureReason || 'Replaced from Ready Stock',
-                    dynamicValues: furtherChild.dynamicValues,
-                    value1000: furtherChild.value1000 || '',
-                    value3000: furtherChild.value3000 || '',
-                    value5000: furtherChild.value5000 || '',
-                    value7000: furtherChild.value7000 || '',
-                    singleValue: furtherChild.singleValue || '',
-                    status: furtherChild.status || 'FAIL'
-                  });
-                } else {
-                  finalRowsToShow.push(furtherChild);
-                }
-                lastId = furtherChild.internalCoreNo;
-              }
-            } while (furtherChild);
-          });
-
-          if (restoredFailedCores.length > 0) {
-            setFailedCores(restoredFailedCores);
-          }
-
+          // If saved readings exist in DB, preserve those EXACT saved rows (never override their stored internalCoreNo)
+          const finalRowsToShow = mappedSavedRows.length > 0 ? mappedSavedRows : finalSkeleton;
 
           // Move used cores to the end
           const isRowUsed = (r: CoreTestRow) => !isIndividualReuse && ((r.readyStockStatus && r.readyStockStatus !== 'available' && r.readyStockStatus !== 'pending_test') || (r.remark && String(r.remark).trim().toLowerCase() === 'used'));
-          const unusedRows = finalRowsToShow.filter(r => !isRowUsed(r));
-          const usedRows = finalRowsToShow.filter(r => isRowUsed(r));
+          const unusedRows = finalRowsToShow.filter((r: CoreTestRow) => !isRowUsed(r));
+          const usedRows = finalRowsToShow.filter((r: CoreTestRow) => isRowUsed(r));
 
           const sanitizedRowsToShow = [...unusedRows, ...usedRows].filter(row => {
             const id = row.internalCoreNo?.trim().toUpperCase();

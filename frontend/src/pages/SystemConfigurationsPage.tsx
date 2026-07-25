@@ -408,7 +408,8 @@ export function SystemConfigurationsPage() {
               ]
                 .filter((cat) => cat.key === idCategoryTab)
                 .map((cat) => {
-                  const data = idSettings[cat.key] || { enabled: false, prefix: '', lastSequence: 0, padLength: 3 };
+                  const rawData = idSettings[cat.key] || { enabled: true, prefix: '', lastSequence: 0, padLength: 3 };
+                  const data = { ...rawData, enabled: true };
                   return (
                     <IdPatternBuilder
                       key={cat.key}
