@@ -66,7 +66,7 @@ function buildIdFromBlocks(blocks, seqNum, defaultPrefix = "", defaultPadLen = 3
                 break;
 
             case 'coreType':
-                result += metadata.coreType || 'MTR';
+                result += block.value || metadata.coreType || 'M';
                 break;
 
             default:

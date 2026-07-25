@@ -130,37 +130,30 @@ export function CoreTestingForm({
   // 1. REFINE ID GENERATION
   const generateCoreId = (transformerNum: number) => {
     if (isPreTest && batchData) {
-      // Linked Format: PRE-DDMMYY-[TYPE]-[BATCH_SEQ]-[CORE_SEQ]
-      // Example Batch: BATCH-300426-MTR-001
-      // Example Core: PRE-300426-MTR-01-001
+      // If batchData already has pre-generated core IDs from global settings, use them if available
+      const upperType = coreType.toUpperCase();
+      let typeCode = 'M';
+      if (upperType === 'PROTECTION') typeCode = 'P';
+      else if (upperType.includes('PS')) typeCode = 'PS';
 
       const parts = batchData.batchId.split('-');
-      // parts[0] = BATCH, parts[1] = DDMMYY, parts[2] = TYPE, parts[3] = SEQ
 
       if (parts.length >= 4) {
         const datePart = parts[1];
         const typePart = parts[2];
-        const batchSeq = parts[3]?.slice(-2) || '00'; // Use last 2 digits of batch sequence
+        const batchSeq = parts[3]?.slice(-2) || '00';
         return `PRE-${datePart}-${typePart}-${batchSeq}-${String(transformerNum).padStart(3, '0')}`;
       }
 
-      // Fallback for old batch IDs
-      const now = new Date();
-      const dd = String(now.getDate()).padStart(2, '0');
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const yy = String(now.getFullYear()).slice(-2);
-      const datePart = `${dd}${mm}${yy}`;
-      const match = batchData.batchId.match(/\d+/);
-      const batchDigits = (match ? match[0] : '00').slice(-2).padStart(2, '0');
-      return `PRE-${datePart}-B${batchDigits}-${String(transformerNum).padStart(3, '0')}`;
+      // Default linked pattern format matching dynamic layout
+      return `PRE-${batchData.batchId}-${String(transformerNum).padStart(3, '0')}`;
     }
     const upperType = coreType.toUpperCase();
-    let prefix = 'P'; // Default for Protection
+    let prefix = 'P';
 
     if (upperType === 'METERING') prefix = 'M';
     else if (upperType.includes('PS')) prefix = 'PS';
 
-    // Safe Job ID logic: Takes "JOB-2025-015" and gets "015"
     const jobSuffix = order?.jobId?.split('-').pop() ?? '000';
 
     return `${prefix}-${jobSuffix}-${String(transformerNum).padStart(3, '0')}`;

@@ -416,11 +416,17 @@ export function SystemConfigurationsPage() {
                       label={cat.label}
                       desc={cat.desc}
                       config={data}
-                      onChange={(key, updatedConfig) => {
-                        setIdSettings((prev: any) => ({
-                          ...prev,
+                      onChange={async (key, updatedConfig) => {
+                        const newSettings = {
+                          ...idSettings,
                           [key]: updatedConfig
-                        }));
+                        };
+                        setIdSettings(newSettings);
+                        try {
+                          await axios.put('/database-admin/id-settings', { updates: newSettings }, { withCredentials: true });
+                        } catch (err) {
+                          console.error("Failed to auto-save ID setting update", err);
+                        }
                       }}
                     />
                   );
