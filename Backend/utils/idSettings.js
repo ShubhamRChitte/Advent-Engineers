@@ -66,7 +66,22 @@ function buildIdFromBlocks(blocks, seqNum, defaultPrefix = "", defaultPadLen = 3
                 break;
 
             case 'coreType':
-                result += block.value || metadata.coreType || 'M';
+                let coreCode = 'M';
+                if (metadata.coreType) {
+                    const cTypeUpper = String(metadata.coreType).toUpperCase();
+                    if (cTypeUpper.includes('METER') || cTypeUpper === 'M' || cTypeUpper === 'MTR') {
+                        coreCode = 'M';
+                    } else if (cTypeUpper.includes('PS')) {
+                        coreCode = 'PS';
+                    } else if (cTypeUpper.includes('PROTECT') || cTypeUpper === 'P' || cTypeUpper === 'PRT') {
+                        coreCode = 'P';
+                    } else {
+                        coreCode = String(metadata.coreType).slice(0, 3).toUpperCase();
+                    }
+                } else if (block.value) {
+                    coreCode = block.value;
+                }
+                result += coreCode;
                 break;
 
             default:
