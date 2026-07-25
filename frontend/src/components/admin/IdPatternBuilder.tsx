@@ -161,7 +161,13 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
           result += 'JOB-2026-298';
           break;
         case 'coreType':
-          result += b.value || 'M';
+          if (b.format === 'MEDIUM') {
+            result += 'MTR';
+          } else if (b.format === 'FULL') {
+            result += 'Metering';
+          } else {
+            result += 'M';
+          }
           break;
         default:
           result += b.value || '';
@@ -533,10 +539,16 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
 
                         {block.type === 'coreType' && (
                           <div>
-                            <label className="block text-[10px] font-bold uppercase text-pink-900 mb-1">Core Code</label>
-                            <span className="text-xs text-pink-950 font-mono font-bold bg-white px-2.5 py-1.5 rounded-lg block border border-pink-300 text-center shadow-inner">
-                              M / PS / P
-                            </span>
+                            <label className="block text-[10px] font-bold uppercase text-pink-900 mb-1">Core Code Format</label>
+                            <select
+                              value={block.format || 'SHORT'}
+                              onChange={(e) => updateBlockProp(block.id, 'format', e.target.value)}
+                              className="w-full bg-white border border-pink-300 rounded-lg px-2 py-1.5 text-xs text-pink-950 font-bold text-center focus:outline-none focus:ring-2 focus:ring-pink-500 shadow-inner"
+                            >
+                              <option value="SHORT">M / PS / P (Short)</option>
+                              <option value="MEDIUM">MTR / PS / PRT (Standard)</option>
+                              <option value="FULL">Metering / PS / Protection (Full)</option>
+                            </select>
                           </div>
                         )}
                       </div>
