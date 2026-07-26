@@ -37,7 +37,8 @@ const STYLE = `
     padding: 15mm 15mm;
     margin: 0 auto;
     color: #000;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+    font-size: 11px;
     box-sizing: border-box;
   }
 
@@ -55,25 +56,29 @@ const STYLE = `
     border-collapse: collapse;
     table-layout: fixed;
     margin-bottom: 6px;
+    border: 1.5px solid #003a70;
   }
 
   .pf-table th, .pf-table td {
-    border: 1px solid #000;
+    border: 1px solid #cbd5e1;
     padding: 6px 8px;
     vertical-align: middle;
     word-break: break-word;
+    color: #0f172a;
   }
 
   .pf-section-header {
     text-align: center;
     font-weight: bold;
-    background: #e8e8e8;
-    border: 1px solid #000;
+    background: #003a70;
+    color: #fff;
+    border: 1.5px solid #003a70;
     border-bottom: none;
     padding: 6px;
-    font-size: 13px;
+    font-size: 11px;
     letter-spacing: 0.5px;
     text-transform: uppercase;
+    border-radius: 3px 3px 0 0;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -86,24 +91,26 @@ const STYLE = `
 
   .pf-header-title {
     text-align: center;
-    border-bottom: 2px solid #000;
+    border-bottom: 2px solid #003a70;
     padding-bottom: 8px;
     margin-bottom: 12px;
   }
 
   .pf-header-title h1 {
-    font-size: 20px;
-    font-weight: 900;
-    letter-spacing: 1.5px;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
     color: #003a70;
     margin: 0 0 4px 0;
   }
 
   .pf-header-title h2 {
-    font-size: 12px;
-    font-weight: bold;
+    font-size: 15px;
+    font-weight: 850;
     text-transform: uppercase;
+    color: #dc2626;
+    letter-spacing: 0.8px;
     margin: 0;
   }
 
@@ -111,8 +118,9 @@ const STYLE = `
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 12px;
-    background: #f5f5f5;
-    border: 1px solid #000;
+    background: #f8fafc;
+    border: 2px solid #003a70;
+    border-radius: 4px;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -122,27 +130,30 @@ const STYLE = `
     font-weight: bold;
     font-size: 12px;
     border: none;
+    color: #0f172a;
   }
 
   .pf-serial-row td span {
     font-weight: normal;
-    border-bottom: 1px solid #555;
+    border-bottom: 1px solid #64748b;
     display: inline-block;
     min-width: 120px;
     padding: 0 2px;
   }
 
   .pf-bg-header { 
-    background: #f0f0f0; 
-    font-weight: bold; 
+    background: #f1f5f9; 
+    font-weight: 700; 
     text-align: center;
+    color: #1e293b;
+    border-bottom: 2px solid #003a70 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
   .pf-text-center { text-align: center; }
   .pf-text-right  { text-align: right; }
-  .pf-pass { color: #166534; font-weight: bold; }
-  .pf-fail { color: #991b1b; font-weight: bold; }
+  .pf-pass { color: #15803d; font-weight: bold; }
+  .pf-fail { color: #b91c1c; font-weight: bold; }
 
   .pf-table input,
   .pf-serial-row input {
@@ -156,6 +167,7 @@ const STYLE = `
     color: #1f2937;
     font-size: 12px;
     font-weight: 500;
+    font-family: 'Segoe UI', Roboto, Arial, sans-serif;
     text-align: center;
     transition: all 0.15s ease-in-out;
     box-sizing: border-box;
@@ -163,8 +175,8 @@ const STYLE = `
 
   .pf-table input:focus {
     background: #ffffff;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+    border-color: #003a70;
+    box-shadow: 0 0 0 2px rgba(0, 58, 112, 0.15);
   }
 
   .pf-table input.pt-input-error {
@@ -179,12 +191,18 @@ const STYLE = `
   }
 
   .pf-table input:disabled {
-    background: #f3f4f6;
-    border-color: #e5e7eb;
-    color: #1f2937;
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #0f172a;
   }
 
   @media print {
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+
     html,
     body {
       background: #ffffff !important;
@@ -238,6 +256,29 @@ const STYLE = `
     tr {
       page-break-inside: avoid !important;
       break-inside: avoid !important;
+    }
+
+    .pf-section-header {
+      background: #003a70 !important;
+      color: #fff !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .pf-bg-header {
+      background: #f1f5f9 !important;
+    }
+
+    .pf-serial-row {
+      border: 2px solid #000 !important;
+    }
+
+    .pf-table {
+      border: 1.5px solid #000 !important;
+    }
+
+    .pf-table th, .pf-table td {
+      border: 1px solid #000 !important;
     }
 
     .pf-table input,
@@ -503,7 +544,7 @@ export function PTPretestPrintableReport({
             </tbody>
           </table>
           {/* Pretester name */}
-          <div style={{ borderTop: 'none', borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #000', padding: '8px 12px', fontSize: 12, background: '#fafafa', display: 'flex', alignItems: 'center' }}>
+          <div style={{ borderTop: '1.5px solid #003a70', borderLeft: '1.5px solid #003a70', borderRight: '1.5px solid #003a70', borderBottom: '1.5px solid #003a70', padding: '8px 12px', fontSize: 12, background: '#f8fafc', display: 'flex', alignItems: 'center' }}>
             <strong>Tested By (Pretester):</strong>&nbsp;
             <span style={{ borderBottom: '1px solid #555', minWidth: 160, display: 'inline-block', padding: '0 4px', fontStyle: 'italic', color: '#003a70', fontWeight: 'bold', fontSize: '14px' }}>
               {isReadOnly ? (
