@@ -61,8 +61,23 @@ function buildIdFromBlocks(blocks, seqNum, defaultPrefix = "", defaultPadLen = 3
                 result += String(seqNum).padStart(pad, '0');
                 break;
 
+            case 'orderRef':
             case 'jobRef':
-                result += metadata.jobNumber || 'JOB-001';
+                const orderIdVal = metadata.orderId || metadata.jobNumber || '';
+                if (orderIdVal && Array.isArray(block.selectedParts) && metadata.orderIdBlocks && Array.isArray(metadata.orderIdBlocks)) {
+                    let extracted = '';
+                    for (const oBlock of metadata.orderIdBlocks) {
+                        if (!oBlock || !oBlock.id) continue;
+                        if (block.selectedParts.includes(oBlock.id)) {
+                            // Extract part value using helper
+                            const partVal = buildIdFromBlocks([oBlock], metadata.orderIdSeqNum || 1, '', 3, metadata);
+                            extracted += partVal;
+                        }
+                    }
+                    result += extracted || orderIdVal;
+                } else {
+                    result += orderIdVal || 'ORD-001';
+                }
                 break;
 
             case 'coreType':

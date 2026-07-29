@@ -23,13 +23,14 @@ import { toast } from 'sonner';
 
 export interface PatternBlock {
   id: string;
-  type: 'static' | 'year' | 'month' | 'day' | 'sequence' | 'separator' | 'jobRef' | 'coreType';
+  type: 'static' | 'year' | 'month' | 'day' | 'sequence' | 'separator' | 'jobRef' | 'orderRef' | 'coreType';
   value?: string | undefined;
   format?: string | undefined;
   padLength?: number | undefined;
   meteringCode?: string | undefined;
   psCode?: string | undefined;
   protectionCode?: string | undefined;
+  selectedParts?: string[] | undefined;
 }
 
 interface IdPatternBuilderProps {
@@ -43,12 +44,14 @@ interface IdPatternBuilderProps {
     padLength: number;
     patternBlocks?: PatternBlock[];
   };
+  orderIdBlocks?: PatternBlock[];
   onChange: (key: string, updatedConfig: any) => void;
 }
 
-export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }: IdPatternBuilderProps) {
+export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBlocks, onChange }: IdPatternBuilderProps) {
   const [showInlineAdd, setShowInlineAdd] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [dropdownOpenForBlock, setDropdownOpenForBlock] = useState<string | null>(null);
 
   // Default fallback blocks if empty
   const blocks: PatternBlock[] = config.patternBlocks && config.patternBlocks.length > 0 
@@ -132,6 +135,65 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
     updateConfig(newBlocks);
   };
 
+  const getOrderIdParts = (): { id: string; label: string; sampleVal: string }[] => {
+    const targetBlocks = orderIdBlocks && orderIdBlocks.length > 0
+      ? orderIdBlocks
+      : [
+          { id: 'b-prefix', type: 'static', value: 'ORD-' },
+          { id: 'b-year', type: 'year', format: 'YYYY' },
+          { id: 'b-sep', type: 'separator', value: '-' },
+          { id: 'b-seq', type: 'sequence', padLength: 3 }
+        ];
+
+    const now = new Date();
+    const YYYY = now.getFullYear().toString();
+    const YY = YYYY.slice(-2);
+    const MM = String(now.getMonth() + 1).padStart(2, '0');
+    const monthShortNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const Mon = monthShortNames[now.getMonth()];
+    const Full = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][now.getMonth()];
+    const DD = String(now.getDate()).padStart(2, '0');
+
+    return targetBlocks.map((b, i) => {
+      let sampleVal = '';
+      let labelText = '';
+      switch (b.type) {
+        case 'static':
+          sampleVal = b.value || 'ORD-';
+          labelText = `Text (${sampleVal})`;
+          break;
+        case 'separator':
+          sampleVal = b.value || '-';
+          labelText = `Separator (${sampleVal})`;
+          break;
+        case 'year':
+          sampleVal = b.format === 'YY' ? YY : YYYY;
+          labelText = `Year (${sampleVal})`;
+          break;
+        case 'month':
+          sampleVal = b.format === 'Mon' ? (Mon || '') : b.format === 'Full' ? (Full || '') : MM;
+          labelText = `Month (${sampleVal})`;
+          break;
+        case 'day':
+          sampleVal = DD;
+          labelText = `Day (${sampleVal})`;
+          break;
+        case 'sequence':
+          sampleVal = String(1).padStart(b.padLength || 3, '0');
+          labelText = `Seq (${sampleVal})`;
+          break;
+        default:
+          sampleVal = b.value || '';
+          labelText = `Node #${i + 1} (${sampleVal})`;
+      }
+      return {
+        id: b.id || `part-${i}`,
+        label: `${i + 1}. ${labelText}`,
+        sampleVal
+      };
+    });
+  };
+
   const evaluatePreview = (targetBlocks: PatternBlock[], nextSeqOffset: number = 1, includeSeqNumber: boolean = true) => {
     const now = new Date();
     const YYYY = now.getFullYear().toString();
@@ -157,7 +219,7 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
           result += b.format === 'YY' ? YY : YYYY;
           break;
         case 'month':
-          result += b.format === 'Mon' ? Mon : b.format === 'Full' ? Full : MM;
+          result += b.format === 'Mon' ? (Mon || '') : b.format === 'Full' ? (Full || '') : MM;
           break;
         case 'day':
           result += DD;
@@ -167,8 +229,15 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
             result += String(nextSeq).padStart(b.padLength || 3, '0');
           }
           break;
+        case 'orderRef':
         case 'jobRef':
-          result += 'JOB-2026-298';
+          const orderParts = getOrderIdParts();
+          const selected = b.selectedParts || orderParts.map(p => p.id);
+          const orderRefVal = orderParts
+            .filter(p => selected.includes(p.id))
+            .map(p => p.sampleVal)
+            .join('');
+          result += orderRefVal || 'ORD-2026-001';
           break;
         case 'coreType':
           result += b.meteringCode !== undefined ? b.meteringCode : (b.value || 'M');
@@ -239,6 +308,7 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
           icon: <Hash className="w-4 h-4 text-purple-700" />,
           accent: 'text-purple-900'
         };
+      case 'orderRef':
       case 'jobRef':
         return {
           bg: 'bg-blue-50/90',
@@ -368,12 +438,14 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
             >
               <Minus className="w-3.5 h-3.5 text-slate-700" /> + Separator
             </button>
-            <button
-              onClick={() => addBlock('jobRef')}
-              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-300 rounded-xl text-xs font-bold text-blue-900 flex items-center gap-1.5 transition-all shadow-sm"
-            >
-              <Briefcase className="w-3.5 h-3.5 text-blue-700" /> + Job Ref
-            </button>
+            {categoryKey === 'transformerId' && (
+              <button
+                onClick={() => addBlock('orderRef')}
+                className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-300 rounded-xl text-xs font-bold text-blue-900 flex items-center gap-1.5 transition-all shadow-sm"
+              >
+                <Briefcase className="w-3.5 h-3.5 text-blue-700" /> + Order Ref
+              </button>
+            )}
             {(categoryKey === 'preTestCoreId' || categoryKey === 'preTestBatchId') && (
               <button
                 onClick={() => addBlock('coreType')}
@@ -397,22 +469,23 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
             </span>
           </div>
 
-          <div className="p-6 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-x-auto pb-8">
+          <div className="p-6 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-x-auto pb-48 pt-4">
             <div className="flex items-center gap-3 min-w-max">
               {blocks.map((block, idx) => {
                 const style = getNodeBadgeStyle(block.type);
+                const isDropdownOpen = dropdownOpenForBlock === block.id;
                 return (
                   <React.Fragment key={block.id}>
                     
                     {/* Flowchart Node Card */}
-                    <div className={`relative group ${style.bg} ${style.border} rounded-2xl p-4 flex flex-col gap-2.5 w-52 shadow-sm transition-all hover:shadow-md`}>
+                    <div className={`relative group ${style.bg} ${style.border} rounded-2xl p-4 flex flex-col gap-2.5 w-52 shadow-sm transition-all hover:shadow-md ${isDropdownOpen ? 'z-50' : 'z-10'}`}>
                       
                       {/* Node Header */}
                       <div className={`flex items-center justify-between gap-1 p-2 rounded-xl ${style.headerBg}`}>
                         <div className="flex items-center gap-1.5 min-w-0">
                           {style.icon}
                           <span className={`text-xs font-black uppercase tracking-wider truncate ${style.accent}`}>
-                            {block.type}
+                            {block.type === 'orderRef' ? 'orderRef' : block.type}
                           </span>
                         </div>
 
@@ -527,12 +600,64 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
                           </div>
                         )}
 
-                        {block.type === 'jobRef' && (
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase text-blue-900 mb-1">Job Ref</label>
-                            <span className="text-xs text-blue-950 font-mono font-bold bg-white px-2.5 py-1.5 rounded-lg block border border-blue-300 text-center shadow-inner truncate">
-                              JOB-2026-298
-                            </span>
+                        {(block.type === 'orderRef' || block.type === 'jobRef') && (
+                          <div className="relative">
+                            <label className="block text-[10px] font-bold uppercase text-blue-900 mb-1">Order ID Parts to Keep</label>
+                            
+                            <button
+                              type="button"
+                              onClick={() => setDropdownOpenForBlock(dropdownOpenForBlock === block.id ? null : block.id)}
+                              className="w-full bg-white border border-blue-300 rounded-lg px-2.5 py-1.5 text-xs text-blue-950 font-mono font-bold text-left flex items-center justify-between shadow-inner hover:border-blue-400"
+                            >
+                              <span className="truncate">
+                                {(() => {
+                                  const parts = getOrderIdParts();
+                                  const sel = block.selectedParts || parts.map(p => p.id);
+                                  if (sel.length === 0) return 'None Selected';
+                                  if (sel.length === parts.length) return 'All Parts';
+                                  return `${sel.length} of ${parts.length} parts`;
+                                })()}
+                              </span>
+                              <span className="text-[10px] text-blue-600 font-bold ml-1">▼</span>
+                            </button>
+
+                             {dropdownOpenForBlock === block.id && (
+                              <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border-2 border-blue-400 rounded-xl shadow-2xl p-2 flex flex-col gap-1 max-h-48 overflow-y-auto animate-in zoom-in-95 duration-100">
+                                  <div className="text-[10px] font-extrabold uppercase text-blue-900 px-1 pb-1 border-b border-blue-100 flex justify-between items-center">
+                                    <span>Select Parts</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setDropdownOpenForBlock(null)}
+                                      className="text-blue-600 hover:text-blue-900 text-[10px] font-black"
+                                    >
+                                      Done
+                                    </button>
+                                  </div>
+                                  {getOrderIdParts().map(part => {
+                                    const currentSel = block.selectedParts || getOrderIdParts().map(p => p.id);
+                                    const isChecked = currentSel.includes(part.id);
+                                    return (
+                                      <label key={part.id} className="flex items-center gap-2 px-1.5 py-1 hover:bg-blue-50 rounded-lg text-xs cursor-pointer select-none">
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={(e) => {
+                                            let updated: string[];
+                                            if (e.target.checked) {
+                                              updated = [...currentSel, part.id];
+                                            } else {
+                                              updated = currentSel.filter(id => id !== part.id);
+                                            }
+                                            updateBlockProp(block.id, 'selectedParts', updated);
+                                          }}
+                                          className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                                        />
+                                        <span className="font-mono text-xs text-gray-800 truncate font-semibold">{part.label}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              )}
                           </div>
                         )}
 
@@ -664,16 +789,18 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, onChange }:
                       <span className="text-[10px] text-slate-800 font-medium">Dash / Slash</span>
                     </button>
 
-                    <button
-                      onClick={() => addBlock('jobRef')}
-                      className="p-2 bg-white hover:bg-blue-100/80 border border-blue-300 rounded-xl text-left transition-all group shadow-sm"
-                    >
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <Briefcase className="w-3.5 h-3.5 text-blue-700" />
-                        <span className="text-xs font-extrabold text-blue-950">Job Ref</span>
-                      </div>
-                      <span className="text-[10px] text-blue-800 font-medium">Job Ref No</span>
-                    </button>
+                    {categoryKey === 'transformerId' && (
+                      <button
+                        onClick={() => addBlock('orderRef')}
+                        className="p-2 bg-white hover:bg-blue-100/80 border border-blue-300 rounded-xl text-left transition-all group shadow-sm"
+                      >
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <Briefcase className="w-3.5 h-3.5 text-blue-700" />
+                          <span className="text-xs font-extrabold text-blue-950">Order Ref</span>
+                        </div>
+                        <span className="text-[10px] text-blue-800 font-medium">Order ID Ref</span>
+                      </button>
+                    )}
 
                     {(categoryKey === 'preTestCoreId' || categoryKey === 'preTestBatchId') && (
                       <button

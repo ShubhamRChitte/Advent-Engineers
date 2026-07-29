@@ -417,6 +417,7 @@ export function SystemConfigurationsPage() {
                       label={cat.label}
                       desc={cat.desc}
                       config={data}
+                      orderIdBlocks={idSettings.orderId?.patternBlocks}
                       onChange={async (key, updatedConfig) => {
                         const newSettings = {
                           ...idSettings,

@@ -275,7 +275,7 @@ router.get('/id-settings', isAuthenticated, isAdmin, async (req, res) => {
                 ],
                 transformerId: [
                     { id: 'b-prefix', type: 'static', value: 'TR-' },
-                    { id: 'b-job', type: 'jobRef' },
+                    { id: 'b-job', type: 'orderRef' },
                     { id: 'b-sep', type: 'separator', value: '-' },
                     { id: 'b-seq', type: 'sequence', padLength: 3 }
                 ],
