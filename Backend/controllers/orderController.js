@@ -82,7 +82,7 @@ const generateTransformersForOrder = async (order) => {
 
     console.log(`[Generate] Generating ${quantity} transformers for ${jobId} with assignments mapping.`);
 
-    const globalIds = await getMultipleNextGlobalIds('transformerId', quantity);
+    const globalIds = await getMultipleNextGlobalIds('transformerId', quantity, { orderId: order.jobId, jobId: order.jobId, clientName: order.clientName, transformerType: order.transformerType || 'CT' });
 
     for (let i = 1; i <= quantity; i++) {
       let uniqueId;
@@ -141,7 +141,7 @@ const generateTransformersForOrder = async (order) => {
 exports.createOrder = async (req, res) => {
   try {
     let jobId;
-    const globalJobId = await getNextGlobalId('orderId');
+    const globalJobId = await getNextGlobalId('orderId', { transformerType: req.body.transformerType || 'CT' });
     
     if (globalJobId) {
         jobId = globalJobId;
@@ -187,19 +187,27 @@ exports.createOrder = async (req, res) => {
 
     console.log(`[CreateOrder] Payload for ${jobId}:`, JSON.stringify(req.body, null, 2));
 
-    const savedOrder = await newOrder.save();
+    let savedOrder = null;
+    try {
+      savedOrder = await newOrder.save();
 
-    if (isDirectApproval) {
-      await generateTransformersForOrder(savedOrder);
+      if (isDirectApproval) {
+        await generateTransformersForOrder(savedOrder);
+      }
+
+      res.status(201).json({
+        success: true,
+        message: isDirectApproval
+          ? `Order created and ${savedOrder.quantity} units generated.`
+          : "Order submitted to Admin for approval.",
+        jobId: savedOrder.jobId
+      });
+    } catch (err) {
+      if (savedOrder && savedOrder._id) {
+        await OrderModel.findByIdAndDelete(savedOrder._id).catch(() => {});
+      }
+      throw err;
     }
-
-    res.status(201).json({
-      success: true,
-      message: isDirectApproval
-        ? `Order created and ${savedOrder.quantity} units generated.`
-        : "Order submitted to Admin for approval.",
-      jobId: savedOrder.jobId
-    });
   } catch (error) {
     console.error("CREATE ORDER ERROR:", error);
     res.status(500).json({ success: false, error: error.message, details: error.errors });
@@ -280,7 +288,7 @@ exports.updateOrder = async (req, res) => {
       
       if (newQuantity > oldQuantity) {
         const diff = newQuantity - oldQuantity;
-        const globalIds = await getMultipleNextGlobalIds('transformerId', diff);
+        const globalIds = await getMultipleNextGlobalIds('transformerId', diff, { orderId: order.jobId, jobId: order.jobId, clientName: order.clientName });
         
         for (let i = 1; i <= diff; i++) {
           let uniqueId;
@@ -467,9 +475,16 @@ exports.updateOrder = async (req, res) => {
 exports.deleteOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
+    const mongoose = require('mongoose');
 
-    const order = await OrderModel.findById(orderId);
-    if (!order) return res.status(404).json({ message: "Order not found" });
+    let order = null;
+    if (mongoose.Types.ObjectId.isValid(orderId)) {
+      order = await OrderModel.findById(orderId);
+    }
+    if (!order) {
+      order = await OrderModel.findOne({ $or: [{ jobId: orderId }, { orderId: orderId }] });
+    }
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
 
     if (order.images && order.images.length > 0) {
       const deletePromises = order.images.map(img => {
@@ -496,7 +511,7 @@ exports.deleteOrder = async (req, res) => {
     await CTTimerModel.deleteMany({ orderId: order._id });
     await PTTimerModel.deleteMany({ orderId: order._id });
 
-    await OrderModel.findByIdAndDelete(orderId);
+    await OrderModel.findByIdAndDelete(order._id);
 
     res.status(200).json({
       success: true,

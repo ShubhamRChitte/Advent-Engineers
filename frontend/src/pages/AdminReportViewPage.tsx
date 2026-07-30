@@ -153,14 +153,12 @@ export function AdminReportViewPage() {
     const handleBack = () => {
         const params = new URLSearchParams(window.location.search);
         const fromUrl = params.get('from');
-        if (fromUrl) {
+        if (window.history.length > 1) {
+            window.history.back();
+        } else if (fromUrl) {
             window.location.href = fromUrl;
         } else {
-            if (window.history.length > 1) {
-                window.history.back();
-            } else {
-                window.close();
-            }
+            window.close();
         }
     };
 

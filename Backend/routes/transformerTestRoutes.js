@@ -114,6 +114,9 @@ router.post("/transformer-primary-metering-tests", async (req, res) => {
       r.internalCoreNo !== coreId && r.coreId !== coreId
     );
 
+    if (coreId) {
+      transformerDoc.testHistory.primary_test.meteringCoreId = coreId;
+    }
     transformerDoc.testHistory.primary_test.metering_results = [...otherCoresResults, ...newResults];
     transformerDoc.markModified('testHistory');
 
@@ -154,6 +157,9 @@ router.post("/transformer-primary-protection-tests", async (req, res) => {
     const otherCoresResults = existingResults.filter(r =>
       r.internalCoreNo !== coreId && r.coreId !== coreId
     );
+    if (coreId) {
+      transformer.testHistory.primary_test.protectionCoreId = coreId;
+    }
     transformer.testHistory.primary_test.protection_results = [...otherCoresResults, ...newResults];
     transformer.testHistory.primary_test.status = "Completed";
     transformer.testHistory.primary_test.timestamp = new Date();
@@ -205,6 +211,9 @@ router.post("/transformer-primary-ps-tests", async (req, res) => {
       r.internalCoreNo !== coreId && r.coreId !== coreId
     );
 
+    if (coreId) {
+      transformerDoc.testHistory.primary_test.psCoreId = coreId;
+    }
     transformerDoc.testHistory.primary_test.ps_results = [...otherCoresResults, ...newResults];
     transformerDoc.testHistory.primary_test.status = "Completed";
     transformerDoc.testHistory.primary_test.timestamp = new Date();
@@ -597,7 +606,22 @@ router.post("/transformer-secondary-metering-tests", async (req, res) => {
       return { ...resultBlock, internalCoreNo: coreId, accuracyClass: coreAccuracyClass };
     });
 
-    const finalStatus = req.body.status === "In-Progress" ? "In-Progress" : (isOverallPass ? "Pass" : "Fail");
+    let allFilled = metering_results.length > 0;
+    metering_results.forEach(resultBlock => {
+      if (resultBlock.rows) {
+        resultBlock.rows.forEach(row => {
+          const hasR100 = row.r100 !== undefined && row.r100 !== null && String(row.r100).trim() !== '';
+          const hasP100 = row.p100 !== undefined && row.p100 !== null && String(row.p100).trim() !== '';
+          const hasR25 = row.r25 !== undefined && row.r25 !== null && String(row.r25).trim() !== '';
+          const hasP25 = row.p25 !== undefined && row.p25 !== null && String(row.p25).trim() !== '';
+          if (!hasR100 || !hasP100 || !hasR25 || !hasP25) {
+            allFilled = false;
+          }
+        });
+      }
+    });
+
+    const finalStatus = (req.body.status === "Pass" && allFilled) ? (isOverallPass ? "Pass" : "Fail") : "In-Progress";
     const turnsUsed = await getCoreTurns(coreId);
 
     // 1. Save detailed test report (Upsert)
@@ -630,7 +654,7 @@ router.post("/transformer-secondary-metering-tests", async (req, res) => {
         transformerDoc.testHistory.secondary_test = {};
       }
 
-      transformerDoc.testHistory.secondary_test.status = "Completed";
+      transformerDoc.testHistory.secondary_test.status = finalStatus;
       transformerDoc.testHistory.secondary_test.tester = tester;
       transformerDoc.testHistory.secondary_test.timestamp = new Date();
 
@@ -693,12 +717,20 @@ router.post("/transformer-secondary-ps-tests", async (req, res) => {
     const turnsUsed = await getCoreTurns(coreId);
 
     let isOverallPass = true;
+    let allFilled = newResults.length > 0;
     for (const res of newResults) {
       if (res.isPass === false) {
         isOverallPass = false;
       }
+      const hasTR = res.turnRatioError !== undefined && res.turnRatioError !== null && String(res.turnRatioError).trim() !== '';
+      const hasRes = res.resistance !== undefined && res.resistance !== null && String(res.resistance).trim() !== '';
+      const hasVk = res.vk !== undefined && res.vk !== null && String(res.vk).trim() !== '';
+      const hasIex = res.iexVk !== undefined && res.iexVk !== null && String(res.iexVk).trim() !== '';
+      if (!hasTR || !hasRes || !hasVk || !hasIex) {
+        allFilled = false;
+      }
     }
-    const finalStatus = req.body.status === "In-Progress" ? "In-Progress" : (isOverallPass ? "Pass" : "Fail");
+    const finalStatus = (req.body.status === "Pass" && allFilled) ? (isOverallPass ? "Pass" : "Fail") : "In-Progress";
 
     // Save to SecondaryPSTestModel
     const testRecord = await SecondaryPSTestModel.findOneAndUpdate(
@@ -792,7 +824,18 @@ router.post("/transformer-secondary-protection-tests", async (req, res) => {
       };
     });
 
-    const finalStatus = req.body.status === "In-Progress" ? "In-Progress" : (isOverallPass ? "Pass" : "Fail");
+    let allFilled = newResults.length > 0;
+    for (const r of newResults) {
+      const hasRatio = r.ratioError100 !== undefined && r.ratioError100 !== null && String(r.ratioError100).trim() !== '';
+      const hasPhase = r.phaseError !== undefined && r.phaseError !== null && String(r.phaseError).trim() !== '';
+      const hasRes = r.resistance !== undefined && r.resistance !== null && String(r.resistance).trim() !== '';
+      const hasEx = r.excitationCurrent !== undefined && r.excitationCurrent !== null && String(r.excitationCurrent).trim() !== '';
+      if (!hasRatio || !hasPhase || !hasRes || !hasEx) {
+        allFilled = false;
+      }
+    }
+
+    const finalStatus = (req.body.status === "Pass" && allFilled) ? (isOverallPass ? "Pass" : "Fail") : "In-Progress";
     const turnsUsed = await getCoreTurns(coreId);
 
     // Save to SecondaryProtectionTestModel
@@ -821,7 +864,7 @@ router.post("/transformer-secondary-protection-tests", async (req, res) => {
         r.internalCoreNo !== coreId && r.coreId !== coreId
       );
       transformer.testHistory.secondary_test.protection_results = [...otherCoresResults, ...newResults];
-      transformer.testHistory.secondary_test.status = "Completed";
+      transformer.testHistory.secondary_test.status = finalStatus;
       transformer.testHistory.secondary_test.timestamp = new Date();
 
       if (!transformer.testHistory.secondary_test.reportDate) {

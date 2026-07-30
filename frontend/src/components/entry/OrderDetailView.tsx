@@ -95,8 +95,26 @@ export function OrderDetailView({ order, onBack }: OrderDetailViewProps) {
 
         const getStatusForStage = (targetStage: string, currentStage: string, historyStatus?: string, t?: any) => {
           // 1. Explicit History Check
-          if (historyStatus === 'Rejected') return 'Rejected';
-          if (historyStatus === 'Completed') return 'Complete';
+          if (historyStatus === 'Rejected' || historyStatus === 'Fail') return 'Rejected';
+          if (historyStatus === 'Completed' || historyStatus === 'Pass') return 'Complete';
+
+          if (targetStage === 'secondary' && t) {
+            const secTest = t.testHistory?.secondary_test || {};
+            const primTest = t.testHistory?.primary_test || {};
+            const hasAssignedCoreInPrimary =
+              !!secTest.meteringCoreId || !!secTest.psCoreId || !!secTest.protectionCoreId ||
+              !!primTest.meteringCoreId || !!primTest.psCoreId || !!primTest.protectionCoreId ||
+              (primTest.metering_results && primTest.metering_results.length > 0) ||
+              (primTest.ps_results && primTest.ps_results.length > 0) ||
+              (primTest.protection_results && primTest.protection_results.length > 0) ||
+              (secTest.metering_results && secTest.metering_results.length > 0) ||
+              (secTest.ps_results && secTest.ps_results.length > 0) ||
+              (secTest.protection_results && secTest.protection_results.length > 0);
+
+            if (hasAssignedCoreInPrimary) {
+              return 'Complete';
+            }
+          }
 
           // Handle admin_review specially
           if (currentStage === 'admin_review' && t?.adminReviewDetails) {

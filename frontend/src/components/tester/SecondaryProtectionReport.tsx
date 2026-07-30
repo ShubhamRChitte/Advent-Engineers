@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { handleTableGridKeyDown, handleInputFocus } from '@/utils/tableKeyNavigation';
 
 import {
   ReportHeader,
@@ -326,7 +327,9 @@ export function SecondaryProtectionReport({
         setApprovedCores(ids);
       }
       if (secRes.data?.success) {
-        const testedIds = (secRes.data.protection || []).map((c: any) => c.coreId);
+        const testedIds = (secRes.data.protection || [])
+          .filter((c: any) => c.status === 'Pass' || c.status === 'PASS' || c.status === 'Completed')
+          .map((c: any) => c.coreId);
         setSecondaryTestedCores(testedIds);
       }
     } catch (err) {
@@ -339,7 +342,9 @@ export function SecondaryProtectionReport({
   }, [fetchApprovedCores]);
 
   useEffect(() => {
-    setSelectedCoreId(coreId);
+    if (coreId && coreId.trim() !== '') {
+      setSelectedCoreId(coreId);
+    }
   }, [coreId]);  // ✅ LOAD DATA EFFECT for Read Only viewing OR Consistency
   useEffect(() => {
     let isCancelled = false;
@@ -400,43 +405,49 @@ export function SecondaryProtectionReport({
         const order = propOrder || transformer.fullOrder || transformer.orderId;
         const orderId = order?._id || order;
 
-        if (transformer.isDummy) {
-          const res = await axios.get(`/secondary-core-tests/protection/${targetCoreId}${orderId ? `?orderId=${orderId}` : ''}`, { withCredentials: true });
-          if (isCancelled) return;
-          if (res.data?.success && res.data.data) {
-            const testDoc = res.data.data;
-            if (testDoc.protection_results && testDoc.protection_results.length > 0) {
-              setTestResults(() => initialBlank.map((row: ProtectionTestRow, index: number) => {
-                let saved = testDoc.protection_results.find((r: any) => r.ratioValue === row.ratio || r.ratio === row.ratio);
-                if (!saved && testDoc.protection_results[index]) {
-                  saved = testDoc.protection_results[index];
-                }
-                if (saved) {
-                  const safeStr = (val: any) => (val !== undefined && val !== null) ? String(val) : '';
-                  if (saved.protectionClass && saved.protectionClass !== protectionClass) {
-                    setProtectionClass(saved.protectionClass);
+        if (targetCoreId && targetCoreId.trim() !== '') {
+          try {
+            const res = await axios.get(`/secondary-core-tests/protection/${targetCoreId}${orderId ? `?orderId=${orderId}` : ''}`, { withCredentials: true });
+            if (isCancelled) return;
+            if (res.data?.success && res.data.data) {
+              const testDoc = res.data.data;
+              if (testDoc.protection_results && testDoc.protection_results.length > 0) {
+                setTestResults(() => initialBlank.map((row: ProtectionTestRow, index: number) => {
+                  let saved = testDoc.protection_results.find((r: any) => r.ratioValue === row.ratio || r.ratio === row.ratio);
+                  if (!saved && testDoc.protection_results[index]) {
+                    saved = testDoc.protection_results[index];
                   }
-                  return {
-                    ...row,
-                    ratioError100: safeStr(saved.ratioError100 ?? saved.burden100_1),
-                    phaseError: safeStr(saved.phaseError ?? saved.burden100_2),
-                    resistance: safeStr(saved.resistance),
-                    alf: safeStr(saved.alf),
-                    secondaryLimitingVoltage: safeStr(saved.secondaryLimitingVoltage ?? saved.secondaryLimitingVtg),
-                    excitationCurrent: safeStr(saved.excitationCurrent ?? saved.excitationCurr),
-                    compositeError: safeStr(saved.compositeError),
-                    isPass: saved.isPass,
-                    reason: saved.reason,
-                    protectionClass: saved.protectionClass
-                  };
-                }
-                return row;
-              }));
-              return;
+                  if (saved) {
+                    const safeStr = (val: any) => (val !== undefined && val !== null) ? String(val) : '';
+                    if (saved.protectionClass && saved.protectionClass !== protectionClass) {
+                      setProtectionClass(saved.protectionClass);
+                    }
+                    return {
+                      ...row,
+                      ratioError100: safeStr(saved.ratioError100 ?? saved.burden100_1),
+                      phaseError: safeStr(saved.phaseError ?? saved.burden100_2),
+                      resistance: safeStr(saved.resistance),
+                      alf: safeStr(saved.alf),
+                      secondaryLimitingVoltage: safeStr(saved.secondaryLimitingVoltage ?? saved.secondaryLimitingVtg),
+                      excitationCurrent: safeStr(saved.excitationCurrent ?? saved.excitationCurr),
+                      compositeError: safeStr(saved.compositeError),
+                      isPass: saved.isPass,
+                      reason: saved.reason,
+                      protectionClass: saved.protectionClass
+                    };
+                  }
+                  return row;
+                }));
+                return;
+              }
             }
+          } catch (err) {
+            console.warn("Could not fetch secondary protection test by coreId, falling back", err);
           }
-          if (!isCancelled) setTestResults(initialBlank);
-          return;
+          if (transformer.isDummy) {
+            if (!isCancelled) setTestResults(initialBlank);
+            return;
+          }
         }
 
         const res = await axios.get(`/transformers/${transformer.uniqueId}`, { withCredentials: true });
@@ -724,7 +735,7 @@ export function SecondaryProtectionReport({
         loginType: `${stage}_login`, // Consistent with your schema path
         tester: testerName,
         coreId: selectedCoreId,
-        status: isApprove || stage === 'secondary' ? "Pass" : "In-Progress",
+        status: isApprove ? "Pass" : "In-Progress",
         protection_results: protectionResults
       };
 
@@ -775,10 +786,10 @@ export function SecondaryProtectionReport({
       if (onCompleteTimer) await onCompleteTimer();
 
       console.log("handleDatabaseSave: Response received", response);
-      setSecondaryTestedCores(prev => [...new Set([...prev, selectedCoreId])]);
       if (onRefresh) onRefresh();
 
       if (isApprove) {
+        setSecondaryTestedCores(prev => [...new Set([...prev, selectedCoreId])]);
         toast.success("Protection Core Approved successfully!");
         if (onNext) onNext(); else onBack();
       } else {
@@ -1219,11 +1230,13 @@ export function SecondaryProtectionReport({
                               const primResults = (transformer.testHistory?.primary_test as any)?.protection_results || [];
                               primResults.forEach((r: any) => { if (r.internalCoreNo) availableList.push(r.internalCoreNo); if (r.coreId) availableList.push(r.coreId); });
                               
-                              availableList.push(...approvedCores);
                               if (selectedCoreId) availableList.push(selectedCoreId);
                             } else {
-                              if (selectedCoreId) availableList.push(selectedCoreId);
-                              availableList.push(...approvedCores);
+                              if (selectedCoreId && !secondaryTestedCores.includes(selectedCoreId)) {
+                                availableList.push(selectedCoreId);
+                              }
+                              const untested = approvedCores.filter(id => !secondaryTestedCores.includes(id));
+                              availableList.push(...untested);
                             }
                             return Array.from(new Set(availableList.filter(Boolean)));
                           })()
@@ -1331,10 +1344,8 @@ export function SecondaryProtectionReport({
                               <Input
                                 className={`input-field text-blue-800 font-medium ${isRatioErrorInvalid ? 'invalid-reading' : ''}`}
                                 value={row.ratioError100}
-                                onKeyDown={(e) => {
-                                  if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                                  if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                                }}
+                                onKeyDown={handleTableGridKeyDown}
+                                onFocus={handleInputFocus}
                                 onChange={(e) => handleInputChange(index, 'ratioError100', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                                 placeholder=""
                                 disabled={readOnly}
@@ -1351,10 +1362,8 @@ export function SecondaryProtectionReport({
                               <Input
                                 className={`input-field text-blue-800 font-medium ${isPhaseErrorInvalid ? 'invalid-reading' : ''}`}
                                 value={row.phaseError}
-                                onKeyDown={(e) => {
-                                  if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                                  if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                                }}
+                                onKeyDown={handleTableGridKeyDown}
+                                onFocus={handleInputFocus}
                                 onChange={(e) => handleInputChange(index, 'phaseError', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                                 placeholder=""
                                 disabled={readOnly}
@@ -1394,10 +1403,8 @@ export function SecondaryProtectionReport({
                               <Input
                                 className="input-field text-blue-800 font-bold"
                                 value={row.resistance}
-                                onKeyDown={(e) => {
-                                  if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                                  if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                                }}
+                                onKeyDown={handleTableGridKeyDown}
+                                onFocus={handleInputFocus}
                                 onChange={(e) => handleInputChange(index, 'resistance', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                                 disabled={readOnly}
                               />
@@ -1412,10 +1419,8 @@ export function SecondaryProtectionReport({
                               <Input
                                 className="input-field text-blue-800 font-bold"
                                 value={row.alf}
-                                onKeyDown={(e) => {
-                                  if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                                  if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                                }}
+                                onKeyDown={handleTableGridKeyDown}
+                                onFocus={handleInputFocus}
                                 onChange={(e) => handleInputChange(index, 'alf', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                                 disabled={readOnly}
                               />
@@ -1430,10 +1435,8 @@ export function SecondaryProtectionReport({
                               <Input
                                 className="input-field text-blue-800 font-bold"
                                 value={row.excitationCurrent}
-                                onKeyDown={(e) => {
-                                  if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                                  if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                                }}
+                                onKeyDown={handleTableGridKeyDown}
+                                onFocus={handleInputFocus}
                                 onChange={(e) => handleInputChange(index, 'excitationCurrent', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                                 disabled={readOnly}
                               />

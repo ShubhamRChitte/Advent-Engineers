@@ -565,6 +565,7 @@ import { Transformer } from './SecondaryTransformersList';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { handleTableGridKeyDown, handleInputFocus } from '@/utils/tableKeyNavigation';
 import {
   ReportHeader,
   ReportSectionTitle,
@@ -880,7 +881,9 @@ export function SecondaryPSReport({
         setApprovedCores(ids);
       }
       if (secRes.data?.success) {
-        const testedIds = (secRes.data.ps || []).map((c: any) => c.coreId);
+        const testedIds = (secRes.data.ps || [])
+          .filter((c: any) => c.status === 'Pass' || c.status === 'PASS' || c.status === 'Completed')
+          .map((c: any) => c.coreId);
         setSecondaryTestedCores(testedIds);
       }
     } catch (err) {
@@ -893,7 +896,9 @@ export function SecondaryPSReport({
   }, [fetchApprovedCores]);
 
   React.useEffect(() => {
-    setSelectedCoreId(coreId);
+    if (coreId && coreId.trim() !== '') {
+      setSelectedCoreId(coreId);
+    }
   }, [coreId]);
 
   // ✅ LOAD DATA EFFECT
@@ -953,40 +958,47 @@ export function SecondaryPSReport({
           return;
         }
 
-        if (transformer.isDummy) {
-          const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
-          const orderId = order?._id || order;
-          const res = await axios.get(`/secondary-core-tests/ps/${targetCoreId}${orderId ? `?orderId=${orderId}` : ''}`, { withCredentials: true });
-          if (isCancelled) return;
-          if (res.data?.success && res.data.data) {
-            const testDoc = res.data.data;
-            if (testDoc.ps_results && testDoc.ps_results.length > 0) {
-              setPsData((prevData: PSRow[]) => {
-                const base = prevData.length > 0 ? prevData : initialBlank;
-                return base.map((row: PSRow, index: number) => {
-                  let savedRow = testDoc.ps_results.find((r: any) => r.ratioValue === row.ratioValue);
-                  if (!savedRow && testDoc.ps_results[index]) {
-                    savedRow = testDoc.ps_results[index];
-                  }
-                  if (savedRow) {
-                    return {
-                      ...row,
-                      turnRatioError: savedRow.turnRatioError,
-                      resistance: savedRow.resistance,
-                      vk: savedRow.vk,
-                      vkVal: savedRow.vkVal || (savedRow.vk && !isNaN(parseFloat(savedRow.vk)) ? (parseFloat(savedRow.vk) * 1.1).toFixed(2) : ''),
-                      iexVk: savedRow.iexVk,
-                      iex11Vk: savedRow.iex11Vk
-                    };
-                  }
-                  return row;
+        const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
+        const orderId = order?._id || order;
+
+        if (targetCoreId && targetCoreId.trim() !== '') {
+          try {
+            const res = await axios.get(`/secondary-core-tests/ps/${targetCoreId}${orderId ? `?orderId=${orderId}` : ''}`, { withCredentials: true });
+            if (isCancelled) return;
+            if (res.data?.success && res.data.data) {
+              const testDoc = res.data.data;
+              if (testDoc.ps_results && testDoc.ps_results.length > 0) {
+                setPsData((prevData: PSRow[]) => {
+                  const base = prevData.length > 0 ? prevData : initialBlank;
+                  return base.map((row: PSRow, index: number) => {
+                    let savedRow = testDoc.ps_results.find((r: any) => r.ratioValue === row.ratioValue);
+                    if (!savedRow && testDoc.ps_results[index]) {
+                      savedRow = testDoc.ps_results[index];
+                    }
+                    if (savedRow) {
+                      return {
+                        ...row,
+                        turnRatioError: savedRow.turnRatioError,
+                        resistance: savedRow.resistance,
+                        vk: savedRow.vk,
+                        vkVal: savedRow.vkVal || (savedRow.vk && !isNaN(parseFloat(savedRow.vk)) ? (parseFloat(savedRow.vk) * 1.1).toFixed(2) : ''),
+                        iexVk: savedRow.iexVk,
+                        iex11Vk: savedRow.iex11Vk
+                      };
+                    }
+                    return row;
+                  });
                 });
-              });
-              return;
+                return;
+              }
             }
+          } catch (err) {
+            console.warn("Could not fetch secondary PS test by coreId, falling back", err);
           }
-          if (!isCancelled) setPsData(initialBlank);
-          return;
+          if (transformer.isDummy) {
+            if (!isCancelled) setPsData(initialBlank);
+            return;
+          }
         }
 
         const res = await axios.get(`/transformers/${(transformer as any).uniqueId}`, { withCredentials: true });
@@ -1128,7 +1140,7 @@ export function SecondaryPSReport({
         tester: testerName, // Use prop directly
         coreId: selectedCoreId,
         stage: stage, // Add stage info if helpful for backend logging
-        status: isApprove || stage === 'secondary' ? "Pass" : "In-Progress",
+        status: isApprove ? "Pass" : "In-Progress",
         ps_results: psData.map((row: any) => {
           const validation = validatePSRow(row);
           return {
@@ -1193,10 +1205,10 @@ export function SecondaryPSReport({
       if (onCompleteTimer) await onCompleteTimer();
 
       console.log("handleDatabaseSave (PS): Response received", response);
-      setSecondaryTestedCores(prev => [...new Set([...prev, selectedCoreId])]);
       if (onRefresh) onRefresh();
 
       if (isApprove) {
+        setSecondaryTestedCores(prev => [...new Set([...prev, selectedCoreId])]);
         toast.success("Secondary PS Core Approved successfully!");
         if (onNext) onNext(); else onBack();
       } else {
@@ -1640,11 +1652,13 @@ export function SecondaryPSReport({
                               const primResults = (transformer.testHistory?.primary_test as any)?.ps_results || [];
                               primResults.forEach((r: any) => { if (r.internalCoreNo) availableList.push(r.internalCoreNo); if (r.coreId) availableList.push(r.coreId); });
                               
-                              availableList.push(...approvedCores);
                               if (selectedCoreId) availableList.push(selectedCoreId);
                             } else {
-                              if (selectedCoreId) availableList.push(selectedCoreId);
-                              availableList.push(...approvedCores);
+                              if (selectedCoreId && !secondaryTestedCores.includes(selectedCoreId)) {
+                                availableList.push(selectedCoreId);
+                              }
+                              const untested = approvedCores.filter(id => !secondaryTestedCores.includes(id));
+                              availableList.push(...untested);
                             }
                             return Array.from(new Set(availableList.filter(Boolean)));
                           })()
@@ -1722,10 +1736,8 @@ export function SecondaryPSReport({
                           <Input
                             className={`input-field ps-input ${ratioErrorHasError ? 'invalid-reading' : ''}`}
                             value={row.turnRatioError}
-                            onKeyDown={(e) => {
-                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                            }}
+                            onKeyDown={handleTableGridKeyDown}
+                            onFocus={handleInputFocus}
                             onChange={e => handleUpdate(i, 'turnRatioError', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                             disabled={readOnly}
                           />
@@ -1740,10 +1752,8 @@ export function SecondaryPSReport({
                           <Input
                             className="input-field ps-input"
                             value={row.resistance}
-                            onKeyDown={(e) => {
-                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                            }}
+                            onKeyDown={handleTableGridKeyDown}
+                            onFocus={handleInputFocus}
                             onChange={e => handleUpdate(i, 'resistance', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                             disabled={readOnly}
                           />
@@ -1762,10 +1772,8 @@ export function SecondaryPSReport({
                                 className="input-field vk-input"
                                 value={row.vk || ''}
                                 placeholder=""
-                                onKeyDown={(e) => {
-                                  if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                                  if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                                }}
+                                onKeyDown={handleTableGridKeyDown}
+                                onFocus={handleInputFocus}
                                 onChange={e => handleUpdate(i, 'vk', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                                 disabled={readOnly}
                               />
@@ -1782,10 +1790,8 @@ export function SecondaryPSReport({
                                 className="input-field vk-input"
                                 value={row.vkVal || ''}
                                 placeholder=""
-                                onKeyDown={(e) => {
-                                  if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                                  if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                                }}
+                                onKeyDown={handleTableGridKeyDown}
+                                onFocus={handleInputFocus}
                                 onChange={e => handleUpdate(i, 'vkVal', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                                 disabled={readOnly}
                               />
@@ -1802,10 +1808,8 @@ export function SecondaryPSReport({
                           <Input
                             className={`input-field ps-input ${iexHasError ? 'invalid-reading' : ''}`}
                             value={row.iexVk}
-                            onKeyDown={(e) => {
-                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                            }}
+                            onKeyDown={handleTableGridKeyDown}
+                            onFocus={handleInputFocus}
                             onChange={e => handleUpdate(i, 'iexVk', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                             disabled={readOnly}
                           />
@@ -1820,10 +1824,8 @@ export function SecondaryPSReport({
                           <Input
                             className={`input-field ps-input ${iexHasError ? 'invalid-reading' : ''}`}
                             value={row.iex11Vk}
-                            onKeyDown={(e) => {
-                              if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                              if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                            }}
+                            onKeyDown={handleTableGridKeyDown}
+                            onFocus={handleInputFocus}
                             onChange={e => handleUpdate(i, 'iex11Vk', e.target.value.replace(/[^0-9+\-.]/g, ''))}
                             disabled={readOnly}
                           />

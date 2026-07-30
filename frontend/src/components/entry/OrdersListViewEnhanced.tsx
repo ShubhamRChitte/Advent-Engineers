@@ -177,15 +177,31 @@ export function OrdersListViewEnhanced({ userRole, initialOrderId, onClearNav, o
   // Restore selected order after returning from report page
   useEffect(() => {
     const savedId = sessionStorage.getItem('admin_selectedOrderId');
-    if (savedId && orders.length > 0) {
+    if (savedId) {
       const match = orders.find(o => o._id === savedId);
       if (match) {
-        sessionStorage.removeItem('admin_selectedOrderId');
         _setSelectedOrder(match);
+        setIsRestoring(false);
+      } else {
+        axios.get(`/orders/${savedId}`, { withCredentials: true })
+          .then(res => {
+            if (res.data?.success && res.data.data) {
+              const fetched = {
+                ...res.data.data,
+                orderId: res.data.data.jobId || res.data.data.orderId || 'N/A'
+              };
+              _setSelectedOrder(fetched);
+            }
+          })
+          .catch(err => {
+            console.error("Failed to restore selected order:", err);
+            sessionStorage.removeItem('admin_selectedOrderId');
+          })
+          .finally(() => {
+            setIsRestoring(false);
+          });
       }
-      // Whether we found a match or not, we're done restoring
-      setIsRestoring(false);
-    } else if (!savedId) {
+    } else {
       setIsRestoring(false);
     }
   }, [orders]);

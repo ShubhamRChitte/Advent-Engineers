@@ -12,7 +12,7 @@ interface PTFinalPrintableReportProps {
   onAccuracyChange?: (core: string, perc: string, field: string, value: string) => void;
   accuracyValidations?: any;
   preTestValidations?: any;
-  printRef: React.RefObject<HTMLDivElement>;
+  printRef: React.RefObject<HTMLDivElement | null>;
 }
 
 const STYLE = `

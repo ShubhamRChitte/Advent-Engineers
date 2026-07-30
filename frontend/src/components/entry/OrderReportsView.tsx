@@ -56,14 +56,28 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
         // Define the progression of stages
         const stageOrder = ['core', 'secondary', 'primary', 'heating', 'final', 'completed', 'shipped'];
 
-        const getStatusForStage = (targetStage: string, currentStage: string, historyStatus?: string) => {
+        const getStatusForStage = (targetStage: string, currentStage: string, historyStatus?: string, t?: any) => {
           // 1. Explicit History Check
-          if (historyStatus === 'Rejected') return 'Rejected';
-          if (historyStatus === 'Completed') return 'Complete';
+          if (historyStatus === 'Rejected' || historyStatus === 'Fail') return 'Rejected';
+          if (historyStatus === 'Completed' || historyStatus === 'Pass') return 'Complete';
 
-          // Legacy/Alternative status check
-          if (historyStatus === 'Pass') return 'Complete';
-          if (historyStatus === 'Fail') return 'Rejected';
+          if (targetStage === 'secondary' && t) {
+            const secTest = t.testHistory?.secondary_test || {};
+            const primTest = t.testHistory?.primary_test || {};
+            const hasAssignedCoreInPrimary =
+              !!secTest.meteringCoreId || !!secTest.psCoreId || !!secTest.protectionCoreId ||
+              !!primTest.meteringCoreId || !!primTest.psCoreId || !!primTest.protectionCoreId ||
+              (primTest.metering_results && primTest.metering_results.length > 0) ||
+              (primTest.ps_results && primTest.ps_results.length > 0) ||
+              (primTest.protection_results && primTest.protection_results.length > 0) ||
+              (secTest.metering_results && secTest.metering_results.length > 0) ||
+              (secTest.ps_results && secTest.ps_results.length > 0) ||
+              (secTest.protection_results && secTest.protection_results.length > 0);
+
+            if (hasAssignedCoreInPrimary) {
+              return 'Complete';
+            }
+          }
 
           // 2. Stage Progression Check
           const targetIndex = stageOrder.indexOf(targetStage);
@@ -85,14 +99,14 @@ export function OrderReportsView({ order, clientName, onBack }: OrderReportsView
         const mappedUnits: TransformerUnit[] = response.data.map((t: any) => {
           // Heating Logic
           const hasHeating = t.processHistory?.heatingRecord?.length > 0;
-          const heatingStatus = getStatusForStage('heating', t.currentStage, hasHeating ? 'Completed' : undefined);
+          const heatingStatus = getStatusForStage('heating', t.currentStage, hasHeating ? 'Completed' : undefined, t);
 
           return {
             id: t._id,
             transformerId: t.uniqueId || `TR-${t.jobId || 'UNKNOWN'}-${String(t.internalCoreNo || '').split('-').pop() || '???'}`,
-            coreTestStatus: getStatusForStage('core', t.currentStage, t.testHistory?.core_test?.status),
-            secondaryTestStatus: getStatusForStage('secondary', t.currentStage, t.testHistory?.secondary_test?.status),
-            primaryTestStatus: getStatusForStage('primary', t.currentStage, t.testHistory?.primary_test?.status),
+            coreTestStatus: getStatusForStage('core', t.currentStage, t.testHistory?.core_test?.status, t),
+            secondaryTestStatus: getStatusForStage('secondary', t.currentStage, t.testHistory?.secondary_test?.status, t),
+            primaryTestStatus: getStatusForStage('primary', t.currentStage, t.testHistory?.primary_test?.status, t),
             heatingStatus: heatingStatus as any,
             finalTestStatus: getStatusForStage('final', t.currentStage, t.testHistory?.final_test?.status),
             ptTestStatus: (t.currentStage === 'shipped' || t.currentStage === 'completed' || (t.testHistory?.pt_test && Object.keys(t.testHistory.pt_test).length > 0))

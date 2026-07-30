@@ -125,8 +125,9 @@ router.get("/assigneed_orders", isAuthenticated, async (req, res) => {
     // Also Ensure currentStage matches the user's department/role stage
     // Note: We use the TransformerModel directly now.
     // MODIFIED: Allow UNASSIGNED transformers (null, empty, or missing) to be seen by everyone in that stage
+    const stageFilter = stageKey === 'primary' ? { $in: ['secondary', 'primary'] } : stageKey;
     const activeAssignmentQuery = {
-      currentStage: stageKey,
+      currentStage: stageFilter,
       $or: [
         { [assignmentField]: { $in: namesToCheck } },
         { [assignmentField]: { $exists: false } },

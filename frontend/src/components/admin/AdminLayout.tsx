@@ -29,6 +29,9 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ user, onLogout }: AdminLayoutProps) {
   const [activeView, _setActiveView] = useState(() => {
+    if (sessionStorage.getItem('admin_selectedOrderId')) {
+      return 'view-orders';
+    }
     return localStorage.getItem(`${user.role}_activeView`) || 'dashboard';
   });
 

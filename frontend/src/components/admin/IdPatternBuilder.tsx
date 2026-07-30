@@ -17,13 +17,15 @@ import {
   Briefcase,
   Zap,
   SlidersHorizontal,
-  X
+  X,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export interface PatternBlock {
   id: string;
-  type: 'static' | 'year' | 'month' | 'day' | 'sequence' | 'separator' | 'jobRef' | 'orderRef' | 'coreType';
+  type: 'static' | 'year' | 'month' | 'day' | 'sequence' | 'counter' | 'separator' | 'jobRef' | 'orderRef' | 'coreType';
   value?: string | undefined;
   format?: string | undefined;
   padLength?: number | undefined;
@@ -31,6 +33,7 @@ export interface PatternBlock {
   psCode?: string | undefined;
   protectionCode?: string | undefined;
   selectedParts?: string[] | undefined;
+  useOrderWiseSequence?: boolean | undefined;
 }
 
 interface IdPatternBuilderProps {
@@ -41,6 +44,7 @@ interface IdPatternBuilderProps {
     enabled: boolean;
     prefix: string;
     lastSequence: number;
+    lastSequencePT?: number;
     padLength: number;
     patternBlocks?: PatternBlock[];
   };
@@ -52,6 +56,7 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
   const [showInlineAdd, setShowInlineAdd] = useState(false);
   const [copied, setCopied] = useState(false);
   const [dropdownOpenForBlock, setDropdownOpenForBlock] = useState<string | null>(null);
+  const [isCanvasExpanded, setIsCanvasExpanded] = useState(false);
 
   // Default fallback blocks if empty
   const blocks: PatternBlock[] = config.patternBlocks && config.patternBlocks.length > 0 
@@ -70,7 +75,12 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
           { id: 'b-seq', type: 'sequence', padLength: config.padLength || 3 }
         ]);
 
-  const updateConfig = (newBlocks: PatternBlock[], newLastSeq?: number, newEnabled?: boolean) => {
+  const updateConfig = (
+    newBlocks: PatternBlock[], 
+    newSeqVal?: number, 
+    seqField: 'lastSequence' | 'lastSequencePT' = 'lastSequence', 
+    newEnabled?: boolean
+  ) => {
     const prefixStr = evaluatePreview(newBlocks, 0, false);
     const seqBlock = newBlocks.find(b => b.type === 'sequence');
     const padLen = seqBlock?.padLength || config.padLength || 3;
@@ -78,7 +88,7 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
     onChange(categoryKey, {
       ...config,
       enabled: newEnabled !== undefined ? newEnabled : config.enabled,
-      lastSequence: newLastSeq !== undefined ? newLastSeq : config.lastSequence,
+      [seqField]: newSeqVal !== undefined ? newSeqVal : (config[seqField] !== undefined ? config[seqField] : 0),
       prefix: config.prefix || prefixStr,
       padLength: padLen,
       patternBlocks: newBlocks
@@ -86,11 +96,11 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
   };
 
   const handleToggleEnabled = () => {
-    updateConfig(blocks, undefined, !config.enabled);
+    updateConfig(blocks, undefined, 'lastSequence', !config.enabled);
   };
 
-  const handleSequenceChange = (val: number) => {
-    updateConfig(blocks, val);
+  const handleSequenceChange = (val: number, field: 'lastSequence' | 'lastSequencePT' = 'lastSequence') => {
+    updateConfig(blocks, val, field);
   };
 
   const addBlock = (type: PatternBlock['type'], defaultVal?: string, defaultFmt?: string) => {
@@ -179,7 +189,7 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
           labelText = `Day (${sampleVal})`;
           break;
         case 'sequence':
-          sampleVal = String(1).padStart(b.padLength || 3, '0');
+          sampleVal = String(8).padStart(b.padLength || 3, '0');
           labelText = `Seq (${sampleVal})`;
           break;
         default:
@@ -194,6 +204,8 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
     });
   };
 
+  const hasOrderWiseSequence = blocks.some(b => (b.type === 'orderRef' || b.type === 'jobRef') && b.useOrderWiseSequence === true);
+
   const evaluatePreview = (targetBlocks: PatternBlock[], nextSeqOffset: number = 1, includeSeqNumber: boolean = true) => {
     const now = new Date();
     const YYYY = now.getFullYear().toString();
@@ -204,7 +216,9 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
     const Full = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][now.getMonth()];
     const DD = String(now.getDate()).padStart(2, '0');
 
-    const nextSeq = Number(config.lastSequence || 0) + nextSeqOffset;
+    const isOrderWise = targetBlocks.some(b => (b.type === 'orderRef' || b.type === 'jobRef') && b.useOrderWiseSequence === true);
+    const baseSeq = isOrderWise ? 0 : Number(config.lastSequence || 0);
+    const nextSeq = baseSeq + nextSeqOffset;
 
     let result = '';
     for (const b of targetBlocks) {
@@ -237,7 +251,7 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
             .filter(p => selected.includes(p.id))
             .map(p => p.sampleVal)
             .join('');
-          result += orderRefVal || 'ORD-2026-001';
+          result += orderRefVal || 'ORD-2026-008';
           break;
         case 'coreType':
           result += b.meteringCode !== undefined ? b.meteringCode : (b.value || 'M');
@@ -246,6 +260,15 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
           result += b.value || '';
       }
     }
+
+    // Auto-append sequence fallback if no sequence block is in pattern blocks (matches backend buildIdFromBlocks)
+    const hasSeqBlock = targetBlocks.some(b => b && (b.type === 'sequence' || (b.type as string) === 'counter'));
+    if (!hasSeqBlock && includeSeqNumber) {
+      const pad = config.padLength || 3;
+      const separator = result.endsWith('-') ? '' : '-';
+      result += `${separator}${String(nextSeq).padStart(pad, '0')}`;
+    }
+
     return result;
   };
 
@@ -301,6 +324,7 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
           accent: 'text-cyan-900'
         };
       case 'sequence':
+      case 'counter':
         return {
           bg: 'bg-purple-50/90',
           border: 'border-2 border-purple-300 hover:border-purple-500',
@@ -324,6 +348,14 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
           headerBg: 'bg-pink-200/80 text-pink-950',
           icon: <Zap className="w-4 h-4 text-pink-700" />,
           accent: 'text-pink-900'
+        };
+      default:
+        return {
+          bg: 'bg-blue-50/90',
+          border: 'border-2 border-blue-300 hover:border-blue-500',
+          headerBg: 'bg-blue-200/80 text-blue-950',
+          icon: <SlidersHorizontal className="w-4 h-4 text-blue-700" />,
+          accent: 'text-blue-900'
         };
     }
   };
@@ -359,9 +391,16 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
               <Sparkles className="w-5 h-5 animate-pulse" />
             </div>
             <div>
-              <span className="text-xs font-black uppercase tracking-wider text-blue-900 block">
-                Real-Time Flowchart ID Output:
-              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-black uppercase tracking-wider text-blue-900 block">
+                  Real-Time Flowchart ID Output:
+                </span>
+                {hasOrderWiseSequence && (
+                  <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-blue-600 text-white rounded-md shadow-sm">
+                    Order-Wise Sequence (001..N)
+                  </span>
+                )}
+              </div>
               <span className="font-mono text-2xl font-black tracking-wider text-blue-700 block mt-0.5">
                 {previewNextId}
               </span>
@@ -392,16 +431,16 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
       {/* Main Flowchart Studio Canvas */}
       <div className="p-6 bg-slate-50/50">
         
-        {/* Quick Insert Node Toolbar */}
-        <div className="mb-5 p-4 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Plus className="w-4 h-4 text-blue-600 font-bold" />
-            <span className="text-xs font-extrabold uppercase tracking-wider text-gray-900">
-              Quick Add Flowchart Node:
-            </span>
-          </div>
-
+        {/* Quick Insert Node Toolbar + Database Counter Header */}
+        <div className="mb-5 p-4 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 mr-1 shrink-0">
+              <Plus className="w-4 h-4 text-blue-600 font-bold" />
+              <span className="text-xs font-extrabold uppercase tracking-wider text-gray-900">
+                Quick Add Flowchart Node:
+              </span>
+            </div>
+
             <button
               onClick={() => addBlock('static', 'PREFIX-')}
               className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-xl text-xs font-bold text-amber-900 flex items-center gap-1.5 transition-all shadow-sm"
@@ -455,10 +494,48 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
               </button>
             )}
           </div>
+
+          {/* Database Counter Widgets (CT Counter & PT Counter for Order/Transformer tabs) */}
+          {(categoryKey === 'orderId' || categoryKey === 'transformerId') ? (
+            <div className="flex items-center gap-3 shrink-0 ml-auto flex-wrap">
+              <div className="flex items-center gap-2 bg-purple-50 hover:bg-purple-100/80 px-3.5 py-1.5 rounded-xl border border-purple-200 shadow-sm transition-colors" title="CT stored counter in database.">
+                <Hash className="w-4 h-4 text-purple-700 font-bold" />
+                <span className="text-xs font-extrabold text-purple-950 whitespace-nowrap">CT Counter:</span>
+                <input
+                  type="number"
+                  value={config.lastSequence !== undefined ? config.lastSequence : 0}
+                  onChange={(e) => handleSequenceChange(parseInt(e.target.value) || 0, 'lastSequence')}
+                  className="w-16 h-7 bg-white font-mono font-black text-center border-purple-300 text-gray-900 text-xs rounded-lg px-1 shadow-inner"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100/80 px-3.5 py-1.5 rounded-xl border border-indigo-200 shadow-sm transition-colors" title="PT stored counter in database.">
+                <Hash className="w-4 h-4 text-indigo-700 font-bold" />
+                <span className="text-xs font-extrabold text-indigo-950 whitespace-nowrap">PT Counter:</span>
+                <input
+                  type="number"
+                  value={config.lastSequencePT !== undefined ? config.lastSequencePT : 0}
+                  onChange={(e) => handleSequenceChange(parseInt(e.target.value) || 0, 'lastSequencePT')}
+                  className="w-16 h-7 bg-white font-mono font-black text-center border-indigo-300 text-gray-900 text-xs rounded-lg px-1 shadow-inner"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 bg-purple-50 hover:bg-purple-100/80 px-3.5 py-1.5 rounded-xl border border-purple-200 shrink-0 shadow-sm ml-auto transition-colors" title="Stored counter number in database. The next generated ID will be counter + 1.">
+              <Hash className="w-4 h-4 text-purple-700 font-bold" />
+              <span className="text-xs font-extrabold text-purple-950 whitespace-nowrap">Database Counter:</span>
+              <input
+                type="number"
+                value={config.lastSequence}
+                onChange={(e) => handleSequenceChange(parseInt(e.target.value) || 0, 'lastSequence')}
+                className="w-20 h-7 bg-white font-mono font-black text-center border-purple-300 text-gray-900 text-xs rounded-lg px-1 shadow-inner"
+              />
+            </div>
+          )}
         </div>
 
         {/* Flowchart Horizontal Canvas */}
-        <div className="mb-6">
+        <div className="mb-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="w-4 h-4 text-blue-600" />
@@ -469,8 +546,8 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
             </span>
           </div>
 
-          <div className="p-6 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-x-auto pb-48 pt-4">
-            <div className="flex items-center gap-3 min-w-max">
+          <div className="p-6 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-x-auto min-h-[280px] pb-40 pt-6 w-full">
+            <div className="flex items-start gap-4 min-w-max pb-4">
               {blocks.map((block, idx) => {
                 const style = getNodeBadgeStyle(block.type);
                 const isDropdownOpen = dropdownOpenForBlock === block.id;
@@ -478,226 +555,256 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
                   <React.Fragment key={block.id}>
                     
                     {/* Flowchart Node Card */}
-                    <div className={`relative group ${style.bg} ${style.border} rounded-2xl p-4 flex flex-col gap-2.5 w-52 shadow-sm transition-all hover:shadow-md ${isDropdownOpen ? 'z-50' : 'z-10'}`}>
+                    <div className={`relative group ${style.bg} ${style.border} rounded-2xl p-4 flex flex-col justify-between w-60 shadow-sm transition-all hover:shadow-md ${isDropdownOpen ? 'z-50' : 'z-10'}`}>
                       
-                      {/* Node Header */}
-                      <div className={`flex items-center justify-between gap-1 p-2 rounded-xl ${style.headerBg}`}>
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          {style.icon}
-                          <span className={`text-xs font-black uppercase tracking-wider truncate ${style.accent}`}>
-                            {block.type === 'orderRef' ? 'orderRef' : block.type}
-                          </span>
-                        </div>
-
-                        {/* Node Controls */}
-                        <div className="flex items-center gap-0.5 shrink-0">
-                          <button
-                            disabled={idx === 0}
-                            onClick={() => moveBlock(idx, 'left')}
-                            className="p-1 text-gray-700 hover:text-black disabled:opacity-20 hover:bg-white/80 rounded transition-colors"
-                            title="Move left"
-                          >
-                            <ChevronLeft className="w-4 h-4" />
-                          </button>
-                          <button
-                            disabled={idx === blocks.length - 1}
-                            onClick={() => moveBlock(idx, 'right')}
-                            className="p-1 text-gray-700 hover:text-black disabled:opacity-20 hover:bg-white/80 rounded transition-colors"
-                            title="Move right"
-                          >
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => removeBlock(block.id)}
-                            className="p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors ml-0.5"
-                            title="Delete node"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Node Config Body */}
-                      <div className="pt-1">
-                        {block.type === 'static' && (
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase text-amber-900 mb-1">Text Value</label>
-                            <input
-                              type="text"
-                              value={block.value || ''}
-                              onChange={(e) => updateBlockProp(block.id, 'value', e.target.value)}
-                              placeholder="e.g. TR-JOB-"
-                              className="w-full bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 text-xs text-amber-950 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-inner"
-                            />
-                          </div>
-                        )}
-
-                        {block.type === 'separator' && (
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase text-slate-900 mb-1">Separator Character</label>
-                            <select
-                              value={block.value || '-'}
-                              onChange={(e) => updateBlockProp(block.id, 'value', e.target.value)}
-                              className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-950 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-slate-500 shadow-inner"
-                            >
-                              <option value="-">Dash ( - )</option>
-                              <option value="/">Slash ( / )</option>
-                              <option value="_">Underscore ( _ )</option>
-                              <option value=".">Dot ( . )</option>
-                            </select>
-                          </div>
-                        )}
-
-                        {block.type === 'year' && (
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase text-emerald-900 mb-1">Year Format</label>
-                            <select
-                              value={block.format || 'YYYY'}
-                              onChange={(e) => updateBlockProp(block.id, 'format', e.target.value)}
-                              className="w-full bg-white border border-emerald-300 rounded-lg px-2 py-1.5 text-xs text-emerald-950 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
-                            >
-                              <option value="YYYY">4-Digit (2026)</option>
-                              <option value="YY">2-Digit (26)</option>
-                            </select>
-                          </div>
-                        )}
-
-                        {block.type === 'month' && (
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase text-teal-900 mb-1">Month Format</label>
-                            <select
-                              value={block.format || 'MM'}
-                              onChange={(e) => updateBlockProp(block.id, 'format', e.target.value)}
-                              className="w-full bg-white border border-teal-300 rounded-lg px-2 py-1.5 text-xs text-teal-950 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-inner"
-                            >
-                              <option value="MM">Numeric (07)</option>
-                              <option value="Mon">Short (JUL)</option>
-                              <option value="Full">Full (July)</option>
-                            </select>
-                          </div>
-                        )}
-
-                        {block.type === 'day' && (
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase text-cyan-900 mb-1">Day Value</label>
-                            <span className="text-xs text-cyan-950 font-mono font-bold bg-white px-2.5 py-1.5 rounded-lg block border border-cyan-300 text-center shadow-inner">
-                              Current Day (DD)
+                      <div>
+                        {/* Node Header */}
+                        <div className={`flex items-center justify-between gap-1 p-2 rounded-xl mb-3 ${style.headerBg} border border-black/5`}>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {style.icon}
+                            <span className={`text-[11px] font-black uppercase tracking-wider truncate ${style.accent}`}>
+                              {block.type === 'orderRef' ? 'orderRef' : block.type}
                             </span>
                           </div>
-                        )}
 
-                        {block.type === 'sequence' && (
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase text-purple-900 mb-1">Digits Padding</label>
-                            <input
-                              type="number"
-                              min="1"
-                              max="10"
-                              value={block.padLength || 3}
-                              onChange={(e) => updateBlockProp(block.id, 'padLength', parseInt(e.target.value) || 1)}
-                              className="w-full bg-white border border-purple-300 rounded-lg px-2.5 py-1.5 text-xs text-purple-950 font-mono font-bold text-center focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-inner"
-                            />
-                          </div>
-                        )}
-
-                        {(block.type === 'orderRef' || block.type === 'jobRef') && (
-                          <div className="relative">
-                            <label className="block text-[10px] font-bold uppercase text-blue-900 mb-1">Order ID Parts to Keep</label>
-                            
+                          {/* Node Controls */}
+                          <div className="flex items-center gap-0.5 shrink-0">
                             <button
-                              type="button"
-                              onClick={() => setDropdownOpenForBlock(dropdownOpenForBlock === block.id ? null : block.id)}
-                              className="w-full bg-white border border-blue-300 rounded-lg px-2.5 py-1.5 text-xs text-blue-950 font-mono font-bold text-left flex items-center justify-between shadow-inner hover:border-blue-400"
+                              disabled={idx === 0}
+                              onClick={() => moveBlock(idx, 'left')}
+                              className="p-1 text-gray-700 hover:text-black disabled:opacity-20 hover:bg-white/80 rounded-md transition-colors cursor-pointer"
+                              title="Move left"
                             >
-                              <span className="truncate">
-                                {(() => {
-                                  const parts = getOrderIdParts();
-                                  const sel = block.selectedParts || parts.map(p => p.id);
-                                  if (sel.length === 0) return 'None Selected';
-                                  if (sel.length === parts.length) return 'All Parts';
-                                  return `${sel.length} of ${parts.length} parts`;
-                                })()}
-                              </span>
-                              <span className="text-[10px] text-blue-600 font-bold ml-1">▼</span>
+                              <ChevronLeft className="w-3.5 h-3.5" />
                             </button>
+                            <button
+                              disabled={idx === blocks.length - 1}
+                              onClick={() => moveBlock(idx, 'right')}
+                              className="p-1 text-gray-700 hover:text-black disabled:opacity-20 hover:bg-white/80 rounded-md transition-colors cursor-pointer"
+                              title="Move right"
+                            >
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => removeBlock(block.id)}
+                              className="p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-md transition-colors ml-0.5 cursor-pointer"
+                              title="Delete node"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
 
-                             {dropdownOpenForBlock === block.id && (
-                              <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border-2 border-blue-400 rounded-xl shadow-2xl p-2 flex flex-col gap-1 max-h-48 overflow-y-auto animate-in zoom-in-95 duration-100">
-                                  <div className="text-[10px] font-extrabold uppercase text-blue-900 px-1 pb-1 border-b border-blue-100 flex justify-between items-center">
+                        {/* Node Config Body */}
+                        <div className="space-y-2.5">
+                          {block.type === 'static' && (
+                            <div>
+                              <label className="block text-[10px] font-black uppercase text-amber-900 tracking-wider mb-1">Text / Prefix Value</label>
+                              <input
+                                type="text"
+                                value={block.value || ''}
+                                onChange={(e) => updateBlockProp(block.id, 'value', e.target.value)}
+                                placeholder="e.g. TR-"
+                                className="w-full bg-white border border-amber-300/80 rounded-xl px-3 py-2 text-xs text-amber-950 font-mono font-extrabold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
+                              />
+                            </div>
+                          )}
+
+                          {block.type === 'separator' && (
+                            <div>
+                              <label className="block text-[10px] font-black uppercase text-slate-900 tracking-wider mb-1">Separator Character</label>
+                              <select
+                                value={block.value || '-'}
+                                onChange={(e) => updateBlockProp(block.id, 'value', e.target.value)}
+                                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-950 font-mono font-extrabold focus:outline-none focus:ring-2 focus:ring-slate-500 shadow-sm cursor-pointer"
+                              >
+                                <option value="-">Dash ( - )</option>
+                                <option value="/">Slash ( / )</option>
+                                <option value="_">Underscore ( _ )</option>
+                                <option value=".">Dot ( . )</option>
+                              </select>
+                            </div>
+                          )}
+
+                          {block.type === 'year' && (
+                            <div>
+                              <label className="block text-[10px] font-black uppercase text-emerald-900 tracking-wider mb-1">Year Format</label>
+                              <select
+                                value={block.format || 'YYYY'}
+                                onChange={(e) => updateBlockProp(block.id, 'format', e.target.value)}
+                                className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs text-emerald-950 font-mono font-extrabold focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm cursor-pointer"
+                              >
+                                <option value="YYYY">YYYY (4 Digits e.g. 2026)</option>
+                                <option value="YY">YY (2 Digits e.g. 26)</option>
+                              </select>
+                            </div>
+                          )}
+
+                          {block.type === 'month' && (
+                            <div>
+                              <label className="block text-[10px] font-black uppercase text-teal-900 tracking-wider mb-1">Month Format</label>
+                              <select
+                                value={block.format || 'MM'}
+                                onChange={(e) => updateBlockProp(block.id, 'format', e.target.value)}
+                                className="w-full bg-white border border-teal-300 rounded-xl px-3 py-2 text-xs text-teal-950 font-mono font-extrabold focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm cursor-pointer"
+                              >
+                                <option value="MM">MM (Numeric e.g. 07)</option>
+                                <option value="Mon">Mon (Short e.g. JUL)</option>
+                                <option value="Full">Full (Full e.g. July)</option>
+                              </select>
+                            </div>
+                          )}
+
+                          {block.type === 'day' && (
+                            <div>
+                              <label className="block text-[10px] font-black uppercase text-cyan-900 tracking-wider mb-1">Day Value</label>
+                              <div className="w-full bg-white border border-cyan-300 rounded-xl px-3 py-2 text-xs text-cyan-950 font-mono font-extrabold text-center shadow-sm">
+                                DD (Day 01-31)
+                              </div>
+                            </div>
+                          )}
+
+                          {block.type === 'sequence' && (
+                            <div>
+                              <label className="block text-[10px] font-black uppercase text-purple-900 tracking-wider mb-1">Digits Padding</label>
+                              <select
+                                value={block.padLength || 3}
+                                onChange={(e) => updateBlockProp(block.id, 'padLength', parseInt(e.target.value) || 1)}
+                                className="w-full bg-white border border-purple-300 rounded-xl px-3 py-2 text-xs text-purple-950 font-mono font-extrabold text-center focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm cursor-pointer"
+                              >
+                                <option value={2}>2 Digits (01, 02...)</option>
+                                <option value={3}>3 Digits (001, 002...)</option>
+                                <option value={4}>4 Digits (0001, 0002...)</option>
+                                <option value={5}>5 Digits (00001...)</option>
+                              </select>
+                            </div>
+                          )}
+
+                          {(block.type === 'orderRef' || block.type === 'jobRef') && (
+                            <div className="space-y-2.5 relative">
+                              <label className="block text-[10px] font-black uppercase text-blue-950 tracking-wider">Order ID Parts to Keep</label>
+                              
+                              <button
+                                type="button"
+                                onClick={() => setDropdownOpenForBlock(dropdownOpenForBlock === block.id ? null : block.id)}
+                                className="w-full bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs text-blue-950 font-mono font-extrabold text-left flex items-center justify-between shadow-sm hover:border-blue-400 cursor-pointer"
+                              >
+                                <span className="truncate">
+                                  {(() => {
+                                    const parts = getOrderIdParts();
+                                    const sel = block.selectedParts || parts.map(p => p.id);
+                                    if (sel.length === 0) return 'None Selected';
+                                    if (sel.length === parts.length) return 'All Parts';
+                                    return `${sel.length} of ${parts.length} parts`;
+                                  })()}
+                                </span>
+                                <span className="text-[10px] text-blue-600 font-bold ml-1">
+                                  {dropdownOpenForBlock === block.id ? '▲' : '▼'}
+                                </span>
+                              </button>
+
+                              {/* Normal Floating Absolute Dropdown Box */}
+                              {dropdownOpenForBlock === block.id && (
+                                <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-white border-2 border-blue-400 rounded-xl p-2.5 flex flex-col gap-1.5 shadow-2xl animate-in zoom-in-95 duration-100">
+                                  <div className="text-[10px] font-black uppercase text-blue-900 pb-1 border-b border-blue-100 flex justify-between items-center">
                                     <span>Select Parts</span>
                                     <button
                                       type="button"
                                       onClick={() => setDropdownOpenForBlock(null)}
-                                      className="text-blue-600 hover:text-blue-900 text-[10px] font-black"
+                                      className="text-blue-600 hover:text-blue-900 text-[10px] font-black cursor-pointer"
                                     >
                                       Done
                                     </button>
                                   </div>
-                                  {getOrderIdParts().map(part => {
-                                    const currentSel = block.selectedParts || getOrderIdParts().map(p => p.id);
-                                    const isChecked = currentSel.includes(part.id);
-                                    return (
-                                      <label key={part.id} className="flex items-center gap-2 px-1.5 py-1 hover:bg-blue-50 rounded-lg text-xs cursor-pointer select-none">
-                                        <input
-                                          type="checkbox"
-                                          checked={isChecked}
-                                          onChange={(e) => {
-                                            let updated: string[];
-                                            if (e.target.checked) {
-                                              updated = [...currentSel, part.id];
-                                            } else {
-                                              updated = currentSel.filter(id => id !== part.id);
-                                            }
-                                            updateBlockProp(block.id, 'selectedParts', updated);
-                                          }}
-                                          className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
-                                        />
-                                        <span className="font-mono text-xs text-gray-800 truncate font-semibold">{part.label}</span>
-                                      </label>
-                                    );
-                                  })}
+                                  <div className="flex flex-col gap-1 max-h-40 overflow-y-auto pr-0.5">
+                                    {getOrderIdParts().map(part => {
+                                      const currentSel = block.selectedParts || getOrderIdParts().map(p => p.id);
+                                      const isChecked = currentSel.includes(part.id);
+                                      return (
+                                        <label key={part.id} className="flex items-center gap-2 px-1.5 py-1 hover:bg-blue-50 rounded-lg text-xs cursor-pointer select-none">
+                                          <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={(e) => {
+                                              let updated: string[];
+                                              if (e.target.checked) {
+                                                updated = [...currentSel, part.id];
+                                              } else {
+                                                updated = currentSel.filter(id => id !== part.id);
+                                              }
+                                              updateBlockProp(block.id, 'selectedParts', updated);
+                                            }}
+                                            className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                                          />
+                                          <span className="font-mono text-xs text-gray-800 truncate font-semibold">{part.label}</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
                               )}
-                          </div>
-                        )}
 
-                        {block.type === 'coreType' && (
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="text-[10px] font-bold text-pink-900 w-16">Metering:</span>
-                              <input
-                                type="text"
-                                value={block.meteringCode !== undefined ? block.meteringCode : (block.value || 'M')}
-                                onChange={(e) => updateBlockProp(block.id, 'meteringCode', e.target.value)}
-                                className="w-16 bg-white border border-pink-300 rounded px-1.5 py-0.5 text-xs text-pink-950 font-mono font-bold text-center focus:outline-none focus:ring-1 focus:ring-pink-500 shadow-inner"
-                              />
+                              <div className="pt-2 border-t border-blue-100">
+                                <label className="flex items-center gap-2 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={block.useOrderWiseSequence === true}
+                                    onChange={(e) => updateBlockProp(block.id, 'useOrderWiseSequence', e.target.checked)}
+                                    className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="text-xs font-bold text-blue-950">Enable Order-Wise Sequence</span>
+                                    <span className="text-[10px] text-blue-700 font-medium">Resets sequence (001..N) per order</span>
+                                  </div>
+                                </label>
+                              </div>
                             </div>
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="text-[10px] font-bold text-pink-900 w-16">PS:</span>
-                              <input
-                                type="text"
-                                value={block.psCode !== undefined ? block.psCode : 'PS'}
-                                onChange={(e) => updateBlockProp(block.id, 'psCode', e.target.value)}
-                                className="w-16 bg-white border border-pink-300 rounded px-1.5 py-0.5 text-xs text-pink-950 font-mono font-bold text-center focus:outline-none focus:ring-1 focus:ring-pink-500 shadow-inner"
-                              />
+                          )}
+
+                          {block.type === 'coreType' && (
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-[10px] font-black uppercase text-pink-900 w-16">Metering:</span>
+                                <input
+                                  type="text"
+                                  value={block.meteringCode !== undefined ? block.meteringCode : (block.value || 'M')}
+                                  onChange={(e) => updateBlockProp(block.id, 'meteringCode', e.target.value)}
+                                  className="w-20 bg-white border border-pink-300 rounded-lg px-2 py-1 text-xs text-pink-950 font-mono font-bold text-center focus:outline-none focus:ring-2 focus:ring-pink-500 shadow-sm"
+                                />
+                              </div>
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-[10px] font-black uppercase text-pink-900 w-16">PS:</span>
+                                <input
+                                  type="text"
+                                  value={block.psCode !== undefined ? block.psCode : 'PS'}
+                                  onChange={(e) => updateBlockProp(block.id, 'psCode', e.target.value)}
+                                  className="w-20 bg-white border border-pink-300 rounded-lg px-2 py-1 text-xs text-pink-950 font-mono font-bold text-center focus:outline-none focus:ring-2 focus:ring-pink-500 shadow-sm"
+                                />
+                              </div>
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-[10px] font-black uppercase text-pink-900 w-16">Protection:</span>
+                                <input
+                                  type="text"
+                                  value={block.protectionCode !== undefined ? block.protectionCode : 'P'}
+                                  onChange={(e) => updateBlockProp(block.id, 'protectionCode', e.target.value)}
+                                  className="w-20 bg-white border border-pink-300 rounded-lg px-2 py-1 text-xs text-pink-950 font-mono font-bold text-center focus:outline-none focus:ring-2 focus:ring-pink-500 shadow-sm"
+                                />
+                              </div>
                             </div>
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="text-[10px] font-bold text-pink-900 w-16">Protection:</span>
-                              <input
-                                type="text"
-                                value={block.protectionCode !== undefined ? block.protectionCode : 'P'}
-                                onChange={(e) => updateBlockProp(block.id, 'protectionCode', e.target.value)}
-                                className="w-16 bg-white border border-pink-300 rounded px-1.5 py-0.5 text-xs text-pink-950 font-mono font-bold text-center focus:outline-none focus:ring-1 focus:ring-pink-500 shadow-inner"
-                              />
-                            </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card Bottom Step Indicator */}
+                      <div className="mt-4 pt-2.5 border-t border-black/5 flex items-center justify-between text-[10px] font-bold text-gray-400">
+                        <span>Step {idx + 1}</span>
+                        <span className="font-mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 bg-white/80 rounded border border-gray-200">{block.type}</span>
                       </div>
                     </div>
 
                     {/* Flowchart Arrow */}
                     {idx < blocks.length - 1 && (
-                      <div className="flex items-center justify-center text-blue-500 px-1">
+                      <div className="flex items-center justify-center text-blue-500 px-1 shrink-0 self-start mt-14">
                         <ChevronRight className="w-6 h-6 stroke-[3]" />
                       </div>
                     )}
@@ -707,7 +814,7 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
 
               {/* Inline Interactive Node Selection Palette or Add Node Button */}
               {showInlineAdd ? (
-                <div className="relative p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-400 rounded-2xl flex flex-col gap-3 w-80 shadow-md shrink-0 animate-in zoom-in-95 duration-150">
+                <div className="relative p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-400 rounded-2xl flex flex-col justify-between w-80 shadow-md shrink-0 animate-in zoom-in-95 duration-150">
                   <div className="flex items-center justify-between pb-2 border-b border-blue-200">
                     <div className="flex items-center gap-1.5 text-blue-950 font-black text-xs uppercase tracking-wider">
                       <Plus className="w-4 h-4 text-blue-600" />
@@ -830,29 +937,6 @@ export function IdPatternBuilder({ categoryKey, label, desc, config, orderIdBloc
                 </Button>
               )}
             </div>
-          </div>
-        </div>
-
-        {/* Counter Settings Footer */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-purple-100 text-purple-700 rounded-xl">
-              <Hash className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-sm font-extrabold text-gray-900 block">Database Current Counter</span>
-              <span className="text-xs text-gray-500">Stored counter number in database. The next generated ID will be counter + 1.</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 shrink-0">
-            <span className="text-xs font-bold text-gray-700">Current Value:</span>
-            <Input
-              type="number"
-              value={config.lastSequence}
-              onChange={(e) => handleSequenceChange(parseInt(e.target.value) || 0)}
-              className="w-28 bg-gray-50 font-mono font-black text-center border-gray-300 text-gray-900"
-            />
           </div>
         </div>
 

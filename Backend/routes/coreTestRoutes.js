@@ -459,22 +459,24 @@ router.get('/approved-ids/:orderId', isAuthenticated, async (req, res) => {
         let coresPerUnitPs = 0;
         let coresPerUnitProtection = 0;
 
-        if (order && Array.isArray(order.coreDetails)) {
+        if (order && Array.isArray(order.coreDetails) && order.coreDetails.length > 0) {
           order.coreDetails.forEach(cd => {
-            const t = (cd.coreType || 'Metering').toLowerCase();
-            if (t.includes('ps')) coresPerUnitPs++;
+            const t = (cd.coreType || '').toLowerCase();
+            const isPS = t.includes('ps') || (t.includes('protection') && (cd.iexLimit || cd.leLimit || cd.class === 'PS' || (cd.description && cd.description.includes('PS'))));
+            if (isPS) coresPerUnitPs++;
             else if (t.includes('protection') || t.includes('prt')) coresPerUnitProtection++;
+            else if (t.includes('metering') || t.includes('mtr')) coresPerUnitMetering++;
             else coresPerUnitMetering++;
           });
         }
 
-        let reqMetering = coresPerUnitMetering > 0 ? coresPerUnitMetering * totalUnits : totalUnits;
-        let reqPs = coresPerUnitPs > 0 ? coresPerUnitPs * totalUnits : (order?.coreDetails?.some((c) => String(c.coreType).toLowerCase().includes('ps')) ? totalUnits : 0);
-        let reqProtection = coresPerUnitProtection > 0 ? coresPerUnitProtection * totalUnits : (order?.coreDetails?.some((c) => String(c.coreType).toLowerCase().includes('protect')) ? totalUnits : 0);
+        let reqMetering = coresPerUnitMetering * totalUnits;
+        let reqPs = coresPerUnitPs * totalUnits;
+        let reqProtection = coresPerUnitProtection * totalUnits;
 
-        let uniqueMetering = [...new Set(meteringIds)];
-        let uniquePs = [...new Set(psIds)];
-        let uniqueProtection = [...new Set(protectionIds)];
+        let uniqueMetering = reqMetering > 0 ? [...new Set(meteringIds)] : [];
+        let uniquePs = reqPs > 0 ? [...new Set(psIds)] : [];
+        let uniqueProtection = reqProtection > 0 ? [...new Set(protectionIds)] : [];
 
         // Trim to total required count for the order if count exceeds
         if (reqMetering > 0 && uniqueMetering.length > reqMetering) {

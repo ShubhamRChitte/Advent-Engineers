@@ -4,6 +4,7 @@ import { useReactToPrint } from 'react-to-print';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { handleTableGridKeyDown, handleInputFocus } from '@/utils/tableKeyNavigation';
 import { Badge } from '../ui/badge';
 import {
   ArrowLeft,
@@ -236,52 +237,14 @@ export function CoreTestingForm({
   };
 
   const renderVendorCell = (row: CoreTestRow, index: number) => {
-    if (isReadOnly || isRowLocked(row)) {
-      return (
-        <td className="p-2 border border-gray-300 text-center text-xs font-semibold text-gray-700">
-          {row.coreVendorNo || '-'}
-        </td>
-      );
-    }
-
     const vendors = getVendors();
     const getVendorLabel = (v: { serialNo?: string; name: string }) => v.serialNo ? `${v.serialNo} - ${v.name}` : v.name;
-    const validVendorValues = vendors.map(v => getVendorLabel(v));
-    const defaultVendor = validVendorValues[0] || '';
-
-    let selectedVendor = row.coreVendorNo;
-    if (!selectedVendor || !validVendorValues.includes(selectedVendor)) {
-      const matched = vendors.find(v => 
-        selectedVendor && (selectedVendor.includes(v.name) || (v.serialNo && selectedVendor.includes(v.serialNo)))
-      );
-      selectedVendor = matched ? getVendorLabel(matched) : defaultVendor;
-    }
+    const defaultVendor = vendors.length > 0 && vendors[0] ? getVendorLabel(vendors[0]) : (batchData?.vendorName || '-');
+    const displayVendor = row.coreVendorNo || defaultVendor;
 
     return (
-      <td className="p-2 border border-gray-300">
-        {vendors.length > 0 ? (
-          <select
-            value={String(selectedVendor)}
-            onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
-            disabled={isReadOnly || isRowLocked(row)}
-            className="w-full h-7 text-xs border border-gray-300 text-center focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white rounded cursor-pointer appearance-none hover:bg-gray-50 transition-colors"
-            title="Click to select vendor"
-          >
-            {vendors.map((v: any, i: number) => (
-              <option key={i} value={getVendorLabel(v)}>
-                {getVendorLabel(v)}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <Input
-            value={String(row.coreVendorNo || '')}
-            onChange={(e) => handleRowChange(index, 'coreVendorNo', e.target.value)}
-            disabled={isReadOnly || isRowLocked(row)}
-            className="w-full h-7 text-xs border-gray-300 text-center mx-auto focus:ring-1 focus:ring-blue-500"
-            placeholder="Enter Vendor"
-          />
-        )}
+      <td className="p-2 border border-gray-300 text-center text-xs font-semibold text-gray-700 bg-slate-50">
+        {displayVendor}
       </td>
     );
   };
@@ -2470,26 +2433,17 @@ export function CoreTestingForm({
                 {/* Data Entry Rows */}
                 {rows.map((row, index) => (
                   <tr key={index} className={`hover:bg-gray-50 transition-colors ${row.isReplacement ? 'bg-blue-50' : 'bg-white'}`}>
-                    <td className="bg-white p-3 border border-gray-400 text-center font-medium">
-                      <Input
-                        value={testDate} // Use the state variable
-                        onChange={(e) => setTestDate(e.target.value)} // Allow manual changes if needed
-                        disabled={isReadOnly || isRowLocked(row)}
-                        className="w-28 h-7 text-xs border-gray-300 text-center mx-auto"
-                      />
+                    <td className="p-2 border border-gray-300 text-center text-xs font-medium text-gray-700 bg-slate-50">
+                      {row.date || testDate}
                     </td>
                     {renderVendorCell(row, index)}
-                    <td colSpan={2} className="p-2 border border-gray-300">
-                      <div className="flex items-center gap-1">
-                        <Input
-                          value={String(row.internalCoreNo || '')}
-                          onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
-                          disabled={isReadOnly || isRowLocked(row)}
-                          className="flex-1 h-8 text-xs border-0 focus:ring-1 focus:ring-blue-500 font-mono font-bold text-gray-900"
-                          placeholder={generateCoreId(index + 1)}
-                        />
+                    <td colSpan={2} className="p-2 border border-gray-300 text-center bg-slate-50">
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="font-mono font-bold text-xs text-gray-900">
+                          {row.internalCoreNo || generateCoreId(index + 1)}
+                        </span>
                         {row.isReplacement && (
-                          <span className="text-xs text-blue-600 font-semibold whitespace-nowrap px-1 py-0.5 bg-blue-100 rounded">(R)</span>
+                          <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded font-bold border border-blue-200">(R)</span>
                         )}
                       </div>
                     </td>
@@ -2497,10 +2451,8 @@ export function CoreTestingForm({
                       <td key={column.id} className="p-2 border border-gray-300 bg-white">
                         <Input
                           value={String(row.dynamicValues[column.id] || '')}
-                          onKeyDown={(e) => {
-                            if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                            if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                          }}
+                          onKeyDown={handleTableGridKeyDown}
+                          onFocus={handleInputFocus}
                           onChange={(e) => {
                             const filtered = e.target.value.replace(/[^0-9+\-.]/g, '');
                             handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: filtered });
@@ -3204,27 +3156,17 @@ export function CoreTestingForm({
                 {/* Data Entry Rows */}
                 {rows.map((row, index) => (
                   <tr key={index} className={`hover:bg-gray-50 transition-colors ${row.isReplacement ? 'bg-blue-50' : 'bg-white'}`}>
-                    <td className="bg-white p-3 border border-gray-400 text-center font-medium">
-                      <Input
-                        value={testDate} // Use the state variable
-                        onChange={(e) => setTestDate(e.target.value)} // Allow manual changes if needed
-                        disabled={isReadOnly || isRowLocked(row)}
-                        className="w-28 h-7 text-xs border-gray-300 text-center mx-auto"
-                      />
+                    <td className="p-2 border border-gray-300 text-center text-xs font-medium text-gray-700 bg-slate-50">
+                      {row.date || testDate}
                     </td>
                     {renderVendorCell(row, index)}
-                    <td colSpan={2} className="p-2 border border-gray-300">
-                      <div className="flex items-center gap-1">
-                        <Input
-                          value={String(row.internalCoreNo || '')}
-                          onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
-                          disabled={isReadOnly || isRowLocked(row)}
-                          className="flex-1 h-8 text-xs border-0 focus:ring-1 focus:ring-blue-500 font-mono font-bold text-gray-900"
-                          placeholder={generateCoreId(index + 1)}
-                        />
-
+                    <td colSpan={2} className="p-2 border border-gray-300 text-center bg-slate-50">
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="font-mono font-bold text-xs text-gray-900">
+                          {row.internalCoreNo || generateCoreId(index + 1)}
+                        </span>
                         {row.isReplacement && (
-                          <span className="text-xs text-blue-600 font-semibold whitespace-nowrap px-1 py-0.5 bg-blue-100 rounded">(R)</span>
+                          <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded font-bold border border-blue-200">(R)</span>
                         )}
                       </div>
                     </td>
@@ -3233,10 +3175,8 @@ export function CoreTestingForm({
                         <Input
                           value={String(row.dynamicValues[column.id] || '')}
                           disabled={isReadOnly || isRowLocked(row)}
-                          onKeyDown={(e) => {
-                            if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                            if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                          }}
+                          onKeyDown={handleTableGridKeyDown}
+                          onFocus={handleInputFocus}
                           onChange={(e) => {
                             const filtered = e.target.value.replace(/[^0-9+\-.]/g, '');
                             handleRowChange(index, 'dynamicValues', { ...row.dynamicValues, [column.id]: filtered });
@@ -3972,36 +3912,17 @@ export function CoreTestingForm({
               {/* Data Entry Rows */}
               {rows.map((row, index) => (
                 <tr key={index} className={`hover:bg-gray-50 transition-colors ${row.isReplacement ? 'bg-blue-50' : 'bg-white'}`}>
-                  <td className="p-2 border border-gray-300">
-                    <Input
-                      value={row.date || testDate}
-                      onChange={(e) => handleRowChange(index, 'date', e.target.value)}
-                      disabled={isReadOnly || isRowLocked(row)}
-                      className="w-full h-8 text-xs border-0 focus:ring-1 focus:ring-blue-300 text-center"
-                      placeholder="DD/MM/YY"
-                    />
+                  <td className="p-2 border border-gray-300 text-center text-xs font-medium text-gray-700 bg-slate-50">
+                    {row.date || testDate}
                   </td>
                   {renderVendorCell(row, index)}
-                  <td colSpan={2} className="p-2 border border-gray-300">
-                    <div className="flex items-center gap-1">
-                      <Input
-                        // 1. Ensure the value is always a string to avoid React warnings
-                        value={String(row.internalCoreNo || '')}
-
-                        // 2. Standard change handler
-                        onChange={(e) => handleRowChange(index, 'internalCoreNo', e.target.value)}
-
-                        // 3. UI Styling (Mono font is great for serial numbers)
-                        className="flex-1 h-8 text-xs border-0 focus:ring-1 font-mono font-bold text-gray-900"
-
-                        // 4. IMPROVEMENT: Show the expected ID as a hint
-                        placeholder={generateCoreId(index + 1)}
-                        disabled={isReadOnly || isRowLocked(row)}
-                      />
+                  <td colSpan={2} className="p-2 border border-gray-300 text-center bg-slate-50">
+                    <div className="flex items-center justify-center gap-1">
+                      <span className="font-mono font-bold text-xs text-gray-900">
+                        {row.internalCoreNo || generateCoreId(index + 1)}
+                      </span>
                       {row.isReplacement && (
-                        <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded font-bold border border-blue-200">
-                          (R)
-                        </span>
+                        <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded font-bold border border-blue-200">(R)</span>
                       )}
                     </div>
                   </td>
@@ -4011,10 +3932,8 @@ export function CoreTestingForm({
                       <td key={column.id} className="p-2 border border-gray-300 bg-white">
                         <Input
                           value={String(row.dynamicValues?.[column.id] || '')}
-                          onKeyDown={(e) => {
-                            if (e.ctrlKey || e.metaKey || ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Enter", "."].includes(e.key)) return;
-                            if (!/^[0-9+\-]$/.test(e.key)) e.preventDefault();
-                          }}
+                          onKeyDown={handleTableGridKeyDown}
+                          onFocus={handleInputFocus}
                           onChange={(e) => {
                             const filtered = e.target.value.replace(/[^0-9+\-.]/g, '');
                             handleRowChange(index, 'dynamicValues', { ...(row.dynamicValues || {}), [column.id]: filtered });

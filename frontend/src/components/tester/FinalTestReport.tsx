@@ -6,6 +6,7 @@ import { ArrowLeft, Save, Printer, AlertTriangle, ChevronRight } from 'lucide-re
 import { FinalTransformer } from './FinalTransformersList';
 import { toast } from 'sonner';
 import axios from '@/utils/axiosConfig';
+import { handleTableGridKeyDown, handleInputFocus } from '@/utils/tableKeyNavigation';
 import { useCTTimer } from '../../utils/useCTTimer';
 import {
   ReportSectionTitle,
@@ -444,6 +445,8 @@ export function FinalTestReport({
                           className={`input-field w-full text-center h-8 ${isM1Fail ? 'invalid-reading' : ''}`}
                           placeholder="Enter value"
                           value={meggarPrimaryToSecondary}
+                          onKeyDown={handleTableGridKeyDown}
+                          onFocus={handleInputFocus}
                           onChange={(e) => setMeggarPrimaryToSecondary(e.target.value)}
                           disabled={readOnly}
                         />
@@ -460,6 +463,8 @@ export function FinalTestReport({
                           className={`input-field w-full text-center h-8 ${isM2Fail ? 'invalid-reading' : ''}`}
                           placeholder="Enter value"
                           value={meggarPrimaryToEarth}
+                          onKeyDown={handleTableGridKeyDown}
+                          onFocus={handleInputFocus}
                           onChange={(e) => setMeggarPrimaryToEarth(e.target.value)}
                           disabled={readOnly}
                         />
@@ -476,6 +481,8 @@ export function FinalTestReport({
                           className={`input-field w-full text-center h-8 ${isM3Fail ? 'invalid-reading' : ''}`}
                           placeholder="Enter value"
                           value={meggarSecondaryToEarth}
+                          onKeyDown={handleTableGridKeyDown}
+                          onFocus={handleInputFocus}
                           onChange={(e) => setMeggarSecondaryToEarth(e.target.value)}
                           disabled={readOnly}
                         />
@@ -492,6 +499,8 @@ export function FinalTestReport({
                           className={`input-field w-full text-center h-8 ${isM4Fail ? 'invalid-reading' : ''}`}
                           placeholder="Enter value"
                           value={meggarCoreToCore}
+                          onKeyDown={handleTableGridKeyDown}
+                          onFocus={handleInputFocus}
                           onChange={(e) => setMeggarCoreToCore(e.target.value)}
                           disabled={readOnly}
                         />
