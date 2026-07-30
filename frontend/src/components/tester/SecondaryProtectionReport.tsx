@@ -405,7 +405,7 @@ export function SecondaryProtectionReport({
         const order = propOrder || transformer.fullOrder || transformer.orderId;
         const orderId = order?._id || order;
 
-        if (targetCoreId && targetCoreId.trim() !== '') {
+        if (stage === 'secondary' && targetCoreId && targetCoreId.trim() !== '') {
           try {
             const res = await axios.get(`/secondary-core-tests/protection/${targetCoreId}${orderId ? `?orderId=${orderId}` : ''}`, { withCredentials: true });
             if (isCancelled) return;

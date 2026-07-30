@@ -26,29 +26,66 @@ export function SecondaryReportView({
         return validCores.length > 0 ? validCores : cores;
     };
 
-    // Extract all UNIQUE core IDs per type across all stages (secondary, primary, final)
+    // Extract core IDs per type for the current stage (with fallback to all stages if current stage has none)
     const extractCoreIds = (type: 'metering' | 'protection' | 'ps') => {
         const seen = new Set<string>();
-        const stages = ['secondary', 'primary', 'final'];
-        stages.forEach(st => {
-            const stageHistory = transformer.testHistory?.[`${st}_test` as keyof typeof transformer.testHistory] as any;
-            if (stageHistory) {
-                if (stageHistory[`${type}CoreId`]) {
-                    seen.add(stageHistory[`${type}CoreId`]);
-                }
-                const results = stageHistory[`${type}_results`] || [];
-                results.forEach((r: any) => {
-                    const id = r.internalCoreNo || r.coreId;
-                    if (id) seen.add(id);
-                });
+        const currentStageHistory = transformer.testHistory?.[`${stage}_test` as keyof typeof transformer.testHistory] as any;
+        if (currentStageHistory) {
+            if (currentStageHistory[`${type}CoreId`]) {
+                seen.add(currentStageHistory[`${type}CoreId`]);
             }
-        });
+            const results = currentStageHistory[`${type}_results`] || [];
+            results.forEach((r: any) => {
+                const id = r.internalCoreNo || r.coreId;
+                if (id) seen.add(id);
+            });
+        }
+
+        if (seen.size === 0) {
+            const stages = ['secondary', 'primary', 'final'];
+            stages.forEach(st => {
+                const stageHistory = transformer.testHistory?.[`${st}_test` as keyof typeof transformer.testHistory] as any;
+                if (stageHistory) {
+                    if (stageHistory[`${type}CoreId`]) {
+                        seen.add(stageHistory[`${type}CoreId`]);
+                    }
+                    const results = stageHistory[`${type}_results`] || [];
+                    results.forEach((r: any) => {
+                        const id = r.internalCoreNo || r.coreId;
+                        if (id) seen.add(id);
+                    });
+                }
+            });
+        }
         return filterPendingIfValidExists(Array.from(seen).filter(Boolean));
     };
 
-    const uniqueMeteringCores = extractCoreIds('metering');
-    const uniqueProtectionCores = extractCoreIds('protection');
-    const uniquePSCores = extractCoreIds('ps');
+    // Find the correct core indices and counts from order details
+    const order = transformer.fullOrder || transformer.orderId;
+    const coreDetails = order?.coreDetails || [];
+    
+    const meteringCoreIndex = coreDetails.findIndex((c: any) => c.coreType === 'Metering');
+    const protectionCoreIndex = coreDetails.findIndex((c: any) => c.coreType === 'Protection');
+    const psCoreIndex = coreDetails.findIndex((c: any) => c.coreType === 'PS');
+
+    const expectedMeteringCount = coreDetails.filter((c: any) => c.coreType === 'Metering').length || 1;
+    const expectedProtectionCount = coreDetails.filter((c: any) => c.coreType === 'Protection').length || 1;
+    const expectedPSCount = coreDetails.filter((c: any) => c.coreType === 'PS').length || 1;
+
+    let uniqueMeteringCores = extractCoreIds('metering');
+    if (uniqueMeteringCores.length > expectedMeteringCount) {
+        uniqueMeteringCores = uniqueMeteringCores.slice(-expectedMeteringCount);
+    }
+
+    let uniqueProtectionCores = extractCoreIds('protection');
+    if (uniqueProtectionCores.length > expectedProtectionCount) {
+        uniqueProtectionCores = uniqueProtectionCores.slice(-expectedProtectionCount);
+    }
+
+    let uniquePSCores = extractCoreIds('ps');
+    if (uniquePSCores.length > expectedPSCount) {
+        uniquePSCores = uniquePSCores.slice(-expectedPSCount);
+    }
 
     // Determine which tabs have data
     const hasMetering = uniqueMeteringCores.length > 0;
@@ -89,13 +126,7 @@ export function SecondaryReportView({
         }
     };
 
-    // Find the correct core indices from the order details (for fallback)
-    const order = transformer.fullOrder || transformer.orderId;
-    const coreDetails = order?.coreDetails || [];
-    
-    const meteringCoreIndex = coreDetails.findIndex((c: any) => c.coreType === 'Metering');
-    const protectionCoreIndex = coreDetails.findIndex((c: any) => c.coreType === 'Protection');
-    const psCoreIndex = coreDetails.findIndex((c: any) => c.coreType === 'PS');
+
 
     if (availableTypes.length === 0) {
         return (

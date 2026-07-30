@@ -961,7 +961,7 @@ export function SecondaryPSReport({
         const order = propOrder || (transformer as any).fullOrder || (transformer as any).orderId;
         const orderId = order?._id || order;
 
-        if (targetCoreId && targetCoreId.trim() !== '') {
+        if (stage === 'secondary' && targetCoreId && targetCoreId.trim() !== '') {
           try {
             const res = await axios.get(`/secondary-core-tests/ps/${targetCoreId}${orderId ? `?orderId=${orderId}` : ''}`, { withCredentials: true });
             if (isCancelled) return;
