@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Package, CheckCircle2, RotateCcw, FlaskConical, Trash2, RefreshCw } from 'lucide-react';
+import { Search, Plus, Package, CheckCircle2, RotateCcw, FlaskConical, Trash2, RefreshCw, Recycle } from 'lucide-react';
 import { PreTestBatchModule } from '../testing/PreTestBatchModule';
 import { CoreTestingForm } from '../testing/CoreTestingForm';
 import axios from '@/utils/axiosConfig';
@@ -516,7 +516,13 @@ export default function ReadyStockView() {
                       {item.specifications?.turns && item.specifications.turns !== 'N/A' ? `${item.specifications.turns}T` : '10T'}
                     </td>
                     <td className="px-6 py-4 text-xs font-semibold text-gray-500">
-                      {item.createdFrom === 'REUSE' ? '♻️ Reused Core' : item.batchId || 'Individual'}
+                      {item.createdFrom === 'REUSE' ? (
+                        <span className="inline-flex items-center text-purple-700 font-semibold">
+                          <Recycle className="w-3.5 h-3.5 mr-1" /> Reused Core
+                        </span>
+                      ) : (
+                        item.batchId || 'Individual'
+                      )}
                     </td>
                     <td className="px-6 py-4 text-center">
                       <Badge 

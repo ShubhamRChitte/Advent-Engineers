@@ -435,7 +435,7 @@ export function HeatingTrackingModule({ user }: HeatingTrackingModuleProps) {
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
-                            <span className="text-blue-600 text-xs font-bold">{order.clientName.charAt(0)}</span>
+                            <span className="text-blue-600 text-xs font-bold">{order.clientName?.charAt(0) || 'C'}</span>
                           </div>
                           <span className="text-gray-700 font-medium">{order.clientName}</span>
                         </div>

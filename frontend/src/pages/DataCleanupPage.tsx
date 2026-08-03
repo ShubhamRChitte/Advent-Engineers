@@ -3,7 +3,7 @@ import axios from '../utils/axiosConfig';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Trash2, AlertTriangle, Database, Search, Eye } from 'lucide-react';
+import { Trash2, AlertTriangle, Database, Search, Eye, FlaskConical, Cpu } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 
@@ -258,10 +258,10 @@ export function DataCleanupPage() {
                               <td className="px-6 py-4 text-gray-700 whitespace-nowrap">
                                 <div className="flex flex-col gap-1 text-xs">
                                   <span className="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                                    🧪 {record.untestedCores ?? 0} Untested
+                                    <FlaskConical className="w-3 h-3 mr-1" /> {record.untestedCores ?? 0} Untested
                                   </span>
                                   <span className="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                    🔌 {record.availableCores ?? 0} In Ready Stock
+                                    <Cpu className="w-3 h-3 mr-1" /> {record.availableCores ?? 0} In Ready Stock
                                   </span>
                                 </div>
                               </td>

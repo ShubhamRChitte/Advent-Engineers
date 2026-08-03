@@ -100,7 +100,7 @@ export function TesterHeader({ user, onLogout, onSwitchRole }: TesterHeaderProps
           
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <p className="text-sm font-semibold text-gray-800">{user.name}</p>
+              <p className="text-sm font-semibold text-gray-800">{user?.name || user?.employeeId || 'User'}</p>
               {onSwitchRole ? (
                 <div className="flex items-center justify-end gap-1 mt-0.5">
                   <span className="text-[11px] font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
@@ -112,7 +112,7 @@ export function TesterHeader({ user, onLogout, onSwitchRole }: TesterHeaderProps
               )}
             </div>
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#003a70] to-[#005a9c] flex items-center justify-center text-white font-bold">
-              {user.name.charAt(0)}
+              {(user?.name || user?.employeeId || 'U').charAt(0).toUpperCase()}
             </div>
           </div>
 

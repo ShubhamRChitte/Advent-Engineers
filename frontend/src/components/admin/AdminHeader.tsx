@@ -66,11 +66,11 @@ export function AdminHeader({ user, onLogout, onNotificationClick, onAddOrderCli
           
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <p className="text-sm font-medium">{user.name}</p>
+              <p className="text-sm font-medium">{user?.name || user?.employeeId || 'Admin'}</p>
               <p className="text-xs text-gray-500">Administrator</p>
             </div>
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#003a70] to-[#005a9c] flex items-center justify-center text-white font-semibold shadow-inner">
-              {user.name.charAt(0)}
+              {(user?.name || user?.employeeId || 'A').charAt(0).toUpperCase()}
             </div>
           </div>
 

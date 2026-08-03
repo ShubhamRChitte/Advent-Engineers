@@ -23,11 +23,11 @@ export function EntryHeader({ user, onLogout }: EntryHeaderProps) {
           
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <p className="text-sm">{user.name}</p>
+              <p className="text-sm">{user?.name || user?.employeeId || 'User'}</p>
               <p className="text-xs text-gray-500">Entry Operator</p>
             </div>
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#003a70] to-[#005a9c] flex items-center justify-center text-white">
-              {user.name.charAt(0)}
+              {(user?.name || user?.employeeId || 'U').charAt(0).toUpperCase()}
             </div>
           </div>
 

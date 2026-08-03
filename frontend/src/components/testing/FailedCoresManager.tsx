@@ -9,6 +9,11 @@ import {
   Search,
   Eye,
   RotateCcw,
+  Recycle,
+  Clock,
+  RefreshCw,
+  XCircle,
+  ClipboardList
 } from 'lucide-react';
 import axios from '@/utils/axiosConfig';
 import { toast } from 'sonner';
@@ -597,23 +602,23 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                       {visibleColumns.status && <td className="p-2 whitespace-nowrap">
                         {(core as any).status === "RETURNED" ? (
                           <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                            🔄 RETURNED
+                            <RotateCcw className="w-3.5 h-3.5 mr-1" /> RETURNED
                           </span>
                         ) : (core as any).status === "REUSED" ? (
                           <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                            ♻️ REUSED
+                            <Recycle className="w-3.5 h-3.5 mr-1" /> REUSED
                           </span>
                         ) : (core as any).adminApprovalStatus === "PENDING" ? (
                           <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                            ⏳ REVIEW PENDING
+                            <Clock className="w-3.5 h-3.5 mr-1" /> REVIEW PENDING
                           </span>
                         ) : ((core as any).adminApprovalStatus === "APPROVED" || (core as any).status === "RETEST_APPROVED" || (core as any).retestStatus === "PENDING") ? (
                           <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                            🔄 RETESTING
+                            <RefreshCw className="w-3.5 h-3.5 mr-1" /> RETESTING
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
-                            ❌ FAILED
+                            <XCircle className="w-3.5 h-3.5 mr-1" /> FAILED
                           </span>
                         )}
                       </td>}
@@ -747,23 +752,23 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                             {visibleColumns.status && <td className="p-2 whitespace-nowrap">
                               {(core as any).status === "RETURNED" ? (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                                  🔄 RETURNED
+                                  <RotateCcw className="w-3.5 h-3.5 mr-1" /> RETURNED
                                 </span>
                               ) : (core as any).status === "REUSED" ? (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                                  ♻️ REUSED
+                                  <Recycle className="w-3.5 h-3.5 mr-1" /> REUSED
                                 </span>
                               ) : (core as any).adminApprovalStatus === "PENDING" ? (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                                  ⏳ REVIEW PENDING
+                                  <Clock className="w-3.5 h-3.5 mr-1" /> REVIEW PENDING
                                 </span>
                               ) : ((core as any).adminApprovalStatus === "APPROVED" || (core as any).status === "RETEST_APPROVED" || (core as any).retestStatus === "PENDING") ? (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                  🔄 RETESTING
+                                  <RefreshCw className="w-3.5 h-3.5 mr-1" /> RETESTING
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
-                                  ❌ FAILED
+                                  <XCircle className="w-3.5 h-3.5 mr-1" /> FAILED
                                 </span>
                               )}
                             </td>}
@@ -894,23 +899,23 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
                             <td className="p-2">
                               {(core as any).status === "RETURNED" ? (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                                  🔄 RETURNED
+                                  <RotateCcw className="w-3.5 h-3.5 mr-1" /> RETURNED
                                 </span>
                               ) : (core as any).status === "REUSED" ? (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                                  ♻️ REUSED
+                                  <Recycle className="w-3.5 h-3.5 mr-1" /> REUSED
                                 </span>
                               ) : (core as any).adminApprovalStatus === "PENDING" ? (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                                  ⏳ REVIEW PENDING
+                                  <Clock className="w-3.5 h-3.5 mr-1" /> REVIEW PENDING
                                 </span>
                               ) : ((core as any).adminApprovalStatus === "APPROVED" || (core as any).status === "RETEST_APPROVED" || (core as any).retestStatus === "PENDING") ? (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                  🔄 RETESTING
+                                  <RefreshCw className="w-3.5 h-3.5 mr-1" /> RETESTING
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
-                                  ❌ FAILED
+                                  <XCircle className="w-3.5 h-3.5 mr-1" /> FAILED
                                 </span>
                               )}
                             </td>
@@ -962,7 +967,7 @@ export function FailedCoresManager({ failedCores, onBack }: FailedCoresManagerPr
 
       {/* Notes */}
       < Card className="p-4 bg-yellow-50 border-yellow-200" >
-        <h4 className="font-bold text-yellow-900 mb-2">📋 Vendor Return Instructions</h4>
+        <h4 className="font-bold text-yellow-900 mb-2 flex items-center gap-1.5"><ClipboardList className="w-4 h-4 text-yellow-700" /> Vendor Return Instructions</h4>
         <ul className="text-sm text-yellow-800 space-y-1 list-disc list-inside">
           <li>All failed cores must be documented and returned to respective vendors for warranty/repair</li>
           <li>Generate return forms grouped by vendor for easier processing</li>

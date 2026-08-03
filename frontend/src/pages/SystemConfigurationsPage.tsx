@@ -3,7 +3,7 @@ import axios from '../utils/axiosConfig';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Settings, Save, Clock, Activity, HardDrive, Search, Filter, AlertCircle, Layers, Sparkles } from 'lucide-react';
+import { Settings, Save, Clock, Activity, HardDrive, Search, Filter, AlertCircle, Layers, Sparkles, Package, Zap, FlaskConical, Cpu } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import { IdPatternBuilder } from '../components/admin/IdPatternBuilder';
@@ -372,25 +372,28 @@ export function SystemConfigurationsPage() {
           {/* Category Sub-Tabs Navigation */}
           <div className="flex items-center gap-3 p-2 bg-gray-200/90 border border-gray-300 rounded-2xl overflow-x-auto shadow-inner">
             {[
-              { key: 'orderId', label: 'Order IDs', icon: '📦' },
-              { key: 'transformerId', label: 'Transformer IDs', icon: '⚡' },
-              { key: 'preTestBatchId', label: 'Pre-Test Batch IDs', icon: '🧪' },
-              { key: 'preTestCoreId', label: 'Pre-Test Core IDs', icon: '🔌' }
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setIdCategoryTab(tab.key as any)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-extrabold transition-all whitespace-nowrap border ${
-                  idCategoryTab === tab.key
-                    ? 'bg-[#003a70] text-white border-[#002850] shadow-md scale-[1.02]'
-                    : 'bg-white text-gray-800 hover:text-[#003a70] hover:bg-blue-50 border-gray-300 shadow-sm'
-                }`}
-              >
-                <span className="text-lg">{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
-            ))}
+              { key: 'orderId', label: 'Order IDs', Icon: Package },
+              { key: 'transformerId', label: 'Transformer IDs', Icon: Zap },
+              { key: 'preTestBatchId', label: 'Pre-Test Batch IDs', Icon: FlaskConical },
+              { key: 'preTestCoreId', label: 'Pre-Test Core IDs', Icon: Cpu }
+            ].map((tab) => {
+              const TabIcon = tab.Icon;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setIdCategoryTab(tab.key as any)}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-extrabold transition-all whitespace-nowrap border ${
+                    idCategoryTab === tab.key
+                      ? 'bg-blue-600 text-white border-blue-700 shadow-md scale-[1.02]'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300'
+                  }`}
+                >
+                  <TabIcon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Active Category Builder */}

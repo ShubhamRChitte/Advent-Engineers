@@ -1871,7 +1871,8 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                             if (item.status === 'FAILED') {
                               return (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">
-                                  ❌ Failed
+                                  <XCircle className="w-3.5 h-3.5 mr-1" />
+                                  Failed
                                 </span>
                               );
                             } else if (isApproved) {
@@ -1884,7 +1885,8 @@ export function FailedTransformersSection({ user }: FailedTransformersSectionPro
                             } else {
                               return (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800">
-                                  🔄 Retesting
+                                  <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                                  Retesting
                                 </span>
                               );
                             }

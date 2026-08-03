@@ -35,7 +35,7 @@ export function HeatingOperatorLayout({ user, onLogout }: HeatingOperatorLayoutP
 
         <div className="px-4 py-3 border-b border-gray-100 bg-orange-50">
           <p className="text-xs font-semibold text-orange-700 uppercase tracking-wider">Heating Operator</p>
-          <p className="text-sm font-medium text-gray-800 mt-0.5 truncate">{user.name}</p>
+          <p className="text-sm font-medium text-gray-800 mt-0.5 truncate">{user?.name || user?.employeeId || 'Operator'}</p>
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
@@ -72,15 +72,15 @@ export function HeatingOperatorLayout({ user, onLogout }: HeatingOperatorLayoutP
           <div className="flex items-center gap-4">
             <NotificationsPanel />
             
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-sm">{user.name}</p>
-                <p className="text-xs text-gray-500">Heating Operator</p>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#003a70] to-[#005a9c] flex items-center justify-center text-white">
-                {user.name.charAt(0)}
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-sm">{user?.name || user?.employeeId || 'Operator'}</p>
+              <p className="text-xs text-gray-500">Heating Operator</p>
             </div>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#003a70] to-[#005a9c] flex items-center justify-center text-white">
+              {(user?.name || user?.employeeId || 'H').charAt(0).toUpperCase()}
+            </div>
+          </div>
 
             <Button variant="outline" size="sm" onClick={onLogout} className="border-gray-300 hover:bg-gray-50">
               <LogOut className="w-4 h-4 mr-2" />

@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { Button } from '../ui/button';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { ArrowLeft, Printer, CheckCircle2 } from 'lucide-react';
 import { CoreTestingOrder } from './CoreTestingOrders';
 
 interface CoreTestRow {
@@ -65,7 +65,7 @@ export function CoreLabelsPrint({ cores, order, coreType, onBack }: CoreLabelsPr
       {/* Instructions - Hidden on print */}
       <div className="no-print max-w-7xl mx-auto px-4 py-4">
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-bold text-blue-900 mb-2">📄 Printing Instructions</h3>
+          <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-1.5"><Printer className="w-4 h-4 text-blue-700" /> Printing Instructions</h3>
           <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
             <li>Click "Print Labels" button to open print dialog</li>
             <li>Recommended: Use adhesive label sheets (4x2 or 6x3 layout)</li>
@@ -146,8 +146,8 @@ export function CoreLabelsPrint({ cores, order, coreType, onBack }: CoreLabelsPr
                     <span className="font-medium">{String(core.coreVendorNo || 'N/A')}</span>
                   </div>
                   <div className="mt-1 pt-1 border-t border-gray-200">
-                    <span className="inline-block bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold text-xs">
-                      ✓ PASSED
+                    <span className="inline-flex items-center bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold text-xs">
+                      <CheckCircle2 className="w-3 h-3 mr-1" /> PASSED
                     </span>
                   </div>
                 </div>
