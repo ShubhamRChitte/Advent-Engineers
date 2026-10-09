@@ -20,18 +20,28 @@ const getMappedRole = (user, targetDept) => {
       ? user.departments 
       : (Array.isArray(user.department) ? user.department : [user.department].filter(Boolean));
 
-    const deptToUse = targetDept || userDepts[0] || user.department;
-    
-    switch (deptToUse) {
-      case 'Core Test': return 'core-tester';
-      case 'Secondary Test': return 'secondary-tester';
-      case 'Primary Test': return 'after-primary-tester';
-      case 'Final Test': return 'final-tester';
-      case 'PT Test': return 'pt-tester';
-      case 'PT Pretest': return 'pt-pretester';
-      case 'Heating': return 'heating_operator';
-      default: return 'viewer';
+    const validTestingDeptMap = {
+      'Core Test': 'core-tester',
+      'Secondary Test': 'secondary-tester',
+      'Primary Test': 'after-primary-tester',
+      'Final Test': 'final-tester',
+      'PT Test': 'pt-tester',
+      'PT Pretest': 'pt-pretester',
+      'Heating': 'heating_operator'
+    };
+
+    if (targetDept && validTestingDeptMap[targetDept]) {
+      return validTestingDeptMap[targetDept];
     }
+
+    for (const d of userDepts) {
+      if (validTestingDeptMap[d]) {
+        return validTestingDeptMap[d];
+      }
+    }
+
+    const deptToUse = targetDept || userDepts[0] || user.department;
+    return validTestingDeptMap[deptToUse] || 'core-tester';
 };
 
 // Login Route
