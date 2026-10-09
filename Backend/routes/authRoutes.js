@@ -27,13 +27,16 @@ const getMappedRole = (user, targetDept) => {
       'Final Test': 'final-tester',
       'PT Test': 'pt-tester',
       'PT Pretest': 'pt-pretester',
-      'Heating': 'heating_operator'
+      'Heating': 'heating_operator',
+      'Operations': 'entry-operator',
+      'Entry Operator': 'entry-operator'
     };
 
     if (targetDept && validTestingDeptMap[targetDept]) {
       return validTestingDeptMap[targetDept];
     }
 
+    // Check departments in exact order (1st in the user's department list takes precedence)
     for (const d of userDepts) {
       if (validTestingDeptMap[d]) {
         return validTestingDeptMap[d];
