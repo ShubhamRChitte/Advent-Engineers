@@ -1,5 +1,12 @@
 require("dotenv").config({ path: require('path').join(__dirname, '.env'), override: true });
 
+const dns = require('dns');
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch (e) {
+  console.warn("Could not set custom DNS servers:", e);
+}
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');

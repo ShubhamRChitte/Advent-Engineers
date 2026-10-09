@@ -3,6 +3,14 @@ const path = require('path');
 const dotenv = require('dotenv');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
+const dns = require('dns');
+
+// Configure public DNS servers to avoid Electron querySrv ECONNREFUSED issues on Windows
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch (e) {
+  console.warn("Could not set custom DNS servers:", e);
+}
 
 // Configure electron-log
 Object.assign(console, log.functions);
