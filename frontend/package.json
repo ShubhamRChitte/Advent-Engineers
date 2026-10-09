@@ -1,6 +1,6 @@
 {
       "name": "advent-testing-panel",
-      "version": "1.0.6",
+      "version": "1.0.7",
       "private": true,
       "dependencies": {
             "@hookform/resolvers": "^3.4.2",
